@@ -332,6 +332,57 @@ def invert_term(term, coeff_a):
 
     return(x)
 
+def su2_rz(m, p):
+    """
+    Apply a rotation about the z-axis in the SU(2) matrix representation.
+    
+    Parameters
+    ----------
+    m : ndarray
+        The `2 \times 2` SU(2) matrix. 
+    p : float
+        The phase `\phi` of an SU(2) rotation `\mathcal{D}_z(\phi)`.
+    
+    Returns
+    -------
+    mp : ndarry
+        The transformed `2 \times 2` matrix.
+    """
+    t = np.exp(np.complex(0,1)*p)
+    mp = np.array(m, dtype=np.complex)
+    # The rotation consists of a multiplication by t and t^* of the off-diagonal
+    # elements.
+    mp[0, 1] = m[0, 1] * t
+    mp[1, 0] = m[1, 0] * np.conj(t)
+    return(mp)
+
+
+def su2_rz_ias(m, p):
+    """
+    Apply a rotation about the z-axis of the spin-half matrix elements of a
+    magnetic dipole spin Hamiltonian term.
+
+    Parameters
+    ----------
+    m : ndarray
+        The `IAS` term of dimension `2 \times (I+1) \times 2` by `2 \times (I+1)
+        \times 2`.
+    p : float 
+        The phase `\phi` of an SU(2) rotation `\mathcal{D}_z(\phi)`.
+    
+    Returns
+    -------
+    mp : ndarray
+        The transformed `IAS` term. 
+    """
+    t = np.exp(np.complex(0,1)*p)
+    mp = np.array(m, dtype=np.complex)
+    # The rotation consists of a multiplication by t and t^* of the off-diagonal
+    # elements of the 2 by 2 spin-half blocks.
+    mp[0::2, 1::2] = m[0::2, 1::2] * t
+    mp[1::2, 0::2] = m[1::2, 0::2] * np.conj(t)
+    return(mp)
+
 
 class SpinHamiltonian(dict):
     r""" 
@@ -507,7 +558,7 @@ with support for the specified term: {}".format(term))
             n = self['H_dim']/(2 * self['I'] + 1)
             self['iqi_H'] = __add_diag(iqi(self['I_m'], m), n)
             
-    def add_H_term(self, term, val):
+    def add_H_term(self, term, val, phase=None):
         r"""
         Extract the specified term from the full Hamiltonian and update the
         appropriate term value of the SpinHamiltonian object.
@@ -521,6 +572,9 @@ with support for the specified term: {}".format(term))
             The value of the specified term.  For 'bgs' this must be a list of
             numpy.ndarrays, with elements in the list in the same order as the
             ``B`` list used to instantiate the SpinHamiltonian object.
+        phase : float, optional
+            If specified, an SU(2) rotation `\mathcal{D}_z(\phi)` is applied to
+            terms containing spin-half matrix elements. 
         """
         if not self['inv']:
             raise TypeError("This spectrum object does not support add_H_term \
@@ -531,8 +585,19 @@ with support for the specified term: {}".format(term))
 
         if term == 'bgs':
             S_dim = 2 * self['S'] + 1
-            self['bgs'] = np.array([v[:S_dim, :S_dim] for v in val])
+            if phase != None:
+                if self['S'] != 1/2:
+                    raise ValueError("The phase argument can only be specified"
+                            "for terms containing spin-half matrix elements")
+                self['bgs'] = np.array([su2_rz(v[:S_dim, :S_dim], phase) for v in val])
+            else:
+                self['bgs'] = np.array([v[:S_dim, :S_dim] for v in val])
         elif term == 'ias':
+            if phase != None:
+                if self['S'] != 1/2:
+                    raise ValueError("The phase argument can only be specified"
+                            "for terms containing spin-half matrix elements")
+                val = su2_rz_ias(val, phase)
             self['ias'] = val
         elif term == 'iqi':
             I_dim = 2 * self['I'] + 1
@@ -624,6 +689,12 @@ def sh_lsq_func(cf_params, sh, spec_f, sh_exp, exp_energies, weights):
         respectively, to the weighting used in the least squares fit for the
         experimental values of `g`, `A`, `Q` and the energy levels.
     """
+    
+    # FIXME: 
+    #       1) divide by max entry of the generated g by the corresponding exp g
+    #       entry to obtain global constant. 
+    #       2) normalize the weighting using the first iteration g tensor and
+    #       energy level residues. 
 
     # Create new spectrum object and run cfit to calculate the spin Hamiltonian
     # terms for the specified crystal field parameters.
