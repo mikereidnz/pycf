@@ -26,6 +26,7 @@ from __future__ import division
 import numpy as np
 from numpy import linalg as LA
 from scipy.linalg import block_diag
+from scipy.optimize import minimize, basinhopping
 from matel import matel
 from pyemp import Spectrum
 
@@ -660,7 +661,7 @@ attribute.  Have you run the 'add_term' method?".format(t))
             return(dict.__getitem__(self, key))
 
 
-def sh_lsq_func(cf_params, sh, spec_f, sh_exp, exp_energies, weights):
+def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
     r""" 
     Spin Hamiltonian fitting function; calculates weighted differences between
     experimental and theoretical values of spin Hamiltonian terms and energy
@@ -682,39 +683,37 @@ def sh_lsq_func(cf_params, sh, spec_f, sh_exp, exp_energies, weights):
         stacked rows.  Here, `n` is the number of terms in the spin Hamiltonian.
         The order of the vectors must be the same as for the ``terms`` argument
         that was used for instantiating the SpinHamiltonian object.
-    exp_energies : numpy.ndarray
-        Experimental values for the energy levels.
+    exp_en : numpy.ndarray
+        Experimental data for the energy levels.
     weights : dictionary 
         Allowed keys are 'bgs', 'ias', 'iqi' and 'E'; these values correspond,
         respectively, to the weighting used in the least squares fit for the
         experimental values of `g`, `A`, `Q` and the energy levels.
+    full_out : boolean
+        If True, the function returns squares of differences for individual
+        terms; this is intended for callibrating the weights parameters.
     """
     
-    # FIXME: 
-    #       1) divide by max entry of the generated g by the corresponding exp g
-    #       entry to obtain global constant. 
-    #       2) normalize the weighting using the first iteration g tensor and
-    #       energy level residues. 
-
     # Create new spectrum object and run cfit to calculate the spin Hamiltonian
     # terms for the specified crystal field parameters.
-    spec = Spectrum(name = 'lsq_func', **spec_f(cf_params))
+    spec = Spectrum(name = 'sh_lsq', **spec_f(cf_params))
     spec.cfit()
     term_dict = spec['sh_terms']
     
-    # Update the term values of the spin Hamiltonian object and calculate square
-    # of the difference between the experimental and the theoretical parameters.
+    # The calculated spin Hamiltonian matrices are only solutions up to a
+    # constant prefactor; we calculate this w.r.t. the experimental term data. 
     terms = sh['terms']
     sh_sqdiff = np.zeros([len(terms), 9])
     for i,e in enumerate(terms):
         sh.add_H_term(e, term_dict[e])
-        sh_sqdiff[i, :] = (sh_exp[i] - sh.inv_term(e))**2 * weights[e]
-    
-    sh_sq = np.sum(sh_sqdiff)
+        sh_term = sh.inv_term(e)
+        max_index = sh_term.argmax()
+        prefactor = np.abs(sh_term.sum()/sh_exp[i].sum())
+        sh_sqdiff[i, :] = (sh_exp[i] - prefactor * sh_term)**2 * weights[e]
     
     # Get levels for which we have experimental data. 
-    exp_e = exp_energies[:, 2]
-    exp_b_l = exp_energies[:, 0:2]
+    exp_e = exp_en[:, 2]
+    exp_b_l = exp_en[:, 0:2]
     reduced_e = np.zeros(len(exp_e))
     for i,n in enumerate(exp_b_l):
         reduced_e[i] = spec['sh_energies'][np.logical_and(spec['sh_b_l'][:, 0] == n[0], spec['sh_b_l'][:, 1] == n[1])]
@@ -725,7 +724,9 @@ def sh_lsq_func(cf_params, sh, spec_f, sh_exp, exp_energies, weights):
     print("Reduced calc e: %s" % reduced_e)
     e_sq = np.sum((exp_e - reduced_e)**2 * weights['E'])
 
-    # Return the total square of the differences.
-    return(sh_sq + e_sq) 
-
+    # Return the requested data.
+    if full_out:
+        return([np.sum(sh_sqdiff[i,:]) for i in range(len(terms))] + [e_sq])
+    else:
+        return(np.sum(sh_sqdiff) + e_sq) 
 
