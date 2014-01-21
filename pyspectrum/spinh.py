@@ -385,7 +385,7 @@ def su2_rz_ias(m, p):
     return(mp)
 
 
-class SpinHamiltonian(dict):
+class SpinHamiltonian(object):
     r""" 
     Container for holding data about the spin Hamiltonian.  Can either be used
     to calculate the full spin Hamiltonian from individual terms, or to invert
@@ -428,16 +428,18 @@ class SpinHamiltonian(dict):
     def __init__(self, terms, **kwargs):
         for t in terms:
             if not any(t in term for term in ['bgs', 'ias', 'iqi']):
-                raise ValueError("Invalid element in terms list: {}. Allowed \
-values are 'bgs', 'ias' and 'iqi'.".format(terms))
+                raise ValueError("Invalid element in terms list: {}. Allowed"
+                        "values are 'bgs', 'ias' and 'iqi'.".format(terms))
             else:
-                self['terms'] = terms
+                self.t_list = terms
+        self.terms = {}
+
         # Calculate matrix elements for the specified terms.
         j_l = ['jx', 'jy', 'jz']
         if 'bgs' in terms:
             try:
                 B = kwargs['B']
-                self['B'] = B
+                self.B = B
             except KeyError:
                 raise ValueError("Missing keyword argument B.")
         else:
@@ -451,8 +453,8 @@ values are 'bgs', 'ias' and 'iqi'.".format(terms))
             S_m = [None, None, None]
             for i in range(3):
                 S_m[i] = matel(j_l[i], S)
-            self['S'] = S
-            self['S_m'] = S_m
+            self.S = S
+            self.S_m = S_m
         else:
             S_m = None
 
@@ -466,8 +468,8 @@ values are 'bgs', 'ias' and 'iqi'.".format(terms))
             for i in range(3):
                 I_m[i] = matel(j_l[i], I)
 
-            self['I'] = I
-            self['I_m'] = I_m
+            self.I = I
+            self.I_m = I_m
         else:
             I_m = None
 
@@ -486,29 +488,31 @@ values are 'bgs', 'ias' and 'iqi'.".format(terms))
             # Contains ias term.
             H_dim = (2*S + 1) * (2*I + 1)
         
-        self['H_dim'] = H_dim
+        self.H_dim = H_dim
 
         # Calculate the coefficient arrays.
         if 'inv' in kwargs:
             if kwargs['inv'] == True:
+                self.H_terms = {}
+                self.coeff_a = {}
                 if 'bgs' in terms:
                     if not isinstance(B, list):
-                        raise TypeError("When passing inv = True, B must be a \
-list of numpy.ndarrays.")
+                        raise TypeError("When passing inv = True, B must be a"
+                                "list of numpy.ndarrays.")
                     S_dimsq = (2*S + 1)**2
                     B_a = np.zeros([len(B), S_dimsq, 9], dtype = np.complex)
                     for i,e in enumerate(B):
                         B_a[i, :, :] = bgs_coeff_array(e, S_m)
-                    self['bgs_coeff_a'] = np.reshape(B_a, (len(B) * S_dimsq, 9))
+                    self.coeff_a['bgs'] = np.reshape(B_a, (len(B) * S_dimsq, 9))
 
                 if 'ias' in terms:
-                    self['ias_coeff_a'] = ias_coeff_array(I_m, S_m)
+                    self.coeff_a['ias'] = ias_coeff_array(I_m, S_m)
                 if 'iqi' in terms:
-                    self['iqi_coeff_a'] = iqi_coeff_array(I_m)
+                    self.coeff_a['iqi'] = iqi_coeff_array(I_m)
             elif kwargs['inv'] != False:
-                raise ValueError("Invalid value for keyword argument 'inv'; \
-valid values are either True or False")
-            self['inv'] = kwargs['inv']
+                raise ValueError("Invalid value for keyword argument 'inv'; "
+                        "valid values are either True or False")
+            self.inv = kwargs['inv']
 
     
     def add_term(self, term, m):
@@ -524,9 +528,9 @@ valid values are either True or False")
             A `3` by `3` matrix providing the parameters for the specified spin
             Hamiltonian term.
         """
-        if term not in self['terms']:
-            raise ValueError("This SpinHamiltonian object was not instantiated \
-with support for the specified term: {}".format(term))
+        if term not in self.t_list:
+            raise ValueError("This SpinHamiltonian object was not instantiated "
+                    "with support for the specified term: {}".format(term))
 
         def __add_diag(m, n):
             """
@@ -549,15 +553,15 @@ with support for the specified term: {}".format(term))
 
         if term == 'bgs':
             # Create list of H_dim/(2*S + 1) length and block diagonalize.
-            n = self['H_dim']/(2 * self['S'] + 1)
-            self['bgs_H'] = __add_diag(bgs(self['B'], m, self['S_m']), n)
+            n = self.H_dim/(2 * self.S + 1)
+            self.terms['bgs'] = __add_diag(bgs(self.B, m, self.S_m), n)
         elif term == 'ias':
             # ias term is of correct dimension.
-            self['ias_H'] = ias(self['I_m'], m, self['S_m'])
+            self.terms['ias'] = ias(self.I_m, m, self.S_m)
         elif term == 'iqi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
-            n = self['H_dim']/(2 * self['I'] + 1)
-            self['iqi_H'] = __add_diag(iqi(self['I_m'], m), n)
+            n = self.H_dim/(2 * self.I + 1)
+            self.terms['iqi'] = __add_diag(iqi(self.I_m, m), n)
             
     def add_H_term(self, term, val, phase=None):
         r"""
@@ -577,32 +581,34 @@ with support for the specified term: {}".format(term))
             If specified, an SU(2) rotation `\mathcal{D}_z(\phi)` is applied to
             terms containing spin-half matrix elements. 
         """
-        if not self['inv']:
-            raise TypeError("This spectrum object does not support add_H_term \
-method calls; to enable this pass the inv = True argument to the constructor.")
-        if term not in self['terms']:
-            raise ValueError("This SpinHamiltonian object was not instantiated \
-with support for the specified term: {}".format(term))
+        if not self.inv:
+            raise TypeError("This spectrum object does not support add_H_term "
+                    "method calls; to enable this pass the inv = True argument "
+                    "to the constructor.")
+        if term not in self.t_list:
+            raise ValueError("This SpinHamiltonian object was not instantiated "
+                    "with support for the specified term: {}".format(term))
 
         if term == 'bgs':
-            S_dim = 2 * self['S'] + 1
+            S_dim = 2 * self.S + 1
             if phase != None:
-                if self['S'] != 1/2:
+                if self.S != 1/2:
                     raise ValueError("The phase argument can only be specified"
                             "for terms containing spin-half matrix elements")
-                self['bgs'] = np.array([su2_rz(v[:S_dim, :S_dim], phase) for v in val])
+                self.H_terms['bgs'] = np.array([su2_rz(v[:S_dim, :S_dim], phase)\
+                    for v in val])
             else:
-                self['bgs'] = np.array([v[:S_dim, :S_dim] for v in val])
+                self.H_terms['bgs'] = np.array([v[:S_dim, :S_dim] for v in val])
         elif term == 'ias':
             if phase != None:
-                if self['S'] != 1/2:
+                if self.S != 1/2:
                     raise ValueError("The phase argument can only be specified"
                             "for terms containing spin-half matrix elements")
                 val = su2_rz_ias(val, phase)
-            self['ias'] = val
+            self.H_terms['ias'] = val
         elif term == 'iqi':
-            I_dim = 2 * self['I'] + 1
-            self['iqi'] = val[:I_dim, :I_dim]
+            I_dim = 2 * self.I + 1
+            self.H_terms['iqi'] = val[:I_dim, :I_dim]
     
     def inv_term(self, term):
         r"""
@@ -620,45 +626,43 @@ with support for the specified term: {}".format(term))
             A `9` by `1` vector consisting of stacked rows of the corresponding
             `3` by `3` term parameter matrix. 
         """
-        if not self['inv']:
-            raise TypeError("This spectrum object does not support inv_term \
-method calls; to enable this pass the inv = True argument to the constructor.")
-        elif term not in self['terms']:
-            raise ValueError("This SpinHamiltonian object was not instantiated \
-with support for the specified term: {}".format(term))
+        if not self.inv:
+            raise TypeError("This spectrum object does not support inv_term "
+                    "method calls; to enable this pass the inv = True argument "
+                    "to the constructor.")
+        elif term not in self.t_list:
+            raise ValueError("This SpinHamiltonian object was not instantiated "
+                    "with support for the specified term: {}".format(term))
 
-        coeff_a = self['{}_coeff_a'.format(term)]
+        coeff_a = self.coeff_a[term]
         
         # Reshape the term array to a vector; for the 'bgs' case this stacks the
         # different spin Hamiltonian terms in addition to stacking different
         # states.
         try:
-            b = self[term].flatten()
+            b = self.H_terms[term].flatten()
         except:
-            raise ValueError("This object does not have the {} attribute.  \
-Have you run the 'add_H_term' method?".format(term))
+            raise ValueError("This object does not have Hamiltonian data for {}"
+                    ".  Have you run the 'add_H_term' method?".format(term))
         
 
         # Use numpy's lstsq function, which wraps LAPACK's QR factorization, to
         # solve the equation coeff_a * x = b for x.
         return(np.real(LA.lstsq(coeff_a, b)[0]))
 
-    def __getitem__(self, key):
+    def get_H(self):
         r"""
-        Redefine the __getitem__ method to return the full Hamiltonian for the
-        key ``H``.
+        Calculate the full Hamiltonian and return the result.
         """
-        if key == 'H':
-            H = np.complex(0, 0)
-            for t in self['terms']:
-                try:
-                    H += self['{}_H'.format(t)]
-                except KeyError:
-                    raise ValueError("This object does not have the {}_H \
-attribute.  Have you run the 'add_term' method?".format(t))
-            return(H)
-        else:
-            return(dict.__getitem__(self, key))
+        H = np.complex(0, 0)
+        for t in self.t_list:
+            try:
+                H += self.terms[t]
+            except KeyError:
+                raise ValueError("This object does not have data for the {} "
+                    "term.  Have you run the 'add_term' method?".format(t))
+
+        return(H)
 
 
 def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
@@ -702,7 +706,7 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
     
     # The calculated spin Hamiltonian matrices are only solutions up to a
     # constant prefactor; we calculate this w.r.t. the experimental term data. 
-    terms = sh['terms']
+    terms = sh.t_list
     sh_sqdiff = np.zeros([len(terms), 9])
     for i,e in enumerate(terms):
         sh.add_H_term(e, term_dict[e])
@@ -729,4 +733,5 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
         return([np.sum(sh_sqdiff[i,:]) for i in range(len(terms))] + [e_sq])
     else:
         return(np.sum(sh_sqdiff) + e_sq) 
+
 
