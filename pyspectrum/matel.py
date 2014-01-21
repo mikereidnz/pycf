@@ -31,6 +31,24 @@ def t_q(j1, j2, m1, m2, q):
     r"""
     Calculate the matrix element `\langle j_1 m_1 | T_q^{(1)} | j_2 m_2
     \rangle`, where `T_q^{(1)}` is a rank one tensor.
+
+    Parameters
+    ----------
+    j1 : integer or half-integer
+        The value of `j_1`.
+    j2 : integer or half-integer
+        The value of `j_2`.
+    m2 : integer or half-integer
+        The value of `m_2`.
+    m2 : integer or half-integer
+        The value of `m_2`.
+    q : integer or half-integer
+        The value of `q`.
+
+    Returns
+    -------
+    element : complex
+       The matrix element `\langle j_1 m_1 | T_q^{(1)} | j_2 m_2 \rangle`. 
     """
 
     def delta(a, ap):
@@ -76,8 +94,8 @@ def matel(c, j):
     elif c == 'jz':
         f = lambda m1, m2: t_q(j, j, m1, m2, 0)
     else:
-        raise ValueError("Invalid component argument '{}'.  Permitted values \
-are 'jx', 'jy', or 'jz'.".format(c))
+        raise ValueError("Invalid component argument '{}'.  Permitted values "
+                "are 'jx', 'jy', or 'jz'.".format(c))
 
     l = int(2*j + 1)
 
