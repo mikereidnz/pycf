@@ -33,7 +33,7 @@ The following code will create a :class:`SpinHamiltonian` object::
   import numpy as np
   from numpy import linalg as LA
   from matplotlib import pyplot as plt
-  from pyspectrum.spinh import *
+  from pycf.spinh import *
   
   # Create the SpinHamiltonian object 
   sh = SpinHamiltonian(['ias', 'iqi'], S = 1/2, I = 7/2)
@@ -145,6 +145,19 @@ spin Hamiltonian example::
   print("Original g:\n{}".format(g)) 
 
 .. _List Comprehensions: http://docs.python.org/2/tutorial/datastructures.html#list-comprehensions
+
+
+Notes for spin Hamiltonian fitting and interaction with pyemp
+=============================================================
+
+  * The state label order for inversion is important for terms with ambiguity,
+    at the moment only the 'ias' term.  Spin Hamiltonian's created using cfit
+    and pyemp ensure states are in the order that the SpinHamiltonian inv_term
+    method expects; that is, states are first sorted by the nuclear spin label,
+    then by the electronic spin label.  For example, the upper-left-hand 2 by 2
+    block of the spin Hamiltonian corresponds to S = 1/2 and S = -1/2 for a spin
+    half system.  Sorting is from largest to smallest label. 
+
 
   
 

@@ -890,7 +890,7 @@ class SpectrumAxes(plt.Axes):
     In order for the figure class to be aware of the spectrum projection one
     must run ``register_projection(SpectrumAxes)`` which requires the
     ``matplotlib.projections.register_projection`` module.  Importing all of the
-    pyspectrum module automatically handles this.
+    pycf module automatically handles this.
     """
 
     name = 'spectrum'
