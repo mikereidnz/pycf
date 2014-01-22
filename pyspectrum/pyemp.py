@@ -358,7 +358,7 @@ class Spectrum(dict):
         return spectrum_erun_obj
 
 
-class BaseEmp(dict):
+class BaseEmp(object):
     r""" 
     Base class for :class:`GenericErun` and :class:`SpectrumData`.  Ensures the
     first argument is an instance of :class:`Spectrum`, and whether all
@@ -369,13 +369,13 @@ class BaseEmp(dict):
     # directory of the file pointed to by the 'name' attribute).
     def __init__(self, spectrum, process=None, infiles=None, **kwargs):
         if not isinstance(spectrum, Spectrum):
-            raise TypeError("Invalid argument when instantiating {} object; \
-the first arugment must be of type Spectrum.".format(process))
+            raise TypeError("Invalid argument when instantiating {} object; "
+                    "the first arugment must be of type Spectrum.".format(process))
         elif os.path.isdir(spectrum['name']):
-            self['workdir'] = spectrum['name']
+            self.workdir = spectrum['name']
         else:
-            self['name'] = spectrum['name']
-            self['workdir'] = os.path.dirname(os.path.abspath(spectrum['name']))
+            self.name = spectrum['name']
+            self.workdir = os.path.dirname(os.path.abspath(spectrum['name']))
         
         # Add any provided input files to the spectrum object and ensure the
         # spectrum object contains all required input files.
@@ -383,10 +383,9 @@ the first arugment must be of type Spectrum.".format(process))
             if f in kwargs:
                 spectrum[f] = kwargs[f]
             elif not f in spectrum:
-                raise ValueError("Missing input file {0} for process {1}.  \
-Input files can be specified either when instantiating the spectrum object, \
-or when instantiating the {1} object.".format(f, process))
-
+                raise ValueError("Missing input file {0} for process {1}.  "
+                "Input files can be specified either when instantiating the "
+                "spectrum object, or when instantiating the {1} object.".format(f, process))
 
 class GenericErun(BaseEmp):
     r""" 
@@ -399,19 +398,18 @@ class GenericErun(BaseEmp):
         BaseEmp.__init__(self, spectrum, process, infiles, **kwargs)
 
         # Add data for use in GenericErun methods.
-        self['process'] = process
-        self['emproot'] = spectrum['emproot']
+        self.process = process
+        self.emproot = spectrum['emproot']
 
         # Create input file 'name_process.dat' and add a header.
-        self['inputFile'] = open('{0}_{1}.dat'.format(self['name'], process),
-                'w+')
-        self['inputFile'].write('% Input file for {}\n'.format(process))
-        self['inputFile'].close()
+        self.input_file = open('{0}_{1}.dat'.format(self.name, process), 'w+')
+        self.input_file.write('% Input file for {}\n'.format(process))
+        self.input_file.close()
 
     def erun(self, spectrum = None, outfiles = None):
         r"""
         A wrapper for the erun script.  Any subclasses of GenericErun must have
-        attributes ``self['name']`` and ``self['process']``.  Additionally, this
+        attributes ``self.name`` and ``self.process``.  Additionally, this
         method writes the logfile output to the file ``name_process_log.txt``
         and appends names of created data files to the :class:`Spectrum`
         instance.
@@ -424,59 +422,54 @@ class GenericErun(BaseEmp):
             The names of files created by the specific erun program.
         """
 
-        if os.path.isdir(self['emproot']):
-            proc = Popen(['$EMPSCRIPTS/gnu_erun.csh {0} {1}_{0}.dat \
-nolog'.format(self['process'], self['name'])], env={'EMPSCRIPTS':
-    self['emproot'] + '/scripts', 'EMPBIN': self['emproot'] + '/bin'},
-    shell=True, stdout=PIPE, stderr=PIPE)
+        if os.path.isdir(self.emproot):
+            proc = Popen(['$EMPSCRIPTS/gnu_erun.csh {0} {1}_{0}.dat '
+                'nolog'.format(self.process, self.name)], env={'EMPSCRIPTS':
+                self.emproot + '/scripts', 'EMPBIN': self.emproot + '/bin'},
+                shell=True, stdout=PIPE, stderr=PIPE)
 
             # Decode and write stdout to file - this corresponds to Mike's log
             # files since we pass the 'nolog' argument to erun.  As Mike's
             # programs don't write to stderr, any stderr messages are thrown
             # out.
             stdout = proc.communicate()[0].decode('ascii') 
-            f = open('{0}_{1}_log.txt'.format(self['name'], self['process']),
-                    'w')
+            f = open('{0}_{1}_log.txt'.format(self.name, self.process), 'w')
             f.write(stdout)
             f.close()
             warning = re.search(r'\sWARNING\s', stdout)
             if warning:
-                raise EnvironmentError("Warning detected in {0} log; check \
-{1}_{0}_log.txt for details.".format(self['process'], self['name']))
+                raise EnvironmentError("Warning detected in {0} log; check "
+                        "{1}_{0}_log.txt for details.".format(self.process,
+                        self.name))
 
             # Add the key of any files created by this process to the spectrum
-            # object, with value self['name'].  This is used to tell other
-            # BaseEmp subclasses what files are available.
+            # object, with value self.name.  This is used to tell other BaseEmp
+            # subclasses what files are available.
             if not outfiles == None:
                 for f in outfiles:
-                    spectrum[f] = self['name']
+                    spectrum[f] = self.name
         else:
             raise ValueError('emproot is not a directory.')
         
         return
 
-    def __getitem__(self, key):
+    def print_log(self):
         r"""
-        Redefine the __getitem__ method to load the appropriate log file for a
-        given GenericErun object if key = log.
+        Print the log file generated by by erun for a given GenericErun object.
         """
-        if key == 'log':
-            f = open('{0}_{1}_log.txt'.format(self['name'], self['process']),
-                    'r')
-            return f.read()
-            f.close()
-        else:
-            return dict.__getitem__(self, key)
+        f = open('{0}_{1}_log.txt'.format(self.name, self.process), 'r')
+        return f.read()
+        f.close()
 
-    def addInput(self, data):
+    def add_input(self, data):
         r"""
         Append data to erun program input file 'name_process.dat'.
         """
-        self['inputFile'] = open('{0}_{1}.dat'.format(self['name'],
-            self['process']), 'a')
-        self['inputFile'].write("\n".join([line.lstrip() for line in \
+        self.input_file = open('{0}_{1}.dat'.format(self.name, self.process),
+                'a')
+        self.input_file.write("\n".join([line.lstrip() for line in \
             data.split("\n")[1:-1]]))
-        self['inputFile'].close()
+        self.input_file.close()
 
 
 class Cfit(GenericErun):
@@ -503,8 +496,8 @@ class Cfit(GenericErun):
     Notes
     -----
     Instantiating an object of this type automatically sets the ``tvals``
-    keyword of the provided :class:`Spectrum` object. Furthermore, the returned
-    Cfit object has a key ``log`` which prints the Cfit log file. 
+    keyword of the provided :class:`Spectrum` object. Furthermore, the Cfit log
+    file can be displayed using the print_log() method.
     """
 
     def __init__(self, spectrum, **kwargs):
@@ -526,7 +519,7 @@ class Cfit(GenericErun):
             if spectrum[arg] == None:
                 spectrum[arg] = ''
 
-        baseInput = """
+        base_input = """
                     READSTATES {0}
                     READTENSORS {1} \n
                     *% Add tensors
@@ -545,44 +538,44 @@ class Cfit(GenericErun):
         # relevant commands to input.
         if spectrum['splitplot'] != None:
             data = spectrum['splitplot']
-            self['splitplot'] = data
-            splitplotInput = "splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 \
+            self.splitplot = data
+            splitplot_input = "splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 \
 lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
             data['energy'][0], data['energy'][1], data['var'], *data['range'])
         else:
-            splitplotInput = ''
+            splitplot_input = ''
 
         # Check whether spinh input has been provided. 
         if spectrum['spinh'] != None:
-            spinhInput = ""
+            spinh_input = ""
             sh_args = spectrum['spinh']
             # Get spin Hamiltonian parameters and generate cfit input strings.
             # We add a sh_terms list to the cfit object, which lists all enabled
             # terms in the cannonical order.
             if any(t not in ['bgs', 'ias', 'iqi'] for t in sh_args['terms']):
-                raise ValueError("Invalid entry in terms list; valid entries \
-are 'bgs', 'ias' and 'iqi'.")
+                raise ValueError("Invalid entry in terms list; valid entries "
+                        "are 'bgs', 'ias' and 'iqi'.")
 
-            self['sh_terms'] = []
+            self.sh_terms = []
             # Zeeman term.
             if 'bgs' in sh_args['terms']:
                 bgs = "magz magx magy"
-                self['sh_terms'] += ['bgsz', 'bgsx', 'bgsy']
+                self.sh_terms += ['bgsz', 'bgsx', 'bgsy']
                 # Empty mag, since we leave values set using addAssign.
                 mag = ["", "", ""]
             else:
                 bgs = "magz"
-                self['sh_terms'] += ['bgsz']
+                self.sh_terms += ['bgsz']
                 # Turn on small mag to determine electronic spin label. 
                 mag = ['magx 0', 'magy 0', 'magz 0.001']
             if 'ias' in sh_args['terms']:
                 ias = "al"
-                self['sh_terms'] += ['ias']
+                self.sh_terms += ['ias']
             else:
                 ias = ""
             if 'iqi' in sh_args['terms']:
                 iqi = "eqhyp"
-                self['sh_terms'] += ['iqi']
+                self.sh_terms += ['iqi']
             else:
                 iqi = ""
             # Get lower and upper levels.
@@ -591,10 +584,10 @@ are 'bgs', 'ias' and 'iqi'.")
                 # Spin Hamiltonian dimension.
                 d_sh = u - l + 1
             except KeyError:
-                raise ValueError("The spinh dictionary of {} is missing the \
-levels tupple".format(self['name']))
+                raise ValueError("The spinh dictionary of {} is missing the "
+                        "levels tupple".format(self.name))
 
-            spinhInput = """*% Energy levels
+            spinh_input = """*% Energy levels
                             expthelp {0}_spinh.hlp
                             {0} energy levels \n
                             {6} 
@@ -605,10 +598,10 @@ levels tupple".format(self['name']))
                             Spin Hamiltonian for {0} \n
                          """.format(spectrum['name'], l, u, bgs, ias, iqi, *mag)
         else:
-            spinhInput = ""
+            spinh_input = ""
         
         # Execute cfit. 
-        GenericErun.addInput(self, baseInput + splitplotInput + spinhInput +
+        GenericErun.add_input(self, base_input + splitplot_input + spinh_input +
                 'finish \n\n')
         GenericErun.erun(self, spectrum, ['tvals'])
         
@@ -656,7 +649,7 @@ levels tupple".format(self['name']))
             sh_terms = {}
             B = {}
             parsed_data = data[:, 0::2] + np.complex(0,1) * data[:, 1::2]
-            for i,t in enumerate(self['sh_terms']):
+            for i,t in enumerate(self.sh_terms):
                 t_i = i * d_sh
                 term_data = parsed_data[t_i:t_i + d_sh, 0:d_sh]
                 if t in ['bgsz', 'bgsx', 'bgsy']:
@@ -673,7 +666,7 @@ levels tupple".format(self['name']))
             for n in np.arange(0, d_Sz*d_Iz, d_Sz):
                 Sz_sort = np.append(Sz_sort,
                     np.argsort(np.diag(B['bgsz'][n:n+d_Sz, n:n+d_Sz]))[::-1]+n)
-            for t in self['sh_terms']:
+            for t in self.sh_terms:
                 if t in ['bgsz', 'bgsx', 'bgsy']:
                     B[t] = B[t][Sz_sort][:, Sz_sort]
                 else:
@@ -718,16 +711,14 @@ class Vtrans(GenericErun):
     Notes 
     -----
     Instantiating an object of this type automatically sets the ``trans``
-    keyword of the provided :class:`Spectrum` object.  Furthermore, the
-    resulting Vtrans object has a key ``log`` which prints the Vtrans log file
-    in an interactive session. 
-
+    keyword of the provided :class:`Spectrum` object.  Furthermore, the Vtrans
+    log file can be displayed using the print_log() method. 
     """
     def __init__(self, spectrum, **kwargs):
         GenericErun.__init__(self, spectrum, 'vtrans', ['states', 'tvals',
             'matel'], **kwargs)
 
-        GenericErun.addInput(self, """
+        GenericErun.add_input(self, """
                               READSTATES {0} \n
                               READVECTS {1} \n
                               OUTFILE {2} \n
@@ -772,8 +763,8 @@ class Inten(GenericErun):
     Notes
     -----
     Instantiating an object of this type automatically sets the ``plt`` keyword
-    of the provided :class:`Spectrum` object.  Furthermore, the returned Inten
-    object has a key ``log`` which prints the Inten log file.
+    of the provided :class:`Spectrum` object.  Furthermore, the Inten log file
+    can be displayed using the print_log() method.
 
     """
 
@@ -781,7 +772,7 @@ class Inten(GenericErun):
         GenericErun.__init__(self, spectrum, 'inten', ['states', 'tvals',
             'trans'], **kwargs)
         
-        GenericErun.addInput(self, """
+        GenericErun.add_input(self, """
                               READSTATES {0}
                               READTVALS {1}
                               ninputsets 1
@@ -886,7 +877,7 @@ class SpectrumData(BaseEmp):
         
         # Parse data from log file generated by the inten program.
         r = re.compile(r'[^[]+(?P<initialState>\[[\w\s,-]+[)>])[^[]+(?P<finalState>\[[\w\s,-]+[)>])\)\s:\s+(?P<energy>[\d.e+-]+)[\n\s]+Dip\sStr\s+(?P<isotropic>[\d.e-]+)[\s*]+(?P<axial>[\d.e-]+)[\s*]+(?P<sigma>[\d.e-]+)[\s*]+(?P<pi>[\d.e-]+)')
-        f = open('{0}/{1}_inten_log.txt'.format(self['workdir'], self['name']), 'r')
+        f = open('{0}/{1}_inten_log.txt'.format(self.workdir, self.name), 'r')
         spectrum['transitions'] = [m.groupdict() for m in r.finditer(f.read())]
         f.close()
        
@@ -902,29 +893,29 @@ class SpectrumData(BaseEmp):
         transitions = spectrum['transitions']
         xmin = float(transitions[0]['energy'])
         xmax = float(transitions[len(transitions) - 1]['energy'])
-        curveEnergies = np.linspace(xmin, xmax, npoints)
-        curveInten = np.zeros(npoints)
-        lineEnergies = np.zeros(len(transitions))
-        lineInten = np.zeros(len(transitions))
+        curve_energies = np.linspace(xmin, xmax, npoints)
+        curve_inten = np.zeros(npoints)
+        line_energies = np.zeros(len(transitions))
+        line_inten = np.zeros(len(transitions))
         temp =  spectrum['plotargs']['temp']
         polarization = spectrum['plotargs']['polarization']
         linewidth = float(spectrum['plotargs']['linewidth'])
 
         for i in range(len(transitions)):
-            lineEnergies[i] = float(transitions[i]['energy'])
+            line_energies[i] = float(transitions[i]['energy'])
            
             # Calculate the individual line intensities.
-            lineInten[i] = __boltzmannFact(lineEnergies[i]  - lineEnergies[0],
+            line_inten[i] = __boltzmannFact(line_energies[i] - line_energies[0],
                     temp) * float(transitions[i][polarization])
             # Calculate the cumulative curve intensity.  
-            curveInten += lineInten[i] * __lorentzian(curveEnergies,
-                    lineEnergies[i], linewidth)
+            curve_inten += line_inten[i] * __lorentzian(curve_energies,
+                    line_energies[i], linewidth)
         
         # Assign calculated values to the spectrum object.
-        spectrum['lineEnergies'] = lineEnergies
-        spectrum['lineInten'] = lineInten
-        spectrum['curveEnergies'] = curveEnergies
-        spectrum['curveInten'] = curveInten
+        spectrum['lineEnergies'] = line_energies
+        spectrum['lineInten'] = line_inten
+        spectrum['curveEnergies'] = curve_energies
+        spectrum['curveInten'] = curve_inten
 
         # Set haslabels flag for spectrumplot.
         spectrum['haslabels'] = True 
@@ -965,22 +956,21 @@ class SpectrumErun(GenericErun):
 
     Notes
     -----
-    The resulting SpectrumErun object has a key ``log`` which prints the c
-    spectrum log file in an interactive session. 
+    The SpectrumErun log file can be displayed using the print_log() method.
   
     """
     def __init__(self, spectrum, **kwargs):
         GenericErun.__init__(self, spectrum, 'spectrum', ['plt'], **kwargs)
 
-        def __loadData(self):
+        def __load_data(self):
             r"""
             Load energy and intensity data generated by the spectrum program
             from the lines.gp_ and curves.gp_ files.
             """
 
-            lineData = np.loadtxt('{}/lines.gp_'.format(self['workdir']),
+            lineData = np.loadtxt('{}/lines.gp_'.format(self.workdir),
                     skiprows=3)
-            curveData = np.loadtxt('{}/curves.gp_'.format(self['workdir']),
+            curveData = np.loadtxt('{}/curves.gp_'.format(self.workdir),
                     skiprows=3)
             
             # Fetch line/curve energies and intensities for the selected
@@ -995,15 +985,16 @@ class SpectrumErun(GenericErun):
                 spectrum['lineInten'] = lineData[:, i + 2]
                 spectrum['curveInten'] = curveData[:, i + 2]
             except ValueError:
-                raise ValueError("The value of polarization in plotargs must \
-be an element of 'isotropic', 'axial', 'sigma', or 'pi'.")
+                raise ValueError("The value of polarization in plotargs must "
+                        "be an element of 'isotropic', 'axial', 'sigma', or "
+                        "'pi'.")
         
         # Check action keyword argument, then load or run spectrum prior to
         # loading.
         if not any('action' in s for s in kwargs) or kwargs['action'] == 'load':
-            __loadData(self)
+            __load_data(self)
         elif kwargs['action'] == 'exec':
-            inputData = """
+            input_data = """
                         getdata {0} 1 
                         polon {1}
                         temp {2} 
@@ -1018,13 +1009,13 @@ be an element of 'isotropic', 'axial', 'sigma', or 'pi'.")
                                 spectrum['plotargs']['lines'],
                                 spectrum['plotargs']['linewidth'],
                                 *(spectrum['plotargs']['xrange']))
-            GenericErun.addInput(self, inputData)
+            GenericErun.add_input(self, input_data)
             GenericErun.erun(self)
-            __loadData(self)
+            __load_data(self)
 
         else:
-            raise KeyError("The erun keyword argument must either be left \
-blank, or have a value of 'exec' or 'load'.")
+            raise KeyError("The erun keyword argument must either be left "
+                    "blank, or have a value of 'exec' or 'load'.")
 
         # Set haslabels flag for spectrumplot.
         spectrum['haslabels'] = False
@@ -1083,22 +1074,22 @@ class SpectrumAxes(plt.Axes):
 
         """
 
-        def __formatLabel(transition, energyLabels):
+        def __formatlabel(transition, energylabels):
             r"""
             Create a string of the form "initial state -> final state", and
             optionally append the transition energy.
             """
-            tLabel = transition['initialState'] +"->"+ transition['finalState']
+            tlabel = transition['initialState'] +"->"+ transition['finalState']
             
             # Check whether we're appending the energy.
-            if energyLabels:
-                eLabel = ", Energy: " + transition['energy']
+            if energylabels:
+                elabel = ", Energy: " + transition['energy']
             else:
-                eLabel = ""
+                elabel = ""
 
-            return(tLabel + eLabel + "\n")
+            return(tlabel + elabel + "\n")
         
-        def __labels(self, spectrum, lineIndex, energyLabels):
+        def __labels(self, spectrum, lineindex, energylabels):
             r"""
             Label all transitions enumarated by the 'lineEnergies' attribute of
             the Spectrum object.
@@ -1106,33 +1097,34 @@ class SpectrumAxes(plt.Axes):
             
             # Extract relevant transitions from the transitions list, and
             # corresponding energies from the energies array. 
-            transitions = [spectrum['transitions'][i] for i in lineIndex[0]]
-            lineEnergies = spectrum['lineEnergies'][lineIndex]
-            lineInten = spectrum['lineInten'][lineIndex]
+            transitions = [spectrum['transitions'][i] for i in lineindex[0]]
+            line_energies = spectrum['lineEnergies'][lineindex]
+            line_inten = spectrum['lineInten'][lineindex]
             
             n = len(transitions) - 1 
-            label = __formatLabel(transitions[0], energyLabels)
+            label = __formatlabel(transitions[0], energylabels)
     
             for i in range(n):
-                if abs(lineEnergies[i] - lineEnergies[i + 1]) <= 10**(-8):
-                    label += __formatLabel(transitions[i + 1], energyLabels)
+                if abs(line_energies[i] - line_energies[i + 1]) <= 10**(-8):
+                    label += __formatlabel(transitions[i + 1], energylabels)
                     continue
                 else:
-                    self.text(lineEnergies[i], lineInten[i], label, rotation=90,
-                            ha='left', va='bottom', fontsize = labelsize)
-                    label = __formatLabel(transitions[i + 1], energyLabels)
+                    self.text(line_energies[i], line_inten[i], label,
+                            rotation=90, ha='left', va='bottom', fontsize =
+                            labelsize)
+                    label = __formatlabel(transitions[i + 1], energylabels)
     
             # Explicitly plot last label, since the loop does not plot the
             # boundary case.
-            self.text(lineEnergies[n], lineInten[n], label, rotation=90,
+            self.text(line_energies[n], line_inten[n], label, rotation=90,
                     ha='left', va='bottom', fontsize = labelsize)
         
         # Determine plotting index given an intensity cutoff. 
         if 'intencutoff' in kwargs:
-            lineIndex = np.where(spectrum['lineInten'] >= kwargs['intencutoff'])
+            lineindex = np.where(spectrum['lineInten'] >= kwargs['intencutoff'])
             del kwargs['intencutoff']
         else:
-            lineIndex = np.where(spectrum['lineInten'] > 10**(-10))
+            lineindex = np.where(spectrum['lineInten'] > 10**(-10))
         
         # Check for label fontsize keyword argument.
         if 'labelsize' in kwargs:
@@ -1144,45 +1136,44 @@ class SpectrumAxes(plt.Axes):
         # Check whether energy labels are enabled.
         if 'energylabels' in kwargs:
             if kwargs['energylabels'] == 'True':
-                energyLabels = True
+                energylabels = True
             else:
-                energyLabels = False
+                energylabels = False
             del kwargs['energylabels']
         else:
-            energyLabels = False
+            energylabels = False
 
         # Generate vertical bar data from zero to transition intensity.
-        ymax = spectrum['lineInten'][lineIndex]
+        ymax = spectrum['lineInten'][lineindex]
         ymin = np.zeros(len(ymax))
 
         if 'transitionlabels' in kwargs:
             # Save value of transitionlabels and remove from kwargs, as kwargs
             # will be passed on to the plot routine. 
-            transitionLabels = kwargs['transitionlabels']
+            transitionlabels = kwargs['transitionlabels']
             del kwargs['transitionlabels']
 
-            if transitionLabels == 'True':
+            if transitionlabels:
                 # Check whether spectrum object supports labels.
                 if not spectrum['haslabels']:
-                    raise ValueError("\
-The plot data for this Spectrum object was generated using SpectrumErun.  \
-Transition labels are only supported for plot data generated with \
-SpectrumData.")
-                self.vlines(spectrum['lineEnergies'][lineIndex], ymin, ymax,
+                    raise ValueError("The plot data for this Spectrum object "
+                    "was generated using SpectrumErun.  Transition labels are "
+                    "only supported for plot data generated with SpectrumData.")
+                self.vlines(spectrum['lineEnergies'][lineindex], ymin, ymax,
                         *args, **kwargs)
                 self.plot(spectrum['curveEnergies'], spectrum['curveInten'],
                         *args, **kwargs)
-                __labels(self, spectrum, lineIndex, energyLabels)
-            elif transitionLabels == 'False':
-                self.vlines(spectrum['lineEnergies'][lineIndex], ymin, ymax,
+                __labels(self, spectrum, lineindex, energylabels)
+            elif not transitionlabels:
+                self.vlines(spectrum['lineEnergies'][lineindex], ymin, ymax,
                         *args, **kwargs)
                 self.plot(spectrum['curveEnergies'], spectrum['curveInten'],
                         *args, **kwargs)
             else:
-                raise ValueError("Invalid option for kwarg 'transitionlabels';\
- allowed values are either 'True' or 'False'.")
+                raise ValueError("Invalid option for kwarg 'transitionlabels'; "
+                "allowed values are either True or False.")
         else:
-            self.vlines(spectrum['lineEnergies'][lineIndex], ymin, ymax, *args,
+            self.vlines(spectrum['lineEnergies'][lineindex], ymin, ymax, *args,
                     **kwargs)
             self.plot(spectrum['curveEnergies'], spectrum['curveInten'], *args,
                     **kwargs)
@@ -1216,9 +1207,9 @@ SpectrumData.")
         """
 
         if spectrum['splitplot'] == None:
-            raise ValueError("The provided Spectrum instance does not have a \
-splitplotData attribute. The splitplotData attribute is created by Cfit for \
-Spectrum objects with a splitplot kwarg.")
+            raise ValueError("The provided Spectrum instance does not have a "
+            "splitplotData attribute. The splitplotData attribute is created "
+            "by Cfit for Spectrum objects with a splitplot kwarg.")
         else:
             data = spectrum['splitplotData']
             x = np.linspace(spectrum['splitplot']['range'][0],
