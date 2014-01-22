@@ -666,7 +666,7 @@ class SpinHamiltonian(object):
         return(H)
 
 
-def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, full_out=False):
+def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, su2_rz=0, full_out=False):
     r""" 
     Spin Hamiltonian fitting function; calculates weighted differences between
     experimental and theoretical values of spin Hamiltonian terms and energy
@@ -694,9 +694,12 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, full_out=False):
         Allowed keys are 'bgs', 'ias', 'iqi' and 'e'; these values correspond,
         respectively, to the weighting used in the least squares fit for the
         experimental values of `g`, `A`, `Q` and the energy levels.
-    full_out : boolean
-        If True, the function returns squares of differences for individual
-        terms; this is intended for calibrating the weights parameters.
+    su2_rz : complex
+        SU(2) rotation about `\hat{z}` applied to spin-half matrix elements.
+    full_out : boolean, optional
+        If True, the function returns a list of squares of differences for
+        individual terms; this is intended for calibrating the weights
+        parameters.
     """
     
     # Create new spectrum object and run cfit to calculate the spin Hamiltonian
@@ -707,10 +710,9 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, full_out=False):
     
     # The calculated spin Hamiltonian matrices are only solutions up to a
     # constant prefactor; we calculate this w.r.t. the experimental term data. 
-    terms = sh.t_list
-    sh_sqdiff = np.zeros([len(terms), 9])
-    for i,e in enumerate(terms):
-        sh.add_H_term(e, term_dict[e])
+    sh_sqdiff = np.zeros([len(sh.t_list), 9])
+    for i,e in enumerate(sh.t_list):
+        sh.add_H_term(e, term_dict[e], phase=su2_rz)
         sh_term = sh.inv_term(e)
         max_index = sh_term.argmax()
         prefactor = np.abs(sh_term.sum()/sh_exp[i].sum())
@@ -729,7 +731,11 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, full_out=False):
 
     # Return the requested data.
     if full_out:
-        return([np.sum(sh_sqdiff[i,:]) for i in range(len(terms))] + [e_sq])
+        out = {}
+        for i,e in enumerate(sh.t_list):
+            out[e] = np.sum(sh_sqdiff[i, :])
+        out['e'] = e_sq
+        return(out)
     else:
         return(np.sum(sh_sqdiff) + e_sq) 
 
@@ -893,21 +899,26 @@ class SHFit(object):
         else:
             self.ble_exp = np.zeros((1, 3))
         
-        # Calculate normalization to weights using the provided experimental
-        # values for the to-be-fit terms; if specified, include custom weights.
+        # Normalize lsq term weights using initial parameter values, then apply
+        # custom weights if specified.
         self.weights = {}
+        for key in data_exp:
+            self.weights[key] = 1
+
         if weights != None:
+            res_dict = sh_lsq_f(p0, sh, spec_f, self.sh_exp, self.ble_exp,
+                    self.weights, su2_rz=self.phi, full_out=True)
             for key in data_exp:
                 try:
-                    self.weights[key] = weights[key]/np.sum(data_exp[key])
+                    self.weights[key] = weights[key]/res_dict[key]
                 except KeyError:
                     raise ValueError("If the weights dictionary is specified a "
                             "value must be provided for each term in data_exp.")
         else:
             for key in data_exp:
-                self.weights[key] = 1/np.sum(data_exp[key])
+                self.weights[key] = 1/res_dict[key]
 
-        # niter, steps and bounds defaults if not specified.
+        # niter, step and bounds defaults if not specified.
         self.niter = niter
 
         if step != None:
@@ -938,7 +949,7 @@ class SHFit(object):
         bounds = BHBounds(self.bounds[0], self.bounds[1])
 
         f = lambda p: sh_lsq_f(p, self.sh, self.spec_f, self.sh_exp,
-                self.ble_exp, self.weights)
+                self.ble_exp, self.weights, su2_rz=self.phi)
         r = basinhopping(f, self.p0, niter = self.niter, take_step = step,
                 accept_test = bounds, callback = self.__print_f,
                 minimizer_kwargs = {'method': 'Powell'})
