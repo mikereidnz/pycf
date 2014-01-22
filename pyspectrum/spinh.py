@@ -23,6 +23,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from __future__ import division
+import warnings
 import numpy as np
 from numpy import linalg as LA
 from scipy.linalg import block_diag
@@ -392,13 +393,13 @@ class SpinHamiltonian(object):
     the spin Hamiltonian and recover the spin Hamiltonian parameters.  If used
     for the former, the object is instantiated and then spin Hamiltonian terms
     are added with the :func:`add_term` method.  The full Hamiltonian can then
-    be returned using the ``H`` key of the spin Hamiltonian object.  If used for
-    the latter, terms are added as arrays with dimensions of the full
-    Hamiltonian using the :func:`add_H_term` method.  The spin Hamiltonian
-    parameters can then be calculated using the :func:`inv_term` method; this
-    operation is quite efficient for repeated evaluations using the same spin
-    Hamiltonian object, since the inversion coefficient matricies are
-    precomputed when the object is created.
+    be returned using the :func:`get_H` method.  If used for the latter, terms
+    are added as arrays with dimensions of the full Hamiltonian using the
+    :func:`add_H_term` method.  The spin Hamiltonian parameters can then be
+    calculated using the :func:`inv_term` method; this operation is quite
+    efficient for repeated evaluations using the same spin Hamiltonian object,
+    since the inversion coefficient matrices are precomputed when the object is
+    created.
 
     Parameters
     ----------
@@ -665,11 +666,11 @@ class SpinHamiltonian(object):
         return(H)
 
 
-def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
+def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, full_out=False):
     r""" 
     Spin Hamiltonian fitting function; calculates weighted differences between
     experimental and theoretical values of spin Hamiltonian terms and energy
-    levels for a given set of crystal field paramaters.
+    levels for a given set of crystal field parameters.
     
     Parameters
     ----------
@@ -687,15 +688,15 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
         stacked rows.  Here, `n` is the number of terms in the spin Hamiltonian.
         The order of the vectors must be the same as for the ``terms`` argument
         that was used for instantiating the SpinHamiltonian object.
-    exp_en : numpy.ndarray
-        Experimental data for the energy levels.
+    ble_exp : numpy.ndarray
+        Experimental block, level and energy data.
     weights : dictionary 
-        Allowed keys are 'bgs', 'ias', 'iqi' and 'E'; these values correspond,
+        Allowed keys are 'bgs', 'ias', 'iqi' and 'e'; these values correspond,
         respectively, to the weighting used in the least squares fit for the
         experimental values of `g`, `A`, `Q` and the energy levels.
     full_out : boolean
         If True, the function returns squares of differences for individual
-        terms; this is intended for callibrating the weights parameters.
+        terms; this is intended for calibrating the weights parameters.
     """
     
     # Create new spectrum object and run cfit to calculate the spin Hamiltonian
@@ -716,17 +717,15 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
         sh_sqdiff[i, :] = (sh_exp[i] - prefactor * sh_term)**2 * weights[e]
     
     # Get levels for which we have experimental data. 
-    exp_e = exp_en[:, 2]
-    exp_b_l = exp_en[:, 0:2]
-    reduced_e = np.zeros(len(exp_e))
-    for i,n in enumerate(exp_b_l):
+    e_exp = ble_exp[:, 2]
+    b_l_exp = ble_exp[:, 0:2]
+    reduced_e = np.zeros(len(e_exp))
+    for i,n in enumerate(b_l_exp):
         reduced_e[i] = spec['sh_energies'][np.logical_and(spec['sh_b_l'][:, 0] == n[0], spec['sh_b_l'][:, 1] == n[1])]
 
     # Calculate the square of the difference between the experimental and
     # theoretical energy levels, times the energy level weighting.
-    print("Exp e: %s" % exp_e)
-    print("Reduced calc e: %s" % reduced_e)
-    e_sq = np.sum((exp_e - reduced_e)**2 * weights['E'])
+    e_sq = np.sum((e_exp - reduced_e)**2 * weights['e'])
 
     # Return the requested data.
     if full_out:
@@ -734,4 +733,216 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, exp_en, weights, full_out=False):
     else:
         return(np.sum(sh_sqdiff) + e_sq) 
 
+def su2_rz_lsq_f(p, sh, mode, H):
+    """
+    Helper function for least squares fitting of the SU(2) rotation required to
+    symmetrize spin Hamiltonian terms containing spin half matrix elements.
 
+    Parameters
+    ----------
+    p : float
+        The phase to be varied. 
+    sh : SpinHamiltonian
+        Must have been instantiated with the 'inv' = True kwarg and contain a
+        term with spin half matrix element, i.e., either `BgS` or `IAS`. 
+    mode : string
+        Specify whether to symmetrize using the `BgS` or the `IAS` term using
+        values 'bgs' and 'ias', respectively.  
+    H : list or numpy.ndarray
+        If mode='bgs' H must be a list of `2 \times 2` ndarrays corresponding
+        to the `BgS` spin Hamiltonian term; the order of the elements must match
+        the order of the B argument used to instantiate sh.  If mode = 'ias' H
+        must be a `2 (I + 1) \times 2` ndarray corresponding to the `IAS` spin
+        Hamiltonian term.
+       
+    Returns
+    -------
+    r : float
+        The residue; calculated from the differences between the off diagonal
+        elements of the spin Hamiltonian tensor. 
+    """
+    if sh.S != 1/2:
+            raise ValueError("su2_rz_lsq_f only supports SU(2) rotations; you "
+                    "provided a spin Hamiltonian that is not spin half.")
+    
+    if mode == 'bgs':
+        if isinstance(H, list):
+            H_current = []
+            for e in H:
+                H_current += [su2_rz(e, p[0])]
+        else:
+            raise ValueError("If mode = 'bgs' H must be a list.")
+    
+        sh.add_H_term('bgs', H_current)
+        tensor = sh.inv_term('bgs')
+    elif mode == 'ias':
+        if isinstance(H, numpy.ndarray):
+            H_current = su2_rz_ias(H, p[0])
+        else:
+            raise ValueError("If mode = 'ias' H must be a numpy.ndarray.")
+
+        sh.add_H_term('ias', H_current)
+        tensor = sh.inv_term('ias')
+    else:
+        raise ValueError("Invalid mode; allowed values are 'bgs' and 'ias'.")
+
+    sym_index = [(1, 3), (2, 6), (5, 7)]
+    r = 0
+    for i in sym_index:
+        r += np.abs(tensor[i[0]] - tensor[i[1]])
+    
+    return r
+
+class BHStep(object):
+    r"""
+    Custom class for modifying basinhopping step size.
+    """
+    def __init__(self, stepsize=0.5):
+        self.stepsize = np.array(stepsize)
+
+    def __call__(self, x):
+        s = self.stepsize
+        s_l = len(s)
+        x[:s_l] += np.random.uniform(-s, s)
+        x[s_l:] += np.random.uniform(-0.5, 0.5, x[s_l:].shape)
+        return x
+    
+class BHBounds(object):
+    r"""
+    Custom class for modifying bounds on parameters to be varied using
+    basinhopping. 
+    """
+    def __init__(self, xmax, xmin):
+        self.xmax = np.array(xmax)
+        self.xmin = np.array(xmin)
+    def __call__(self, **kwargs):
+        x = kwargs['x_new']
+        tmax = bool(np.all(x <= self.xmax))
+        tmin = bool(np.all(x >= self.xmin))
+        return tmax and tmin
+
+class SHFit(object):
+    r"""
+    Fit crystal field parameters using spin Hamiltonian and energy level data. 
+
+    Parameters
+    ----------
+    sh : SpinHamiltonian
+        The terms this object determines the to be fit spin Hamiltonian terms.
+        Additionally, it must have been instantiated with they inv=True kwarg.
+    spec_f : function
+        A function that returns a dictionary containing all the keys required
+        for instantiating a Spectrum object and takes as an argument a list of
+        parameters to be fit.
+    p0 : list
+        Initial values for the parameters to be fit; the order of elements is
+        determined by spec_f. 
+    data_exp : dictionary
+        Valid keys are 'bgs', 'ias', 'iqi' and 'e'.  Spin Hamiltonian tensors
+        are `3 \times 3` ndarrays and each term specified when the to be fit
+        SpinHamiltonian object was instantiated must have a corresponding
+        experimental tensor specified here.  'e' is optional and corresponds to
+        an `3 \times n` ndarray of experimental block, level and energy data.
+    weights : dictionary, optional
+        Allowed keys are 'bgs', 'ias', 'iqi' and 'e'; these values correspond,
+        respectively, to the weighting used in the least squares fit for the
+        experimental values of `g`, `A`, `Q` and the energy levels.
+    niter : integer, optional
+        The number of basin hopping iterations.
+    step : list, optional
+        Elements specify the step size of the to be fit parameters, with the
+        order determined by the argument of spec_f.
+    bounds : tuple, optional
+        Elements are lists of the same length as p0 with elements specifying
+        the upper and lower bounds of the to be fit parameters, respectively.
+        
+    Returns
+    -------
+    object : SHFit
+
+    """
+    def __init__(self, sh, spec_f, p0, data_exp, weights=None, niter=100,
+            step=None, bounds=None):
+        self.sh = sh
+        self.spec_f = spec_f
+        self.p0 = p0
+        spec = Spectrum(name = 'sh_lsq', **spec_f(p0))
+        spec.cfit()
+        self.phi = None
+        if 'bgs' in sh.t_list:
+            r = minimize(lambda p: su2_rz_lsq_f(p, sh, 'bgs',
+                spec['sh_terms']['bgs']), 0, method='Powell')
+            if not r['success']:
+                warnings.warn("The tensor symmetrization fit did not succeed.",
+                        RuntimeWarning)
+            self.phi = r['x']
+        elif 'ias' in sh.t_list:
+            r = minimize(lambda p: su2_rz_lsq_f(p, sh, 'ias',
+                spec['sh_terms']['ias']), 0, method='Powell')
+            if not r['success']:
+                warnings.warn("The tensor symmetrization fit did not succeed.",
+                        RuntimeWarning)
+            self.phi = r['x']
+        else:
+            self.phi = 0
+        
+        self.sh_exp = [data_exp[t].reshape(1, 9) for t in sh.t_list]
+
+        if 'e' in data_exp:
+            self.ble_exp = data_exp['e']
+        else:
+            self.ble_exp = np.zeros((1, 3))
+        
+        # Calculate normalization to weights using the provided experimental
+        # values for the to-be-fit terms; if specified, include custom weights.
+        self.weights = {}
+        if weights != None:
+            for key in data_exp:
+                try:
+                    self.weights[key] = weights[key]/np.sum(data_exp[key])
+                except KeyError:
+                    raise ValueError("If the weights dictionary is specified a "
+                            "value must be provided for each term in data_exp.")
+        else:
+            for key in data_exp:
+                self.weights[key] = 1/np.sum(data_exp[key])
+
+        # niter, steps and bounds defaults if not specified.
+        self.niter = niter
+
+        if step != None:
+            if len(step) != len(p0):
+                raise ValueError("The provided step list is not the same "
+                        "length as the p0 list.")
+            self.step = step
+        else:
+            self.step = [np.array(10)] * len(p0)
+
+        if bounds != None:
+            if len(bounds[0]) != len(p0):
+                raise ValueError("The provided bounds tupple contains lists "
+                        "that are not the same length as the p0 list.")
+            self.bounds = bounds
+        else:
+            self.bounds = ([np.array(10**5)]*len(p0),[np.array(-10**5)]*len(p0))
+
+    def __print_f(self, x, f, accepted):
+        print("At minima %.4f accepted %d." % (f, int(accepted)))
+
+    def gen_fit(self):
+        r"""
+        Run the fitting procedure. 
+        """
+        
+        step = BHStep(self.step)
+        bounds = BHBounds(self.bounds[0], self.bounds[1])
+
+        f = lambda p: sh_lsq_f(p, self.sh, self.spec_f, self.sh_exp,
+                self.ble_exp, self.weights)
+        r = basinhopping(f, self.p0, niter = self.niter, take_step = step,
+                accept_test = bounds, callback = self.__print_f,
+                minimizer_kwargs = {'method': 'Powell'})
+        return(r)
+    
+    def gen_summary(self):
+        raise NotImplementedError("Summary generation is not yet implemented.")
