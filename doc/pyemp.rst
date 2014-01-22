@@ -39,7 +39,7 @@ For the example of |Ho3KY3F10| we have::
   from __future__ import division
   import numpy as np 
   import matplotlib.pyplot as plt
-  from pyspectrum.pyemp import *
+  from pycf.pyemp import *
   
   def spec_params(iLevel, fLevel, filename, x, al, eqhyp):
       spectrumData = {

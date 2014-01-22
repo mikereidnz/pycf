@@ -33,7 +33,7 @@ The following code will create a :class:`SpinHamiltonian` object::
   import numpy as np
   from numpy import linalg as LA
   from matplotlib import pyplot as plt
-  from pyspectrum.spinh import *
+  from pycf.spinh import *
   
   # Create the SpinHamiltonian object 
   sh = SpinHamiltonian(['ias', 'iqi'], S = 1/2, I = 7/2)

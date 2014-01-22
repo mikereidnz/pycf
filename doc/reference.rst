@@ -1,6 +1,6 @@
-====================
-pyspectrum reference
-====================
+==============
+pycf reference
+==============
 
 :mod:`pyemp` -- emp python wrapper
 ==================================
