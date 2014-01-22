@@ -354,14 +354,6 @@ class Cfit(GenericErun):
     def __init__(self, spectrum, **kwargs):
         GenericErun.__init__(self, spectrum, 'icfit', ['states', 'tensors'],
                 **kwargs)
-        
-        #FIXME: either implement prefix function, or remove. 
-        def __prefixKeyword(self, keyword, data):
-            """Strip all space on the left of each new line and insert "keyword"
-            plus one space to the left of keyword."""
-            #return "\n".join(['{} '.format(keyword) + line.lstrip() for line in
-            # data.split("\n")[1:-1]])
-            return data
 
         # Set any optional arguments that have not been provided to empty
         # strings.
@@ -391,9 +383,8 @@ class Cfit(GenericErun):
             data = spectrum['splitplot']
             self.splitplot = data
             splitplot_input = "splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 "
-                    "lines nokey ps \n dummy splitplot title
-                    \n\n".format(spectrum.name, data['energy'][0],
-                    data['energy'][1], data['var'], *data['range'])
+            "lines nokey ps \n dummy splitplot title \n\n".format(spectrum.name,
+            data['energy'][0], data['energy'][1], data['var'], *data['range'])
         else:
             splitplot_input = ''
 
