@@ -41,15 +41,13 @@ from matplotlib.projections import register_projection
 #     
 #   - Add Ce example to documentation.  
 #   - Profile SpectrumData and optimize with cython if necessary. 
-# 
-#   - Add spin hamiltonian support to Cfit; calling cfit with the
-#   spin_hamiltonian argument should add a sh attribute to the Spectrum object
-#   which returns a tuple containing BgS, IAS and IQI. 
 
 
 class Spectrum(dict):
     r""" 
     Implements all the defining parameters of a Spectrum object.
+
+    FIXME: missing addtensor, addassign, intenparams and edipoletensor.
 
     Parameters
     ----------
@@ -63,7 +61,7 @@ class Spectrum(dict):
     tensors : string
         The .mi_ and .mm_ input file names - can also be specified when
         instantiating a :class:`Cfit`, :class:`Vtrans` or :class:`Inten` object.
-    expParams : string, optional
+    expparams : string, optional
         Specifies values for ``exptval``, ``delta`` and ``lsq``, both with their
         usual meaning.
     splitplot : dictionary, optional 
@@ -126,29 +124,34 @@ class Spectrum(dict):
         use with :func:`spinhamiltonian.sh_lsq_func`.
     sh_b_l : np.darray
         Spin Hamiltonian block and level numbers.
-    lineEnergies : np.ndarray
+    line_energies : np.ndarray
         Set by :class:`SpectrumData` or :class:`SpectrumErun`; energy data for
         individual transitions in wavenumbers, useful for scripting plotting
         procedure.
-    lineInten : np.ndarray
+    line_inten : np.ndarray
         Set by :class:`SpectrumData` or :class:`SpectrumErun`; intensity data
         for individual transitions, useful for scripting plotting procedure.
-    curveEnergies : np.ndarray
+    curve_energies : np.ndarray
         Set by :class:`SpectrumData` or :class:`SpectrumErun`; energy data for
         lineshapes in wavenumbers, useful for scripting plotting procedure.
-    curveInten : np.ndarry
+    curve_inten : np.ndarry
         Set by :class:`SpectrumData` or :class:`SpectrumErun`; intensity data
         for lineshapes, useful for scripting plotting procedure.
 
     """    
     def __init__(self, **kwargs):
+        self.name = kwargs['name']
+        self.emproot = kwargs['emproot']
+        del kwargs['name']
+        del kwargs['emproot']
 
-        # Check provided kwargs are valid, then assign to self.  All valid args
-        # are removed from the args list, and the remainder is set to None. 
-        args = ['name', 'emproot', 'states', 'tensors', 'matel', 'tvals',
-                'trans', 'plt', 'addTensors', 'addAssign', 'expParams',
-                'splitplot', 'levels', 'intenParams', 'edipoleTensor',
-                'edipole', 'mdipole', 'plotargs', 'spinh']
+        # Check provided spectrum kwargs are valid, then add keys and values to
+        # self. All valid args are removed from the args list, and the remainder
+        # is set to None. 
+        args = ['states', 'tensors', 'matel', 'tvals', 'trans', 'plt',
+                'addtensors', 'addassign', 'expparams', 'splitplot', 'levels',
+                'intenparams', 'edipoletensor', 'edipole', 'mdipole',
+                'plotargs', 'spinh']
         for arg in kwargs:
             if arg not in args:
                 raise ValueError("Invalid kwarg: {}".format(arg))
@@ -161,30 +164,8 @@ class Spectrum(dict):
 
     def cfit(self, **kwargs):
         r"""
-        Generate a cfit.dat input file and execute the cfit program.  The
-        Spectrum object must have attributes ``name``, ``emproot``,
-        ``addTensors``, and ``addAssign`` and optionally states, and tensors
-        input file names.
-
-        Parameters
-        ----------
-        states : string, optional
-            The .st_ input file name; must be provided if it was not specified
-            when this Spectrum object was instantiated.
-            
-        tensors : string, optional
-            The .mi_ and .mm_ input file name; must be provided if it was not
-            specified when this Spectrum object was instantiated.
-
-        Returns
-        -------
-        object : Cfit
-
-        Notes
-        -----
-        Calling this method automatically sets the ``tvals`` keyword of this
-        Spectrum object.  Furthermore, the returned Cfit object has a key
-        ``log`` which prints the Cfit log file. 
+        Generate and return object of type :class:`Cfit`.  See the :class:`Cfit`
+        documentation for further details.
         """
         cfit_obj = Cfit(self, **kwargs)
 
@@ -192,34 +173,8 @@ class Spectrum(dict):
 
     def vtrans(self, **kwargs):
         r"""
-        Generate a vtrans.dat input file and execute the vtrans program.  The
-        Spectrum object must have attributes ``name``, ``emproot``,
-        ``intenParams``, and ``levels`` and optionally ``states``, ``tvals`` and
-        ``matel`` input file names.
-
-        Parameters
-        ----------
-        states : string, optional
-            The .st_ input file name; must be provided if it was not specified
-            when this Spectrum object was instantiated, or for a previous
-            :func:`cfit` call. 
-        tvals : string, optional
-            The .vi_ and .vm_ input file name; must be provided if it was not
-            specified when this Spectrum object was instantiated.
-        matel : string, optional
-            The vtrans matrix element .mi_ and .mm_ input file name; must be
-            provided if it was not specified when this Spectrum object was
-            instantiated.
-
-        Returns
-        -------
-        object : Vtrans
-
-        Notes 
-        -----
-        Calling this method automatically sets the ``trans`` keyword of this
-        Spectrum object.  Furthermore, the returned Vtrans object has a key
-        ``log`` which prints the Vtrans log file.
+        Generate and return object of type :class:`Vtrans`.  See the
+        :class:`Vtrans` documentation for further details.
         """
         vtrans_obj = Vtrans(self, **kwargs)
 
@@ -227,34 +182,8 @@ class Spectrum(dict):
 
     def inten(self, **kwargs):
         r"""
-        Generate an inten.dat input file and execute the inten program.  The
-        Spectrum object must have attributes ``name``, ``emproot``,
-        ``edipoleTensor``, ``edipole``, ``mdipole``, and ``levels`` and
-        optionally ``states``, ``tvals`` and ``trans``.
-
-        Parameters
-        ----------
-        states : string
-            The .st_ input file name; must be provided if it was not specified
-            when this Spectrum object was instantiated, or for a previous
-            :func:`cfit` of :func:`vtrans` call. 
-        tvals : string
-            The .vi_ and .vm_ input file name; must be provided if it was not
-            specified when this Spectrum object was instantiated, or for a
-            previous :func:`vtrans` call.
-        trans : string
-            The .ti_ and .tm_ input file name; must be provided if it was not
-            specified when this Spectrum object was instantiated.
-        
-        Returns
-        -------
-        object : Inten
-        
-        Notes
-        -----
-        Calling this method automatically sets the ``plt`` keyword of this
-        Spectrum object.  Furthermore, the returned Inten object has a key
-        ``log`` which prints the Inten log file.
+        Generate and return object of type :class:`Inten`.  See the
+        :class:`Inten` documentation for further details.
         """
         inten_obj = Inten(self, **kwargs)
 
@@ -262,53 +191,8 @@ class Spectrum(dict):
 
     def spectrum_data(self, **kwargs):
         r"""
-        Natively generate spectrum data.  Intensity data is mined from the inten log
-        file, which provides information such as the initial and final state of a
-        transition. The Spectrum object must have attributes ``plotargs`` - a
-        dictonary with values for the following keys:
-    
-            - ``polarization`` a string, with possible values of ``isotropic``,
-              ``axial``, ``sigma`` or ``pi``;
-            - ``temp`` an int or float specifiying the temperature;
-            - ``linewidth`` an int or float specifing the Lorentzian linewidth;
-            - ``npoints`` an optional argument specifying the number of points
-              for the spectrum curve;
-    
-        and optionally ``plt`` - the filename of the data created by inten,
-        which while unused is employed as an indicator of whether inten
-        executed sucessfully.
-        
-        Parameters
-        ----------
-        plt : string, optional
-            The filename of the data created by inten;  must be provided if it
-            was not specified when this Spectrum object was instantiated.
-        
-        Returns
-        -------
-        object : SpectrumData
-    
-        Notes
-        -----
-        Calling this method adds a ``transitions`` key to the Spectrum object,
-        which returns a list of dictionaries, corresponding to distinct
-        transitions, where each transition has keys:
-    
-        initialState : string 
-           The initial state label.
-        finalState : string 
-           The final state label.
-        energy : string
-           The transition energy.
-        isotropic : stirng
-           The isotropic dipole strength.
-        axial : string 
-           The axial dipole strength.
-        sigma : string 
-           The sigma dipole strength.
-        pi : string
-           The pi dipole strength.
-    
+        Generate and return object of type :class:`SpectrumData`.  See the
+        :class:`SpectrumData` documentation for further details.
         """
         spectrum_data_obj = SpectrumData(self, **kwargs)
 
@@ -316,42 +200,8 @@ class Spectrum(dict):
 
     def spectrum_erun(self, **kwargs):
         r"""
-        Facilitates the loading of c spectrum output files, or the execution of the
-        c spectrum program and the subsequent loading of output files.  The
-        Spectrum object must have attributes ``plotargs``, a dictonary with
-        values for the following keys:
-
-            - ``polarization`` a string, with possible values of ``isotropic``,
-              ``axial``, ``sigma`` or ``pi``;
-            - ``temp`` an int or float specifiying the temperature, required if
-              ``action = exec`` (see below);
-            - ``linewidth`` an int or float specifing the Lorentzian linewidth,
-              required if ``action = exec`` (see below);
-            - ``xrange`` a list of the form ``[min, max]`` where ``min`` and
-              ``max`` specify the lower and upper bound of the spectrum curve,
-              respectively, required if ``action = exec`` (see below); 
-
-        and optionally ``plt`` - the filename of the data created by inten.
-
-        Parameters
-        ----------
-        plt : string, optional
-            The filename of the data created by inten;  must be provided if it
-            was not specified when this Spectrum object was instantiated.
-        action : string, optional
-            Kwarg, with allowed values of ``load`` (default) and ``exec``, to change
-            between loading existing ``lines.gp`` and ``curves.gp_`` files or first
-            executing the c spectrum program and then loading the resulting files.
-
-        Returns
-        -------
-        object : SpectrumErun
-
-        Notes
-        -----
-        The returned SpectrumErun object has a key ``log`` which prints the c
-        spectrum log file. 
-  
+        Generate and return object of type :class:`SpectrumErun`.  See the
+        :class:`SpectrumErun` documentation for further details.
         """
         specturm_erun_obj = SpectrumErun(self, **kwargs)
 
@@ -370,12 +220,12 @@ class BaseEmp(object):
     def __init__(self, spectrum, process=None, infiles=None, **kwargs):
         if not isinstance(spectrum, Spectrum):
             raise TypeError("Invalid argument when instantiating {} object; "
-                    "the first arugment must be of type Spectrum.".format(process))
-        elif os.path.isdir(spectrum['name']):
-            self.workdir = spectrum['name']
+            "the first arugment must be of type Spectrum.".format(process))
+        elif os.path.isdir(spectrum.name):
+            self.workdir = spectrum.name
         else:
-            self.name = spectrum['name']
-            self.workdir = os.path.dirname(os.path.abspath(spectrum['name']))
+            self.name = spectrum.name
+            self.workdir = os.path.dirname(os.path.abspath(spectrum.name))
         
         # Add any provided input files to the spectrum object and ensure the
         # spectrum object contains all required input files.
@@ -384,8 +234,9 @@ class BaseEmp(object):
                 spectrum[f] = kwargs[f]
             elif not f in spectrum:
                 raise ValueError("Missing input file {0} for process {1}.  "
-                "Input files can be specified either when instantiating the "
-                "spectrum object, or when instantiating the {1} object.".format(f, process))
+                "Input files can be specified either when creating the "
+                "spectrum object, or when instantiating the {1} "
+                "object.".format(f, process))
 
 class GenericErun(BaseEmp):
     r""" 
@@ -399,7 +250,7 @@ class GenericErun(BaseEmp):
 
         # Add data for use in GenericErun methods.
         self.process = process
-        self.emproot = spectrum['emproot']
+        self.emproot = spectrum.emproot
 
         # Create input file 'name_process.dat' and add a header.
         self.input_file = open('{0}_{1}.dat'.format(self.name, process), 'w+')
@@ -439,8 +290,7 @@ class GenericErun(BaseEmp):
             warning = re.search(r'\sWARNING\s', stdout)
             if warning:
                 raise EnvironmentError("Warning detected in {0} log; check "
-                        "{1}_{0}_log.txt for details.".format(self.process,
-                        self.name))
+                "{1}_{0}_log.txt for details.".format(self.process, self.name))
 
             # Add the key of any files created by this process to the spectrum
             # object, with value self.name.  This is used to tell other BaseEmp
@@ -479,9 +329,10 @@ class Cfit(GenericErun):
     Parameters
     ----------
     spectrum : Spectrum
-        The object must have attributes ``name``, ``emproot``, ``addTensors``,
-        and ``addAssign`` and optionally ``states`` and ``tensors``; see the
-        Spectrum docstring for a more detailed description of these attributes.
+        The object must have attributes ``name``, ``emproot``, and keys
+        ``addtensors``, and ``addassign`` and optionally ``states`` and
+        ``tensors``; see the Spectrum docstring for a more detailed description
+        of these attributes.
     states : string, optional
         The .st_ input file name; must be provided if it was not specified when
         the Spectrum object was instantiated.
@@ -514,7 +365,7 @@ class Cfit(GenericErun):
 
         # Set any optional arguments that have not been provided to empty
         # strings.
-        blank_args = ['addTensors', 'addAssign', 'expParams']
+        blank_args = ['addtensors', 'addassign', 'expparams']
         for arg in blank_args:
             if spectrum[arg] == None:
                 spectrum[arg] = ''
@@ -531,17 +382,18 @@ class Cfit(GenericErun):
                     savevect {5} \n
                     {5} evects \n
                     \n\n""".format(spectrum['states'], spectrum['tensors'],
-                            spectrum['addTensors'], spectrum['addAssign'],
-                            spectrum['expParams'], spectrum['name'])
+                            spectrum['addtensors'], spectrum['addassign'],
+                            spectrum['expparams'], spectrum.name)
 
         # Check whether splitplot input has been provided; if so, append
         # relevant commands to input.
         if spectrum['splitplot'] != None:
             data = spectrum['splitplot']
             self.splitplot = data
-            splitplot_input = "splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 \
-lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
-            data['energy'][0], data['energy'][1], data['var'], *data['range'])
+            splitplot_input = "splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 "
+                    "lines nokey ps \n dummy splitplot title
+                    \n\n".format(spectrum.name, data['energy'][0],
+                    data['energy'][1], data['var'], *data['range'])
         else:
             splitplot_input = ''
 
@@ -554,14 +406,14 @@ lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
             # terms in the cannonical order.
             if any(t not in ['bgs', 'ias', 'iqi'] for t in sh_args['terms']):
                 raise ValueError("Invalid entry in terms list; valid entries "
-                        "are 'bgs', 'ias' and 'iqi'.")
+                "are 'bgs', 'ias' and 'iqi'.")
 
             self.sh_terms = []
             # Zeeman term.
             if 'bgs' in sh_args['terms']:
                 bgs = "magz magx magy"
                 self.sh_terms += ['bgsz', 'bgsx', 'bgsy']
-                # Empty mag, since we leave values set using addAssign.
+                # Empty mag, since we leave values set using addassign.
                 mag = ["", "", ""]
             else:
                 bgs = "magz"
@@ -596,7 +448,7 @@ lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
                             *% Spin Hamiltonian input
                             spinh {0}_spinh.out {1} {2} {3} {4} {5}
                             Spin Hamiltonian for {0} \n
-                         """.format(spectrum['name'], l, u, bgs, ias, iqi, *mag)
+                         """.format(spectrum.name, l, u, bgs, ias, iqi, *mag)
         else:
             spinh_input = ""
         
@@ -607,13 +459,13 @@ lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
         
         # Load splitplot and spinhamiltonian data. 
         if spectrum['splitplot'] != None:
-            spectrum['splitplotData'] = np.loadtxt('{0}_split.dat'.format(
-                spectrum['name']), skiprows = 4)
+            spectrum.splitplotdata = np.loadtxt('{0}_split.dat'.format(
+                spectrum.name), skiprows = 4)
 
         if spectrum['spinh'] != None:
             # Generate and match regex for the given spin Hamiltonian dimension.
             r = r'\s+([\d.e+-]+)\s+([\d.e+-]+)' * d_sh
-            f = open('{0}_spinh.out'.format(spectrum['name']), 'r')
+            f = open('{0}_spinh.out'.format(spectrum.name), 'r')
             data = np.array(re.findall(r, f.read()), dtype = float)
             f.close()
             
@@ -621,7 +473,7 @@ lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
             # whether the nuclear spin label is present.
             if 'ias' in sh_args['terms'] or 'iqi' in sh_args['terms']:
                 r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)[^[]+\[[^,]+,\s+([\d-]+)'
-                f = open('{0}_spinh.hlp'.format(spectrum['name']), 'r')
+                f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
                 match = re.findall(r, f.read())
                 f.close()
                 energies = np.array([m[2] for m in match], dtype=float)
@@ -633,7 +485,7 @@ lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
                 Iz_sort = np.argsort(Iz[l-1:u])[::-1]
             else:
                 r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)'
-                f = open('{0}_spinh.hlp'.format(spectrum['name']), 'r')
+                f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
                 match = re.findall(r, f.read())
                 f.close()
                 energies = np.array([m[2] for m in match], dtype=float)
@@ -676,9 +528,9 @@ lines nokey ps \n dummy splitplot title \n\n".format(spectrum['name'],
                 # Return list in order x, y, z. 
                 sh_terms['bgs'] = [B['bgsx'], B['bgsy'], B['bgsz']]
 
-            spectrum['sh_terms'] = sh_terms
-            spectrum['sh_energies'] = energies
-            spectrum['sh_b_l'] = b_l
+            spectrum.sh_terms = sh_terms
+            spectrum.sh_energies = energies
+            spectrum.sh_b_l = b_l
 
 
 class Vtrans(GenericErun):
@@ -688,10 +540,10 @@ class Vtrans(GenericErun):
     Parameters
     ----------
     spectrum : Spectrum
-        The object must have attributes ``name``, ``emproot``, ``intenParams``,
-        and ``levels`` and optionally for ``states``, ``tvals`` and ``matel``;
-        see the Spectrum docstring for a more detailed description of these
-        attributes.
+        The object must have attributes ``name``, ``emproot``, and keys
+        ``intenparams``, and ``levels`` and optionally for ``states``, ``tvals``
+        and ``matel``; see the Spectrum docstring for a more detailed
+        description of these attributes.
     states : string, optional
         The .st_ input file name; must be provided if it was not specified when
         the Spectrum object was instantiated, or for a previous :func:`cfit`
@@ -726,8 +578,8 @@ class Vtrans(GenericErun):
                               {4} \n
                               finish \n\n""".format(
                                   spectrum['states'], spectrum['tvals'],
-                                  spectrum['name'], spectrum['matel'],
-                                  spectrum['intenParams'],
+                                  spectrum.name, spectrum['matel'],
+                                  spectrum['intenparams'],
                                   *spectrum['levels'][0:4]))
 
         GenericErun.erun(self, spectrum, ['trans'])
@@ -740,8 +592,8 @@ class Inten(GenericErun):
     Parameters
     ----------
     spectrum : Spectrum
-        The object must have attributes ``name``, ``emproot``,
-        ``edipoleTensor``, ``edipole``, ``mdipole``, and ``levels`` and
+        The object must have attributes ``name``, ``emproot``, and keys
+        ``edipoletensor``, ``edipole``, ``mdipole``, and ``levels`` and
         optionally for ``states``, ``tvals`` and ``trans``; see the Spectrum
         docstring for a more detailed description of these attributes.
     states : string, optional
@@ -790,9 +642,9 @@ class Inten(GenericErun):
                               END \n
                               finish \n\n""".format(spectrum['states'],
                                   spectrum['tvals'], spectrum['trans'],
-                                  spectrum['edipoleTensor'],
+                                  spectrum['edipoletensor'],
                                   spectrum['edipole'], spectrum['mdipole'],
-                                  spectrum['name'], *spectrum['levels']))
+                                  spectrum.name, *spectrum['levels']))
 
         GenericErun.erun(self, spectrum, ['plt'])
 
@@ -831,17 +683,17 @@ class SpectrumData(BaseEmp):
 
     Notes
     -----
-    Instantiating an object of this type adds a ``transitions`` key to the
+    Instantiating an object of this type adds a ``transitions`` attribute to the
     provided :class:`Spectrum` object, which returns a list of dictionaries,
     corresponding to distinct transitions, where each transition has keys:
 
-    initialState : string 
+    initialstate : string 
        The initial state label.
-    finalState : string 
+    finalstate : string 
        The final state label.
     energy : string
        The transition energy.
-    isotropic : stirng
+    isotropic : string
        The isotropic dipole strength.
     axial : string 
        The axial dipole strength.
@@ -876,9 +728,9 @@ class SpectrumData(BaseEmp):
             return(1 / np.pi * gamma / ((x - x0)**2 + gamma**2))
         
         # Parse data from log file generated by the inten program.
-        r = re.compile(r'[^[]+(?P<initialState>\[[\w\s,-]+[)>])[^[]+(?P<finalState>\[[\w\s,-]+[)>])\)\s:\s+(?P<energy>[\d.e+-]+)[\n\s]+Dip\sStr\s+(?P<isotropic>[\d.e-]+)[\s*]+(?P<axial>[\d.e-]+)[\s*]+(?P<sigma>[\d.e-]+)[\s*]+(?P<pi>[\d.e-]+)')
+        r = re.compile(r'[^[]+(?P<initialstate>\[[\w\s,-]+[)>])[^[]+(?P<finalstate>\[[\w\s,-]+[)>])\)\s:\s+(?P<energy>[\d.e+-]+)[\n\s]+Dip\sStr\s+(?P<isotropic>[\d.e-]+)[\s*]+(?P<axial>[\d.e-]+)[\s*]+(?P<sigma>[\d.e-]+)[\s*]+(?P<pi>[\d.e-]+)')
         f = open('{0}/{1}_inten_log.txt'.format(self.workdir, self.name), 'r')
-        spectrum['transitions'] = [m.groupdict() for m in r.finditer(f.read())]
+        spectrum.transitions = [m.groupdict() for m in r.finditer(f.read())]
         f.close()
        
         # Check if npoints is provided, otherwise use default. 
@@ -890,7 +742,7 @@ class SpectrumData(BaseEmp):
         # Generate the spectrum.  For each transition the individual line
         # intensity is calculated; further a Lorentzian of corresponding height
         # is cumulatively added to yield the spectrum for the plotting region.
-        transitions = spectrum['transitions']
+        transitions = spectrum.transitions
         xmin = float(transitions[0]['energy'])
         xmax = float(transitions[len(transitions) - 1]['energy'])
         curve_energies = np.linspace(xmin, xmax, npoints)
@@ -912,13 +764,13 @@ class SpectrumData(BaseEmp):
                     line_energies[i], linewidth)
         
         # Assign calculated values to the spectrum object.
-        spectrum['lineEnergies'] = line_energies
-        spectrum['lineInten'] = line_inten
-        spectrum['curveEnergies'] = curve_energies
-        spectrum['curveInten'] = curve_inten
+        spectrum.line_energies = line_energies
+        spectrum.line_inten = line_inten
+        spectrum.curve_energies = curve_energies
+        spectrum.curve_inten = curve_inten
 
         # Set haslabels flag for spectrumplot.
-        spectrum['haslabels'] = True 
+        spectrum.haslabels = True 
 
 
 class SpectrumErun(GenericErun):
@@ -968,26 +820,25 @@ class SpectrumErun(GenericErun):
             from the lines.gp_ and curves.gp_ files.
             """
 
-            lineData = np.loadtxt('{}/lines.gp_'.format(self.workdir),
+            linedata = np.loadtxt('{}/lines.gp_'.format(self.workdir),
                     skiprows=3)
-            curveData = np.loadtxt('{}/curves.gp_'.format(self.workdir),
+            curvedata = np.loadtxt('{}/curves.gp_'.format(self.workdir),
                     skiprows=3)
             
             # Fetch line/curve energies and intensities for the selected
             # polarization. 
-            spectrum['lineEnergies'] = lineData[:, 0]
-            spectrum['curveEnergies'] = curveData[:, 0]
+            spectrum.line_energies = linedata[:, 0]
+            spectrum.curve_energies = curvedata[:, 0]
 
             headers = ['isotropic', 'axial', 'sigma', 'pi']
             try:
                 i = headers.index(spectrum['plotargs']['polarization'])
                 # The first two columns are energy and wavelength.
-                spectrum['lineInten'] = lineData[:, i + 2]
-                spectrum['curveInten'] = curveData[:, i + 2]
+                spectrum.line_inten = linedata[:, i + 2]
+                spectrum.curve_inten = curvedata[:, i + 2]
             except ValueError:
                 raise ValueError("The value of polarization in plotargs must "
-                        "be an element of 'isotropic', 'axial', 'sigma', or "
-                        "'pi'.")
+                "be an element of 'isotropic', 'axial', 'sigma', or 'pi'.")
         
         # Check action keyword argument, then load or run spectrum prior to
         # loading.
@@ -1018,7 +869,7 @@ class SpectrumErun(GenericErun):
                     "blank, or have a value of 'exec' or 'load'.")
 
         # Set haslabels flag for spectrumplot.
-        spectrum['haslabels'] = False
+        spectrum.haslabels = False
 
 
 class SpectrumAxes(plt.Axes):
@@ -1079,7 +930,7 @@ class SpectrumAxes(plt.Axes):
             Create a string of the form "initial state -> final state", and
             optionally append the transition energy.
             """
-            tlabel = transition['initialState'] +"->"+ transition['finalState']
+            tlabel = transition['initialstate'] +"->"+ transition['finalstate']
             
             # Check whether we're appending the energy.
             if energylabels:
@@ -1091,15 +942,15 @@ class SpectrumAxes(plt.Axes):
         
         def __labels(self, spectrum, lineindex, energylabels):
             r"""
-            Label all transitions enumarated by the 'lineEnergies' attribute of
+            Label all transitions enumarated by the 'line_energies' attribute of
             the Spectrum object.
             """
             
             # Extract relevant transitions from the transitions list, and
             # corresponding energies from the energies array. 
-            transitions = [spectrum['transitions'][i] for i in lineindex[0]]
-            line_energies = spectrum['lineEnergies'][lineindex]
-            line_inten = spectrum['lineInten'][lineindex]
+            transitions = [spectrum.transitions[i] for i in lineindex[0]]
+            line_energies = spectrum.line_energies[lineindex]
+            line_inten = spectrum.line_inten[lineindex]
             
             n = len(transitions) - 1 
             label = __formatlabel(transitions[0], energylabels)
@@ -1121,10 +972,10 @@ class SpectrumAxes(plt.Axes):
         
         # Determine plotting index given an intensity cutoff. 
         if 'intencutoff' in kwargs:
-            lineindex = np.where(spectrum['lineInten'] >= kwargs['intencutoff'])
+            lineindex = np.where(spectrum.line_inten>=kwargs['intencutoff'])
             del kwargs['intencutoff']
         else:
-            lineindex = np.where(spectrum['lineInten'] > 10**(-10))
+            lineindex = np.where(spectrum.line_inten > 10**(-10))
         
         # Check for label fontsize keyword argument.
         if 'labelsize' in kwargs:
@@ -1144,7 +995,7 @@ class SpectrumAxes(plt.Axes):
             energylabels = False
 
         # Generate vertical bar data from zero to transition intensity.
-        ymax = spectrum['lineInten'][lineindex]
+        ymax = spectrum.line_inten[lineindex]
         ymin = np.zeros(len(ymax))
 
         if 'transitionlabels' in kwargs:
@@ -1155,27 +1006,27 @@ class SpectrumAxes(plt.Axes):
 
             if transitionlabels:
                 # Check whether spectrum object supports labels.
-                if not spectrum['haslabels']:
+                if not spectrum.haslabels:
                     raise ValueError("The plot data for this Spectrum object "
                     "was generated using SpectrumErun.  Transition labels are "
                     "only supported for plot data generated with SpectrumData.")
-                self.vlines(spectrum['lineEnergies'][lineindex], ymin, ymax,
+                self.vlines(spectrum.line_energies[lineindex], ymin, ymax,
                         *args, **kwargs)
-                self.plot(spectrum['curveEnergies'], spectrum['curveInten'],
-                        *args, **kwargs)
+                self.plot(spectrum.curve_energies, spectrum.curve_inten, *args,
+                        **kwargs)
                 __labels(self, spectrum, lineindex, energylabels)
             elif not transitionlabels:
-                self.vlines(spectrum['lineEnergies'][lineindex], ymin, ymax,
+                self.vlines(spectrum.line_energies[lineindex], ymin, ymax,
                         *args, **kwargs)
-                self.plot(spectrum['curveEnergies'], spectrum['curveInten'],
-                        *args, **kwargs)
+                self.plot(spectrum.curve_energies, spectrum.curve_inten, *args,
+                        **kwargs)
             else:
                 raise ValueError("Invalid option for kwarg 'transitionlabels'; "
                 "allowed values are either True or False.")
         else:
-            self.vlines(spectrum['lineEnergies'][lineindex], ymin, ymax, *args,
+            self.vlines(spectrum.line_energies[lineindex], ymin, ymax, *args,
                     **kwargs)
-            self.plot(spectrum['curveEnergies'], spectrum['curveInten'], *args,
+            self.plot(spectrum.curve_energies, spectrum.curve_inten, *args,
                     **kwargs)
 
     def splitplot(self, spectrum, *args, **kwargs):
@@ -1185,7 +1036,7 @@ class SpectrumAxes(plt.Axes):
         Parameters
         ----------
         spectrum : Spectrum
-            The object must have the ``splitplotData`` attribute.  This is
+            The object must have the ``splitplotdata`` attribute.  This is
             achieved by adding the ``splitplot`` keyword to the
             :class:`Spectrum` object prior to instantiating the :class:`Cfit`
             object; ``splitplot`` is a dictionary with keys:
@@ -1208,10 +1059,10 @@ class SpectrumAxes(plt.Axes):
 
         if spectrum['splitplot'] == None:
             raise ValueError("The provided Spectrum instance does not have a "
-            "splitplotData attribute. The splitplotData attribute is created "
+            "splitplotdata attribute. The splitplotdata attribute is created "
             "by Cfit for Spectrum objects with a splitplot kwarg.")
         else:
-            data = spectrum['splitplotData']
+            data = spectrum.splitplotdata
             x = np.linspace(spectrum['splitplot']['range'][0],
                     spectrum['splitplot']['range'][1], len(data)) 
 

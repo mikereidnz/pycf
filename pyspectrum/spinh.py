@@ -706,13 +706,12 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, su2_rz=0, full_out
     # terms for the specified crystal field parameters.
     spec = Spectrum(name = 'sh_lsq', **spec_f(cf_params))
     spec.cfit()
-    term_dict = spec['sh_terms']
     
     # The calculated spin Hamiltonian matrices are only solutions up to a
     # constant prefactor; we calculate this w.r.t. the experimental term data. 
     sh_sqdiff = np.zeros([len(sh.t_list), 9])
     for i,e in enumerate(sh.t_list):
-        sh.add_H_term(e, term_dict[e], phase=su2_rz)
+        sh.add_H_term(e, spec.sh_terms[e], phase=su2_rz)
         sh_term = sh.inv_term(e)
         max_index = sh_term.argmax()
         prefactor = np.abs(sh_term.sum()/sh_exp[i].sum())
@@ -723,7 +722,7 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, su2_rz=0, full_out
     b_l_exp = ble_exp[:, 0:2]
     reduced_e = np.zeros(len(e_exp))
     for i,n in enumerate(b_l_exp):
-        reduced_e[i] = spec['sh_energies'][np.logical_and(spec['sh_b_l'][:, 0] == n[0], spec['sh_b_l'][:, 1] == n[1])]
+        reduced_e[i] = spec.sh_energies[np.logical_and(spec.sh_b_l[:, 0] == n[0], spec.sh_b_l[:, 1] == n[1])]
 
     # Calculate the square of the difference between the experimental and
     # theoretical energy levels, times the energy level weighting.
@@ -877,14 +876,14 @@ class SHFit(object):
         self.phi = None
         if 'bgs' in sh.t_list:
             r = minimize(lambda p: su2_rz_lsq_f(p, sh, 'bgs',
-                spec['sh_terms']['bgs']), 0, method='Powell')
+                spec.sh_terms['bgs']), 0, method='Powell')
             if not r['success']:
                 warnings.warn("The tensor symmetrization fit did not succeed.",
                         RuntimeWarning)
             self.phi = r['x']
         elif 'ias' in sh.t_list:
             r = minimize(lambda p: su2_rz_lsq_f(p, sh, 'ias',
-                spec['sh_terms']['ias']), 0, method='Powell')
+                spec.sh_terms['ias']), 0, method='Powell')
             if not r['success']:
                 warnings.warn("The tensor symmetrization fit did not succeed.",
                         RuntimeWarning)
