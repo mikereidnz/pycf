@@ -1,4 +1,3 @@
-==========
 About pycf
 ==========
 
@@ -6,7 +5,6 @@ pycf is a collection of python modules for crystal field theory and spin
 Hamiltonian calculations.  The primary module for crystal field theory is pyemp,
 which wraps Michael F. Reid's F-shell empirical crystal field theory routines.
 Spin Hamiltonian calculations are done with the spinh module.
-
 
 Installation
 ============
@@ -34,7 +32,7 @@ To install pycf in the standard location for third party packages,
 
   $ python setup.py install
 
-or to install to a non-standard run::
+or to install to a non-standard directory run::
 
   $ python setup.py --prefix=/path/to/dir
 
