@@ -30,6 +30,7 @@ import sys
 import os
 import re
 from subprocess import Popen, PIPE
+from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.projections import register_projection
@@ -88,13 +89,14 @@ class Spectrum(dict):
     levels : array
         Of the form::
             
-            ['initStart', 'initEnd', 'finStart', 'finEnd', 'initName', 'finName']
+            ['initstart', 'initend', 'finstart', 'finend', 'initname', 'finname']
 
-        where 'initStart' to 'initEnd' spans the range of initial energy levels,
+        where 'initstart' to 'initend' spans the range of initial energy levels,
         etc.
     edipoletensor: string
-        Newline separated electric dipole tensor assignments passed to the inten
-        input file.
+        Newline separated electric dipole tensor assignments passed to the vtrans
+        input file - can also be specified when instantiating a :class:`Vtrans`
+        object.
     tvals : string
         The .vi_ and .vm_ input file names - can also be specified when
         instantiating a :class:`Vtrans` or :class:`Inten` object.
@@ -153,6 +155,7 @@ class Spectrum(dict):
         self.emproot = kwargs['emproot']
         del kwargs['name']
         del kwargs['emproot']
+        self.erun_obj = {}
 
         # Check provided spectrum kwargs are valid, then add keys and values to
         # self. All valid args are removed from the args list, and the remainder
@@ -171,50 +174,96 @@ class Spectrum(dict):
         for arg in args:
             self[arg] = None
 
+    def gen_log(self, mode='brief'):
+        r"""
+        Generate a log of the executed erun programs. 
+
+        Parameters
+        ----------
+        mode : string
+            Allowed values are 'brief' and 'full'.  'brief' will return the erun
+            input parameters of all executed erun programs, whereas full will
+            return the log files of all executed erun programs.
+
+        Returns
+        -------
+        log : string
+            The log output.
+        """
+        log = "Log data for Spectrum object {}\n".format(self.name)
+        log +="=============================" + "="*len(self.name) + "\n"
+        log += "Generated on {}\n\n\n".format(datetime.now())
+
+        if mode == 'brief':
+            log += "pyemp Spectrum parameters:\n"
+            log += "--------------------------\n\n"
+            for key in self:
+                if self[key] != None:
+                    log +=  "{0}:\n {1}\n".format(key, self[key])
+        elif mode == 'full':
+            if self.erun_obj == {}:
+                log += "No record of any erun processes.  Full log file "
+                log += "printing is only supported for erun processes called "
+                log += "via their Spectrum wrapper methods.\n"
+            for key in self.erun_obj:
+                if key == 'spectrum_data':
+                    log += "spectrum_data input parameters:\n"
+                    log += "-------------------------------\n\n"
+                    log += str(self['plotargs'])
+                else:
+                    log += "Full {} log:\n".format(key)
+                    log += "---------" + "-"*len(key) + "\n\n"
+                    log += self.erun_obj[key].print_log()
+                log += "\n\n\n"
+        else:
+            raise ValueError("Invalid mode.")
+
+        return(log)
+
     def cfit(self, **kwargs):
         r"""
         Generate and return object of type :class:`Cfit`.  See the :class:`Cfit`
         documentation for further details.
         """
-        cfit_obj = Cfit(self, **kwargs)
+        self.erun_obj['cfit'] = Cfit(self, **kwargs)
 
-        return cfit_obj
+        return self.erun_obj['cfit']
 
     def vtrans(self, **kwargs):
         r"""
         Generate and return object of type :class:`Vtrans`.  See the
         :class:`Vtrans` documentation for further details.
         """
-        vtrans_obj = Vtrans(self, **kwargs)
+        self.erun_obj['vtrans'] = Vtrans(self, **kwargs)
 
-        return vtrans_obj
+        return self.erun_obj['vtrans']
 
     def inten(self, **kwargs):
         r"""
         Generate and return object of type :class:`Inten`.  See the
         :class:`Inten` documentation for further details.
         """
-        inten_obj = Inten(self, **kwargs)
+        self.erun_obj['inten'] = Inten(self, **kwargs)
 
-        return inten_obj
+        return self.erun_obj['inten']
 
     def spectrum_data(self, **kwargs):
         r"""
         Generate and return object of type :class:`SpectrumData`.  See the
         :class:`SpectrumData` documentation for further details.
         """
-        spectrum_data_obj = SpectrumData(self, **kwargs)
+        self.erun_obj['spectrum_data'] = SpectrumData(self, **kwargs)
 
-        return spectrum_data_obj
+        return self.erun_obj['spectrum_data']
 
     def spectrum_erun(self, **kwargs):
         r"""
         Generate and return object of type :class:`SpectrumErun`.  See the
         :class:`SpectrumErun` documentation for further details.
         """
-        specturm_erun_obj = SpectrumErun(self, **kwargs)
+        self.erun_obj['spectrum_erun'] = SpectrumErun(self, **kwargs)
 
-        return spectrum_erun_obj
+        return self.erun_obj['spectrum_erun']
 
 
 class BaseEmp(object):
@@ -241,11 +290,12 @@ class BaseEmp(object):
         for f in infiles:
             if f in kwargs:
                 spectrum[f] = kwargs[f]
-            elif not f in spectrum:
+            elif spectrum[f] == None:
                 raise ValueError("Missing input file {0} for process {1}.  "
-                "Input files can be specified either when creating the "
-                "spectrum object, or when instantiating the {1} "
-                "object.".format(f, process))
+                "This means the input file has not been specified (either when "
+                "creating the specturm object or the {1} object) nor generated "
+                "by a different erun process.  Have you run all the necessary "
+                "previous erun processes?".format(f, process))
 
 class GenericErun(BaseEmp):
     r""" 
@@ -703,7 +753,7 @@ class SpectrumData(BaseEmp):
     """
 
     def __init__(self, spectrum, **kwargs):
-        BaseEmp.__init__(self, spectrum, 'spectrum', ['plt'], **kwargs)
+        BaseEmp.__init__(self, spectrum, 'spectrum_data', ['plt'], **kwargs)
 
         def __boltzmannFact(e, t):
             r"""

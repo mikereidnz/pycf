@@ -62,7 +62,7 @@ def hoSpectrum(iLevel, fLevel, filename, x, t):
                lsq 10""",
             'levels': [iLevel[0], iLevel[1], fLevel[0], fLevel[1], iLevel[2],
                 fLevel[2]],
-            'intenparams':
+            'edconstruct':
             """EDCONSTRUCT 9
                Ho ky3f10 hyperfine transitions
                A210  2 1 0 
@@ -123,19 +123,20 @@ x = [15472.6, 15473.3]
 fLevel = ['537', '552', '5F5']
 
 # Instantiate a spectrum object for some initial and final level. 
-ky3f10 = Spectrum(name = 'ky3f10', plt = 'ky3f10', **hoSpectrum(iLevel, fLevel,
+ky3f10 = Spectrum(name = 'ky3f10', **hoSpectrum(iLevel, fLevel,
     'hoc4v_i', x, 10))
 
 # Instantiate cfit, vtrans, inten and spectrum objects. These must be
 # instantiated in this order, but if parameters are varied for ky3f10 which
 # only affect later calculations, one does not have re-instantiate earlier
 # objects. They all have the attribute object['log'] which should prove
-# useful in an interactive session. 
-#ky3f10Cfit = Cfit(ky3f10)
-#ky3f10Vtrans = Vtrans(ky3f10, matel='hoc4vint_i', tvals='ky3f10')
-#ky3f10Inten = Inten(ky3f10, tvals='ky3f10', trans='ky3f10')
-ky3f10Spectrum = SpectrumData(ky3f10)
-#ky3f10Spectrum = SpectrumErun(ky3f10, action='load')
+# useful in an interactive session.
+
+ky3f10Cfit = ky3f10.cfit() 
+#ky3f10Vtrans = ky3f10.vtrans(matel='hoc4vint_i', tvals='ky3f10')
+#ky3f10Inten = ky3f10.inten(tvals='ky3f10', trans='ky3f10')
+ky3f10Spectrum = ky3f10.spectrum_data(plt='ky3f10')
+#ky3f10Spectrum = ky3f10.spectrum_erun(action='load')
 
 
 # When we instantiate the axis object we must pass the
@@ -164,7 +165,8 @@ ax2.grid(True)
 #plt.xlim([15350, 15650])
 #plt.ylim([0, 0.010])
 
+print(ky3f10.gen_log(mode='full'))
 
-plt.show()
+#plt.show()
 #plt.savefig('ky3f10_spectrum_2.pdf',format='pdf')
 
