@@ -872,6 +872,7 @@ class SHFit(object):
         self.sh = sh
         self.spec_f = spec_f
         self.p0 = p0
+        self.data_exp = data_exp
         spec = Spectrum(name = 'sh_lsq', **spec_f(p0))
         spec.cfit()
         self.phi = None
@@ -931,7 +932,7 @@ class SHFit(object):
 
         if bounds != None:
             if len(bounds[0]) != len(p0):
-                raise ValueError("The provided bounds tupple contains lists "
+                raise ValueError("The provided bounds tuple contains lists "
                         "that are not the same length as the p0 list.")
             self.bounds = bounds
         else:
@@ -950,10 +951,33 @@ class SHFit(object):
 
         f = lambda p: sh_lsq_f(p, self.sh, self.spec_f, self.sh_exp,
                 self.ble_exp, self.weights, su2_rz=self.phi)
-        r = basinhopping(f, self.p0, niter = self.niter, take_step = step,
+        self.fit = basinhopping(f, self.p0, niter = self.niter, take_step = step,
                 accept_test = bounds, callback = self.__print_f,
                 minimizer_kwargs = {'method': 'Powell'})
-        return(r)
+        
+        return(self.fit)
     
     def gen_summary(self):
-        raise NotImplementedError("Summary generation is not yet implemented.")
+        spec = Spectrum(name = 'sh_lsq', **self.spec_f(self.fit['x']))
+        spec.cfit()
+        cfit_log = spec.print_log(mode='full')
+
+        fit_log = "Fitting summary\n"
+        fit_log += "===============\n\n"
+        fit_log += self.fit + "\n\n"
+
+        sh_log = "Spin Hamiltonian log\n"
+        sh_log += "====================\n\n"
+
+        for i,e in enumerate(self.sh.t_list):
+            self.sh.add_H_term(e, spec.sh_terms[e], phase=self.phi)
+            sh_log += "{} term:\n".format(e)
+            sh_theory = self.sh.inv_term(e).reshape((3,3))
+            sh_log += str(sh_theory) + "\n\n"
+            sh_log += "{} experimental value:\n".format(e)
+            sh_log += str(self.data_exp[e]) + "\n\n"
+            sh_log += "theory - experiment:\n"
+            sh_log += str(sh_theory - self.data_exp[e]) + "\n\n"
+
+        return(fit_log + sh_log + cfit_log) 
+

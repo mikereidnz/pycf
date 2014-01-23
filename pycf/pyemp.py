@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # Filename = pyemp.py
 
-# pyemp is a python module to facillitate scripting of Michael F. Reid's F-shell
-# emprical crystal field theory routines.
+# pyemp is a python module to facilitate scripting of Michael F. Reid's F-shell
+# empirical crystal field theory routines.
 
 # Copyright (C) 2012-2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 # 
@@ -174,7 +174,7 @@ class Spectrum(dict):
         for arg in args:
             self[arg] = None
 
-    def gen_log(self, mode='brief'):
+    def print_log(self, mode='brief'):
         r"""
         Generate a log of the executed erun programs. 
 
@@ -212,7 +212,7 @@ class Spectrum(dict):
                     log += str(self['plotargs'])
                 else:
                     log += "Full {} log:\n".format(key)
-                    log += "---------" + "-"*len(key) + "\n\n"
+                    log += "----------" + "-"*len(key) + "\n\n"
                     log += self.erun_obj[key].print_log()
                 log += "\n\n\n"
         else:
@@ -293,7 +293,7 @@ class BaseEmp(object):
             elif spectrum[f] == None:
                 raise ValueError("Missing input file {0} for process {1}.  "
                 "This means the input file has not been specified (either when "
-                "creating the specturm object or the {1} object) nor generated "
+                "creating the spectrum object or the {1} object) nor generated "
                 "by a different erun process.  Have you run all the necessary "
                 "previous erun processes?".format(f, process))
 
@@ -453,7 +453,7 @@ class Cfit(GenericErun):
             sh_args = spectrum['spinh']
             # Get spin Hamiltonian parameters and generate cfit input strings.
             # We add a sh_terms list to the cfit object, which lists all enabled
-            # terms in the cannonical order.
+            # terms in the canonical order.
             if any(t not in ['bgs', 'ias', 'iqi'] for t in sh_args['terms']):
                 raise ValueError("Invalid entry in terms list; valid entries "
                 "are 'bgs', 'ias' and 'iqi'.")
@@ -708,19 +708,19 @@ class SpectrumData(BaseEmp):
     Parameters
     ----------
     spectrum : Spectrum
-        The object must have attributes ``plotargs`` - a dictonary that must
+        The object must have attributes ``plotargs`` - a dictionary that must
         have values for:
 
             - ``polarization`` a string, with possible values of ``isotropic``,
               ``axial``, ``sigma`` or ``pi``;
-            - ``temp`` an int or float specifiying the temperature;
-            - ``linewidth`` an int or float specifing the Lorentzian linewidth;
+            - ``temp`` an int or float specifying the temperature;
+            - ``linewidth`` an int or float specifying the Lorentzian linewidth;
             - ``npoints`` an optional argument specifying the number of points
               for the spectrum curve;
 
           and optionally ``plt`` - the filename of the data created by inten,
           which while unused is employed as an indicator of whether inten
-          executed sucessfully.
+          executed successfully.
     plt : string
         The filename of the data created by inten, which must be specified here
         if it is not a Spectrum attribute.
@@ -829,13 +829,13 @@ class SpectrumErun(GenericErun):
     Parameters
     ----------
     spectrum : Spectrum
-        The object must have attributes ``plotargs``, a dictonary with values:
+        The object must have attributes ``plotargs``, a dictionary with values:
 
             - ``polarization`` a string, with possible values of ``isotropic``,
               ``axial``, ``sigma`` or ``pi``;
-            - ``temp`` an int or float specifiying the temperature, required if
+            - ``temp`` an int or float specifying the temperature, required if
               ``action = exec`` (see below);
-            - ``linewidth`` an int or float specifing the Lorentzian linewidth,
+            - ``linewidth`` an int or float specifying the Lorentzian linewidth,
               required if ``action = exec`` (see below);
             - ``xrange`` a list of the form ``[min, max]`` where ``min`` and
               ``max`` specify the lower and upper bound of the spectrum curve,
@@ -958,7 +958,7 @@ class SpectrumAxes(plt.Axes):
                   (default) or ``True``;
                 - ``labelsize`` the fontsize for transition labels;
                 - ``intencutoff`` the minimum intensity for transitions to be
-                  plotted, primarily useful for surpressing unintersting
+                  plotted, primarily useful for suppressing uninteresting
                   transition labels;
                 - ``energylabels`` if transition labels are enabled, then this
                   option appends the transition energy - allowed values are
@@ -990,7 +990,7 @@ class SpectrumAxes(plt.Axes):
         
         def __labels(self, spectrum, lineindex, energylabels):
             r"""
-            Label all transitions enumarated by the 'line_energies' attribute of
+            Label all transitions enumerated by the 'line_energies' attribute of
             the Spectrum object.
             """
             
@@ -1100,7 +1100,7 @@ class SpectrumAxes(plt.Axes):
         *args, optional
             Additional arguments are passed passed to the vlines and plot
             routines have their usual functions.
-        **kwargs, optionl
+        **kwargs, optional
             Additional keyword arguments are passed passed to the vlines and
             plot routines have their usual functions.
         """
