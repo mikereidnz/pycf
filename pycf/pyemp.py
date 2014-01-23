@@ -36,9 +36,8 @@ from matplotlib.projections import register_projection
 
 
 #TODO:
-#   - Add jmcalc and sljcalc GenericErun subclasses.  This should work well in
-#   conjunction with above proposed GenericErun subclass specific input files.
-#     
+#   - Add jmcalc and sljcalc GenericErun subclasses.  This should work well 
+#     with the BaseEmp execution order checking.
 #   - Add Ce example to documentation.  
 #   - Profile SpectrumData and optimize with cython if necessary. 
 
@@ -46,8 +45,6 @@ from matplotlib.projections import register_projection
 class Spectrum(dict):
     r""" 
     Implements all the defining parameters of a Spectrum object.
-
-    FIXME: missing addtensor, addassign, intenparams and edipoletensor.
 
     Parameters
     ----------
@@ -61,9 +58,15 @@ class Spectrum(dict):
     tensors : string
         The .mi_ and .mm_ input file names - can also be specified when
         instantiating a :class:`Cfit`, :class:`Vtrans` or :class:`Inten` object.
+    addtensor : string
+        Newline separated ``addten`` statements following cfit input file
+        syntax.
+    addassign: string
+        Newline separated ``addassign`` statements following cfit input file
+        syntax.
     expparams : string, optional
-        Specifies values for ``exptval``, ``delta`` and ``lsq``, both with their
-        usual meaning.
+        Specifies values for ``exptval``, ``delta`` and ``lsq`` with their usual
+        cfit input file meaning.
     splitplot : dictionary, optional 
         If specified, :class:`Cfit` will generate and parse splitplot data.
         Required keys are ``energy``, ``var`` and ``range``; see the
@@ -79,6 +82,9 @@ class Spectrum(dict):
             - ``levels``, a tuple of integers specifying the lower and upper
               energy levels for which to generate the spin Hamiltonian.
 
+    edconstruct : string
+        String using the vtrans EDCONSTRUCT input syntax to use transformed
+        tensors to construct the A tensors. 
     levels : array
         Of the form::
             
@@ -86,6 +92,9 @@ class Spectrum(dict):
 
         where 'initStart' to 'initEnd' spans the range of initial energy levels,
         etc.
+    edipoletensor: string
+        Newline separated electric dipole tensor assignments passed to the inten
+        input file.
     tvals : string
         The .vi_ and .vm_ input file names - can also be specified when
         instantiating a :class:`Vtrans` or :class:`Inten` object.
@@ -150,7 +159,7 @@ class Spectrum(dict):
         # is set to None. 
         args = ['states', 'tensors', 'matel', 'tvals', 'trans', 'plt',
                 'addtensors', 'addassign', 'expparams', 'splitplot', 'levels',
-                'intenparams', 'edipoletensor', 'edipole', 'mdipole',
+                'edconstruct', 'edipoletensor', 'edipole', 'mdipole',
                 'plotargs', 'spinh']
         for arg in kwargs:
             if arg not in args:
@@ -532,7 +541,7 @@ class Vtrans(GenericErun):
     ----------
     spectrum : Spectrum
         The object must have attributes ``name``, ``emproot``, and keys
-        ``intenparams``, and ``levels`` and optionally for ``states``, ``tvals``
+        ``edconstruct``, and ``levels`` and optionally for ``states``, ``tvals``
         and ``matel``; see the Spectrum docstring for a more detailed
         description of these attributes.
     states : string, optional
@@ -570,7 +579,7 @@ class Vtrans(GenericErun):
                               finish \n\n""".format(
                                   spectrum['states'], spectrum['tvals'],
                                   spectrum.name, spectrum['matel'],
-                                  spectrum['intenparams'],
+                                  spectrum['edconstruct'],
                                   *spectrum['levels'][0:4]))
 
         GenericErun.erun(self, spectrum, ['trans'])
@@ -644,9 +653,7 @@ class SpectrumData(BaseEmp):
     r"""
     Natively generate spectrum data.  Intensity data is mined from the inten log
     file, which provides information such as the initial and final state of a
-    transition.  After running spectrum data on a given :class:`Spectrum`
-    object, the :class:`Spectrum` object will have a 'transition' keyword which
-    returns this data. 
+    transition.  
     
     Parameters
     ----------

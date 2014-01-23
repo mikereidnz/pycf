@@ -833,8 +833,9 @@ class SHFit(object):
     Parameters
     ----------
     sh : SpinHamiltonian
-        The terms this object determines the to be fit spin Hamiltonian terms.
-        Additionally, it must have been instantiated with they inv=True kwarg.
+        The terms that this object determines the to be fit spin Hamiltonian
+        terms.  Additionally, it must have been instantiated with they inv=True
+        kwarg.
     spec_f : function
         A function that returns a dictionary containing all the keys required
         for instantiating a Spectrum object and takes as an argument a list of
