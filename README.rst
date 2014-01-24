@@ -36,7 +36,7 @@ To install pycf in the standard location for third party packages,
 
 or to install to a non-standard directory run::
 
-  $ python setup.py --prefix=/path/to/dir
+  $ python setup.py install --prefix=/path/to/dir
 
 
 PYTHONPATH
