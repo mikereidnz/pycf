@@ -722,11 +722,15 @@ def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, su2_rz=0, full_out
     b_l_exp = ble_exp[:, 0:2]
     reduced_e = np.zeros(len(e_exp))
     for i,n in enumerate(b_l_exp):
-        reduced_e[i] = spec.sh_energies[np.logical_and(spec.sh_b_l[:, 0] == n[0], spec.sh_b_l[:, 1] == n[1])]
-
+        reduced_e[i] = spec.sh_energies[np.logical_and(
+            spec.sh_b_l[:, 0] == n[0], spec.sh_b_l[:, 1] == n[1])]
+    
     # Calculate the square of the difference between the experimental and
     # theoretical energy levels, times the energy level weighting.
-    e_sq = np.sum((e_exp - reduced_e)**2 * weights['e'])
+    if reduced_e != []:
+        e_sq = np.sum((e_exp - reduced_e)**2 * weights['e'])
+    else:
+        e_sq = 0
 
     # Return the requested data.
     if full_out:
@@ -798,6 +802,45 @@ def su2_rz_lsq_f(p, sh, mode, H):
     
     return r
 
+
+def su2_rz_lsq(sh, spec):
+    r"""
+    Calculate the SU(2) `\mathcal(R)_z(\phi)` parameter `\phi` that symmeterizes
+    the Zeeman and/or magentic dipole tensor of the provided
+    :class:`SpinHamiltonian` object.
+
+    Parameters
+    ----------
+    sh : SpinHamiltonian
+        Must have been instantiated with the inv='true' argument.
+    spec : Spectrum
+        Must have been instantiated with spin hamiltonian support.
+
+    Returns
+    -------
+    phi : complex 
+        The parameter `\phi`.
+    """
+    if 'bgs' in sh.t_list:
+        term = 'bgs'
+    elif 'ias' in sh.t_list:
+        term = 'ias'
+    else:
+        term = None
+
+    if term != None:
+        r = minimize(lambda p: su2_rz_lsq_f(p, sh, term, spec.sh_terms[term]),
+                0, method='Powell')
+        if not r['success']:
+            warnings.warn("The tensor symmetrization fit did not succeed.",
+                    RuntimeWarning)
+        phi = r['x']
+    else: 
+        phi = 0
+
+    return(phi)
+    
+
 class BHStep(object):
     r"""
     Custom class for modifying basinhopping step size.
@@ -811,7 +854,8 @@ class BHStep(object):
         x[:s_l] += np.random.uniform(-s, s)
         x[s_l:] += np.random.uniform(-0.5, 0.5, x[s_l:].shape)
         return x
-    
+   
+
 class BHBounds(object):
     r"""
     Custom class for modifying bounds on parameters to be varied using
@@ -825,6 +869,7 @@ class BHBounds(object):
         tmax = bool(np.all(x <= self.xmax))
         tmin = bool(np.all(x >= self.xmin))
         return tmax and tmin
+
 
 class SHFit(object):
     r"""
@@ -867,7 +912,7 @@ class SHFit(object):
     object : SHFit
 
     """
-    def __init__(self, sh, spec_f, p0, data_exp, weights=None, niter=100,
+    def __init__(self, sh, spec_f, p0, data_exp, weights=None, niter=50,
             step=None, bounds=None):
         self.sh = sh
         self.spec_f = spec_f
@@ -875,30 +920,13 @@ class SHFit(object):
         self.data_exp = data_exp
         spec = Spectrum(name = 'sh_lsq', **spec_f(p0))
         spec.cfit()
-        self.phi = None
-        if 'bgs' in sh.t_list:
-            r = minimize(lambda p: su2_rz_lsq_f(p, sh, 'bgs',
-                spec.sh_terms['bgs']), 0, method='Powell')
-            if not r['success']:
-                warnings.warn("The tensor symmetrization fit did not succeed.",
-                        RuntimeWarning)
-            self.phi = r['x']
-        elif 'ias' in sh.t_list:
-            r = minimize(lambda p: su2_rz_lsq_f(p, sh, 'ias',
-                spec.sh_terms['ias']), 0, method='Powell')
-            if not r['success']:
-                warnings.warn("The tensor symmetrization fit did not succeed.",
-                        RuntimeWarning)
-            self.phi = r['x']
-        else:
-            self.phi = 0
-        
+        self.phi = su2_rz_lsq(sh, spec)
         self.sh_exp = [data_exp[t].reshape(1, 9) for t in sh.t_list]
 
         if 'e' in data_exp:
             self.ble_exp = data_exp['e']
         else:
-            self.ble_exp = np.zeros((1, 3))
+            self.ble_exp = np.zeros((0, 3))
         
         # Normalize lsq term weights using initial parameter values, then apply
         # custom weights if specified.
@@ -906,9 +934,10 @@ class SHFit(object):
         for key in data_exp:
             self.weights[key] = 1
 
+        res_dict = sh_lsq_f(p0, sh, spec_f, self.sh_exp, self.ble_exp,
+                self.weights, su2_rz=self.phi, full_out=True)
         if weights != None:
-            res_dict = sh_lsq_f(p0, sh, spec_f, self.sh_exp, self.ble_exp,
-                    self.weights, su2_rz=self.phi, full_out=True)
+
             for key in data_exp:
                 try:
                     self.weights[key] = weights[key]/res_dict[key]
@@ -928,7 +957,7 @@ class SHFit(object):
                         "length as the p0 list.")
             self.step = step
         else:
-            self.step = [np.array(10)] * len(p0)
+            self.step = [np.array(50)] * len(p0)
 
         if bounds != None:
             if len(bounds[0]) != len(p0):
@@ -945,7 +974,6 @@ class SHFit(object):
         r"""
         Run the fitting procedure. 
         """
-        
         step = BHStep(self.step)
         bounds = BHBounds(self.bounds[0], self.bounds[1])
 
@@ -958,13 +986,17 @@ class SHFit(object):
         return(self.fit)
     
     def gen_summary(self):
+        r"""
+        Generate a summary of the fit, along with the fitted parameters and cfit
+        log output.
+        """
         spec = Spectrum(name = 'sh_lsq', **self.spec_f(self.fit['x']))
         spec.cfit()
         cfit_log = spec.print_log(mode='full')
 
         fit_log = "Fitting summary\n"
         fit_log += "===============\n\n"
-        fit_log += self.fit + "\n\n"
+        fit_log += str(self.fit) + "\n\n"
 
         sh_log = "Spin Hamiltonian log\n"
         sh_log += "====================\n\n"
