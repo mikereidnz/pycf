@@ -1098,11 +1098,11 @@ class SpectrumAxes(plt.Axes):
                   which ``var`` wil be varied.
 
         *args, optional
-            Additional arguments are passed passed to the vlines and plot
-            routines have their usual functions.
+            Additional arguments are passed to the vlines and plot routines have
+            their usual functions.
         **kwargs, optional
-            Additional keyword arguments are passed passed to the vlines and
-            plot routines have their usual functions.
+            Additional keyword arguments are passed to the vlines and plot
+            routines have their usual functions.
         """
 
         if spectrum['splitplot'] == None:
