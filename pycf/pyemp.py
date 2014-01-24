@@ -182,7 +182,7 @@ class Spectrum(dict):
         ----------
         mode : string
             Allowed values are 'brief' and 'full'.  'brief' will return the erun
-            input parameters of all executed erun programs, whereas full will
+            input parameters of all executed erun programs, whereas 'full' will
             return the log files of all executed erun programs.
 
         Returns
