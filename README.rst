@@ -13,9 +13,11 @@ Dependencies
 ------------
 
 pycf has the following dependencies:
+
   * numpy
   * scipy
   * matplotlib (for plotting in example calculations)
+
 These should be available via the package manager on most modern linux distributions. 
 
 
