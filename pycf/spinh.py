@@ -755,10 +755,8 @@ def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     if term == None:
         phi = 0
     elif np.abs(f_min([phi_p])) <= 10**(-10):
-        print('symmetric')
         phi = phi_p
     else:
-        print('symmeterization required')
         r = minimize(f_min, 0, method='Powell')
         if not r['success']:
             warnings.warn("The tensor symmetrization fit did not succeed.",
@@ -855,22 +853,18 @@ class SHFit(object):
         else:
             self.ble_exp = np.zeros((0, 3))
         
-        # Calculate ratio of weights w.r.t. first key in data_exp.
-        self.weights_r = {}
+        # We calculate the weighting scaled by the experimental magnitude.
+        self.scaled_w = {}
         if weights != None:
             for key in data_exp:
-                if not hasattr(self, 'w_key'):
-                    self.w_key = key
                 try:
-                    self.weights_r[key] = weights[key]/weights[self.w_key]
+                    self.scaled_w[key] = weights[key]/np.sum(data_exp[key])
                 except KeyError:
                     raise ValueError("If the weights dictionary is specified a "
                             "value must be provided for each term in data_exp.")
         else:
             for key in data_exp:
-                if not hasattr(self, 'w_key'):
-                    self.w_key = key
-                self.weights_r[key] = 1
+                self.scaled_w[key] = 1
         
         # Determine which term should be used to symmeterize spin-half matrix
         # elements. 
@@ -931,15 +925,16 @@ class SHFit(object):
         # The calculated spin Hamiltonian matrices are only solutions up to a
         # constant prefactor the value of which we determine w.r.t. the
         # experimental term data.  
-        sh_sq = np.zeros(len(self.sh.t_list))
-        sq = {}
+        sh_sqdiff = np.zeros((len(self.sh.t_list), 9))
         for i,e in enumerate(self.sh.t_list):
             self.sh.add_H_term(e, spec.sh_terms[e], phase=self.phi)
             sh_term = self.sh.inv_term(e)
             max_index = sh_term.argmax()
             prefactor = np.abs(sh_term.sum()/self.sh_exp[i].sum())
-            sq[e] = np.sum((self.sh_exp[i] - prefactor * sh_term)**2)
+            sh_sqdiff[i, :] = np.sum(((self.sh_exp[i] - prefactor *
+                sh_term)*self.scaled_w[e])**2)
         
+        sh_sq = np.sum(sh_sqdiff)
         # Get levels for which we have experimental data. 
         e_exp = self.ble_exp[:, 2]
         b_l_exp = self.ble_exp[:, 0:2]
@@ -951,18 +946,11 @@ class SHFit(object):
         # Calculate the square of the difference between the experimental and
         # theoretical energy levels.
         if reduced_e != []:
-            sq['e'] = np.sum((e_exp - reduced_e)**2)
-        #jelse:
-        #    sq['e'] = 0
-        #    print(sq['e'])
-        
-        # Residues are calculated as ratios w.r.t. the w_key element s.t. each
-        # term has the correct weighting.
-        r = 0
-        for e in sq:
-            r += sq[e]*self.weights_r[e]/sq[self.w_key]
+            e_sq = np.sum(((e_exp - reduced_e)*self.scaled_w['e'])**2)
+        else:
+            e_sq = 0
             
-        return(r)
+        return(sh_sq + e_sq)
 
     def __print_f(self, x, f, accepted):
         print("At minima %.4f accepted %d." % (f, int(accepted)))
