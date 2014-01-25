@@ -666,82 +666,6 @@ class SpinHamiltonian(object):
         return(H)
 
 
-def sh_lsq_f(cf_params, sh, spec_f, sh_exp, ble_exp, weights, su2_rz=0, full_out=False):
-    r""" 
-    Spin Hamiltonian fitting function; calculates weighted differences between
-    experimental and theoretical values of spin Hamiltonian terms and energy
-    levels for a given set of crystal field parameters.
-    
-    Parameters
-    ----------
-    cf_params : list
-        Crystal field parameters to be varied. 
-    spec_f : func
-        Spectrum function; returns a dictionary that can be unpacked when
-        creating a spectrum instance.  This function must, as an only argument,
-        accept values for the crystal field parameters to be fit.
-    sh : SpinHamiltonian
-        A spin Hamiltonian object. 
-    sh_exp : list
-        `n` vectors, each of length `9`, corresponding to the `3` by `3`
-        matrices for the spin Hamiltonian parameters `g`, `A` and `Q` with
-        stacked rows.  Here, `n` is the number of terms in the spin Hamiltonian.
-        The order of the vectors must be the same as for the ``terms`` argument
-        that was used for instantiating the SpinHamiltonian object.
-    ble_exp : numpy.ndarray
-        Experimental block, level and energy data.
-    weights : dictionary 
-        Allowed keys are 'bgs', 'ias', 'iqi' and 'e'; these values correspond,
-        respectively, to the weighting used in the least squares fit for the
-        experimental values of `g`, `A`, `Q` and the energy levels.
-    su2_rz : complex
-        SU(2) rotation about `\hat{z}` applied to spin-half matrix elements.
-    full_out : boolean, optional
-        If True, the function returns a list of squares of differences for
-        individual terms; this is intended for calibrating the weights
-        parameters.
-    """
-    
-    # Create new spectrum object and run cfit to calculate the spin Hamiltonian
-    # terms for the specified crystal field parameters.
-    spec = Spectrum(name = 'sh_lsq', **spec_f(cf_params))
-    spec.cfit()
-    
-    # The calculated spin Hamiltonian matrices are only solutions up to a
-    # constant prefactor; we calculate this w.r.t. the experimental term data. 
-    sh_sqdiff = np.zeros([len(sh.t_list), 9])
-    for i,e in enumerate(sh.t_list):
-        sh.add_H_term(e, spec.sh_terms[e], phase=su2_rz)
-        sh_term = sh.inv_term(e)
-        max_index = sh_term.argmax()
-        prefactor = np.abs(sh_term.sum()/sh_exp[i].sum())
-        sh_sqdiff[i, :] = (sh_exp[i] - prefactor * sh_term)**2 * weights[e]
-    
-    # Get levels for which we have experimental data. 
-    e_exp = ble_exp[:, 2]
-    b_l_exp = ble_exp[:, 0:2]
-    reduced_e = np.zeros(len(e_exp))
-    for i,n in enumerate(b_l_exp):
-        reduced_e[i] = spec.sh_energies[np.logical_and(
-            spec.sh_b_l[:, 0] == n[0], spec.sh_b_l[:, 1] == n[1])]
-    
-    # Calculate the square of the difference between the experimental and
-    # theoretical energy levels, times the energy level weighting.
-    if reduced_e != []:
-        e_sq = np.sum((e_exp - reduced_e)**2 * weights['e'])
-    else:
-        e_sq = 0
-
-    # Return the requested data.
-    if full_out:
-        out = {}
-        for i,e in enumerate(sh.t_list):
-            out[e] = np.sum(sh_sqdiff[i, :])
-        out['e'] = e_sq
-        return(out)
-    else:
-        return(np.sum(sh_sqdiff) + e_sq) 
-
 def su2_rz_lsq_f(p, sh, mode, H):
     """
     Helper function for least squares fitting of the SU(2) rotation required to
@@ -803,7 +727,7 @@ def su2_rz_lsq_f(p, sh, mode, H):
     return r
 
 
-def su2_rz_lsq(sh, spec):
+def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     r"""
     Calculate the SU(2) `\mathcal(R)_z(\phi)` parameter `\phi` that symmeterizes
     the Zeeman and/or magentic dipole tensor of the provided
@@ -815,31 +739,34 @@ def su2_rz_lsq(sh, spec):
         Must have been instantiated with the inv='true' argument.
     spec : Spectrum
         Must have been instantiated with spin hamiltonian support.
-
+    phi_p : complex, optional
+        Parameter `\phi`, typically from a previous evaluation, used to check
+        whether re-fitting is required; defaults to 0.
+    term : string, optional
+        Either 'bgs', 'ias' or None; specifies which term, if any, to
+        symmeterize spin-half matrix elements with.
+        
     Returns
     -------
     phi : complex 
         The parameter `\phi`.
     """
-    if 'bgs' in sh.t_list:
-        term = 'bgs'
-    elif 'ias' in sh.t_list:
-        term = 'ias'
+    f_min = lambda p: su2_rz_lsq_f(p, sh, term, spec.sh_terms[term])
+    if term == None:
+        phi = 0
+    elif np.abs(f_min([phi_p])) <= 10**(-10):
+        print('symmetric')
+        phi = phi_p
     else:
-        term = None
-
-    if term != None:
-        r = minimize(lambda p: su2_rz_lsq_f(p, sh, term, spec.sh_terms[term]),
-                0, method='Powell')
+        print('symmeterization required')
+        r = minimize(f_min, 0, method='Powell')
         if not r['success']:
             warnings.warn("The tensor symmetrization fit did not succeed.",
                     RuntimeWarning)
         phi = r['x']
-    else: 
-        phi = 0
-
-    return(phi)
     
+    return(phi)
+
 
 class BHStep(object):
     r"""
@@ -920,33 +847,40 @@ class SHFit(object):
         self.data_exp = data_exp
         spec = Spectrum(name = 'sh_lsq', **spec_f(p0))
         spec.cfit()
-        self.phi = su2_rz_lsq(sh, spec)
+        
+        # Reshape since least squares implementation requires column data.
         self.sh_exp = [data_exp[t].reshape(1, 9) for t in sh.t_list]
-
         if 'e' in data_exp:
             self.ble_exp = data_exp['e']
         else:
             self.ble_exp = np.zeros((0, 3))
         
-        # Normalize lsq term weights using initial parameter values, then apply
-        # custom weights if specified.
-        self.weights = {}
-        for key in data_exp:
-            self.weights[key] = 1
-
-        res_dict = sh_lsq_f(p0, sh, spec_f, self.sh_exp, self.ble_exp,
-                self.weights, su2_rz=self.phi, full_out=True)
+        # Calculate ratio of weights w.r.t. first key in data_exp.
+        self.weights_r = {}
         if weights != None:
-
             for key in data_exp:
+                if not hasattr(self, 'w_key'):
+                    self.w_key = key
                 try:
-                    self.weights[key] = weights[key]/res_dict[key]
+                    self.weights_r[key] = weights[key]/weights[self.w_key]
                 except KeyError:
                     raise ValueError("If the weights dictionary is specified a "
                             "value must be provided for each term in data_exp.")
         else:
             for key in data_exp:
-                self.weights[key] = 1/res_dict[key]
+                if not hasattr(self, 'w_key'):
+                    self.w_key = key
+                self.weights_r[key] = 1
+        
+        # Determine which term should be used to symmeterize spin-half matrix
+        # elements. 
+        if 'bgs' in sh.t_list:
+            self.sym_term = 'bgs'
+        elif 'ias' in sh.t_list:
+            self.sym_term = 'ias'
+        else:
+            self.sym_term = None
+        self.phi = 0
 
         # niter, step and bounds defaults if not specified.
         self.niter = niter
@@ -957,7 +891,7 @@ class SHFit(object):
                         "length as the p0 list.")
             self.step = step
         else:
-            self.step = [np.array(50)] * len(p0)
+            self.step = [np.array(10)] * len(p0)
 
         if bounds != None:
             if len(bounds[0]) != len(p0):
@@ -966,6 +900,69 @@ class SHFit(object):
             self.bounds = bounds
         else:
             self.bounds = ([np.array(10**5)]*len(p0),[np.array(-10**5)]*len(p0))
+
+    def lsq_f(self, cf_params):
+        r""" Spin Hamiltonian fitting function; calculates weighted differences
+        between experimental and theoretical values of spin Hamiltonian terms
+        and energy levels for a given set of crystal field parameters.
+
+        Parameters
+        ----------
+        cf_params : list
+            Crystal field parameters to be varied. 
+        full_out : boolean, optional
+            If True, the function returns a list of squares of differences for
+            individual terms; this is intended for calibrating the weights
+            parameters.
+
+        Returns
+        -------
+        res : float
+            The residue.
+        """
+        # Create new spectrum object and run cfit to calculate the spin
+        # Hamiltonian terms for the specified crystal field parameters.
+        spec = Spectrum(name = 'sh_lsq', **self.spec_f(cf_params))
+        spec.cfit()
+        
+        # Symmeterize if necessary.
+        self.phi = su2_rz_lsq(self.sh, spec, phi_p=self.phi, term=self.sym_term)
+
+        # The calculated spin Hamiltonian matrices are only solutions up to a
+        # constant prefactor the value of which we determine w.r.t. the
+        # experimental term data.  
+        sh_sq = np.zeros(len(self.sh.t_list))
+        sq = {}
+        for i,e in enumerate(self.sh.t_list):
+            self.sh.add_H_term(e, spec.sh_terms[e], phase=self.phi)
+            sh_term = self.sh.inv_term(e)
+            max_index = sh_term.argmax()
+            prefactor = np.abs(sh_term.sum()/self.sh_exp[i].sum())
+            sq[e] = np.sum((self.sh_exp[i] - prefactor * sh_term)**2)
+        
+        # Get levels for which we have experimental data. 
+        e_exp = self.ble_exp[:, 2]
+        b_l_exp = self.ble_exp[:, 0:2]
+        reduced_e = np.zeros(len(e_exp))
+        for i,n in enumerate(b_l_exp):
+            reduced_e[i] = spec.sh_energies[np.logical_and(
+                spec.sh_b_l[:, 0] == n[0], spec.sh_b_l[:, 1] == n[1])]
+        
+        # Calculate the square of the difference between the experimental and
+        # theoretical energy levels.
+        if reduced_e != []:
+            sq['e'] = np.sum((e_exp - reduced_e)**2)
+        #jelse:
+        #    sq['e'] = 0
+        #    print(sq['e'])
+        
+        # Residues are calculated as ratios w.r.t. the w_key element s.t. each
+        # term has the correct weighting.
+        r = 0
+        for e in sq:
+            r += sq[e]*self.weights_r[e]/sq[self.w_key]
+            
+        return(r)
 
     def __print_f(self, x, f, accepted):
         print("At minima %.4f accepted %d." % (f, int(accepted)))
@@ -977,11 +974,10 @@ class SHFit(object):
         step = BHStep(self.step)
         bounds = BHBounds(self.bounds[0], self.bounds[1])
 
-        f = lambda p: sh_lsq_f(p, self.sh, self.spec_f, self.sh_exp,
-                self.ble_exp, self.weights, su2_rz=self.phi)
-        self.fit = basinhopping(f, self.p0, niter = self.niter, take_step = step,
-                accept_test = bounds, callback = self.__print_f,
-                minimizer_kwargs = {'method': 'Powell'})
+        
+        self.fit = basinhopping(self.lsq_f, self.p0, niter = self.niter,
+                take_step = step, accept_test = bounds, callback =
+                self.__print_f, minimizer_kwargs = {'method': 'Powell'})
         
         return(self.fit)
     
@@ -992,8 +988,10 @@ class SHFit(object):
         """
         spec = Spectrum(name = 'sh_lsq', **self.spec_f(self.fit['x']))
         spec.cfit()
-        cfit_log = spec.print_log(mode='full')
+        phi = su2_rz_lsq(self.sh, spec, term=self.sym_term)
 
+        cfit_log = spec.print_log(mode='full')
+    
         fit_log = "Fitting summary\n"
         fit_log += "===============\n\n"
         fit_log += str(self.fit) + "\n\n"
@@ -1002,7 +1000,7 @@ class SHFit(object):
         sh_log += "====================\n\n"
 
         for i,e in enumerate(self.sh.t_list):
-            self.sh.add_H_term(e, spec.sh_terms[e], phase=self.phi)
+            self.sh.add_H_term(e, spec.sh_terms[e], phase=phi)
             sh_log += "{} term:\n".format(e)
             sh_theory = self.sh.inv_term(e).reshape((3,3))
             sh_log += str(sh_theory) + "\n\n"
