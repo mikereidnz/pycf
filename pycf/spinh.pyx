@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Filename = spinh.py
+# cython: profile=False
+# filename = spinh.pyx
 
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 # 
@@ -30,6 +30,14 @@ from scipy.linalg import block_diag
 from scipy.optimize import minimize, basinhopping
 from matel import matel
 from pyemp import Spectrum
+
+cimport numpy as np
+
+cdef extern from "complex.h":
+    cdef double complex conj(double complex z)
+    cdef double complex cexp(double complex z)
+    cdef double complex _Complex_I
+
 
 def bgs(v, m, t):
     r"""
@@ -334,7 +342,7 @@ def invert_term(term, coeff_a):
 
     return(x)
 
-def su2_rz(m, p):
+cdef np.ndarray[complex, ndim=2] su2_rz(np.ndarray[complex, ndim=2] m, float p):
     """
     Apply a rotation about the z-axis in the SU(2) matrix representation.
     
@@ -350,16 +358,19 @@ def su2_rz(m, p):
     mp : ndarry
         The transformed `2 \times 2` matrix.
     """
-    t = np.exp(np.complex(0,1)*p)
-    mp = np.array(m, dtype=np.complex)
+    cdef complex t = cexp(_Complex_I*p)
+    cdef np.ndarray[complex, ndim=2] mp = np.zeros((2, 2), dtype=np.complex)
     # The rotation consists of a multiplication by t and t^* of the off-diagonal
     # elements.
+    mp[0, 0] = m[0, 0]
     mp[0, 1] = m[0, 1] * t
-    mp[1, 0] = m[1, 0] * np.conj(t)
+    mp[1, 0] = m[1, 0] * conj(t)
+    mp[1, 1] = m[1, 1]
+
     return(mp)
 
 
-def su2_rz_ias(m, p):
+cdef inline su2_rz_ias(m, p):
     """
     Apply a rotation about the z-axis of the spin-half matrix elements of a
     magnetic dipole spin Hamiltonian term.
@@ -666,7 +677,7 @@ class SpinHamiltonian(object):
         return(H)
 
 
-def su2_rz_lsq_f(p, sh, H_sh, term):
+cdef inline su2_rz_lsq_f(p, sh, H_sh, term):
     """
     Helper function for least squares fitting of the SU(2) rotation required to
     symmetrize spin Hamiltonian terms containing spin half matrix elements.
