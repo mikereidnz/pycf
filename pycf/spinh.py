@@ -666,7 +666,7 @@ class SpinHamiltonian(object):
         return(H)
 
 
-def su2_rz_lsq_f(p, sh, mode, H):
+def su2_rz_lsq_f(p, sh, H_sh, term):
     """
     Helper function for least squares fitting of the SU(2) rotation required to
     symmetrize spin Hamiltonian terms containing spin half matrix elements.
@@ -677,55 +677,29 @@ def su2_rz_lsq_f(p, sh, mode, H):
         The phase to be varied. 
     sh : SpinHamiltonian
         Must have been instantiated with the 'inv' = True kwarg and contain a
-        term with spin half matrix element, i.e., either `BgS` or `IAS`. 
-    mode : string
-        Specify whether to symmetrize using the `BgS` or the `IAS` term using
-        values 'bgs' and 'ias', respectively.  
+        term with spin half matrix element, i.e., either `BgS` or `IAS`.   
     H : list or numpy.ndarray
-        If mode='bgs' H must be a list of `2 \times 2` ndarrays corresponding
-        to the `BgS` spin Hamiltonian term; the order of the elements must match
-        the order of the B argument used to instantiate sh.  If mode = 'ias' H
-        must be a `2 (I + 1) \times 2` ndarray corresponding to the `IAS` spin
-        Hamiltonian term.
+        If term='bgs' H must be a list of `2 \times 2` ndarrays corresponding to
+        the `BgS` spin Hamiltonian term.  If term = 'ias' H must be a `2 (I + 1)
+        \times 2` ndarray corresponding to the `IAS` spin Hamiltonian term.
+    term : string
+        Specify whether to symmetrize using the `BgS` or the `IAS` term using
+        values 'bgs' and 'ias', respectively.
        
     Returns
     -------
     r : float
         The residue; calculated from the differences between the off diagonal
-        elements of the spin Hamiltonian tensor. 
+        elements of the spin Hamiltonian tensor.
     """
-    if sh.S != 1/2:
-            raise ValueError("su2_rz_lsq_f only supports SU(2) rotations; you "
-                    "provided a spin Hamiltonian that is not spin half.")
-    
-    if mode == 'bgs':
-        if isinstance(H, list):
-            H_current = []
-            for e in H:
-                H_current += [su2_rz(e, p[0])]
-        else:
-            raise ValueError("If mode = 'bgs' H must be a list.")
-    
-        sh.add_H_term('bgs', H_current)
-        tensor = sh.inv_term('bgs')
-    elif mode == 'ias':
-        if isinstance(H, numpy.ndarray):
-            H_current = su2_rz_ias(H, p[0])
-        else:
-            raise ValueError("If mode = 'ias' H must be a numpy.ndarray.")
-
-        sh.add_H_term('ias', H_current)
-        tensor = sh.inv_term('ias')
-    else:
-        raise ValueError("Invalid mode; allowed values are 'bgs' and 'ias'.")
+    sh.add_H_term(term, H_sh, phase=p[0])
+    tensor = sh.inv_term(term)
 
     sym_index = [(1, 3), (2, 6), (5, 7)]
     r = 0
     for i in sym_index:
         r += np.abs(tensor[i[0]] - tensor[i[1]])
-    
     return r
-
 
 def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     r"""
@@ -740,8 +714,9 @@ def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     spec : Spectrum
         Must have been instantiated with spin hamiltonian support.
     phi_p : complex, optional
-        Parameter `\phi`, typically from a previous evaluation, used to check
-        whether re-fitting is required; defaults to 0.
+        Parameter `\phi` from a previous evaluation; used to check whether
+        re-symmeterization is required and, if so, serves as the initial `\phi`
+        value.
     term : string, optional
         Either 'bgs', 'ias' or None; specifies which term, if any, to
         symmeterize spin-half matrix elements with.
@@ -751,7 +726,7 @@ def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     phi : complex 
         The parameter `\phi`.
     """
-    f_min = lambda p: su2_rz_lsq_f(p, sh, term, spec.sh_terms[term])
+    f_min = lambda p: su2_rz_lsq_f(p, sh, spec.sh_terms[term], term)
     if term == None:
         phi = 0
     elif np.abs(f_min([phi_p])) <= 10**(-10):
