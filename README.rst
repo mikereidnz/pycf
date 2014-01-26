@@ -12,7 +12,8 @@ Installation
 
 This package uses the standard python distribution utilities (distutils).  For a
 basic system wide installation fetch the binary from `downloads
-<https://bitbucket.org/sebastianhorvath/pycf/downloads/>`_ and run::
+<https://bitbucket.org/sebastianhorvath/pycf/downloads/>`_, unpack the archive,
+and run::
 
   $ python setup.py install
 
@@ -38,7 +39,7 @@ These should be available via the package manager on most modern linux distribut
   * `cython <http://cython.org/>`_
   * gcc 
 
-  PYTHONPATH
+PYTHONPATH
 ----------
 
 If you install to a non-standard location you need to ensure that the python
