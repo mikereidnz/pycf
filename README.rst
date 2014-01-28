@@ -11,9 +11,9 @@ Installation
 ============
 
 This package uses the standard python distribution utilities (distutils).  For a
-basic system wide installation fetch the binary from `downloads
-<https://bitbucket.org/sebastianhorvath/pycf/downloads/>`_, unpack the archive,
-and run::
+basic system wide installation fetch the binary (x86_64 Debian testing) from
+`downloads <https://bitbucket.org/sebastianhorvath/pycf/downloads/>`_, unpack
+the archive, and run::
 
   $ python setup.py install
 
@@ -34,17 +34,35 @@ pycf requires the following dependencies to run:
   * scipy
   * matplotlib (for plotting in example calculations)
 
-These should be available via the package manager on most modern linux distributions.  Furthermore, if you want to build pycf you require:
+These should be available via the package manager on most modern linux
+distributions.  Furthermore, if you want to build the optimized branch of pycf
+you require:
 
-  * `cython <http://cython.org/>`_
+  * `cython <http://cython.org/>`_ - C extensions for Python
+  * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
+    LAPACK
   * gcc 
+
+Compilation
+-----------
+
+The ``master`` branch does not contain any optimizations and can be run without
+compilation.  To build the ``opt`` branch run::
+
+  $ python setup.py build
+
+which creates a directory called build containing the package.  For testing it
+is useful to build in-place using::
+
+  $ python setup.py build_ext -i
+
+which places the extension module files into the ``pycf`` directory.
 
 PYTHONPATH
 ----------
 
 If you install to a non-standard location you need to ensure that the python
-dist-packages (some distributions call this site-packages) directory is part of
-the ``PYTHONPATH`` environment variable.
+site-packages directory is part of the ``PYTHONPATH`` environment variable.
 
 
 Running
