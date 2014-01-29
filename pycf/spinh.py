@@ -335,7 +335,7 @@ def invert_term(term, coeff_a):
     return(x)
 
 def su2_rz(m, p):
-    """
+    r"""
     Apply a rotation about the z-axis in the SU(2) matrix representation.
     
     Parameters
