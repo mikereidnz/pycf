@@ -30,6 +30,8 @@ from scipy.linalg import block_diag
 from scipy.optimize import minimize, basinhopping
 from matel import matel
 from pyemp import Spectrum
+from spinh_c import *
+
 
 def bgs(v, m, t):
     r"""
@@ -334,57 +336,6 @@ def invert_term(term, coeff_a):
 
     return(x)
 
-def su2_rz(m, p):
-    r"""
-    Apply a rotation about the z-axis in the SU(2) matrix representation.
-    
-    Parameters
-    ----------
-    m : ndarray
-        The `2 \times 2` SU(2) matrix. 
-    p : float
-        The phase `\phi` of an SU(2) rotation `\mathcal{D}_z(\phi)`.
-    
-    Returns
-    -------
-    mp : ndarry
-        The transformed `2 \times 2` matrix.
-    """
-    t = np.exp(np.complex(0,1)*p)
-    mp = np.array(m, dtype=np.complex)
-    # The rotation consists of a multiplication by t and t^* of the off-diagonal
-    # elements.
-    mp[0, 1] = m[0, 1] * t
-    mp[1, 0] = m[1, 0] * np.conj(t)
-    return(mp)
-
-
-def su2_rz_ias(m, p):
-    r"""
-    Apply a rotation about the z-axis of the spin-half matrix elements of a
-    magnetic dipole spin Hamiltonian term.
-
-    Parameters
-    ----------
-    m : ndarray
-        The `IAS` term of dimension `2 \times (I+1) \times 2` by `2 \times (I+1)
-        \times 2`.
-    p : float 
-        The phase `\phi` of an SU(2) rotation `\mathcal{D}_z(\phi)`.
-    
-    Returns
-    -------
-    mp : ndarray
-        The transformed `IAS` term. 
-    """
-    t = np.exp(np.complex(0,1)*p)
-    mp = np.array(m, dtype=np.complex)
-    # The rotation consists of a multiplication by t and t^* of the off-diagonal
-    # elements of the 2 by 2 spin-half blocks.
-    mp[0::2, 1::2] = m[0::2, 1::2] * t
-    mp[1::2, 0::2] = m[1::2, 0::2] * np.conj(t)
-    return(mp)
-
 
 class SpinHamiltonian(object):
     r""" 
@@ -666,67 +617,6 @@ class SpinHamiltonian(object):
         return(H)
 
 
-def su2_rz_lsq_f(p, sh, mode, H):
-    r"""
-    Helper function for least squares fitting of the SU(2) rotation required to
-    symmetrize spin Hamiltonian terms containing spin half matrix elements.
-
-    Parameters
-    ----------
-    p : float
-        The phase to be varied. 
-    sh : SpinHamiltonian
-        Must have been instantiated with the 'inv' = True kwarg and contain a
-        term with spin half matrix element, i.e., either `BgS` or `IAS`. 
-    mode : string
-        Specify whether to symmetrize using the `BgS` or the `IAS` term using
-        values 'bgs' and 'ias', respectively.  
-    H : list or numpy.ndarray
-        If mode='bgs' H must be a list of `2 \times 2` ndarrays corresponding
-        to the `BgS` spin Hamiltonian term; the order of the elements must match
-        the order of the B argument used to instantiate sh.  If mode = 'ias' H
-        must be a `2 (I + 1) \times 2` ndarray corresponding to the `IAS` spin
-        Hamiltonian term.
-       
-    Returns
-    -------
-    r : float
-        The residue; calculated from the differences between the off diagonal
-        elements of the spin Hamiltonian tensor. 
-    """
-    if sh.S != 1/2:
-            raise ValueError("su2_rz_lsq_f only supports SU(2) rotations; you "
-                    "provided a spin Hamiltonian that is not spin half.")
-    
-    if mode == 'bgs':
-        if isinstance(H, list):
-            H_current = []
-            for e in H:
-                H_current += [su2_rz(e, p[0])]
-        else:
-            raise ValueError("If mode = 'bgs' H must be a list.")
-    
-        sh.add_H_term('bgs', H_current)
-        tensor = sh.inv_term('bgs')
-    elif mode == 'ias':
-        if isinstance(H, numpy.ndarray):
-            H_current = su2_rz_ias(H, p[0])
-        else:
-            raise ValueError("If mode = 'ias' H must be a numpy.ndarray.")
-
-        sh.add_H_term('ias', H_current)
-        tensor = sh.inv_term('ias')
-    else:
-        raise ValueError("Invalid mode; allowed values are 'bgs' and 'ias'.")
-
-    sym_index = [(1, 3), (2, 6), (5, 7)]
-    r = 0
-    for i in sym_index:
-        r += np.abs(tensor[i[0]] - tensor[i[1]])
-    
-    return r
-
-
 def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     r"""
     Calculate the SU(2) `\mathcal{R}_z(\phi)` parameter `\phi` that symmeterizes
@@ -751,7 +641,7 @@ def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     phi : complex 
         The parameter `\phi`.
     """
-    f_min = lambda p: su2_rz_lsq_f(p, sh, term, spec.sh_terms[term])
+    f_min = lambda p: su2_rz_lsq_f(p, sh, spec.sh_terms[term], term)
     if term == None:
         phi = 0
     elif np.abs(f_min([phi_p])) <= 10**(-10):
@@ -768,7 +658,7 @@ def su2_rz_lsq(sh, spec, phi_p=0, term=None):
 
 class BHStep(object):
     r"""
-    Custom class for modifying basinhopping step size.
+    Custom basinhopping step size.
     """
     def __init__(self, stepsize=0.5):
         self.stepsize = np.array(stepsize)
@@ -783,8 +673,7 @@ class BHStep(object):
 
 class BHBounds(object):
     r"""
-    Custom class for modifying bounds on parameters to be varied using
-    basinhopping. 
+    Custom bounds on parameters to be varied using basinhopping.
     """
     def __init__(self, xmax, xmin):
         self.xmax = np.array(xmax)

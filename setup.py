@@ -4,8 +4,8 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
-ext = Extension('pycf.spinh', ['pycf/spinh.pyx'], 
-        libraries=['lapacke'])
+ext = Extension('pycf.spinh_c', ['pycf/spinh_c.pyx'], 
+        libraries=['lapacke'], include_dirs=['pycf'])
 
 setup(name='pycf',
       version='1.0',
