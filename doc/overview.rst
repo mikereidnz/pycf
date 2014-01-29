@@ -21,8 +21,9 @@ api references.
 
 Document outline
 ----------------
-The document is divided into three parts.  The first part consists two chapters
-containing tutorials for the use of :mod:`pyemp` and :mod:`spinh`.  The second
-part is the api reference generated from docstrings.  While the tutorials aim to
-give a good overview of the basic functions, the reference should be consulted
-for api details.  The third part contains miscellaneous notes.
+The document is divided into four parts.  The first part outlines how to install
+and compile pycf. The second part contains tutorial-style explanations of the
+provided example calculations.  The third part contains the api reference
+generated from docstrings.  While the examples aim to give a good overview of
+the basic functions, the api reference should be consulted for exhaustive
+implementation details.  The fourth part contains miscellaneous notes.
