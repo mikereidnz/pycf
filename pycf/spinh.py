@@ -360,7 +360,7 @@ def su2_rz(m, p):
 
 
 def su2_rz_ias(m, p):
-    """
+    r"""
     Apply a rotation about the z-axis of the spin-half matrix elements of a
     magnetic dipole spin Hamiltonian term.
 
@@ -667,7 +667,7 @@ class SpinHamiltonian(object):
 
 
 def su2_rz_lsq_f(p, sh, mode, H):
-    """
+    r"""
     Helper function for least squares fitting of the SU(2) rotation required to
     symmetrize spin Hamiltonian terms containing spin half matrix elements.
 
@@ -729,7 +729,7 @@ def su2_rz_lsq_f(p, sh, mode, H):
 
 def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     r"""
-    Calculate the SU(2) `\mathcal(R)_z(\phi)` parameter `\phi` that symmeterizes
+    Calculate the SU(2) `\mathcal{R}_z(\phi)` parameter `\phi` that symmeterizes
     the Zeeman and/or magentic dipole tensor of the provided
     :class:`SpinHamiltonian` object.
 
