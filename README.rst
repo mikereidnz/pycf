@@ -35,8 +35,8 @@ pycf requires the following dependencies to run:
   * matplotlib (for plotting in example calculations)
 
 These should be available via the package manager on most modern linux
-distributions.  Furthermore, if you want to build the optimized branch of pycf
-you require:
+distributions.  Furthermore, if you want to modify cython modules, such as
+``spinh_c``, you need:
 
   * `cython <http://cython.org/>`_ - C extensions for Python
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
@@ -46,17 +46,18 @@ you require:
 Compilation
 -----------
 
-The ``master`` branch does not contain any optimizations and can be run without
-compilation.  To build the ``opt`` branch run::
+If you want to modify cython modules, or want to compile the existing modules
+for a new target, use::
 
-  $ python setup.py build
+  $ python setup.py sdist
 
-which creates a directory called build containing the package.  For testing it
+which creates a ``tar.gz`` file in the ``dist`` directory.  For testing it
 is useful to build in-place using::
 
   $ python setup.py build_ext -i
 
-which places the extension module files into the ``pycf`` directory.
+which places the extension module files into the package source directory such
+that it can be directly imported by other modules.
 
 PYTHONPATH
 ----------
