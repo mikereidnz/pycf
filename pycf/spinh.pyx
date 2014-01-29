@@ -1,4 +1,4 @@
-# cython: profile=False
+# cython: profile=True
 # filename = spinh.pyx
 
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
@@ -33,11 +33,42 @@ from pyemp import Spectrum
 
 cimport numpy as np
 
-cdef extern from "complex.h":
-    cdef double complex conj(double complex z)
-    cdef double complex cexp(double complex z)
-    cdef double complex _Complex_I
+ctypedef np.int_t NPINT_t
+ctypedef np.float64_t NPFLOAT_t
+ctypedef np.complex128_t NPCOMPLEX_t
+ctypedef int integer
 
+cdef extern from "complex.h":
+    double complex conj(double complex z)
+    double complex cexp(double complex z)
+    double complex _Complex_I
+
+# Symmeterization of spin Hamiltonian tensors makes heavy use of QR
+# factorization; therefore, we use the zgels function from the C api of LAPACK
+# via cython. 
+cdef extern from "lapacke.h":
+    ctypedef long int lapack_int
+    lapack_int LAPACKE_zgels(lapack_int matrix_order, char trans, lapack_int m,
+            lapack_int n, lapack_int nrhs, complex* a, lapack_int lda, complex*
+            b, lapack_int ldb ) 
+    lapack_int LAPACK_COL_MAJOR
+
+cdef zgels(np.ndarray[NPCOMPLEX_t,ndim=2] A, np.ndarray[NPCOMPLEX_t,ndim=1] b):
+    cdef lapack_int m = A.shape[0]
+    cdef lapack_int n = A.shape[1]
+    cdef lapack_int nrhs = 1
+    cdef lapack_int lda = m
+    cdef lapack_int ldb = m
+    cdef lapack_int info
+    
+    # LAPACKE handles work space query and memory allocation.
+    info = LAPACKE_zgels(LAPACK_COL_MAJOR, 'N', m, n, nrhs, <complex*>A.data, lda,
+            <complex*>b.data, ldb)
+    
+    cdef lapack_int zero = 0
+    if info != zero:
+        raise RuntimeError("Non-zero info returned by ZGELS.")
+    return(b[:n])
 
 def bgs(v, m, t):
     r"""
@@ -658,9 +689,11 @@ class SpinHamiltonian(object):
                     ".  Have you run the 'add_H_term' method?".format(term))
         
 
-        # Use numpy's lstsq function, which wraps LAPACK's QR factorization, to
-        # solve the equation coeff_a * x = b for x.
-        return(np.real(LA.lstsq(coeff_a, b)[0]))
+        # Use LAPACK's QR factorization, to solve the equation coeff_a * x = b
+        # for x.
+        soln = zgels(np.asfortranarray(coeff_a, dtype=np.complex),
+                np.asfortranarray(b, dtype=np.complex))
+        return(np.real(soln))
 
     def get_H(self):
         r"""
