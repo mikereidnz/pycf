@@ -1,21 +1,15 @@
 #!/usr/bin/env python
 
+from __future__ import division
 import numpy as np 
-import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-
 from pycf.pyemp import *
 
-
-def hoSpectrum(iLevel, fLevel, filename, x, t, al, eqhyp):
-    """Spectrum parameters. Returns a dictionary that can be conveniently unpacked
-    and passed as kwargs to the Spectrum class. Function arguments are arbitrary 
-    and can be used to vary any of the below defined parameters."""  
-    spectrumData = {
-            'emproot': linuxemp,
-            'states': filename,
-            'tensors': filename,
+def spec_params(levels, x, al):
+    spectrum_data = {
+            'emproot': '/home/sph/local/linuxemp',
+            'states': 'hoc4v_i',
+            'tensors': 'hoc4v_i',
             'matel': 'hoc4vint_i',
             'addtensors':
             """addten MTOT M0 1 M2 0.56 M4 0.31
@@ -23,9 +17,12 @@ def hoSpectrum(iLevel, fLevel, filename, x, t, al, eqhyp):
                addten m111 mag10 0.2695 mag11 -0.190595+i0.190595
                addten m001 mag10 0.466860
                addten m100 mag11 0.330120
+               addten magx mag11   0.707106781186547
+               addten magy mag11 -i0.707106781186547
+               addten magz mag10 1
                addten al ahyp 1 bhyp -3.16227766""",
             'addassign':
-            """assign F2 94063 F4 66361 F6 51637
+            """assign F2 80063 F4 66361 F6 51637
                assign ALPHA 17.15 BETA -607.9 GAMMA 1800
                assign t2 400 t3 37 t4 105 t6 -264 t7 316 t8 336 
                assign ZETA 2142
@@ -36,15 +33,15 @@ def hoSpectrum(iLevel, fLevel, filename, x, t, al, eqhyp):
                assign c60   525 
                assign c64     9
                assign al {0}
-               assign eqhyp {1}""".format(al, eqhyp),
+               assign eqhyp 0.06""".format(al),
             'expparams':
             """exptval unweighted.exp weight
                delta c20 1 c40 1 c44 1 c60 1 c64 1
-               delta f2 1 f4 1 f6 1
+               delta f2 0.2 f4 1 f6 1
                delta zeta 1
                lsq 10""",
-            'levels': [iLevel[0], iLevel[1], fLevel[0], fLevel[1], iLevel[2], fLevel[2]],
-            'intenparams':
+            'levels': levels,
+            'edconstruct':
             """EDCONSTRUCT 9
                Ho ky3f10 hyperfine transitions
                A210  2 1 0 
@@ -69,43 +66,31 @@ def hoSpectrum(iLevel, fLevel, filename, x, t, al, eqhyp):
             'edipole': '1',
             'mdipole': '1',
             'plotargs': {'polarization': 'isotropic', 'lines': 'lines', 'linewidth':
-                    '0.05', 'temp': t, 'xrange': x}}
+                    '0.12', 'temp': 10, 'xrange': x}}
 
-    return spectrumData
+    return spectrum_data
 
 
-if __name__ == '__main__':
-    # set emproot path.
-    linuxemp = '/home/sph/local/linuxemp'
+# Specifying transition energy and level range for 5F5 -> 5I8.
+x = [15472.6, 15473.3]
+levels = ['1', '16', '537', '552', '5F5', '5I8']
 
-    # Specify the magnetic dipole and electric quadrupole moments.
-    #al = 0.037
-    eqhyp = 0.06
+# Nuclear magnetic dipole parameter.
+al = 0.038
+# Instantiate a spectrum object. 
+ho = Spectrum(name = 'ho', **spec_params(levels, x, al))
 
-    # Specify an  initial and some final levels.
-    iLevel = ['1', '16', '5I8']
-    
-    # 5I8 -> 3K8
-    x = [15472.6, 15473.3]
-    fLevel = ['537', '552', '5F5']
+# Run emp methods.
+cfit_obj = ho.cfit() 
+vtrans_obj = ho.vtrans()
+inten_obj = ho.inten()
+spectrum_data_obj = ho.spectrum_data()
 
-    
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    for i in range(10):
-        ky3f10 = Spectrum(name = 'ky3f10', **hoSpectrum(iLevel, fLevel, 'hoc4v_i', x, 10, 0.025 + i/500.0, eqhyp))
-    
-        ky3f10Cfit = Cfit(ky3f10)
-        ky3f10Vtrans = Vtrans(ky3f10)
-        ky3f10Inten = Inten(ky3f10)
-        ky3f10Spectrum = SpectrumErun(ky3f10, action = 'exec')     
-        al = 0.025 + i/500.0 * np.ones(len(ky3f10['curve_energies']))
-        ax.plot(ky3f10['curve_energies'], al, ky3f10['curve_inten'])
+# Plotting the spectrum.
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='spectrum')
+ax.spectrumplot(ho)
+ax.set_xlabel('Wavenumbers (cm${}^{-1}$)') 
+ax.grid(True)
 
-    ax.set_xlabel('Energy')
-    ax.set_ylabel('Magnetic dipole moment')
-    ax.set_zlabel('Isotropic')
-    
-    plt.show()
-    plt.savefig('ky3f10Spectrum3D.pdf',format='pdf')
-
+plt.show()
