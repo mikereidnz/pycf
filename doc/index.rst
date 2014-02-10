@@ -14,5 +14,6 @@ Welcome to pycf's documentation
   spinh
   reference
   gpc_installation
+  emp_lapack
   license
 
