@@ -453,14 +453,22 @@ class Cfit(GenericErun):
             data['energy'][0], data['energy'][1], data['var'], *data['range'])
         else:
             splitplot_input = ''
-                    
+        
         # If spinh input is provided, convert it, if necessary, to a list, then
-        # generate input file content for each element.
+        # generate input file content for each element in addition to the
+        # expthelp input. 
         if spectrum['spinh'] != None:
             if not isinstance(spectrum['spinh'], list):
                 spectrum['spinh'] = [spectrum['spinh']]
-            spinh_input = ""
-            self.sh_terms = [[]]*len(spectrum['spinh'])
+            spinh_input = """*% Energy levels
+                          expthelp {0}_spinh.hlp
+                          {0} energy levels \n
+                          """.format(spectrum.name)
+            n_sh = len(spectrum['spinh'])
+            self.sh_terms = [None]*n_sh
+            u = [None]*n_sh
+            l = [None]*n_sh
+            d_sh = [None]*n_sh
             for sh_i,sh_args in enumerate(spectrum['spinh']):
                 # Get spin Hamiltonian parameters and generate cfit input
                 # strings.  We add a sh_terms list to the cfit object, which
@@ -473,13 +481,15 @@ class Cfit(GenericErun):
                 if 'bgs' in sh_args['terms']:
                     bgs = "magz magx magy"
                     self.sh_terms[sh_i] = ['bgsz', 'bgsx', 'bgsy']
-                    # Empty mag, since we leave values set using addassign.
-                    mag = ["", "", ""]
                 else:
                     bgs = "magz"
                     self.sh_terms[sh_i] = ['bgsz']
                     # Turn on small mag to determine electronic spin label. 
-                    mag = ['magx 0', 'magy 0', 'magz 0.001']
+                    spinh_input +="""*% Small magz to order S label.
+                                  {0} 
+                                  {1}
+                                  {2}
+                                  diag""".format('magx 0','magy 0','magz 0.001')
                 if 'ias' in sh_args['terms']:
                     ias = "al"
                     self.sh_terms[sh_i] += ['ias']
@@ -492,24 +502,18 @@ class Cfit(GenericErun):
                     iqi = ""
                 # Get lower and upper levels.
                 try:
-                    (l, u) = sh_args['levels']
-                    # Spin Hamiltonian dimension.
-                    d_sh = u - l + 1
+                    (l[sh_i], u[sh_i]) = sh_args['levels']
                 except KeyError:
                     raise ValueError("The spinh dictionary of {} is missing the"
                             " levels tupple".format(self.name))
-                
-                spinh_input += """*% Energy levels
-                               expthelp {0}_spinh-{1}.hlp
-                               {0} energy levels \n
-                               {7} 
-                               {8}
-                               {9}
-                               *% Spin Hamiltonian input
+                # Spin Hamiltonian dimension.
+                d_sh[sh_i] = u[sh_i] - l[sh_i] + 1
+                                 
+                spinh_input += """*% Spin Hamiltonian input
                                spinh {0}_spinh-{1}.out {2} {3} {4} {5} {6}
                                Spin Hamiltonian for {0} \n
-                               """.format(spectrum.name, sh_i, l, u, bgs, ias,
-                                       iqi, *mag)
+                               """.format(spectrum.name, sh_i, l[sh_i], u[sh_i],
+                                       bgs, ias, iqi)
         else:
             spinh_input = ""
         
@@ -525,44 +529,46 @@ class Cfit(GenericErun):
         
         # Parse the input for each spinh list entry.
         if spectrum['spinh'] != None:
+            # Match energy level data from expthelp file; regex depends on
+            # whether the nuclear spin label is present.
+            if 'assign al' in spectrum['addassign'] or \
+                    'assign eqhyp' in spectrum['addassign']:
+                r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)[^[]+\[[^,]+,\s+([\d-]+)'
+                f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
+                match = re.findall(r, f.read())
+                f.close()
+                energies = np.array([m[2] for m in match], dtype=float)
+                b_l = np.array([m[0:2] for m in match], dtype=int)
+                Iz = np.array([m[3] for m in match], dtype = int)
+
+            else:
+                r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)'
+                f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
+                match = re.findall(r, f.read())
+                f.close()
+                energies = np.array([m[2] for m in match], dtype=float)
+                b_l = np.array([m[0:2] for m in match], dtype=int)
+                Iz = 0
+            
+            spectrum.sh_energies = energies
+            spectrum.sh_b_l = b_l
             spectrum.sh_terms = []
-            spectrum.sh_energies = []
-            spectrum.sh_b_l = []
-            for i,e in enumerate(spectrum['spinh']):
+
+            for sh_i in range(n_sh):
                 # Generate and match regex for the given spin Hamiltonian
                 # dimension.
-                r = r'\s+([\d.e+-]+)\s+([\d.e+-]+)' * d_sh
+                r = r'\s+([\d.e+-]+)\s+([\d.e+-]+)' * d_sh[sh_i]
                 f = open('{0}_spinh-{1}.out'.format(spectrum.name, sh_i), 'r')
                 data = np.array(re.findall(r, f.read()), dtype = float)
                 f.close()
                 
-                # Match energy level data from expthelp file; regex depends on
-                # whether the nuclear spin label is present.
-                if 'ias' in sh_args['terms'] or 'iqi' in sh_args['terms']:
-                    r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)[^[]+\[[^,]+,\s+([\d-]+)'
-                    f = open('{0}_spinh-{1}.hlp'.format(spectrum.name, sh_i),
-                            'r')
-                    match = re.findall(r, f.read())
-                    f.close()
-                    energies = np.array([m[2] for m in match], dtype=float)
-                    b_l = np.array([m[0:2] for m in match], dtype=int)
-                    Iz = np.array([m[3] for m in match], dtype = int)
-
-                    # Calculate list that orders energy levels delimited by l
-                    # and u from largest to smallest I_z. 
-                    Iz_sort = np.argsort(Iz[l-1:u])[::-1]
+                # Calculate list that orders energy levels delimited by l and u
+                # from largest to smallest I_z. 
+                if Iz != 0:
+                    Iz_sort = np.argsort(Iz[l[sh_i]-1:u[sh_i]])[::-1]
                 else:
-                    r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)'
-                    f = open('{0}_spinh-{1}.hlp'.format(spectrum.name, sh_i),
-                            'r')
-                    match = re.findall(r, f.read())
-                    f.close()
-                    energies = np.array([m[2] for m in match], dtype=float)
-                    b_l = np.array([m[0:2] for m in match], dtype=int)
-
                     # No I_z label, so create identity sorting list.
-                    Iz = 0
-                    Iz_sort = np.arange(u-l + 1)
+                    Iz_sort = np.arange(u[sh_i]-l[sh_i] + 1)
 
                 # Data is split into even and odd columns (real and imag), and
                 # assigned to complex valued parsed_data.  parsed_data is then
@@ -571,12 +577,10 @@ class Cfit(GenericErun):
                 sh_terms = {}
                 B = {}
                 parsed_data = data[:, 0::2] + np.complex(0,1) * data[:, 1::2]
-                #print(self.sh_terms[sh_i])
                 for i,t in enumerate(self.sh_terms[sh_i]):
-                    t_i = i * d_sh
-                    term_data = parsed_data[t_i:t_i + d_sh, 0:d_sh]
+                    t_i = i * d_sh[sh_i]
+                    term_data = parsed_data[t_i:t_i + d_sh[sh_i], 0:d_sh[sh_i]]
                     if t in ['bgsz', 'bgsx', 'bgsy']:
-                #        print(B)
                         B[t] = term_data[Iz_sort][:,Iz_sort]
                     else:
                         sh_terms[t] = term_data[Iz_sort][:,Iz_sort]
@@ -585,7 +589,7 @@ class Cfit(GenericErun):
                 # largest to smallest.  We step through magz data in 2*Sz+1 by
                 # 2*Sz+1 blocks and sort by diagonal values.
                 d_Iz = np.max(Iz) + 1
-                d_Sz = (u-l+1)/d_Iz
+                d_Sz = (u[sh_i]-l[sh_i]+1)/d_Iz
                 Sz_sort = np.array([], dtype = int)
                 for n in np.arange(0, d_Sz*d_Iz, d_Sz):
                     Sz_sort = np.append(Sz_sort,
@@ -602,9 +606,6 @@ class Cfit(GenericErun):
                     sh_terms['bgs'] = [B['bgsx'], B['bgsy'], B['bgsz']]
                 
                 spectrum.sh_terms += [sh_terms]
-                spectrum.sh_energies += [energies]
-                spectrum.sh_b_l += [b_l]
-
 
 
 class Vtrans(GenericErun):
