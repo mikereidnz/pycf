@@ -28,7 +28,7 @@ To manually specify the installation prefix use::
   $ python setup.py install --prefix=/path/to/dir
 
 If you install to a non-standard location you need to ensure that the python
-site-packages directory is part of the ``PYTHONPATH`` environment variable.
+``dist-packages`` directory is part of the ``PYTHONPATH`` environment variable.
 
 For further installation options see::
 
@@ -49,11 +49,11 @@ pycf has the following dependencies:
   * gcc 
 
 These should be available via the package manager on most linux distributions.
-If you compile any of these packages from source you must ensure that liblapack,
-libblas, and libgfortran are available to the linker when pycf is installed.
-The location of these can be specified manually by editing the ``setup.py``
-file.  Additionally, since cython compiles c modules as shared objects, all
-linked objects must be compiled as position independent code. 
+If you compile LAPACKE from source you must ensure that liblapack, libblas, and
+libgfortran are available to the linker when pycf is installed.  The location of
+these can be specified manually by editing the ``setup.py`` file.  Additionally,
+since cython compiles c modules as shared objects, all linked objects must be
+compiled as position independent code. 
 
 
 Development
@@ -77,6 +77,7 @@ Running
 =======
 
 To get an idea of how to do various calculations with pycf have a look at the
-``examples`` directory. 
+`manual <https://bitbucket.org/sebastianhorvath/pycf/downloads/pycf.pdf>`_,
+along with the files provided in the ``pycf/examples`` directory.
 
 
