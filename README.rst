@@ -10,44 +10,57 @@ Spin Hamiltonian calculations are done with the spinh module.
 Installation
 ============
 
-This package uses the standard python distribution utilities (distutils).  For a
-basic system wide installation fetch the binary (x86_64 Debian testing) from
-`downloads <https://bitbucket.org/sebastianhorvath/pycf/downloads/>`_, unpack
-the archive, and run::
+This package uses the standard python distribution utilities (distutils).
+Before installation, ensure that all the listed `Dependencies`_ are satisfied.
+Then fetch the archive from  `downloads
+<https://bitbucket.org/sebastianhorvath/pycf/downloads/>`_, extract it, and
+run::
 
   $ python setup.py install
+
+This will automatically build all cython modules and install pycf in your
+``dist-packages`` directory.  The provided ``setup.py`` file should work without
+modification on Debian testing, but may require adaptation for different
+distributions. 
+
+To manually specify the installation prefix use::
+
+  $ python setup.py install --prefix=/path/to/dir
+
+If you install to a non-standard location you need to ensure that the python
+site-packages directory is part of the ``PYTHONPATH`` environment variable.
 
 For further installation options see::
 
   $ python setup.py --help
 
-For example, to install to a non-standard directory use::
-
-  $ python setup.py install --prefix=/path/to/dir
 
 Dependencies
 ------------
 
-pycf requires the following dependencies to run:
+pycf has the following dependencies:
 
   * numpy
-  * scipy
+  * scipy (>= 0.12.0)
   * matplotlib (for plotting in example calculations)
-
-These should be available via the package manager on most modern linux
-distributions.  Furthermore, if you want to modify cython modules, such as
-``spinh_c``, you need:
-
   * `cython <http://cython.org/>`_ - C extensions for Python
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
     LAPACK
   * gcc 
 
-Compilation
+These should be available via the package manager on most linux distributions.
+If you compile any of these packages from source you must ensure that liblapack,
+libblas, and libgfortran are available to the linker when pycf is installed.
+The location of these can be specified manually by editing the ``setup.py``
+file.  Additionally, since cython compiles c modules as shared objects, all
+linked objects must be compiled as position independent code. 
+
+
+Development
 -----------
 
-If you want to modify cython modules, or want to compile the existing modules
-for a new target, use::
+If you want to modify pycf and redistribute it you can create a new archive
+using the command::
 
   $ python setup.py sdist
 
@@ -56,14 +69,8 @@ is useful to build in-place using::
 
   $ python setup.py build_ext -i
 
-which places the extension module files into the package source directory such
+This places the extension module files into the package source directory such
 that it can be directly imported by other modules.
-
-PYTHONPATH
-----------
-
-If you install to a non-standard location you need to ensure that the python
-site-packages directory is part of the ``PYTHONPATH`` environment variable.
 
 
 Running

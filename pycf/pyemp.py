@@ -72,9 +72,9 @@ class Spectrum(dict):
         If specified, :class:`Cfit` will generate and parse splitplot data.
         Required keys are ``energy``, ``var`` and ``range``; see the
         :func:`SpectrumAxes.splitplot` method for further details.
-    spinh : dictionary, optional
+    spinh : dictionary, or list of dictionaries, optional
         If specified, :class:`Cfit` will generate and parse spin Hamiltonian
-        data.  Required keys are
+        data.  Required dictionary keys are
 
             - ``terms``, a list of strings with possible values of 'bgs', 'ias'
               and 'iqi', which enable, respectively, Zeeman interactions,
@@ -82,6 +82,9 @@ class Spectrum(dict):
               hyperfine interactions;
             - ``levels``, a tuple of integers specifying the lower and upper
               energy levels for which to generate the spin Hamiltonian.
+
+        If the argument is a list of dictonaries then spin Hamiltonian data will
+        be generated for each element. 
 
     edconstruct : string
         String using the vtrans EDCONSTRUCT input syntax to use transformed
@@ -124,17 +127,20 @@ class Spectrum(dict):
     The following list details attributes of Spectrum objects that need to be
     called explicitly for certain applications.
 
-    sh_terms : dictionary
-        Spin Hamiltonian data, set by :class:`Cfit` if the provided Spectrum
-        object was instantiated with the ``spinh`` kwarg.  Keys correspond to
-        the ``terms`` specified by ``spinh`` kwarg and values are the respective
-        spin Hamiltonian terms.  For the term ``bgs`` this is a list of three
-        terms for a magnetic field along 'x', 'y' and 'z', respectively.
-    sh_energies : np.ndarray
-        Spin Hamiltonian energy level data read from expthelp file, intended for
-        use with :func:`spinhamiltonian.sh_lsq_func`.
-    sh_b_l : np.darray
-        Spin Hamiltonian block and level numbers.
+    sh_terms : list
+        Elements are dictionaries containing spin Hamiltonian data, set by
+        :class:`Cfit` if the provided Spectrum object was instantiated with the
+        ``spinh`` kwarg.  Keys correspond to the ``terms`` specified by
+        ``spinh`` kwarg and values are the respective spin Hamiltonian terms.
+        For the term ``bgs`` this is a list of three terms for a magnetic field
+        along 'x', 'y' and 'z', respectively.
+    sh_energies : list
+        Elements are np.ndarrays containing spin Hamiltonian energy level data
+        read from expthelp files, intended for use with
+        :func:`spinhamiltonian.sh_lsq_func`.
+    sh_b_l : list
+        Elements are np.ndarrays containing spin Hamiltonian block and level
+        numbers.
     line_energies : np.ndarray
         Set by :class:`SpectrumData` or :class:`SpectrumErun`; energy data for
         individual transitions in wavenumbers, useful for scripting plotting
@@ -435,7 +441,8 @@ class Cfit(GenericErun):
                     \n\n""".format(spectrum['states'], spectrum['tensors'],
                             spectrum['addtensors'], spectrum['addassign'],
                             spectrum['expparams'], spectrum.name)
-
+        
+        
         # Check whether splitplot input has been provided; if so, append
         # relevant commands to input.
         if spectrum['splitplot'] != None:
@@ -446,59 +453,67 @@ class Cfit(GenericErun):
             data['energy'][0], data['energy'][1], data['var'], *data['range'])
         else:
             splitplot_input = ''
-
-        # Check whether spinh input has been provided. 
+        
+        # If spinh input is provided, convert it, if necessary, to a list, then
+        # generate input file content for each element in addition to the
+        # expthelp input. 
         if spectrum['spinh'] != None:
-            spinh_input = ""
-            sh_args = spectrum['spinh']
-            # Get spin Hamiltonian parameters and generate cfit input strings.
-            # We add a sh_terms list to the cfit object, which lists all enabled
-            # terms in the canonical order.
-            if any(t not in ['bgs', 'ias', 'iqi'] for t in sh_args['terms']):
-                raise ValueError("Invalid entry in terms list; valid entries "
-                "are 'bgs', 'ias' and 'iqi'.")
-
-            self.sh_terms = []
-            # Zeeman term.
-            if 'bgs' in sh_args['terms']:
-                bgs = "magz magx magy"
-                self.sh_terms += ['bgsz', 'bgsx', 'bgsy']
-                # Empty mag, since we leave values set using addassign.
-                mag = ["", "", ""]
-            else:
-                bgs = "magz"
-                self.sh_terms += ['bgsz']
-                # Turn on small mag to determine electronic spin label. 
-                mag = ['magx 0', 'magy 0', 'magz 0.001']
-            if 'ias' in sh_args['terms']:
-                ias = "al"
-                self.sh_terms += ['ias']
-            else:
-                ias = ""
-            if 'iqi' in sh_args['terms']:
-                iqi = "eqhyp"
-                self.sh_terms += ['iqi']
-            else:
-                iqi = ""
-            # Get lower and upper levels.
-            try:
-                (l, u) = sh_args['levels']
-                # Spin Hamiltonian dimension.
-                d_sh = u - l + 1
-            except KeyError:
-                raise ValueError("The spinh dictionary of {} is missing the "
-                        "levels tupple".format(self.name))
-
+            if not isinstance(spectrum['spinh'], list):
+                spectrum['spinh'] = [spectrum['spinh']]
             spinh_input = """*% Energy levels
-                            expthelp {0}_spinh.hlp
-                            {0} energy levels \n
-                            {6} 
-                            {7}
-                            {8}
-                            *% Spin Hamiltonian input
-                            spinh {0}_spinh.out {1} {2} {3} {4} {5}
-                            Spin Hamiltonian for {0} \n
-                         """.format(spectrum.name, l, u, bgs, ias, iqi, *mag)
+                          expthelp {0}_spinh.hlp
+                          {0} energy levels \n
+                          """.format(spectrum.name)
+            n_sh = len(spectrum['spinh'])
+            self.sh_terms = [None]*n_sh
+            u = [None]*n_sh
+            l = [None]*n_sh
+            d_sh = [None]*n_sh
+            for sh_i,sh_args in enumerate(spectrum['spinh']):
+                # Get spin Hamiltonian parameters and generate cfit input
+                # strings.  We add a sh_terms list to the cfit object, which
+                # lists all enabled terms in the canonical order.
+                if any(t not in ['bgs','ias','iqi'] for t in sh_args['terms']):
+                    raise ValueError("Invalid entry in terms list; valid "
+                            "entries are 'bgs', 'ias' and 'iqi'.")
+    
+                # Zeeman term.
+                if 'bgs' in sh_args['terms']:
+                    bgs = "magz magx magy"
+                    self.sh_terms[sh_i] = ['bgsz', 'bgsx', 'bgsy']
+                else:
+                    bgs = "magz"
+                    self.sh_terms[sh_i] = ['bgsz']
+                    # Turn on small mag to determine electronic spin label. 
+                    spinh_input +="""*% Small magz to order S label.
+                                  {0} 
+                                  {1}
+                                  {2}
+                                  diag""".format('magx 0','magy 0','magz 0.001')
+                if 'ias' in sh_args['terms']:
+                    ias = "al"
+                    self.sh_terms[sh_i] += ['ias']
+                else:
+                    ias = ""
+                if 'iqi' in sh_args['terms']:
+                    iqi = "eqhyp"
+                    self.sh_terms[sh_i] += ['iqi']
+                else:
+                    iqi = ""
+                # Get lower and upper levels.
+                try:
+                    (l[sh_i], u[sh_i]) = sh_args['levels']
+                except KeyError:
+                    raise ValueError("The spinh dictionary of {} is missing the"
+                            " levels tupple".format(self.name))
+                # Spin Hamiltonian dimension.
+                d_sh[sh_i] = u[sh_i] - l[sh_i] + 1
+                                 
+                spinh_input += """*% Spin Hamiltonian input
+                               spinh {0}_spinh-{1}.out {2} {3} {4} {5} {6}
+                               Spin Hamiltonian for {0} \n
+                               """.format(spectrum.name, sh_i, l[sh_i], u[sh_i],
+                                       bgs, ias, iqi)
         else:
             spinh_input = ""
         
@@ -511,17 +526,13 @@ class Cfit(GenericErun):
         if spectrum['splitplot'] != None:
             spectrum.splitplotdata = np.loadtxt('{0}_split.dat'.format(
                 spectrum.name), skiprows = 4)
-
+        
+        # Parse the input for each spinh list entry.
         if spectrum['spinh'] != None:
-            # Generate and match regex for the given spin Hamiltonian dimension.
-            r = r'\s+([\d.e+-]+)\s+([\d.e+-]+)' * d_sh
-            f = open('{0}_spinh.out'.format(spectrum.name), 'r')
-            data = np.array(re.findall(r, f.read()), dtype = float)
-            f.close()
-            
             # Match energy level data from expthelp file; regex depends on
             # whether the nuclear spin label is present.
-            if 'ias' in sh_args['terms'] or 'iqi' in sh_args['terms']:
+            if 'assign al' in spectrum['addassign'] or \
+                    'assign eqhyp' in spectrum['addassign']:
                 r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)[^[]+\[[^,]+,\s+([\d-]+)'
                 f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
                 match = re.findall(r, f.read())
@@ -530,9 +541,6 @@ class Cfit(GenericErun):
                 b_l = np.array([m[0:2] for m in match], dtype=int)
                 Iz = np.array([m[3] for m in match], dtype = int)
 
-                # Calculate list that orders energy levels delimited by l and u
-                # from largest to smallest I_z. 
-                Iz_sort = np.argsort(Iz[l-1:u])[::-1]
             else:
                 r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)'
                 f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
@@ -540,47 +548,64 @@ class Cfit(GenericErun):
                 f.close()
                 energies = np.array([m[2] for m in match], dtype=float)
                 b_l = np.array([m[0:2] for m in match], dtype=int)
-
-                # No I_z label, so create identity sorting list.
                 Iz = 0
-                Iz_sort = np.arange(u-l + 1)
-
-            # Data is split into even and odd columns (real and imag), and
-            # assigned to complex valued parsed_data.  parsed_data is then split
-            # into the different spin Hamiltonian terms and sorted by I_z.
-            sh_terms = {}
-            B = {}
-            parsed_data = data[:, 0::2] + np.complex(0,1) * data[:, 1::2]
-            for i,t in enumerate(self.sh_terms):
-                t_i = i * d_sh
-                term_data = parsed_data[t_i:t_i + d_sh, 0:d_sh]
-                if t in ['bgsz', 'bgsx', 'bgsy']:
-                    B[t] = term_data[Iz_sort][:,Iz_sort]
-                else:
-                    sh_terms[t] = term_data[Iz_sort][:,Iz_sort]
-
-            # Sort energy level blocks of equivalent Iz w.r.t. Sz, from largest
-            # to smallest.  We step through magz data in 2*Sz+1 by 2*Sz+1 blocks
-            # and sort by diagonal values.
-            d_Iz = np.max(Iz) + 1
-            d_Sz = (u-l+1)/d_Iz
-            Sz_sort = np.array([], dtype = int)
-            for n in np.arange(0, d_Sz*d_Iz, d_Sz):
-                Sz_sort = np.append(Sz_sort,
-                    np.argsort(np.diag(B['bgsz'][n:n+d_Sz, n:n+d_Sz]))[::-1]+n)
-            for t in self.sh_terms:
-                if t in ['bgsz', 'bgsx', 'bgsy']:
-                    B[t] = B[t][Sz_sort][:, Sz_sort]
-                else:
-                    sh_terms[t] = sh_terms[t][Sz_sort][:, Sz_sort]
-                
-            if len(B) == 3:
-                # Return list in order x, y, z. 
-                sh_terms['bgs'] = [B['bgsx'], B['bgsy'], B['bgsz']]
-
-            spectrum.sh_terms = sh_terms
+            
             spectrum.sh_energies = energies
             spectrum.sh_b_l = b_l
+            spectrum.sh_terms = []
+
+            for sh_i in range(n_sh):
+                # Generate and match regex for the given spin Hamiltonian
+                # dimension.
+                r = r'\s+([\d.e+-]+)\s+([\d.e+-]+)' * d_sh[sh_i]
+                f = open('{0}_spinh-{1}.out'.format(spectrum.name, sh_i), 'r')
+                data = np.array(re.findall(r, f.read()), dtype = float)
+                f.close()
+                
+                # Calculate list that orders energy levels delimited by l and u
+                # from largest to smallest I_z. 
+                if Iz != 0:
+                    Iz_sort = np.argsort(Iz[l[sh_i]-1:u[sh_i]])[::-1]
+                else:
+                    # No I_z label, so create identity sorting list.
+                    Iz_sort = np.arange(u[sh_i]-l[sh_i] + 1)
+
+                # Data is split into even and odd columns (real and imag), and
+                # assigned to complex valued parsed_data.  parsed_data is then
+                # split into the different spin Hamiltonian terms and sorted by
+                # I_z.
+                sh_terms = {}
+                B = {}
+                parsed_data = data[:, 0::2] + np.complex(0,1) * data[:, 1::2]
+                for i,t in enumerate(self.sh_terms[sh_i]):
+                    t_i = i * d_sh[sh_i]
+                    term_data = parsed_data[t_i:t_i + d_sh[sh_i], 0:d_sh[sh_i]]
+                    if t in ['bgsz', 'bgsx', 'bgsy']:
+                        B[t] = term_data[Iz_sort][:,Iz_sort]
+                    else:
+                        sh_terms[t] = term_data[Iz_sort][:,Iz_sort]
+
+                # Sort energy level blocks of equivalent Iz w.r.t. Sz, from
+                # largest to smallest.  We step through magz data in 2*Sz+1 by
+                # 2*Sz+1 blocks and sort by diagonal values.
+                d_Iz = np.max(Iz) + 1
+                d_Sz = (u[sh_i]-l[sh_i]+1)/d_Iz
+                Sz_sort = np.array([], dtype = int)
+                for n in np.arange(0, d_Sz*d_Iz, d_Sz):
+                    Sz_sort = np.append(Sz_sort,
+                            np.argsort(np.diag(B['bgsz'][n:n+d_Sz,
+                            n:n+d_Sz]))[::-1]+n)
+                for t in self.sh_terms[sh_i]:
+                    if t in ['bgsz', 'bgsx', 'bgsy']:
+                        B[t] = B[t][Sz_sort][:, Sz_sort]
+                    else:
+                        sh_terms[t] = sh_terms[t][Sz_sort][:, Sz_sort]
+                    
+                if len(B) == 3:
+                    # Return list in order x, y, z. 
+                    sh_terms['bgs'] = [B['bgsx'], B['bgsy'], B['bgsz']]
+                
+                spectrum.sh_terms += [sh_terms]
 
 
 class Vtrans(GenericErun):

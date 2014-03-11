@@ -617,7 +617,7 @@ class SpinHamiltonian(object):
         return(H)
 
 
-def su2_rz_lsq(sh, spec, phi_p=0, term=None):
+def su2_rz_lsq(sh, spec, n_sh=0, phi_p=0, term=None):
     r"""
     Calculate the SU(2) `\mathcal{R}_z(\phi)` parameter `\phi` that symmeterizes
     the Zeeman and/or magentic dipole tensor of the provided
@@ -627,6 +627,8 @@ def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     ----------
     sh : SpinHamiltonian
         Must have been instantiated with the inv='true' argument.
+    n_sh : integer, optional
+        The spin Hamiltonian list index; defaults to zero.
     spec : Spectrum
         Must have been instantiated with spin hamiltonian support.
     phi_p : complex, optional
@@ -641,7 +643,7 @@ def su2_rz_lsq(sh, spec, phi_p=0, term=None):
     phi : complex 
         The parameter `\phi`.
     """
-    f_min = lambda p: su2_rz_lsq_f(p, sh, spec.sh_terms[term], term)
+    f_min = lambda p: su2_rz_lsq_f(p, sh, spec.sh_terms[n_sh][term], term)
     if term == None:
         phi = 0
     elif np.abs(f_min([phi_p])) <= 10**(-10):
@@ -703,15 +705,23 @@ class SHFit(object):
         Initial values for the parameters to be fit; the order of elements is
         determined by spec_f. 
     data_exp : dictionary
-        Valid keys are 'bgs', 'ias', 'iqi' and 'e'.  Spin Hamiltonian tensors
-        are `3 \times 3` ndarrays and each term specified when the to be fit
-        SpinHamiltonian object was instantiated must have a corresponding
-        experimental tensor specified here.  'e' is optional and corresponds to
-        an `3 \times n` ndarray of experimental block, level and energy data.
+        Valid keys are 'sh' and 'e'.  The value of 'sh' is a list containing
+        dictionaries with possible keys of 'bgs', 'ias', and 'iqi', with each
+        dictionary corresponding to a distinct spin Hamiltonian.  The order of
+        dictionaries must match the order of the levels specfied by the 'spinh'
+        kwarg of the provided spec_f.  Spin Hamiltonian tensors are `3 \times 3`
+        ndarrays and each term specified when the to be fit SpinHamiltonian
+        object was instantiated must have a corresponding experimental tensor
+        specified here.  'e' is optional and corresponds to an `3 \times n`
+        ndarray of experimental block, level and energy data.
     weights : dictionary, optional
-        Allowed keys are 'bgs', 'ias', 'iqi' and 'e'; these values correspond,
-        respectively, to the weighting used in the least squares fit for the
-        experimental values of `g`, `A`, `Q` and the energy levels.
+        Valid keys are 'sh' and 'e'.  The value of 'sh' is a list containing
+        dictionaries with possible keys of 'bgs', 'ias', 'iqi'; these values
+        correspond, respectively, to the weighting used in the least squares fit
+        for the experimental values of `g`, `A`, and `Q`.  The order of
+        dictionaries must match the order of the levels specfied by the 'spinh'
+        kwarg of the provided spec_f.  The value of 'e' specifies the energy
+        level weighting.
     niter : integer, optional
         The number of basin hopping iterations.
     step : list, optional
@@ -728,43 +738,77 @@ class SHFit(object):
     """
     def __init__(self, sh, spec_f, p0, data_exp, weights=None, niter=50,
             step=None, bounds=None):
-        self.sh = sh
+        if isinstance(sh, list):
+            self.sh = sh
+            self.n_sh = len(sh)
+        else:
+            self.sh = [sh]
+            self.n_sh = 1
+        
+        if not isinstance(data_exp['sh'], list):
+            data_exp['sh'] = [data_exp['sh']]
+        self.data_exp = data_exp
+        
+        if len(self.data_exp['sh']) != self.n_sh:
+            raise ValueError("data_exp must either be a single element if sh is"
+                    " a single element, or a list of length equivalent to the "
+                    "sh list length.")
+        elif isinstance(weights['sh'], list):
+            if len(weights['sh']) != self.n_sh:
+                raise ValueError("The length of the weights list does not match"
+                        " the number of provided spin Hamiltonians.")
+
         self.spec_f = spec_f
         self.p0 = p0
         self.data_exp = data_exp
         spec = Spectrum(name = 'sh_lsq', **spec_f(p0))
         spec.cfit()
         
-        # Reshape since least squares implementation requires column data.
-        self.sh_exp = [data_exp[t].reshape(1, 9) for t in sh.t_list]
+        self.sh_exp = [None]*self.n_sh
+        self.scaled_w = {'sh':[None]*self.n_sh}
+
+        for i,sh in enumerate(self.sh):
+            # Reshape since least squares implementation requires column data.
+            self.sh_exp[i] = [data_exp['sh'][i][t].reshape(1,9) for t in
+                    sh.t_list]
+            # We calculate the weighting scaled by the experimental magnitude.
+            scaled_w = {}
+            if weights != None:
+                for t in data_exp['sh'][i]:
+                    try:
+                        scaled_w[t] = weights['sh'][i][t]/np.sum(data_exp['sh'][i][t])
+                    except KeyError:
+                        raise ValueError("If the weights dictionary is "
+                                "specified a value must be provided for each "
+                                "term in data_exp.")
+            else:
+                for key in data_exp:
+                    scaled_w[key] = 1
+            self.scaled_w['sh'][i] = scaled_w
+
+            if weights != None:
+                try:
+                    self.scaled_w['e'] = weights['e']/np.sum(data_exp['e'])
+                except KeyError:
+                    raise ValueError("If the weights dictionary is specified a "
+                            "value must be provided for each term in data_exp.")
+            
+            # Determine which term should be used to symmeterize spin-half
+            # matrix elements. 
+            self.sym_term = [None]*self.n_sh
+            self.phi = [0]*self.n_sh
+            if 'bgs' in sh.t_list:
+                self.sym_term[i] = 'bgs'
+            elif 'ias' in sh.t_list:
+                self.sym_term[i] = 'ias'
+            else:
+                self.sym_term[i] = None
+
         if 'e' in data_exp:
             self.ble_exp = data_exp['e']
         else:
             self.ble_exp = np.zeros((0, 3))
         
-        # We calculate the weighting scaled by the experimental magnitude.
-        self.scaled_w = {}
-        if weights != None:
-            for key in data_exp:
-                try:
-                    self.scaled_w[key] = weights[key]/np.sum(data_exp[key])
-                except KeyError:
-                    raise ValueError("If the weights dictionary is specified a "
-                            "value must be provided for each term in data_exp.")
-        else:
-            for key in data_exp:
-                self.scaled_w[key] = 1
-        
-        # Determine which term should be used to symmeterize spin-half matrix
-        # elements. 
-        if 'bgs' in sh.t_list:
-            self.sym_term = 'bgs'
-        elif 'ias' in sh.t_list:
-            self.sym_term = 'ias'
-        else:
-            self.sym_term = None
-        self.phi = 0
-
         # niter, step and bounds defaults if not specified.
         self.niter = niter
 
@@ -808,22 +852,25 @@ class SHFit(object):
         spec = Spectrum(name = 'sh_lsq', **self.spec_f(cf_params))
         spec.cfit()
         
-        # Symmeterize if necessary.
-        self.phi = su2_rz_lsq(self.sh, spec, phi_p=self.phi, term=self.sym_term)
-
-        # The calculated spin Hamiltonian matrices are only solutions up to a
-        # constant prefactor the value of which we determine w.r.t. the
-        # experimental term data.  
-        sh_sqdiff = np.zeros((len(self.sh.t_list), 9))
-        for i,e in enumerate(self.sh.t_list):
-            self.sh.add_H_term(e, spec.sh_terms[e], phase=self.phi)
-            sh_term = self.sh.inv_term(e)
-            max_index = sh_term.argmax()
-            prefactor = np.abs(sh_term.sum()/self.sh_exp[i].sum())
-            sh_sqdiff[i, :] = np.sum(((self.sh_exp[i] - prefactor *
-                sh_term)*self.scaled_w[e])**2)
+        sh_sqdiff = [None]*self.n_sh
+        for sh_i,sh in enumerate(self.sh):
+            sh_sqdiff[sh_i] = np.zeros((len(sh.t_list), 9))
+            # Symmeterize if necessary.
+            self.phi[sh_i] = su2_rz_lsq(sh, spec, sh_i, phi_p=self.phi[sh_i],
+                    term=self.sym_term[sh_i])
+            # The calculated spin Hamiltonian matrices are only solutions up to
+            # a constant prefactor the value of which we determine w.r.t. the
+            # experimental term data.  
+            for i,e in enumerate(sh.t_list):
+                sh.add_H_term(e, spec.sh_terms[sh_i][e], phase=self.phi[sh_i])
+                sh_term = sh.inv_term(e)
+                max_index = sh_term.argmax()
+                prefactor = np.abs(sh_term.sum()/self.sh_exp[sh_i][i].sum())
+                sh_sqdiff[sh_i][i, :] = np.sum(((self.sh_exp[sh_i][i] -
+                    prefactor * sh_term)*self.scaled_w['sh'][sh_i][e])**2)
         
         sh_sq = np.sum(sh_sqdiff)
+        
         # Get levels for which we have experimental data. 
         e_exp = self.ble_exp[:, 2]
         b_l_exp = self.ble_exp[:, 0:2]
