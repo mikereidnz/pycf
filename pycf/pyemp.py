@@ -194,13 +194,13 @@ class Spectrum(dict):
         log : string
             The log output.
         """
-        log = "Log data for Spectrum object {}\n".format(self.name)
+        log = "\nLog data for Spectrum object {}\n".format(self.name)
         log +="=============================" + "="*len(self.name) + "\n"
-        log += "Generated on {}\n\n\n".format(datetime.now())
+        log += "Generated on {}\n\n".format(datetime.now())
 
         if mode == 'brief':
             log += "pyemp Spectrum parameters:\n"
-            log += "--------------------------\n\n"
+            log += "--------------------------\n"
             for key in self:
                 if self[key] != None:
                     log +=  "{0}:\n {1}\n".format(key, self[key])
@@ -212,11 +212,11 @@ class Spectrum(dict):
             for key in self.erun_obj:
                 if key == 'spectrum_data':
                     log += "spectrum_data input parameters:\n"
-                    log += "-------------------------------\n\n"
+                    log += "-------------------------------\n"
                     log += str(self['plotargs'])
                 else:
                     log += "Full {} log:\n".format(key)
-                    log += "----------" + "-"*len(key) + "\n\n"
+                    log += "----------" + "-"*len(key) + "\n"
                     log += self.erun_obj[key].print_log()
                 log += "\n\n\n"
         else:

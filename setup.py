@@ -16,7 +16,7 @@ ext = Extension('pycf.spinh_c', ['pycf/spinh_c.pyx'],
         include_dirs=['pycf', np.get_include(), '/usr/include'])
 
 setup(name='pycf',
-      version='1.0',
+      version='1.1',
       description='Python crystal field theory modules',
       author='Sebastian Horvath',
       author_email='sebastian.horvath@gmail.com',

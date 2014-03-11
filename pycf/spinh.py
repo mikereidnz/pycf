@@ -24,6 +24,7 @@
 
 from __future__ import division
 import warnings
+from datetime import datetime
 import numpy as np
 from numpy import linalg as LA
 from scipy.linalg import block_diag
@@ -747,18 +748,22 @@ class SHFit(object):
             self.sh = [sh]
             self.n_sh = 1
         
-        if not isinstance(data_exp['sh'], list):
-            data_exp['sh'] = [data_exp['sh']]
-        self.data_exp = data_exp
+        try:
+            if not isinstance(data_exp['sh'], list):
+                data_exp['sh'] = [data_exp['sh']]
+            self.data_exp = data_exp
         
-        if len(self.data_exp['sh']) != self.n_sh:
-            raise ValueError("data_exp must either be a single element if sh is"
-                    " a single element, or a list of length equivalent to the "
-                    "sh list length.")
-        elif isinstance(weights['sh'], list):
-            if len(weights['sh']) != self.n_sh:
-                raise ValueError("The length of the weights list does not match"
-                        " the number of provided spin Hamiltonians.")
+            if len(self.data_exp['sh']) != self.n_sh:
+                raise ValueError("data_exp['sh'] must either be a single "
+                        "element if sh a single element, or a list of length "
+                        "equivalent to the sh list length.")
+            elif isinstance(weights['sh'], list):
+                if len(weights['sh']) != self.n_sh:
+                    raise ValueError("The length of the weights list does not "
+                        "match the number of provided spin Hamiltonians.")
+        except KeyError:
+            raise KeyError("data_exp and weights must contain a key 'sh' "
+                    "corresponding to a list of dictionaries.")
 
         self.spec_f = spec_f
         self.p0 = p0
@@ -914,26 +919,41 @@ class SHFit(object):
         """
         spec = Spectrum(name = 'sh_lsq', **self.spec_f(self.fit['x']))
         spec.cfit()
-        phi = su2_rz_lsq(self.sh, spec, term=self.sym_term)
+        
+        if not isinstance(spec['spinh'], list):
+            sh_input = [spec['spinh']]
+        else:
+            sh_input = spec['spinh']
+
+        fit_log = "\nSHFit summary\n"
+        fit_log += "=============\n"
+        fit_log += "Generated on {}\n\n".format(datetime.now())
+        fit_log += str(self.fit) + "\n\n\n"
+
+        phi = [None]*self.n_sh
+        sh_log = ""
+        for sh_i,sh in enumerate(self.sh):
+            phi[sh_i] = su2_rz_lsq(sh, spec, sh_i, phi_p=self.phi[sh_i],
+                    term=self.sym_term[sh_i])
+
+            sh_log += "Spin Hamiltonian log {}\n".format(sh_i)
+            sh_log += "======================\n\n"
+            sh_log += "Input data:\n"
+            sh_log += "-----------\n"
+            sh_log += str(sh_input[sh_i]) + "\n\n"
+           
+            sh_log += "Fitting output:\n"
+            sh_log += "---------------\n"
+            for i,e in enumerate(sh.t_list):
+                sh.add_H_term(e, spec.sh_terms[sh_i][e], phase=phi[sh_i])
+                sh_log += "{} term:\n".format(e)
+                sh_theory = sh.inv_term(e).reshape((3,3))
+                sh_log += str(sh_theory) + "\n\n"
+                sh_log += "{} experimental value:\n".format(e)
+                sh_log += str(self.data_exp['sh'][sh_i][e]) + "\n\n"
+                sh_log += "theory - experiment:\n"
+                sh_log += str(sh_theory - self.data_exp['sh'][sh_i][e]) + "\n\n\n"
 
         cfit_log = spec.print_log(mode='full')
-    
-        fit_log = "Fitting summary\n"
-        fit_log += "===============\n\n"
-        fit_log += str(self.fit) + "\n\n"
-
-        sh_log = "Spin Hamiltonian log\n"
-        sh_log += "====================\n\n"
-
-        for i,e in enumerate(self.sh.t_list):
-            self.sh.add_H_term(e, spec.sh_terms[e], phase=phi)
-            sh_log += "{} term:\n".format(e)
-            sh_theory = self.sh.inv_term(e).reshape((3,3))
-            sh_log += str(sh_theory) + "\n\n"
-            sh_log += "{} experimental value:\n".format(e)
-            sh_log += str(self.data_exp[e]) + "\n\n"
-            sh_log += "theory - experiment:\n"
-            sh_log += str(sh_theory - self.data_exp[e]) + "\n\n"
-
         return(fit_log + sh_log + cfit_log) 
 
