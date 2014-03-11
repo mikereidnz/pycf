@@ -134,13 +134,11 @@ class Spectrum(dict):
         ``spinh`` kwarg and values are the respective spin Hamiltonian terms.
         For the term ``bgs`` this is a list of three terms for a magnetic field
         along 'x', 'y' and 'z', respectively.
-    sh_energies : list
-        Elements are np.ndarrays containing spin Hamiltonian energy level data
-        read from expthelp files, intended for use with
-        :func:`spinhamiltonian.sh_lsq_func`.
-    sh_b_l : list
-        Elements are np.ndarrays containing spin Hamiltonian block and level
-        numbers.
+    sh_energies : np.ndarray
+        Contains spin Hamiltonian energy level data read from expthelp files,
+        intended for use with :func:`spinhamiltonian.sh_lsq_func`.
+    sh_b_l : np.ndarray
+        Contains spin Hamiltonian block and level numbers.
     line_energies : np.ndarray
         Set by :class:`SpectrumData` or :class:`SpectrumErun`; energy data for
         individual transitions in wavenumbers, useful for scripting plotting
