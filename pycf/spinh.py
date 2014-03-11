@@ -693,9 +693,11 @@ class SHFit(object):
 
     Parameters
     ----------
-    sh : SpinHamiltonian
-        The terms that this object determines the to be fit spin Hamiltonian
-        terms.  Additionally, it must have been instantiated with they inv=True
+    sh : SpinHamiltonian, list
+        If specified as a list, elements must be objects of type
+        SpinHamiltonian.  Terms used to instantiate the provided SpinHamiltonian
+        objects determine the terms to be fit.  Additionally, provided
+        SpinHamlitonian objects must have been instantiated with the inv=True
         kwarg.
     spec_f : function
         A function that returns a dictionary containing all the keys required
