@@ -60,7 +60,7 @@ cpdef zgels(np.ndarray[NPCOMPLEX_t,ndim=2] A, np.ndarray[NPCOMPLEX_t,ndim=1] b):
     
     cdef lapack_int zero = 0
     if info != zero:
-        raise RuntimeError("Non-zero info returned by ZGELS.")
+        raise RuntimeError("ZGELS returned a non-zero INFO = {}.".format(info))
     return(b[:n])
 
 

@@ -26,7 +26,6 @@ from __future__ import division
 import warnings
 from datetime import datetime
 import numpy as np
-from numpy import linalg as LA
 from scipy.linalg import block_diag
 from scipy.optimize import minimize, basinhopping
 from matel import matel
@@ -331,11 +330,11 @@ def invert_term(term, coeff_a):
     """
     # Reshape the term array to a vector.
     b = term.flatten()
-    # Use numpy's lstsq function, which wraps LAPACK's QR factorization, to
-    # solve the equation coeff_a * x = b for x.
-    x = np.real(LA.lstsq(coeff_a, b)[0])
 
-    return(x)
+    # Use LAPACK's QR factorization, to solve the equation coeff_a * x = b for
+    # x.
+    return(np.real(zgels(np.asfortranarray(coeff_a, dtype=np.complex),
+            np.asfortranarray(b, dtype=np.complex))))
 
 
 class SpinHamiltonian(object):
@@ -597,11 +596,11 @@ class SpinHamiltonian(object):
         except:
             raise ValueError("This object does not have Hamiltonian data for {}"
                     ".  Have you run the 'add_H_term' method?".format(term))
-        
 
-        # Use numpy's lstsq function, which wraps LAPACK's QR factorization, to
-        # solve the equation coeff_a * x = b for x.
-        return(np.real(LA.lstsq(coeff_a, b)[0]))
+        # Use LAPACK's QR factorization, to solve the equation coeff_a * x = b
+        # for x.
+        return(np.real(zgels(np.asfortranarray(coeff_a, dtype=np.complex),
+            np.asfortranarray(b, dtype=np.complex))))
 
     def get_H(self):
         r"""
