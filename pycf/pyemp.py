@@ -410,7 +410,7 @@ class Cfit(GenericErun):
     Notes
     -----
     Instantiating an object of this type automatically sets the ``tvals``
-    keyword of the provided :class:`Spectrum` object. Furthermore, the Cfit log
+    keyword of the provided :class:`Spectrum` object.  Furthermore, the Cfit log
     file can be displayed using the print_log() method.
     """
 
