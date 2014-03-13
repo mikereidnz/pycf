@@ -10,6 +10,7 @@ Welcome to pycf's documentation
   :maxdepth: 2
 
   overview
+  install
   pyemp
   spinh
   reference
