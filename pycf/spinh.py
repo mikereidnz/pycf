@@ -702,7 +702,7 @@ class SHFit(object):
     spec_f : function
         A function that returns a dictionary containing all the keys required
         for instantiating a Spectrum object and takes as an argument a list of
-        parameters to be fit.
+        parameters to be fit. 
     p0 : list
         Initial values for the parameters to be fit; the order of elements is
         determined by spec_f. 
@@ -716,6 +716,9 @@ class SHFit(object):
         object was instantiated must have a corresponding experimental tensor
         specified here.  'e' is optional and corresponds to an `3 \times n`
         ndarray of experimental block, level and energy data.
+    n_param : int
+        The number of parameters to be fit.  This is used to determine the
+        number of degrees of freedom of the chi-squared distribution.
     weights : dictionary, optional
         Valid keys are 'sh' and 'e'.  The value of 'sh' is a list containing
         dictionaries with possible keys of 'bgs', 'ias', 'iqi'; these values
@@ -738,7 +741,7 @@ class SHFit(object):
     object : SHFit
 
     """
-    def __init__(self, sh, spec_f, p0, data_exp, weights=None, niter=50,
+    def __init__(self, sh, spec_f, p0, data_exp, n_param, weights=None, niter=50,
             step=None, bounds=None):
         if isinstance(sh, list):
             self.sh = sh
@@ -771,33 +774,41 @@ class SHFit(object):
         spec.cfit()
         
         self.sh_exp = [None]*self.n_sh
-        self.scaled_w = {'sh':[None]*self.n_sh}
+        n_obs = 0
+        self.w = {'sh':[None]*self.n_sh}
+        self.sigma_sq = {'sh':[{}]*self.n_sh}
 
         for i,sh in enumerate(self.sh):
             # Reshape since least squares implementation requires column data.
             self.sh_exp[i] = [data_exp['sh'][i][t].reshape(1,9) for t in
                     sh.t_list]
-            # We calculate the weighting scaled by the experimental magnitude.
-            scaled_w = {}
+            # Check for weighting. 
+            w = {}
             if weights != None:
                 for t in data_exp['sh'][i]:
                     try:
-                        scaled_w[t] = weights['sh'][i][t]/np.sum(data_exp['sh'][i][t])
+                        w[t] = weights['sh'][i][t]
                     except KeyError:
                         raise ValueError("If the weights dictionary is "
-                                "specified a value must be provided for each "
+                                "specified, a value must be provided for each "
                                 "term in data_exp.")
             else:
-                for key in data_exp:
-                    scaled_w[key] = 1
-            self.scaled_w['sh'][i] = scaled_w
-
-            if weights != None:
-                try:
-                    self.scaled_w['e'] = weights['e']/np.sum(data_exp['e'])
-                except KeyError:
-                    raise ValueError("If the weights dictionary is specified a "
-                            "value must be provided for each term in data_exp.")
+                for key in data_exp['sh'][i]:
+                    w[key] = 1
+            self.w['sh'][i] = w
+            
+            # Add the number of independent observables from the present spin
+            # Hamiltonian. 
+            for t in data_exp['sh'][i]:
+                if t == 'bgs':
+                    # Three euler angles and three Zeeman parameters.
+                    n_obs += 6
+                else:
+                    # Three euler angles and two diag parameters for IAS and
+                    # IQI.
+                    n_obs += 5
+                # Variance set to 1 initially. 
+                self.sigma_sq['sh'][i][t] = 1
             
             # Determine which term should be used to symmeterize spin-half
             # matrix elements. 
@@ -812,9 +823,20 @@ class SHFit(object):
 
         if 'e' in data_exp:
             self.ble_exp = data_exp['e']
+            if weights != None:
+                try:
+                    self.w['e'] = weights['e']
+                except KeyError:
+                    raise ValueError("If the weights dictionary is specified, a"
+                            " value must be given for each term in data_exp.")
+            self.sigma_sq['e'] = 1
+            n_obs += len(data_exp['e'])
         else:
             self.ble_exp = np.zeros((0, 3))
         
+        # Determine the number of degrees of freedom of the chi-squared dist.
+        self.n_deg = n_obs - n_param 
+
         # niter, step and bounds defaults if not specified.
         self.niter = niter
 
@@ -834,7 +856,7 @@ class SHFit(object):
         else:
             self.bounds = ([np.array(10**5)]*len(p0),[np.array(-10**5)]*len(p0))
 
-    def lsq_f(self, cf_params):
+    def lsq_f(self, cf_params, set_sigma=False):
         r""" Spin Hamiltonian fitting function; calculates weighted differences
         between experimental and theoretical values of spin Hamiltonian terms
         and energy levels for a given set of crystal field parameters.
@@ -843,10 +865,10 @@ class SHFit(object):
         ----------
         cf_params : list
             Crystal field parameters to be varied. 
-        full_out : boolean, optional
-            If True, the function returns a list of squares of differences for
-            individual terms; this is intended for calibrating the weights
-            parameters.
+        set_sigma : boolean
+            If True the function sets the variance self.sigma_sq attribute
+            assuming a good model-fit.  See eq. (15.1.7), Numerical Recipies 3ed
+            edition, Press et al., for a discussion of how to interpret this.
 
         Returns
         -------
@@ -858,9 +880,10 @@ class SHFit(object):
         spec = Spectrum(name = 'sh_lsq', **self.spec_f(cf_params))
         spec.cfit()
         
-        sh_sqdiff = [None]*self.n_sh
+        chisq_i = [None]*self.n_sh
         for sh_i,sh in enumerate(self.sh):
-            sh_sqdiff[sh_i] = np.zeros((len(sh.t_list), 9))
+            # chi-squared values for individual spin Hamiltonians
+            chisq_i[sh_i] = np.zeros(len(sh.t_list))
             # Symmeterize if necessary.
             self.phi[sh_i] = su2_rz_lsq(sh, spec, sh_i, phi_p=self.phi[sh_i],
                     term=self.sym_term[sh_i])
@@ -871,13 +894,19 @@ class SHFit(object):
                 sh.add_H_term(e, spec.sh_terms[sh_i][e], phase=self.phi[sh_i])
                 sh_term = sh.inv_term(e)
                 max_index = sh_term.argmax()
-                prefactor = np.abs(sh_term.sum()/self.sh_exp[sh_i][i].sum())
-                sh_sqdiff[sh_i][i, :] = np.sum(((self.sh_exp[sh_i][i] -
-                    prefactor * sh_term)*self.scaled_w['sh'][sh_i][e])**2)
+                prefac = np.abs(sh_term.sum()/self.sh_exp[sh_i][i].sum())
+                chisq_i[sh_i][i] = np.sum((self.sh_exp[sh_i][i] -
+                    prefac*sh_term)**2) * self.w['sh'][sh_i][e]\
+                    /self.sigma_sq['sh'][sh_i][e]
+                
+                if set_sigma:
+                    self.sigma_sq['sh'][sh_i][e] = np.sum((self.sh_exp[sh_i][i]-
+                        prefac*sh_term)**2)/self.n_deg
         
-        sh_sq = np.sum(sh_sqdiff)
+        sh_chisq = np.sum(chisq_i)
         
-        # Get levels for which we have experimental data. 
+        # Get levels for which we have experimental data.
+        # FIXME: part of this can be moved to __init__. 
         e_exp = self.ble_exp[:, 2]
         b_l_exp = self.ble_exp[:, 0:2]
         reduced_e = np.zeros(len(e_exp))
@@ -888,11 +917,14 @@ class SHFit(object):
         # Calculate the square of the difference between the experimental and
         # theoretical energy levels.
         if reduced_e != []:
-            e_sq = np.sum(((e_exp - reduced_e)*self.scaled_w['e'])**2)
+            e_chisq = np.sum((e_exp - reduced_e)**2) * \
+                self.w['e']/self.sigma_sq['e']
+            if set_sigma:
+                self.sigma_sq['e'] = np.sum((e_exp - reduced_e)**2)/self.n_deg
         else:
-            e_sq = 0
-            
-        return(sh_sq + e_sq)
+            e_chisq = 0
+        
+        return(sh_chisq + e_chisq)
 
     def __print_f(self, x, f, accepted):
         print("At minima %.4f accepted %d." % (f, int(accepted)))
@@ -904,6 +936,9 @@ class SHFit(object):
         step = BHStep(self.step)
         bounds = BHBounds(self.bounds[0], self.bounds[1])
 
+        # Run lsq_f to get starting variance that normalizes variances of spin
+        # Hamiltonian terms w.r.t. the energy level variance.
+        self.lsq_f(self.p0, set_sigma=True)
         
         self.fit = basinhopping(self.lsq_f, self.p0, niter = self.niter,
                 take_step = step, accept_test = bounds, callback =
@@ -918,6 +953,8 @@ class SHFit(object):
         """
         spec = Spectrum(name = 'sh_lsq', **self.spec_f(self.fit['x']))
         spec.cfit()
+
+        self.lsq_f(self.fit['x'], set_sigma=True)
         
         if not isinstance(spec['spinh'], list):
             sh_input = [spec['spinh']]
@@ -951,7 +988,9 @@ class SHFit(object):
                 sh_log += "{} experimental value:\n".format(e)
                 sh_log += str(self.data_exp['sh'][sh_i][e]) + "\n\n"
                 sh_log += "theory - experiment:\n"
-                sh_log += str(sh_theory - self.data_exp['sh'][sh_i][e]) + "\n\n\n"
+                sh_log += str(sh_theory - self.data_exp['sh'][sh_i][e]) + "\n\n"
+                sh_log += "sigma = {}\n\n\n".format(
+                        np.sqrt(self.sigma_sq['sh'][sh_i][e]))
 
         cfit_log = spec.print_log(mode='full')
         return(fit_log + sh_log + cfit_log) 
