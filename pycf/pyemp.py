@@ -137,7 +137,7 @@ class Spectrum(dict):
     sh_energies : np.ndarray
         Contains spin Hamiltonian energy level data read from expthelp files,
         intended for use with :func:`spinhamiltonian.sh_lsq_func`.
-    sh_b_l : np.ndarray
+    sh_bl : np.ndarray
         Contains spin Hamiltonian block and level numbers.
     line_energies : np.ndarray
         Set by :class:`SpectrumData` or :class:`SpectrumErun`; energy data for
@@ -536,7 +536,7 @@ class Cfit(GenericErun):
                 match = re.findall(r, f.read())
                 f.close()
                 energies = np.array([m[2] for m in match], dtype=float)
-                b_l = np.array([m[0:2] for m in match], dtype=int)
+                bl = np.array([m[0:2] for m in match], dtype=int)
                 Iz = np.array([m[3] for m in match], dtype = int)
 
             else:
@@ -545,11 +545,11 @@ class Cfit(GenericErun):
                 match = re.findall(r, f.read())
                 f.close()
                 energies = np.array([m[2] for m in match], dtype=float)
-                b_l = np.array([m[0:2] for m in match], dtype=int)
+                bl = np.array([m[0:2] for m in match], dtype=int)
                 Iz = 0
             
             spectrum.sh_energies = energies
-            spectrum.sh_b_l = b_l
+            spectrum.sh_bl = bl
             spectrum.sh_terms = []
 
             for sh_i in range(n_sh):

@@ -822,14 +822,24 @@ class SHFit(object):
                 self.sym_term[i] = None
 
         if 'e' in data_exp:
-            self.ble_exp = data_exp['e']
+            self.e_exp = data_exp['e'][:, 2]
+            bl_exp = data_exp['e'][:, 0:2]
+
+            # Get energy level indicies for which we have experimental data.
+            self.e_index = [None]*len(self.e_exp)
+            for i,n in enumerate(bl_exp):
+                self.e_index[i] = np.logical_and( spec.sh_bl[:, 0] == n[0],
+                        spec.sh_bl[:, 1] == n[1])
+            
             if weights != None:
                 try:
                     self.w['e'] = weights['e']
                 except KeyError:
                     raise ValueError("If the weights dictionary is specified, a"
                             " value must be given for each term in data_exp.")
+
             self.sigma_sq['e'] = 1
+            # Update the number of independent observables.
             n_obs += len(data_exp['e'])
         else:
             self.ble_exp = np.zeros((0, 3))
@@ -905,22 +915,19 @@ class SHFit(object):
         
         sh_chisq = np.sum(chisq_i)
         
-        # Get levels for which we have experimental data.
-        # FIXME: part of this can be moved to __init__. 
-        e_exp = self.ble_exp[:, 2]
-        b_l_exp = self.ble_exp[:, 0:2]
-        reduced_e = np.zeros(len(e_exp))
-        for i,n in enumerate(b_l_exp):
-            reduced_e[i] = spec.sh_energies[np.logical_and(
-                spec.sh_b_l[:, 0] == n[0], spec.sh_b_l[:, 1] == n[1])]
+        # Get energy levels for which we have experimental data. 
+        reduced_e = np.zeros(len(self.e_exp))
+        for i in range(len(reduced_e)):
+            reduced_e[i] = spec.sh_energies[self.e_index[i]]
         
         # Calculate the square of the difference between the experimental and
         # theoretical energy levels.
         if reduced_e != []:
-            e_chisq = np.sum((e_exp - reduced_e)**2) * \
+            e_chisq = np.sum((self.e_exp - reduced_e)**2) * \
                 self.w['e']/self.sigma_sq['e']
             if set_sigma:
-                self.sigma_sq['e'] = np.sum((e_exp - reduced_e)**2)/self.n_deg
+                self.sigma_sq['e'] = np.sum((self.e_exp - \
+                    reduced_e)**2)/self.n_deg
         else:
             e_chisq = 0
         
