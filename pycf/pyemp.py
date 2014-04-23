@@ -531,7 +531,7 @@ class Cfit(GenericErun):
             # whether the nuclear spin label is present.
             if 'assign al' in spectrum['addassign'] or \
                     'assign eqhyp' in spectrum['addassign']:
-                r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)[^[]+\[[^,]+,\s+([\d-]+)'
+                r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.-]+)[^[]+\[[^,]+,\s+([\d-]+)'
                 f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
                 match = re.findall(r, f.read())
                 f.close()
@@ -540,7 +540,7 @@ class Cfit(GenericErun):
                 Iz = np.array([m[3] for m in match], dtype = int)
 
             else:
-                r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.]+)'
+                r = r'\s+(\d+)\s+(\d+)\s+[\*\d\.]+\s+\d+\s+([\d\.-]+)'
                 f = open('{0}_spinh.hlp'.format(spectrum.name), 'r')
                 match = re.findall(r, f.read())
                 f.close()

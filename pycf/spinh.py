@@ -825,7 +825,9 @@ class SHFit(object):
             self.e_exp = data_exp['e'][:, 2]
             bl_exp = data_exp['e'][:, 0:2]
 
-            # Get energy level indicies for which we have experimental data.
+            # bl_exp corresponds to blocks and levels specified in the
+            # experimental data file.  e_index is consequently a boolean array
+            # used to read corresponding energies from the cfit output.
             self.e_index = [None]*len(self.e_exp)
             for i,n in enumerate(bl_exp):
                 self.e_index[i] = np.logical_and( spec.sh_bl[:, 0] == n[0],
