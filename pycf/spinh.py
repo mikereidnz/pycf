@@ -779,8 +779,10 @@ class SHFit(object):
         self.sigma_sq = {'sh':[{}]*self.n_sh}
 
         for i,sh in enumerate(self.sh):
-            # Reshape since least squares implementation requires column data.
-            self.sh_exp[i] = [data_exp['sh'][i][t].reshape(1,9) for t in
+            # Reshape, since least squares implementation requires column data.
+            # Additionally, we only require the absolute value of sh tensors;
+            # see lsq_f for details. 
+            self.sh_exp[i] = [np.abs(data_exp['sh'][i][t].reshape(1,9)) for t in
                     sh.t_list]
             # Check for weighting. 
             w = {}
@@ -901,19 +903,22 @@ class SHFit(object):
                     term=self.sym_term[sh_i])
             # The calculated spin Hamiltonian matrices are only solutions up to
             # a constant prefactor the value of which we determine w.r.t. the
-            # experimental term data.  
+            # experimental term data.  We only know SH tensor elements up to a
+            # sign, the value of which depends on how one chooses axis, hence we
+            # subtract absolute values to get the residue.  self.sh_exp is
+            # already all positive. 
             for i,e in enumerate(sh.t_list):
                 sh.add_H_term(e, spec.sh_terms[sh_i][e], phase=self.phi[sh_i])
                 sh_term = sh.inv_term(e)
                 max_index = sh_term.argmax()
                 prefac = np.abs(sh_term.sum()/self.sh_exp[sh_i][i].sum())
                 chisq_i[sh_i][i] = np.sum((self.sh_exp[sh_i][i] -
-                    prefac*sh_term)**2) * self.w['sh'][sh_i][e]\
+                    prefac*np.abs(sh_term))**2) * self.w['sh'][sh_i][e]\
                     /self.sigma_sq['sh'][sh_i][e]
                 
                 if set_sigma:
                     self.sigma_sq['sh'][sh_i][e] = np.sum((self.sh_exp[sh_i][i]-
-                        prefac*sh_term)**2)/self.n_deg
+                        prefac*np.abs(sh_term))**2)/self.n_deg
         
         sh_chisq = np.sum(chisq_i)
         
