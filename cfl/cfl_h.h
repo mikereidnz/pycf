@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/**
+/*
  * @file    cfl_h_diag.h
  * @brief   Diagonalization, and associated, routines for crystal-field and spin
  *          Hamiltonians.
@@ -34,37 +34,88 @@
 #include <complex.h>
 
 /*
+ * @brief A dense matrix for double valued complex entries. 
+ */
+typedef struct {
+  /* Number of rows. */
+  size_t m;
+  /* Number of columns. */
+  size_t n;
+  /* The leading dimension of the matrix X. */
+  size_t ldX;
+  /* Pointer to the matrix X stored in column major form. */
+  double complex *X;
+} zmatrix;
+
+/*
+ * @brief Compressed row storage matrix for complex valued sparse matrices.
+ */
+typedef struct {
+  /* Number of rows. */
+  size_t m;
+  /* Number of columns. */
+  size_t n;
+  /* Number of non-zero entries. */
+  int nnz;
+  /* Pointer to start of values memory. */
+  double complex *val;
+  /* Pointer to start of column index memory. */
+  int *col_in;
+  /* Pointer to start of row pointer memory. */
+  int *row_ptr;
+} crs_zmatrix;
+
+/* 
+ * @brief The tensor structure for complex valued matrix elements.
+ */
+typedef struct {
+  /* Pointer to tensor name character array. */
+  char *name;
+  /* Pointer to the matrix elements stored in CSR form. */
+  crs_zm *matel;
+} ztensor; 
+
+/*
  * @brief The Hamiltonian structure.
  */
 typedef struct {
-  size_t dim;
-  char[] states;
-  char[] tensors;
-  double *matel;
-  double *coeff;
-  double *evals;
-  double *evec;
-} hamiltonian;
+  /* Dimension of the Hamiltonian. */
+  size_t n;
+  /* Number of tensors. */
+  size_t nt;
+  /* State labels corresponding to eigenvalues. */
+  char **states;
+  /* Complex valued tensors of the Hamiltonian. */
+  ztensor *t;
+  /* Tensor coefficients. */
+  double complex *coeff;
+  /* Matrix of the complete Hamiltonian in row major form. */
+  double complex *a;
+  /* Eigenvalues. */
+  double complex *evals;
+  /* Eigenvector matrix stored in row major form. */
+  double complex *evec;
+} zh;
 
 /*
  * @brief The spin Hamiltonian structure.
- * @note  This may require amendment if spin Hamiltonian inversion support is
- *        added.
  */
 typedef struct {
-  size_t dim;
-  char[] states;
-  char[] tensors;
-  double *matel;
-} spinh;
+  /* Dimension of the Hamiltonian. */
+  size_t n;
+  /* State labels corresponding to eigenvalues. */
+  char **states;
+  /* Complex valued tensors of the Hamiltonian. */
+  ztensor *t;
+} zspinh;
 
 /*
  * @brief Workspace definition for the Hamiltonian diagonalization.
  */
 typedef struct {
-  double *sum_w;
-  double *eig_w;
-} hdiag_work;
+  double complex *sum_w;
+  double complex *eig_w;
+} zhdiag_work;
 
 /*
  * @brief Workspace definition for the projection from a complete Hamiltonian to
@@ -73,7 +124,7 @@ typedef struct {
 typedef struct {
   double *h_prime;
   hdiag_work *hdiag_w;
-} spinh_proj_work;
+} zspinh_proj_work;
 
 
 /* Function prototypes. */
@@ -81,15 +132,18 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-hamiltonian *h_alloc(int dim);
-void h_init(hamiltonian *h, char *states, char *tensors, double *matel, double *coeff, double *evals, double *evec);
-void h_free(hamiltonian *h);
+crs_zmatrix *crs_zmatrix_alloc(double complex a[], size_t m, size_t n);
+void crs_zmatrix_free(crs_zmatrix *crs_m);
 
-spinh *spinh_alloc(int dim);
-void spinh_init(spinh *sh, char *states, char *tensors, double *matel);
+zh *zh_alloc(size_t n, char **s);
+void zh_init(zh* h, ztensor *t, complex double *coeff);
+void zh_free(zh *h); 
+
+zspinh *zspinh_alloc(size_t n, char **s);
+void zspinh_init(zspinh *sh, ztensor *t);
 void spinh_free(spinh *sh);
 
-hdiag_work *hdiag_alloc(hamiltonian *h);
+zhdiag_work *hdiag_work_alloc(zh *h);
 void h_diag(hamiltonian *h, hdiag_work *w);
 void hdiag_free(hdiag_work *w);
 

@@ -30,6 +30,11 @@
 #define _CFL_CRS_H_
 
 #include <complex.h>
+#include <cfl_crs.h>
+
+/*===========================================================================*/
+/* Data structures and types.                                                */
+/*===========================================================================*/
 
 /*
  * @brief Compressed row storage matrix for complex valued Hermitian sparse
@@ -49,31 +54,22 @@ typedef struct {
   int *row_ptr;
 } crs_zhm;
 
+/*===========================================================================*/
+/* External declarations.                                                    */
+/*===========================================================================*/
 
-/* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
 
-crs_zmatrix *crs_zmatrix_alloc(double complex a[], size_t m, size_t n);
-void crs_zmatrix_free(crs_zmatrix *crs_m);
-
-zh *zh_alloc(size_t n, char **s);
-void zh_init(zh* h, ztensor *t, complex double *coeff);
-void zh_free(zh *h); 
-
-zspinh *zspinh_alloc(size_t n, char **s);
-void zspinh_init(zspinh *sh, ztensor *t);
-void spinh_free(spinh *sh);
-
-zhdiag_work *hdiag_work_alloc(zh *h);
-void h_diag(hamiltonian *h, hdiag_work *w);
-void hdiag_free(hdiag_work *w);
-
-spinh_proj_work *spinh_proj_alloc(hamiltonian *h);
-void spinh_proj(hamiltonian *h, char state_range, spinh_proj_work *w);
-void spinh_proj_free(spinh_proj_work *w);
-
+crs_zhm *crs_zhm_alloc(double complex a[], int n);
+void crs_zhm_free(crs_zhm *crs_m); 
+void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap);
+crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b);
+void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
+    complex beta);
+crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m);
+void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, double complex s)
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
