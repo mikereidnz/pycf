@@ -27,46 +27,76 @@
  * @brief   Diagonalization, and associated, routines for crystal-field and spin
  *          Hamiltonians.
  */
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <complex.h>
+#include <lapacke.h>
 #include <cfl_crs.h>
 #include <cfl_h.h>
 
+/*
+ * @brief Allocate storage for complex valued tensors. 
+ *
+ * @param[name]   A unique identifier of the tensor. 
+ * @param[a]      Pointer to array containing the matrix elements. 
+ * @param[n]      The dimension of the matrix elemet matrix.
+ */
+ztensor *ztensor_alloc(char *name, double complex *a, size_t n) {
+  ztensor *zt;
+  zt = (ztensor *) malloc(sizeof(ztensor));
+
+  crs_zhm *ma = crs_zhm_alloc(a, n);
+
+  zt->name = name;
+  zt->n = n;
+  zt->matel = ma;
+
+  return zt;
+}
+
+/*
+ * @brief Free storage allocated for a ztensor.
+ *
+ * @param[zt]     Pointer to the ztensor.
+ */
+void ztensor_free(ztensor *zt) {
+  crs_zhm_free(zt->matel);
+  free(zt);
+}
 
 /*
  * @brief Allocate storage for complex valued Hamiltonians.
  *
- * @param[d]    The dimension of the Hamiltonian.
- * @param[s]    Pointer to character arrays containing state labels.
+ * @param[n]    The dimension of the Hamiltonian.
+ * @param[nt]       The number of tensors. 
+ * @param[s]        Pointer to character arrays containing state labels.
+ * @param[ztensor]  Pointer to array of ztensors.
+ * @param[w]        Pointer to double valued array of length n to which
+ *                  eigenvalues will be written.  
+ * @param[z]        Pointe to double complex valued array of length n^2 to which
+ *                  the eigenvectors will be written.
  */
-zh *zh_alloc(int n, char **s) {
+zh *zh_alloc(int n, int nt, char **s, ztensor **t, double *w, double complex *z) {
   zh *h;
   double complex *ap;
-  double *w;
-  double complex *z;
 
   h = (zh *) malloc(sizeof(zh));
-  ap = (double complex *) calloc(n*(n+1)/2,sizeof(double complex));
-  w = (double *) calloc(n,sizeof(double));
-  z = (double complex *) calloc(n*n,sizeof(double complex));
-
   if (h == 0) {
     printf("Memory allocation failed for h\n");
+    return NULL;
   }
-  else if (ap == 0) {
+  ap = (double complex *) calloc(n*(n+1)/2,sizeof(double complex));
+  if (ap == 0) {
+    free(h);
     printf("Memory allocation failed for ap\n");
-  }
-  else if (w == 0) {
-    printf("Memory allocation failed for w\n");
-  }
-  else if (z == 0) {
-    printf("Memory allocation failed for z\n");
+    return NULL;
   }
 
   h->n = n;
+  h->nt = nt;
   h->states = s;
+  h->t = t;
   h->ap = ap;
   h->w = w;
   h->z = z;
@@ -77,13 +107,20 @@ zh *zh_alloc(int n, char **s) {
 /*
  * @brief Free storage of a complex valued Hamiltonian.
  *
- * @params[m]   Pointer to the Hamiltonian to be freed. 
+ * @params[m]     Pointer to the Hamiltonian to be freed. 
  */
 void zh_free(zh *h) {
   free(h->ap);
-  free(h->w);
-  free(h->z);
   free(h);
+}
+
+/*
+ * @brief Set the the coefficient array pointer; a wrapper for Cython. 
+ *
+ * @param[coeff]    Pointer to the coefficient array.  
+ */
+void zh_set_coeff(zh *h, double complex *coeff) {
+  h->coeff = coeff;
 }
 
 /*
@@ -97,54 +134,8 @@ zhd_w *zhd_w_alloc(zh *h) {
   hd_w = (zhd_w *) malloc(sizeof(zhd_w));
   if (hd_w == 0) {
     printf("Error in hdiag_work_alloc; memory allocation failed for hdiag_work\n");
+    return NULL;
   }
-
-  /* Allocation for tensor matrix element scaling by coefficients and summation.
-  */
-  int i;
-  double complex alpha = 1+I;
-  double complex beta = 1+I;
-  crs_zhm **coeff_w;
-
-  coeff_w = (crs_zhm **) malloc((h->nt-1)*sizeof(crs_zhm *));
-  if (coeff_w == 0) {
-    printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w\n");
-  }
-
-  /* Allocation for summing matrix elements of tensors.  The zhsam function
-   * calculates C for C = alpha A + beta C, for A, B, and C CRS matrices and
-   * alpha and beta complex scalars.  The first two matrix elements are summed
-   * directly with respective coefficients set for alpha and beta.  Further
-   * matrix elements are then itteratively added to the previous result.  Since
-   * crs_zhsam_alloc also calculates the row_ptr array and number of non-zero
-   * elements of C, we have to run through the actual additions in order to
-   * determine the these values for each of the intermediate sums.  Finally, in
-   * case there is only a single tensor, we use the scaling function crs_zhsm
-   * for which we still have to allocate separate memory. 
-   */
-  if (h->nt>1) {
-    coeff_w[0] = crs_zhsam_alloc(h->t[0].matel, h->t[1].matel);
-    if (coeff_w[0] == 0) {
-      printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[0]\n");
-    }
-    crs_zhsam(h->t[0].matel, h->t[1].matel, coeff_w[0], alpha, beta);
-    for (i=1; i<h->nt-1; i++) {
-      coeff_w[i] = crs_zhsam_alloc(coeff_w[i-1], h->t[i+1].matel);
-      crs_zhsam(coeff_w[i-1], h->t[i+1].matel, coeff_w[i], alpha, beta);
-      if (coeff_w[i] == 0) {
-        printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[%i]\n", i);
-      }
-    }
-  }
-  else {
-    coeff_w[0] = crs_zhsm_alloc(h->t[0].matel);
-    if (coeff_w[0] == 0) {
-      printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[0]\n");
-    }
-  }
-
-  hd_w->coeff_w = coeff_w;
-  hd_w->lcoeff_w = h->nt-1;
 
   /* LAPACK eigenvalue workspace query. */
   lapack_complex_double *work, wquery;
@@ -163,16 +154,25 @@ zhd_w *zhd_w_alloc(zh *h) {
   liwork = (lapack_int)iwquery;
 
   work = calloc(lwork,sizeof(lapack_complex_double));
-  rwork = calloc(lrwork,sizeof(lapack_int));
-  iwork = calloc(liwork,sizeof(lapack_int));
   if (work == 0) {
+    free(hd_w);
     printf("Error in hdiag_work_alloc; memory allocation failed for work\n");
+    return NULL;
   }
-  else if (rwork == 0) {
+  rwork = calloc(lrwork,sizeof(lapack_int));
+  if (rwork == 0) {
+    free(hd_w);
+    free(work);
     printf("Error in hdiag_work_alloc; memory allocation failed for rwork\n");
+    return NULL;
   }
-  else if (iwork == 0) {
+  iwork = calloc(liwork,sizeof(lapack_int));
+  if (iwork == 0) {
+    free(hd_w);
+    free(work);
+    free(rwork);
     printf("Error in hdiag_work_alloc; memory allocation failed for iwork\n");
+    return NULL;
   }
 
   hd_w->work = work;
@@ -181,6 +181,76 @@ zhd_w *zhd_w_alloc(zh *h) {
   hd_w->lrwork = lrwork;
   hd_w->iwork = iwork;
   hd_w->liwork = liwork;
+
+
+  /* Allocation for matrix element scaling an addition. */
+  int i, j;
+  double complex alpha = 1+I;
+  double complex beta = 1+I;
+  crs_zhm **coeff_w;
+
+  coeff_w = (crs_zhm **) malloc((h->nt-1)*sizeof(crs_zhm *));
+  if (coeff_w == 0) {
+    free(hd_w);
+    free(work);
+    free(rwork);
+    printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w\n");
+    return NULL;
+  }
+
+  /* Allocation for summing matrix elements of tensors.  The zhsam function
+   * calculates C for C = alpha A + beta C, for A, B, and C CRS matrices and
+   * alpha and beta complex scalars.  The first two matrix elements are summed
+   * directly with respective coefficients set for alpha and beta.  Further
+   * matrix elements are then itteratively added to the previous result.  Since
+   * crs_zhsam_alloc also calculates the row_ptr array and number of non-zero
+   * elements of C, we have to run through the actual additions in order to
+   * determine the these values for each of the intermediate sums.  Finally, in
+   * case there is only a single tensor, we use the scaling function crs_zhsm
+   * for which we still have to allocate separate memory. 
+   */
+  if (h->nt>1) {
+    coeff_w[0] = crs_zhsam_alloc((h->t[0])->matel, (h->t[1])->matel);
+    if (coeff_w[0] == 0) {
+      free(hd_w);
+      free(work);
+      free(rwork);
+      free(coeff_w);
+      printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[0]\n");
+      return NULL;
+    }
+    crs_zhsam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], alpha, beta);
+    for (i=1; i<h->nt-1; i++) {
+      coeff_w[i] = crs_zhsam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
+      crs_zhsam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], alpha, beta);
+      if (coeff_w[i] == 0) {
+        free(hd_w);
+        free(work);
+        free(rwork);
+        free(coeff_w);
+        for (j=0; j<i; j++) {
+          crs_zhm_free(coeff_w[j]);
+        }
+        printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[%i]\n", i);
+        return NULL;
+      }
+    }
+  }
+  else {
+    coeff_w[0] = crs_zhsm_alloc((h->t[0])->matel);
+    if (coeff_w[0] == 0) {
+      free(hd_w);
+      free(work);
+      free(rwork);
+      free(coeff_w);
+      printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[0]\n");
+      return NULL;
+    }
+  }
+
+  hd_w->coeff_w = coeff_w;
+  hd_w->lcoeff_w = h->nt-1;
+
 
   return hd_w;
 }
@@ -219,20 +289,20 @@ void zhd(zh *h, zhd_w *hd_w) {
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
    * result is stored in hd_w->coeff_w[i], where is the number of tensors -1. */
   if (h->nt>1) {
-    crs_zhsam(h->t[0].matel, h->t[1].matel, hd_w->coeff_w[0], h->coeff[0],
+    crs_zhsam((h->t[0])->matel, (h->t[1])->matel, hd_w->coeff_w[0], h->coeff[0],
         h->coeff[1]);
     for (i=1; i<hd_w->lcoeff_w; i++) {
-      crs_zhsam(hd_w->coeff_w[i-1], h->t[i+1].matel, hd_w->coeff_w[i], alpha,
+      crs_zhsam(hd_w->coeff_w[i-1], (h->t[i+1])->matel, hd_w->coeff_w[i], alpha,
           h->coeff[i+1]);
     }
   }
   else
-    crs_zhsm(h->t[0].matel, hd_w->coeff_w[0], h->coeff[0]);
+    crs_zhsm((h->t[0])->matel, hd_w->coeff_w[0], h->coeff[0]);
 
   /* Convert the Hamiltonian from CRS to dense lower-triangular packed storage
    * for diagonalization. */
   crs_zhm2zhpa(hd_w->coeff_w[hd_w->lcoeff_w-1], h->ap);
-  
+
   lapack_int info; 
   info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, h->w,
       h->z, h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork,

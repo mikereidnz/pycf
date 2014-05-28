@@ -30,7 +30,6 @@
 #define _CFL_CRS_H_
 
 #include <complex.h>
-#include <cfl_crs.h>
 
 /*===========================================================================*/
 /* Data structures and types.                                                */
@@ -69,7 +68,7 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b);
 void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
     complex beta);
 crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m);
-void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, double complex s)
+void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, double complex s);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

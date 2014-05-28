@@ -27,6 +27,7 @@
  * @brief   Compressed row storage routines used by CFL.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <complex.h>
@@ -42,8 +43,7 @@
  *        complex entries.
  *
  * @param[a]    An m by m dense matrix stored as a one dimensional array.
- * @param[m]    The number of rows of a. 
- * @param[n]    The number of columns of a. 
+ * @param[n]    The number of columns and rows of a. 
  */
 crs_zhm *crs_zhm_alloc(double complex a[], int n) {
   int i,j;
@@ -74,22 +74,30 @@ crs_zhm *crs_zhm_alloc(double complex a[], int n) {
   }
 
   crs_m = (crs_zhm *) malloc(sizeof(crs_zhm));
-  val = (double complex *) calloc(nnz,sizeof(double complex));
-  col_in = (int *) calloc(nnz,sizeof(int));
-  /* We assume each row has at least one non-zero element. */
-  row_ptr = (int *) calloc((n+1),sizeof(int));
-
   if (crs_m == 0) {
     printf("Memory allocation failed for m\n");
+    return NULL;
   }
-  else if (val == 0) {
+  val = (double complex *) calloc(nnz,sizeof(double complex));
+  if (val == 0) {
+    free(crs_m);
     printf("Memory allocation failed for val\n");
+    return NULL;
   }
-  else if (col_in == 0) {
+  col_in = (int *) calloc(nnz,sizeof(int));
+  if (col_in == 0) {
+    free(crs_m);
+    free(val);
     printf("Memory allocation failed for col_in\n");
+    return NULL;
   }
-  else if (row_ptr == 0) {
+  row_ptr = (int *) calloc((n+1),sizeof(int));
+  if (row_ptr == 0) {
+    free(crs_m);
+    free(val);
+    free(col_in);
     printf("Memory allocation failed for row_ptr\n");
+    return NULL;
   }
 
   /* col_in is an array containing the column index of all non-zero entries of
@@ -210,6 +218,7 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
   row_ptr = (int *) malloc((n+1)*sizeof(int));
   if (row_ptr == 0) {
     printf("Memory allocation failed for row_ptr\n");
+    return NULL;
   }
 
   /* Determine the number of non-zero elements and the row pointer of C.  The
@@ -231,17 +240,25 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
   row_ptr[n] = nnz;
 
   crs_m = (crs_zhm *) malloc(sizeof(crs_zhm));
-  val = (double complex *) malloc(nnz*sizeof(double complex));
-  col_in = (int *) malloc(nnz*sizeof(int));
-
   if (crs_m == 0) {
+    free(row_ptr);
     printf("Memory allocation failed for m\n");
+    return NULL;
   }
+  val = (double complex *) malloc(nnz*sizeof(double complex));
   if (val == 0) {
+    free(row_ptr);
+    free(crs_m);
     printf("Memory allocation failed for val\n");
+    return NULL;
   }
-  else if (col_in == 0) {
+  col_in = (int *) malloc(nnz*sizeof(int));
+  if (col_in == 0) {
+    free(row_ptr);
+    free(crs_m);
+    free(val);
     printf("Memory allocation failed for col_in\n");
+    return NULL;
   }
 
   crs_m->n = n;
@@ -323,21 +340,30 @@ crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
   int *row_ptr;
 
   crs_sm = (crs_zhm *) malloc(sizeof(crs_zhm));
-  val = (double complex *) malloc(crs_m->nnz*sizeof(double complex));
-  col_in = (int *) malloc(crs_m->nnz*sizeof(int));
-  row_ptr = (int *) malloc((crs_m->n+1)*sizeof(int));
-
   if (crs_sm == 0) {
     printf("Error in crs_zsa_alloc; memory allocation failed for crs_sm\n");
+    return NULL;
   }
-  else if (val == 0) {
+  val = (double complex *) malloc(crs_m->nnz*sizeof(double complex));
+  if (val == 0) {
+    free(crs_sm);
     printf("Error in crs_zsa_alloc; memory allocation failed for val\n");
+    return NULL;
   }
-  else if (col_in == 0) {
+  col_in = (int *) malloc(crs_m->nnz*sizeof(int));
+  if (col_in == 0) {
+    free(crs_sm);
+    free(val);
     printf("Error in crs_zsa_alloc; memory allocation failed for col_in\n");
+    return NULL;
   }
-  else if (row_ptr == 0) {
+  row_ptr = (int *) malloc((crs_m->n+1)*sizeof(int));
+  if (row_ptr == 0) {
+    free(crs_sm);
+    free(val);
+    free(col_in);
     printf("Error in crs_zsa_alloc; memory allocation failed for row_ptr\n");
+    return NULL;
   }
 
   /* Identical row and column pointers. */
