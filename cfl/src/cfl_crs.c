@@ -43,7 +43,7 @@
  *        upper-triangular compressed row storage format for double valued
  *        complex entries.
  *
- * @param[a]    An m by m dense matrix stored as a one dimensional array.
+ * @param[a]    An n by n dense matrix stored as a one dimensional array.
  * @param[n]    The number of columns and rows of a. 
  */
 crs_zhm *crs_zhm_alloc(double complex a[], int n) {

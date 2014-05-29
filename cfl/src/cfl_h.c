@@ -46,8 +46,15 @@
 ztensor *ztensor_alloc(char *name, double complex *a, size_t n) {
   ztensor *zt;
   zt = (ztensor *) malloc(sizeof(ztensor));
+  if (zt == 0) {
+    CFL_ERROR_NULL("malloc failed for zt");
+  }
 
   crs_zhm *ma = crs_zhm_alloc(a, n);
+  if (ma == 0) {
+    free(zt);
+    CFL_ERROR_NULL("alloc failed for crs_zhm");
+  }
 
   zt->name = name;
   zt->n = n;
@@ -216,7 +223,6 @@ zhd_w *zhd_w_alloc(zh *h) {
     crs_zhsam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], alpha, beta);
     for (i=1; i<h->nt-1; i++) {
       coeff_w[i] = crs_zhsam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
-      crs_zhsam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], alpha, beta);
       if (coeff_w[i] == 0) {
         free(hd_w);
         free(work);
@@ -227,6 +233,7 @@ zhd_w *zhd_w_alloc(zh *h) {
         }
         CFL_ERROR_NULL("alloc failed for coeff_w");
       }
+      crs_zhsam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], alpha, beta);
     }
   }
   else {
