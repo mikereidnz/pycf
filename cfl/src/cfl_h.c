@@ -32,6 +32,7 @@
 #include <math.h>
 #include <complex.h>
 #include <lapacke.h>
+#include <cfl_error.h>
 #include <cfl_crs.h>
 #include <cfl_h.h>
 
@@ -74,7 +75,7 @@ void ztensor_free(ztensor *zt) {
  * @param[ztensor]  Pointer to array of ztensors.
  * @param[w]        Pointer to double valued array of length n to which
  *                  eigenvalues will be written.  
- * @param[z]        Pointe to double complex valued array of length n^2 to which
+ * @param[z]        Pointer to double complex valued array of length n^2 to which
  *                  the eigenvectors will be written.
  */
 zh *zh_alloc(int n, int nt, char **s, ztensor **t, double *w, double complex *z) {
@@ -83,14 +84,12 @@ zh *zh_alloc(int n, int nt, char **s, ztensor **t, double *w, double complex *z)
 
   h = (zh *) malloc(sizeof(zh));
   if (h == 0) {
-    printf("Memory allocation failed for h\n");
-    return NULL;
+    CFL_ERROR_NULL("malloc failed for h");
   }
   ap = (double complex *) calloc(n*(n+1)/2,sizeof(double complex));
   if (ap == 0) {
     free(h);
-    printf("Memory allocation failed for ap\n");
-    return NULL;
+    CFL_ERROR_NULL("calloc failed for ap");
   }
 
   h->n = n;
@@ -133,8 +132,7 @@ zhd_w *zhd_w_alloc(zh *h) {
 
   hd_w = (zhd_w *) malloc(sizeof(zhd_w));
   if (hd_w == 0) {
-    printf("Error in hdiag_work_alloc; memory allocation failed for hdiag_work\n");
-    return NULL;
+    CFL_ERROR_NULL("malloc failed for zhd_w");
   }
 
   /* LAPACK eigenvalue workspace query. */
@@ -146,7 +144,8 @@ zhd_w *zhd_w_alloc(zh *h) {
       h->z, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
 
   if (info != 0) {
-    printf("Error in hdiag_work_alloc; LAPACKE workspace query failed\n");
+    free(hd_w);
+    CFL_ERROR_VOID("LAPACKE workspace query failed");
   }
 
   lwork = (lapack_int)wquery;
@@ -156,23 +155,20 @@ zhd_w *zhd_w_alloc(zh *h) {
   work = calloc(lwork,sizeof(lapack_complex_double));
   if (work == 0) {
     free(hd_w);
-    printf("Error in hdiag_work_alloc; memory allocation failed for work\n");
-    return NULL;
+    CFL_ERROR_NULL("calloc failed for work");
   }
   rwork = calloc(lrwork,sizeof(lapack_int));
   if (rwork == 0) {
     free(hd_w);
     free(work);
-    printf("Error in hdiag_work_alloc; memory allocation failed for rwork\n");
-    return NULL;
+    CFL_ERROR_NULL("calloc failed for rwork");
   }
   iwork = calloc(liwork,sizeof(lapack_int));
   if (iwork == 0) {
     free(hd_w);
     free(work);
     free(rwork);
-    printf("Error in hdiag_work_alloc; memory allocation failed for iwork\n");
-    return NULL;
+    CFL_ERROR_NULL("calloc failed for iwork");
   }
 
   hd_w->work = work;
@@ -194,8 +190,7 @@ zhd_w *zhd_w_alloc(zh *h) {
     free(hd_w);
     free(work);
     free(rwork);
-    printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w\n");
-    return NULL;
+    CFL_ERROR_NULL("malloc failed for coeff_w");
   }
 
   /* Allocation for summing matrix elements of tensors.  The zhsam function
@@ -216,8 +211,7 @@ zhd_w *zhd_w_alloc(zh *h) {
       free(work);
       free(rwork);
       free(coeff_w);
-      printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[0]\n");
-      return NULL;
+      CFL_ERROR_NULL("alloc failed for coeff_w");
     }
     crs_zhsam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], alpha, beta);
     for (i=1; i<h->nt-1; i++) {
@@ -231,8 +225,7 @@ zhd_w *zhd_w_alloc(zh *h) {
         for (j=0; j<i; j++) {
           crs_zhm_free(coeff_w[j]);
         }
-        printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[%i]\n", i);
-        return NULL;
+        CFL_ERROR_NULL("alloc failed for coeff_w");
       }
     }
   }
@@ -243,8 +236,7 @@ zhd_w *zhd_w_alloc(zh *h) {
       free(work);
       free(rwork);
       free(coeff_w);
-      printf("Error in hdiag_work_alloc; memory allocation failed for coeff_w[0]\n");
-      return NULL;
+      CFL_ERROR_NULL("alloc failed for coeff_w");
     }
   }
 
@@ -285,6 +277,7 @@ void zhd_w_free(zhd_w *hd_w) {
 void zhd(zh *h, zhd_w *hd_w) {
   int i;
   double complex alpha = 1+I;
+  char lapack_err[] = "LAPACKE_zhpevd failed with error code: 0";
 
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
    * result is stored in hd_w->coeff_w[i], where is the number of tensors -1. */
@@ -309,6 +302,7 @@ void zhd(zh *h, zhd_w *hd_w) {
       hd_w->iwork, hd_w->liwork);
 
   if (info != 0) {
-    printf("LAPACKE_zhpevd failed with error %i\n", info);
+    sprintf(lapack_err, "LAPACKE_zhpevd failed with error code: %i", info);
+    CFL_ERROR_VOID(lapack_err);
   }
 }

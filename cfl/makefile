@@ -6,13 +6,13 @@ LDFLAGS=
 
 #libcfl.so: cfl_h.o cfl_crs.o 
 
-#cfl_test: cfl_h.o cfl_crs.o -lm
-libcfl.a: cfl_h.o cfl_crs.o 
-	ar -rs $@ $^
+cfl_test: cfl_h.o cfl_crs.o -lm
+#libcfl.a: cfl_h.o cfl_crs.o 
+#	ar -rs $@ $^
 
-cfl_h.o: cfl_crs.o cfl_h.h
+cfl_h.o: cfl_crs.o cfl_h.h cfl_error.h
 
-cfl_crs.o: cfl_crs.h
+cfl_crs.o: cfl_crs.h cfl_error.h
 
 clean:
 	rm -f *.o
