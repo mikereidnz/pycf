@@ -30,7 +30,6 @@
 #define _CFL_CRS_H_
 
 #include <complex.h>
-#include <cfl_error.h>
 
 /*===========================================================================*/
 /* Data structures and types.                                                */
