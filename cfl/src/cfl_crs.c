@@ -358,7 +358,7 @@ crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
   /* Identical row and column pointers. */
   for (i=0; i<crs_m->nnz; i++) 
     col_in[i] = crs_m->col_in[i];
-  for (i=0; i<crs_m->n; i++)
+  for (i=0; i<crs_m->n+1; i++)
     row_ptr[i] = crs_m->row_ptr[i];
 
   crs_sm->n = crs_m->n;

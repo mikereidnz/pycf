@@ -73,6 +73,71 @@ void zt_free(zt *t) {
   free(t);
 }
 
+
+/*
+ * @brief Add and scale the matrix elements of two tensors, write the result to
+ *        a newly allocated tensor, and return a pointer to it. 
+ *
+ * @param[name] Name of the resulting third tensor. 
+ * @param[t1]   Pointer to the first tensor struct. 
+ * @param[t2]   Pointer to the second tensor struct.
+ * @param[s1]   A complex valued scale factor for the first tensor.
+ * @param[s2]   A complex valued scale factor for the second tensor.
+ */
+zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2) {
+  zt *t;
+
+  if (t1->n != t2->n) {
+    CFL_ERROR_NULL("tensor dimensions do not match");
+  }
+
+  t = (zt *) malloc(sizeof(zt));
+  if (t == 0) {
+    CFL_ERROR_NULL("malloc failed for zt");
+  }
+
+  t->matel = crs_zhsam_alloc(t1->matel, t2->matel);
+  if (t == 0) {
+    free(t);
+    CFL_ERROR_NULL("failed to alloc t");
+  }
+  crs_zhsam(t1->matel, t2->matel, t->matel, s1, s2);
+
+  t->name = name;
+  t->n = t1->n;
+
+  return t;
+}
+
+/*
+ * @brief Allocate storage for a new tensor, and write to it the scaled matrix
+ *        elements of the provided tensor.  
+ *
+ * @param[name] The name of the new tensor. 
+ * @param[t]    Pointer to the input tensor.
+ * @param[s]    A complex valued scale factor.
+ */
+zt *zt_s(char *name, zt *t, double complex s) {
+  zt *ts;
+
+  ts = (zt *) malloc(sizeof(zt));
+  if (t == 0) {
+    CFL_ERROR_NULL("malloc failed for zt");
+  }
+
+  ts->matel = crs_zhsm_alloc(t->matel);
+  if (ts == 0) {
+    free(ts);
+    CFL_ERROR_NULL("alloc failed for ts");
+  }
+  crs_zhsm(t->matel, ts->matel, s);
+
+  ts->name = name;
+  ts->n = t->n;
+
+  return ts;
+}
+
 /*
  * @brief Allocate storage for complex valued Hamiltonians.
  *
@@ -192,7 +257,14 @@ zhd_w *zhd_w_alloc(zh *h) {
   double complex beta = 1+I;
   crs_zhm **coeff_w;
 
-  coeff_w = (crs_zhm **) malloc((h->nt-1)*sizeof(crs_zhm *));
+  if (h->nt>1) {
+    coeff_w = (crs_zhm **) malloc((h->nt-1)*sizeof(crs_zhm *));
+    hd_w->lcoeff_w = h->nt-1;
+  }
+  else {
+    coeff_w = (crs_zhm **) malloc((h->nt)*sizeof(crs_zhm *));
+    hd_w->lcoeff_w = h->nt;
+  }
   if (coeff_w == 0) {
     free(hd_w);
     free(work);
@@ -248,7 +320,7 @@ zhd_w *zhd_w_alloc(zh *h) {
   }
 
   hd_w->coeff_w = coeff_w;
-  hd_w->lcoeff_w = h->nt-1;
+
 
 
   return hd_w;

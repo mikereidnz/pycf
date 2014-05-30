@@ -51,8 +51,20 @@ int main (void)
   //for (i=0; i<mc->n+1; i++) {
   //  printf("row_ptr c = %i\n", mc->row_ptr[i]);
   //}
+  
+  /* crs_zhsm test. */
   //crs_zhm *md = crs_zhsm_alloc(ma);
- // crs_zhsm(ma, md, alpha);
+  //crs_zhsm(ma, md, beta);
+
+  //for(i=0; i<md->nnz; i++) {
+  //  printf("val=%.2f, col_in=%i\n", md->val[i], md->col_in[i]);
+  //}
+
+  //for(i=0; i<md->n+1; i++) {
+  //  printf("row_ptr=%i\n", md->row_ptr[i]);
+  //}
+
+
 
 
 
@@ -80,10 +92,10 @@ int main (void)
   w = (double *) calloc(4,sizeof(double));
   z = (double complex *) calloc(4*4,sizeof(double complex));
 
-  ztensor *t1, *t2;
-  t1 = (ztensor *) ztensor_alloc("aten", a, 4);
-  t2 = (ztensor *) ztensor_alloc("bten", b, 4);
-  ztensor *tens[2];
+  zt *t1, *t2;
+  t1 = (zt *) zt_alloc("aten", a, 4);
+  t2 = (zt *) zt_alloc("bten", b, 4);
+  zt *tens[2];
   double complex coeff[2];
   
   tens[0] = t1;
@@ -111,11 +123,48 @@ int main (void)
     }
   }
 
+  zh_free(h);
+
+
+  
+
+  /* zt_sa test */
+  zt *t3;
+  zh *h2;
+  zhd_w *hd_w2;
+  t3 = zt_sa("cten", t1, t2, beta, beta);
+  zt *tens2[1];
+  tens2[0] = t2;
+  //tens2[1] = t1;
+  double complex coeff2[1];
+  coeff2[0] = beta;
+  //coeff2[1] = alpha;
+
+  printf("n = %i, nnz = %i\n", t3->matel->n, t3->matel->nnz);
+
+  for (i=0; i<8; i++) {
+    printf("val = %.2f, col_in = %i\n", t3->matel->val[i], t3->matel->col_in[i]);
+  }
+  for (i=0; i<5; i++) {
+    printf("row_ptr = %i\n", t3->matel->row_ptr[i]);
+  }
+
+  printf("n=%i, name=%s\n", t3->n, t3->name);
+  
+  h2 = zh_alloc(hdim, 1, s, tens2, w, z);
+  zh_set_coeff(h2, coeff2);
+  hd_w2 = zhd_w_alloc(h2);
+  zhd(h2, hd_w2);
+  zhd_w_free(hd_w2);
+  zh_free(h2);
+
+
   free(w);
   free(z);
-  zh_free(h);
-  ztensor_free(t1);
-  ztensor_free(t2);
+  zt_free(t1);
+  zt_free(t2);
+  zt_free(t3);
+
   
 
   for (i=0; i<4; i++) {
