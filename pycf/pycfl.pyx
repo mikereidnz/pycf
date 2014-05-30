@@ -1,9 +1,10 @@
 # filename = pycfl.pyx
-#cython: c_string_encoding=utf-8
+#cython: c_string_encoding=ascii
 
 cimport cfl, cython
 cimport numpy as np
 import numpy as np
+from numbers import Number
 from cpython.pycapsule cimport *
 from libc.stdlib cimport malloc, free
 
@@ -11,55 +12,75 @@ from libc.stdlib cimport malloc, free
 cdef class Tensor:
     cdef object t_cap
     cpdef public str name
+    cpdef public str tmp_name
     cpdef public int n
-    cpdef public str name_add
     
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='c'] a, object t_cap=None, int n_res=0):
-        cdef cfl.zt *cfl_zt
+    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='c']a,
+            object data_tuple=None):
+        cdef cfl.zt *t
+        cdef cfl.zt *t1
+        cdef cfl.zt *t2
 
-        if(t_cap != None):
-            # The cfl.zt object already exists. 
-            self.name = <str> name
-            self.n = n_res
-            self.t_cap = t_cap
-        else:
-            self.name = <str> name
+        self.name = <str> name
+
+        if (data_tuple == None):
             n = a.shape[0]
             self.n = n
-            cfl_zt = cfl.zt_alloc(name, &a[0,0], n)
-            if cfl_zt is NULL:
-                self.t_cap = None
-                raise MemoryError("Cannot alloc zt memory")
-            else:
-                self.t_cap = PyCapsule_New(<void *>cfl_zt, "pycfl.Tensor", NULL)
+            t = cfl.zt_alloc(name, &a[0,0], n)
+            
+        elif (len(data_tuple)==3):
+            self.n = data_tuple[0].n
+            t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
+            t2 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[1].t_cap, "pycfl.Tensor")
+            t = cfl.zt_sa(<char *>self.name, t1, t2, 1, data_tuple[2])
 
+        elif (len(data_tuple)==2):
+            
+            self.n = data_tuple[0].n
+            t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
+            t = cfl.zt_s(<char *>self.name, t1, <double complex> data_tuple[1])
+
+        if t is NULL:
+            self.t_cap = None
+            raise MemoryError("Cannot alloc zt memory")
+        else:
+            self.t_cap = PyCapsule_New(<void *>t, "pycfl.Tensor", NULL)
+            
     def __dealloc__(self):
         if self.t_cap is not None:
             cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
     
-    def __add__(self, t):
-        cdef cfl.zt *t1
-        cdef cfl.zt *t2
-        cdef cfl.zt *t_add
-        cdef object t_cap
-
-        if not (isinstance(self, Tensor) or isinstance(t, Tensor)):
+    def __add__(t1, t2):
+        if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
             raise TypeError("Only objects of type Tensor can be added to Tensors")
+        t1.tmp_name = "{0}+{1}".format(t1.name, t2.name)
+        d = (t1, t2, 1)
+        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d) 
+
+    def __sub__(t1, t2):
+        if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
+            raise TypeError("Only objects of type Tensor can be added to Tensors")
+        t1.tmp_name = "{0}-{1}".format(t1.name, t2.name)
+        d = (t1, t2, -1)
+        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d) 
+
+    def __mul__(x, y):
+        if isinstance(x, Number):
+            if isinstance(y, Tensor):
+                y.tmp_name = "{0:.2f}x{1}".format(x, y)
+                d = (y, x)
+                return Tensor(<char *>y.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d)
+        elif isinstance(x, Tensor):
+            if isinstance(y, Number):
+                x.tmp_name = "{0:.2f}x{1}".format(y, x)
+                d = (x, y)
+                return Tensor(<char *>x.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d)
+        else:
+            raise TypeError("Tensors can only be multiplied by scalar numbers")
+
         
-        self.name_add = self.name + t.name
-        t1 = <cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor")
-        t2 = <cfl.zt *>PyCapsule_GetPointer(t.t_cap, "pycfl.Tensor")
-
-        t_add = zt_sa(<char *>self.name_add, t1, t2, 1, 1)
-        if t_add is NULL:
-            raise MemoryError("Cannot alloc memory for t_add")
-
-        t_cap = PyCapsule_New(<void *>t_add, "pycfl.Tensor", NULL)
-
-        return Tensor(<char *>self.name_add, np.array([[]],dtype=np.complex128), t_cap, self.n) 
-
     property t_cap:
         def __get__(self):
             return self.t_cap
