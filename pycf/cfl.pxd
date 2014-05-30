@@ -5,16 +5,16 @@ cdef extern from "../../cfl/include/cfl_crs.h":
         pass
 
 cdef extern from "../../cfl/include/cfl_h.h":
-    ctypedef struct ztensor:
+    ctypedef struct zt:
         pass
     ctypedef struct zh:
         pass
     ctypedef struct zhd_w:
         pass
     
-    ztensor *ztensor_alloc(char *name, double complex *a, int n)
-    void ztensor_free(ztensor *zt)
-    zh *zh_alloc(int n, int nt, char **s, ztensor **t, double *w, double complex *z)
+    zt *zt_alloc(char *name, double complex *a, int n)
+    void zt_free(zt *zt)
+    zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z)
     void zh_free(zh *h) 
     void zh_set_coeff(zh *h, double complex *coeff)
     zhd_w *zhd_w_alloc(zh *h)

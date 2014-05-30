@@ -7,7 +7,7 @@ from cpython.pycapsule cimport *
 from libc.stdlib cimport malloc, free
 
 cdef class Tensor:
-    cdef cfl.ztensor *cfl_ztensor
+    cdef cfl.zt *cfl_zt
     cpdef public int n
     cdef char *name
 
@@ -17,35 +17,37 @@ cdef class Tensor:
         n = a.shape[0]
         self.n = n
         self.name = name
-        self.cfl_ztensor = cfl.ztensor_alloc(name, &a[0,0], n)
-        if self.cfl_ztensor is NULL:
-            raise MemoryError()
+        self.cfl_zt = cfl.zt_alloc(name, &a[0,0], n)
+        if self.cfl_zt is NULL:
+            raise MemoryError("Cannot alloc zt memory")
 
     def __dealloc__(self):
-        if self.cfl_ztensor is not NULL:
-            cfl.ztensor_free(self.cfl_ztensor)
+        if self.cfl_zt is not NULL:
+            cfl.zt_free(self.cfl_zt)
 
-    property cfl_ztensor_ptr:
+    property cfl_zt_ptr:
         def __get__(self):
-            return PyCapsule_New(<void *>self.cfl_ztensor,"pycfl.Tensor",NULL)
+            return PyCapsule_New(<void *>self.cfl_zt,"pycfl.Tensor",NULL)
 
     property dim:
         def __get__(self):
             return self.n
+
+    
     
 cdef class Hamiltonian:
     cdef cfl.zh *cfl_zh
     cdef cfl.zhd_w *cfl_zhd_w
-    cdef cfl.ztensor **tensor_array
-    cdef cfl.ztensor *tp
+    cdef cfl.zt **tensor_array
+    cdef cfl.zt *tp
     cdef char **state_labels
     cdef int n
     cdef int nt
-    cdef np.ndarray w
-    cdef np.ndarray z
+    cpdef public np.ndarray w
+    cpdef public np.ndarray z
     def __cinit__(self, tensors, states):
         cdef char *char_ptr
-        cdef cfl.ztensor *ten_array_ptr
+        cdef cfl.zt *ten_array_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="c"] z
 
@@ -60,7 +62,7 @@ cdef class Hamiltonian:
                 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function. 
-        tensor_array = <cfl.ztensor **>malloc(len(tensors)*cython.sizeof(ten_array_ptr))
+        tensor_array = <cfl.zt **>malloc(len(tensors)*cython.sizeof(ten_array_ptr))
         if tensor_array is NULL:
             raise MemoryError("tensor_array alloc failed")
         state_labels = <char **>malloc(len(states)*cython.sizeof(char_ptr))
@@ -74,7 +76,7 @@ cdef class Hamiltonian:
             state_labels[i] = s
 
         for i,t in enumerate(tensors):
-            tensor_array[i] = <cfl.ztensor *> PyCapsule_GetPointer(t.cfl_ztensor_ptr, "pycfl.Tensor")
+            tensor_array[i] = <cfl.zt *> PyCapsule_GetPointer(t.cfl_zt_ptr, "pycfl.Tensor")
 
         # Allocate storage for zh. 
         self.cfl_zh = cfl.zh_alloc(n, self.nt, state_labels, tensor_array,

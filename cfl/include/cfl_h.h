@@ -44,7 +44,7 @@ typedef struct {
   int n;
   /* Pointer to the matrix elements stored in CSR form. */
   crs_zhm *matel;
-} ztensor; 
+} zt; 
 
 /*
  * @brief The Hamiltonian structure.
@@ -57,7 +57,7 @@ typedef struct {
   /* State labels corresponding to eigenvalues. */
   char **states;
   /* Pointer to array of pointers to complex valued tensors. */
-  ztensor **t;
+  zt **t;
   /* Tensor coefficients. */
   double complex *coeff;
   /* Matrix of the complete Hamiltonian in row major form. */
@@ -97,9 +97,9 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-ztensor *ztensor_alloc(char *name, double complex *a, size_t n);
-void ztensor_free(ztensor *zt);
-zh *zh_alloc(int n, int nt, char **s, ztensor **t, double *w, double complex *z); 
+zt *zt_alloc(char *name, double complex *a, size_t n);
+void zt_free(zt *zt);
+zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z); 
 void zh_free(zh *h);
 void zh_set_coeff(zh *h, double complex *coeff);
 zhd_w *zhd_w_alloc(zh *h);

@@ -43,49 +43,49 @@
  * @param[a]      Pointer to array containing the matrix elements. 
  * @param[n]      The dimension of the matrix elemet matrix.
  */
-ztensor *ztensor_alloc(char *name, double complex *a, size_t n) {
-  ztensor *zt;
-  zt = (ztensor *) malloc(sizeof(ztensor));
-  if (zt == 0) {
+zt *zt_alloc(char *name, double complex *a, size_t n) {
+  zt *t;
+  t = (zt *) malloc(sizeof(zt));
+  if (t == 0) {
     CFL_ERROR_NULL("malloc failed for zt");
   }
 
   crs_zhm *ma = crs_zhm_alloc(a, n);
   if (ma == 0) {
-    free(zt);
+    free(t);
     CFL_ERROR_NULL("alloc failed for crs_zhm");
   }
 
-  zt->name = name;
-  zt->n = n;
-  zt->matel = ma;
+  t->name = name;
+  t->n = n;
+  t->matel = ma;
 
-  return zt;
+  return t;
 }
 
 /*
- * @brief Free storage allocated for a ztensor.
+ * @brief Free storage allocated for a zt.
  *
- * @param[zt]     Pointer to the ztensor.
+ * @param[t]     Pointer to the zt struct.
  */
-void ztensor_free(ztensor *zt) {
-  crs_zhm_free(zt->matel);
-  free(zt);
+void zt_free(zt *t) {
+  crs_zhm_free(t->matel);
+  free(t);
 }
 
 /*
  * @brief Allocate storage for complex valued Hamiltonians.
  *
  * @param[n]    The dimension of the Hamiltonian.
- * @param[nt]       The number of tensors. 
- * @param[s]        Pointer to character arrays containing state labels.
- * @param[ztensor]  Pointer to array of ztensors.
- * @param[w]        Pointer to double valued array of length n to which
- *                  eigenvalues will be written.  
- * @param[z]        Pointer to double complex valued array of length n^2 to which
- *                  the eigenvectors will be written.
+ * @param[nt]   The number of tensors. 
+ * @param[s]    Pointer to character arrays containing state labels.
+ * @param[t]   Pointer to array of zts.
+ * @param[w]    Pointer to double valued array of length n to which eigenvalues
+ *              will be written.  
+ * @param[z]    Pointer to double complex valued array of length n^2 to which
+ *              the eigenvectors will be written.
  */
-zh *zh_alloc(int n, int nt, char **s, ztensor **t, double *w, double complex *z) {
+zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z) {
   zh *h;
   double complex *ap;
 
