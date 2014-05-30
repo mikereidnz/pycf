@@ -88,7 +88,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2) {
   zt *t;
 
   if (t1->n != t2->n) {
-    CFL_ERROR_NULL("tensor dimensions do not match");
+    CFL_ERROR_VOID("tensor dimensions do not match");
   }
 
   t = (zt *) malloc(sizeof(zt));
