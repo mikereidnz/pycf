@@ -926,7 +926,7 @@ class SpectrumErun(GenericErun):
             __load_data(self)
         elif kwargs['action'] == 'exec':
             input_data = """
-                        getdata {0} 1 
+                        getdata {0}.plt 1 
                         polon {1}
                         temp {2} 
                         {3} 
