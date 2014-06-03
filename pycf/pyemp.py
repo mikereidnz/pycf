@@ -643,18 +643,20 @@ class Vtrans(GenericErun):
         GenericErun.__init__(self, spectrum, 'vtrans', ['states', 'tvals',
             'matel'], **kwargs)
 
-        GenericErun.add_input(self, """
-                              READSTATES {0} \n
-                              READVECTS {1} \n
-                              OUTFILE {2} \n
-                              TRANSFORM {5} {6} {7} {8} {3} \n
-                              {4} \n
-                              finish \n\n""".format(
-                                  spectrum['states'], spectrum['tvals'],
-                                  spectrum.name, spectrum['matel'],
-                                  spectrum['edconstruct'],
-                                  *spectrum['levels'][0:4]))
+        base_input = """
+                     READSTATES {0} \n
+                     READVECTS {1} \n
+                     OUTFILE {2} \n
+                     TRANSFORM {4} {5} {6} {7} {3} \n
+                     """.format(
+                     spectrum['states'], spectrum['tvals'],
+                     spectrum.name, spectrum['matel'], *spectrum['levels'][0:4])
+        if spectrum['edconstruct'] != None:
+            ed_input = "{} \n\n".format(spectrum['edconstruct'])
+        else:
+            ed_input = "EDCONSTRUCT \n\n"
 
+        GenericErun.add_input(self, base_input + ed_input + "finish \n\n")
         GenericErun.erun(self, spectrum, ['trans'])
 
 
@@ -697,28 +699,35 @@ class Inten(GenericErun):
         GenericErun.__init__(self, spectrum, 'inten', ['states', 'tvals',
             'trans'], **kwargs)
         
-        GenericErun.add_input(self, """
-                              READSTATES {0}
-                              READTVALS {1}
-                              ninputsets 1
-                              READTENSOR {2}
-                              SETUPMOM \n
-                              addten edipole %
-                              {3}
-                              assign edipole {4}
-                              assign magdipole {5} \n
-                              calc \n
-                              plotout {6}.plt
-                              Transition intensity
-                              {7} {8} {11}
-                              {9} {10} {12}
-                              END \n
-                              finish \n\n""".format(spectrum['states'],
-                                  spectrum['tvals'], spectrum['trans'],
-                                  spectrum['edipoletensor'],
-                                  spectrum['edipole'], spectrum['mdipole'],
-                                  spectrum.name, *spectrum['levels']))
+        base_input = """
+                     READSTATES {0}
+                     READTVALS {1}
+                     ninputsets 1
+                     READTENSOR {2}
+                     SETUPMOM \n
+                     """.format(spectrum['states'],
+                         spectrum['tvals'], spectrum['trans'])
+        if spectrum['edipole'] != None:
+            dipole_input = """
+                     addten edipole %
+                     {0}
+                     assign edipole {1}
+                     assign magdipole {2} \n
+                     """.format(spectrum['edipoletensor'],
+                     spectrum['edipole'], spectrum['mdipole'])
+        else:
+            dipole_input = "assign magdipole {} \n".format(spectrum['mdipole'])
 
+        calc_input = """
+                     calc \n
+                     plotout {0}.plt
+                     Transition intensity
+                     {1} {2} {5}
+                     {3} {4} {6}
+                     END \n
+                     finish \n\n""".format( spectrum.name, *spectrum['levels'])
+
+        GenericErun.add_input(self, base_input + dipole_input + calc_input) 
         GenericErun.erun(self, spectrum, ['plt'])
 
 
