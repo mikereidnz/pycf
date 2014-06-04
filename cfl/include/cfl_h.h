@@ -60,7 +60,7 @@ typedef struct {
   zt **t;
   /* Tensor coefficients. */
   double complex *coeff;
-  /* Matrix of the complete Hamiltonian in row major form. */
+  /* Pointer to matrix of the complete Hamiltonian in packed row major form. */
   double complex *ap;
   /* Pointer to eigenvalue array. */
   double *w;
