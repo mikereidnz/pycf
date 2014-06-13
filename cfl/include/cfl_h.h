@@ -32,19 +32,7 @@
 
 #include <complex.h>
 #include <cfl_crs.h>
-
-
-/* 
- * @brief The tensor structure for complex valued matrix elements.
- */
-typedef struct {
-  /* Pointer to tensor name character array. */
-  char *name;
-  /* Dimension of the matrix elements. */
-  int n;
-  /* Pointer to the matrix elements stored in CSR form. */
-  crs_zhm *matel;
-} zt; 
+#include <cfl_tensor.h>
 
 /*
  * @brief The Hamiltonian structure.
