@@ -64,6 +64,7 @@ extern "C" {
 crs_zhm *crs_zhm_alloc(double complex a[], int n);
 void crs_zhm_free(crs_zhm *crs_m); 
 void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap);
+void crs_zhm2zha(crs_zhm *crs_m, double complex *a);
 crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b);
 void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
     complex beta);

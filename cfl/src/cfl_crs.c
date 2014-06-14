@@ -163,8 +163,8 @@ void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
   int n = crs_m->n;
   double complex czero = 0;
 
-  /* The readout is in row-major form since it allows for an itteration over a
-   * contigous block of memory to recover the original ordering of elements
+  /* The readout is in row-major form since it allows for an iteration over a
+   * contiguous block of memory to recover the original ordering of elements
    * prior to them being arranged in compressed row storage.  Provided the CRS
    * input arrays were correctly arranged in column-major form, the resulting
    * packed matrix AP will also be in column-major form and can be passed to
@@ -186,6 +186,34 @@ void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
   }
 }
 
+/*
+ * @brief Convert a Hermitian CRS matrix to a Hermitian dense matrix A. 
+ *
+ * @param[crs_m]    Pointer to the sparse matrix in CRS form.
+ * @param[a]        Pointer to allocated block sufficient for storing n*n double
+ *                  complex values.
+ */
+void crs_zhm2zha(crs_zhm *crs_m, double complex *a) {
+  int i, j;
+  int vi = 0;
+  int n = crs_m->n;
+
+  for (i=0; i<n; i++) {
+    for (j=0; j<n; j++) {
+      /* Ensure we're matching column indices on the current row. */
+      if (vi == crs_m->row_ptr[i+1]) {
+        a[i*n+j] = 0;
+      }
+      else if (crs_m->col_in[vi] == j) {
+        a[i*n+j] = crs_m->val[vi];
+        vi++;
+      }
+      else {
+        a[i*n+j] = 0;
+      }
+    }
+  }
+}
 
 /*
  * @brief Given three sparse matrices of the same shape in Hermitian CRS form,
@@ -282,7 +310,7 @@ void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
   int bi = 0;
 
   /* The first two cases correspond to no further elements for either b or a on
-   * the current row, respectievly.  The next two cases correspond to further
+   * the current row, respectively.  The next two cases correspond to further
    * elements for both a and b on the current row, yet one has a lower column
    * index and hence comes first.  Finally, the only option that remains is that
    * the column indices of both a and b match for the current row, hence we have
