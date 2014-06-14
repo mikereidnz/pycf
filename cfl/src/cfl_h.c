@@ -186,7 +186,7 @@ void zh_free(zh *h) {
 }
 
 /*
- * @brief Set the the coefficient array pointer; a wrapper for Cython. 
+ * @brief Set the coefficient array pointer; a wrapper for Cython. 
  *
  * @param[coeff]    Pointer to the coefficient array.  
  */
@@ -276,7 +276,7 @@ zhd_w *zhd_w_alloc(zh *h) {
    * calculates C for C = alpha A + beta C, for A, B, and C CRS matrices and
    * alpha and beta complex scalars.  The first two matrix elements are summed
    * directly with respective coefficients set for alpha and beta.  Further
-   * matrix elements are then itteratively added to the previous result.  Since
+   * matrix elements are then iteratively added to the previous result.  Since
    * crs_zhsam_alloc also calculates the row_ptr array and number of non-zero
    * elements of C, we have to run through the actual additions in order to
    * determine the these values for each of the intermediate sums.  Finally, in
@@ -328,7 +328,7 @@ zhd_w *zhd_w_alloc(zh *h) {
 
 
 /*
- * @brief Free Hamiltonian diagonalization workspace storage.
+ * @brief Free Hamiltonian digitalization workspace storage.
  *
  * @param[hd_w]    Pointer to Hamiltonian diagonalization workspace.
  */
