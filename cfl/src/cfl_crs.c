@@ -161,7 +161,6 @@ void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
   int i, j;
   int vi = 0;
   int n = crs_m->n;
-  double complex czero = 0;
 
   /* The readout is in row-major form since it allows for an iteration over a
    * contiguous block of memory to recover the original ordering of elements
@@ -173,14 +172,14 @@ void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
     for (j=i; j<n; j++) {
       /* Ensure we're matching column indices on the current row. */
       if (vi == crs_m->row_ptr[i+1]) {
-        ap[j+i*(2*n-(i+1))/2] = czero;
+        ap[j+i*(2*n-(i+1))/2] = 0;
       }
       else if (crs_m->col_in[vi] == j) {
         ap[j+i*(2*n-(i+1))/2] = crs_m->val[vi];
         vi++;
       }
       else {
-        ap[j+i*(2*n-(i+1))/2] = czero;
+        ap[j+i*(2*n-(i+1))/2] = 0;
       }
     }
   }
@@ -200,8 +199,11 @@ void crs_zhm2zha(crs_zhm *crs_m, double complex *a) {
 
   for (i=0; i<n; i++) {
     for (j=0; j<n; j++) {
+      if (i>j) {
+        a[i*n+j] = conj(a[j*n+i]);
+      }
       /* Ensure we're matching column indices on the current row. */
-      if (vi == crs_m->row_ptr[i+1]) {
+      else if (vi == crs_m->row_ptr[i+1]) {
         a[i*n+j] = 0;
       }
       else if (crs_m->col_in[vi] == j) {
