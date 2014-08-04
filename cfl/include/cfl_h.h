@@ -33,6 +33,7 @@
 #include <complex.h>
 #include <cfl_crs.h>
 #include <cfl_tensor.h>
+#include <cfl_h.h>
 
 /*
  * @brief The Hamiltonian structure.
@@ -85,10 +86,6 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-zt *zt_alloc(char *name, double complex *a, size_t n);
-void zt_free(zt *zt);
-zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2);
-zt *zt_s(char *name, zt *t, double complex s);
 zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z); 
 void zh_free(zh *h);
 void zh_set_coeff(zh *h, double complex *coeff);

@@ -39,7 +39,7 @@ typedef struct {
   char *name;
   /* Dimension of the matrix elements. */
   int n;
-  /* Pointer to the matrix elements stored in CSR form. */
+  /* Pointer to the matrix elements stored in CRS form. */
   crs_zhm *matel;
 } zt; 
 
