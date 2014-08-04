@@ -6,11 +6,16 @@ LDFLAGS=
 
 #libcfl.so: cfl_h.o cfl_crs.o 
 
-#cfl_test: cfl_h.o cfl_crs.o -lm
-libcfl.a: cfl_h.o cfl_crs.o 
-	ar -rs $@ $^
+#cfl_test: cfl_h.o cfl_tensor.o cfl_crs.o -lm
 
-cfl_h.o: cfl_crs.o cfl_h.h cfl_error.h
+h_test: cfl_h.o cfl_tensor.o cfl_crs.o -lm
+#crs_test: cfl_h.o cfl_crs.o -lm
+#libcfl.a: cfl_h.o cfl_crs.o 
+#	ar -rs $@ $^
+
+cfl_h.o: cfl_tensor.o cfl_h.h cfl_error.h
+
+cfl_tensor.o: cfl_crs.o cfl_tensor.h cfl_error.h
 
 cfl_crs.o: cfl_crs.h cfl_error.h
 
