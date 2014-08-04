@@ -29,17 +29,20 @@
 #ifndef _CFL_SH_H_
 #define _CFL_SH_H_
 
+#include <cfl_tensor.h>
+#include <cfl_h.h>
+
 /*
  * @brief Spin Hamiltonian term types.
  */
 typedef enum {
-  bgs = 0,
-  ias = 1,
-  iqi = 2
+  zee = 0,
+  hyp = 1,
+  qua = 2
 } sh_type_t;
 
 /*
- * @brief Struct containing information of bgs terms.
+ * @brief Struct containing information of Zeeman terms.
  */
 typedef struct {
   /* The total spin angular momentum quantum number. */
@@ -48,10 +51,10 @@ typedef struct {
   double complex *b;
   /* Pointer to S matrix elements in a dense array. */
   double complex *s_matel;
-} bgs_t;
+} zee_t;
 
 /*
- * @brief Struct containing information of ias terms.
+ * @brief Struct containing information of hyperfine terms.
  */
 typedef struct {
   /* The total spin angular momentum quantum number. */
@@ -62,26 +65,38 @@ typedef struct {
   double complex *s_matel;
   /* Pointer to I matrix elements in a dense array. */
   double complex *i_matel;
-} ias_t;
+} hyp_t;
 
 /*
- * @brief Struct containing information of iqi terms.
+ * @brief Struct containing information of quadrupole terms.
  */
 typedef struct {
   /* The total nuclear angular momentum quantum number. */
   float i;
   /* Pointer to I matrix elements in a dense array. */
   double complex *i_matel;
-} iqi_t;
+} qua_t;
 
 /*
  * @brief Union holding different term data structs.
  */
 typedef union {
-  bgs_t *bgs;
-  ias_t *ias;
-  iqi_t *iqi;
+  zee_t *zee;
+  hyp_t *hyp;
+  qua_t *qua;
 } sh_data_t;
+
+/* 
+ * @brief State label type. 
+ */
+typedef struct {
+  /* The length of labels */
+  size_t l;
+  /* Pointer to arrays of length l of state labels. */
+  char **states;
+  /* Pointer to hash of states. */
+  char *state_hash;
+} state_t;
 
 /*
  * @brief Spin Hamiltonian structure definition.
@@ -90,26 +105,39 @@ typedef struct {
   /* Dimension of the spin Hamiltonian. */
   size_t n;
   /* State labels corresponding to eigenvalues. */
-  char **states;
-  /* Pointer to hash of state labels. */
-  char *state_hash;
+  state_t *states;
   /* Pointer to matrix elements stored in a contigious array. */
   double complex *a;
   /* Spin Hamiltonian data type. */
   sh_type_t type;
   /* Pointer to union of data types. */
-  sh_data_t data;
+  sh_data_t *data;
 } zsh;
 
+/*
+ * @brief Definition of spin Hamiltonian projection workspace type.
+ */
+typedef struct {
+  /* Dimension of the complete Hamiltonian. */
+  size_t nc;
+  /* Pointer to matrix elements of tensor to project in dense storage. */
+  double complex *m;
+  /* Pointer to array used for storing intermediate and final values of the
+   * projection.  */
+  double complex *a;
+} zshp_w; 
+
+
 /* Function prototypes. */
+zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z); 
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-zsh *zsh_alloc(sh_type_t type, sh_data_t data, char **states);
+
+zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data);
 void zsh_free(zsh *sh);
-zshp_w *zshp_w_alloc(zsh *sh);
-void zshp_w_free(zshp_w *shp_w);
-void zshp(zsh *sh, zshp_w *shp_w);
+zshp_w *zshp_w_alloc(zh *h);
+void zshp(zt *t, zh *h, zsh *sh, zshp_w *shp_w, size_t *l);
 
 #ifdef __cplusplus
 }
