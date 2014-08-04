@@ -4,7 +4,9 @@ CFL
   * Update makefile to explicitly list rules; then add targets for shared objects
   * Create python jmcalc parser
   * Change spectrum labels of zh objects to copy the string and store internally
-  * Add hash attribute for spectrum labels
+  * Calculate hash of state labels, and provide a state comparison function. 
+  * Merge zh and state label functions to a common source file, since state
+    lables will also be useful for spin Hamiltonians. 
   * Change appropriate struct attributes and function arguments from int to
     size_t
   * Update doc strings to function return values 
