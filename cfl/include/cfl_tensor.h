@@ -23,7 +23,7 @@
 
 /*
  * @file    cfl_tensor.h
- * @brief   Tensor and related typedefs.
+ * @brief   Common cfl typdefs and associated functions.
  */
 
 #ifndef _CFL_TENSOR_H_
@@ -42,6 +42,21 @@ typedef struct {
   /* Pointer to the matrix elements stored in CSR form. */
   crs_zhm *matel;
 } zt; 
+
+
+/* Function prototypes. */
+#ifdef __cplusplus
+extern "C" { 
+#endif /* __cplusplus */
+
+zt *zt_alloc(char *name, double complex *a, size_t n);
+void zt_free(zt *zt);
+zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2);
+zt *zt_s(char *name, zt *t, double complex s);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _CFL_TENSOR_H_ */
 
