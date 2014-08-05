@@ -33,7 +33,6 @@
 #include <complex.h>
 #include <cfl_crs.h>
 #include <cfl_tensor.h>
-#include <cfl_h.h>
 
 /*
  * @brief The Hamiltonian structure.

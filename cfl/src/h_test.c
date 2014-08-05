@@ -3,9 +3,12 @@
 
 #include <math.h>
 #include <complex.h>
+#include <gsl/gsl_cblas.h>
+
 #include <cfl_crs.h>
 #include <cfl_tensor.h>
 #include <cfl_h.h>
+#include <cfl_sh.h>
 
 /* This file contains tests for:
  *  * tensor allocation and scaling/addition functions
@@ -17,7 +20,7 @@
  */
 
 /*
- * @brief   Check the quality of two complex valued arrays.
+ * @brief   Check the equality of two complex valued arrays.
  *
  * @param[a]  Pointer to first array. 
  * @param[b]  Pointer to second array.
@@ -42,7 +45,7 @@ void zequ_chk(double complex *a, double complex *b, size_t n) {
 }
 
 /*
- * @brief   Check the quality of two double valued arrays.
+ * @brief   Check the equality of two double valued arrays.
  *
  * @param[a]  Pointer to first array. 
  * @param[b]  Pointer to second array.
@@ -171,7 +174,6 @@ int main (void)
  
   printf("hdiag multiple tensors:\n");
   dequ_chk(hdiag_res, w, 4);
-  zh_free(h);
 
   /* Test diagonalization of Hamiltonian with a single tensor. */
   zt *tens2[1];
@@ -192,19 +194,38 @@ int main (void)
   dequ_chk(h2diag_res, w, 4);
   zh_free(h2);
 
+  free(c);
+
+  /*=========================================================================*/
+  /* Spin Hamiltonian test.                                                 */
+  /*=========================================================================*/
+
+  double complex zshp_res[4] = {-3.7417404568, 0, 0, -0.2120561172};
+  state_t *st;
+  zsh *sh;
+  zshp_w *shp_w;
+
+  sh_data_t *sh_data;
+  zee_t *zeeman;
+  sh_data->zee = zeeman;
+
+  sh = zsh_alloc(2, st, zee, sh_data);
+  shp_w = zshp_w_alloc(t1);
+  zshp(h, sh, shp_w, 0);
+
+  printf("zshp:\n");
+  zequ_chk(zshp_res, sh->a, 4);
+  zshp_w_free(shp_w);
+  zsh_free(sh);
+
+  zh_free(h);
   free(w);
   free(z);
   for (i=0; i<4; i++) {
     free(s[i]);
   }
 
-  free(c);
   zt_free(t1);
   zt_free(t2);
-
-  /*=========================================================================*/
-  /* Spin Hamiltonian tests.                                                 */
-  /*=========================================================================*/
-
   return 0;
 }  

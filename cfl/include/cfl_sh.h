@@ -33,6 +33,19 @@
 #include <cfl_h.h>
 
 /*
+ * @brief Matrix elements in Cartesian coordinates for angular-momentum operator
+ *        J. 
+ */
+typedef struct {
+  /* Matrix elements of J_x in a dense array. */
+  double complex *x;
+  /* Matrix elements of J_y in a dense array. */
+  double complex *y;
+  /* Matrix elements of J_z in a dense array. */
+  double complex *z;
+} matel_t;
+
+/*
  * @brief Spin Hamiltonian term types.
  */
 typedef enum {
@@ -49,8 +62,8 @@ typedef struct {
   float s;
   /* Pointer to magnetic field array. */
   double complex *b;
-  /* Pointer to S matrix elements in a dense array. */
-  double complex *s_matel;
+  /* Pointer to S matrix elements. */
+  matel_t *sm;
 } zee_t;
 
 /*
@@ -61,10 +74,10 @@ typedef struct {
   float s;
   /* The total nuclear angular momentum quantum number. */
   float i;
-  /* Pointer to S matrix elements in a dense array. */
-  double complex *s_matel;
-  /* Pointer to I matrix elements in a dense array. */
-  double complex *i_matel;
+  /* Pointer to S matrix elements. */
+  matel_t *sm;
+  /* Pointer to I matrix elements. */
+  matel_t *im;
 } hyp_t;
 
 /*
@@ -73,8 +86,8 @@ typedef struct {
 typedef struct {
   /* The total nuclear angular momentum quantum number. */
   float i;
-  /* Pointer to I matrix elements in a dense array. */
-  double complex *i_matel;
+  /* Pointer to I matrix elements. */
+  matel_t *im;
 } qua_t;
 
 /*
@@ -122,23 +135,22 @@ typedef struct {
   size_t nc;
   /* Pointer to matrix elements of tensor to project in dense storage. */
   double complex *m;
-  /* Pointer to array used for storing intermediate and final values of the
-   * projection.  */
+  /* Pointer to array used for storing intermediate values. */
   double complex *a;
+  /* Pointer to array used for storing the final values of the projection. */
+  double complex *b;
 } zshp_w; 
 
 
 /* Function prototypes. */
-zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z); 
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
 
 zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data);
 void zsh_free(zsh *sh);
-zshp_w *zshp_w_alloc(zh *h);
-void zshp(zt *t, zh *h, zsh *sh, zshp_w *shp_w, size_t *l);
-
+zshp_w *zshp_w_alloc(zt *t);
+void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

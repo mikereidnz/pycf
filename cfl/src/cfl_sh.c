@@ -30,8 +30,11 @@
 #include <math.h>
 #include <complex.h>
 #include <gsl/gsl_cblas.h>
+#include <lapacke.h>
+
 #include <cfl_error.h>
 #include <cfl_tensor.h>
+#include <cfl_sh.h>
 
 
 /*
@@ -46,16 +49,17 @@ zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data) {
 
   sh = (zsh *) malloc(sizeof(zsh));
   if (sh == 0) {
-    CSL_ERROR_NULL("malloc failed for sh");
-  }
-
-  st = (label_t *) malloc(sizeof(label_t;));
-  if (st == 0) {
-    free(sh);
-    CSL_ERROR_NULL("malloc failed for st");
+    CFL_ERROR_NULL("malloc failed for sh");
   }
 
 #if 0
+  st = (label_t *) malloc(sizeof(label_t;));
+  if (st == 0) {
+    free(sh);
+    CFL_ERROR_NULL("malloc failed for st");
+  }
+
+
   s_size = sizeof(states[0][0]);
   for (i=0; i<n; i++) {
     st[i] = (char *) malloc(s_size);
@@ -65,7 +69,7 @@ zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data) {
       }
       free(st);
       free(sh);
-      CSL_ERROR_NULL("malloc failed for st[i]");
+      CFL_ERROR_NULL("malloc failed for st[i]");
     }
     strcpy(st[i], states[i]);
   }
@@ -74,24 +78,23 @@ zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data) {
   a = (double complex *) calloc(n*n,sizeof(double complex));
   if (a == 0) {
     free(sh);
-    free(st);
-    CSL_ERROR_NULL("calloc failed for a");
+    CFL_ERROR_NULL("calloc failed for a");
   }
 
   sh->n = n;
-  sh->states = st;
   sh->a = a;
   sh->type = type;
   sh->data = data;
+
+  return sh;
 }
 
 /*
  * @brief Free spin Hamiltonian storage.
  */
-void *zsh_free(zsh *sh) {
+void zsh_free(zsh *sh) {
   free(sh->a);
   /* Add state freeing function here, once states are implemented centrally. */
-  free(sh->st);
   free(sh);
 }
 
@@ -102,32 +105,42 @@ zshp_w *zshp_w_alloc(zt *t) {
   zshp_w *shp_w;
   size_t n = t->n;
   double complex *a; 
+  double complex *b;
   double complex *m;
 
   shp_w = (zshp_w *) malloc(sizeof(zshp_w));
   if (shp_w == 0) {
-    CSL_ERROR_NULL("malloc failed for shp_w");
+    CFL_ERROR_NULL("malloc failed for shp_w");
   }
 
   m = (double complex *) calloc(n*n, sizeof(double complex));
   if (m == 0) {
     free(shp_w);
-    CSL_ERROR_NULL("calloc failed for t");
+    CFL_ERROR_NULL("calloc failed for t");
   }
   
   /* Convert to dense storage, as required by the blas zhemm and ztrmm functions
    * in zshp. */
-  crs_zhm2zha(t->matel, m)
+  crs_zhm2zha(t->matel, m);
 
   a = (double complex *) calloc(n*n, sizeof(double complex));
   if (a == 0) {
     free(shp_w);
     free(m);
-    CSL_ERROR_NULL("calloc failed for a");
+    CFL_ERROR_NULL("calloc failed for a");
+  }
+
+  b = (double complex *) calloc(n*n,sizeof(double complex));
+  if (b == 0) {
+    free(shp_w);
+    free(m);
+    free(a);
+    CFL_ERROR_NULL("calloc failed for b");
   }
 
   shp_w->m = m;
   shp_w->a = a;
+  shp_w->b = b;
   shp_w->nc = n;
 
   return shp_w;
@@ -139,6 +152,7 @@ zshp_w *zshp_w_alloc(zt *t) {
 zshp_w_free(zshp_w *shp_w) {
   free(shp_w->m);
   free(shp_w->a);
+  free(shp_w->b);
   free(shp_w);
 }
 
@@ -146,7 +160,6 @@ zshp_w_free(zshp_w *shp_w) {
  * @brief Project out the spin Hamiltonian given an effective Hamiltonian and
  *        tensor. 
  *
- * @param[t]      The tensor for which to project out the spin Hamiltonian term.
  * @param[h]      A diagonalized Hamiltonian containing free-ion and
  *                crystal-field interactions.
  * @param[sh]     The spin Hamiltonian object.
@@ -154,11 +167,13 @@ zshp_w_free(zshp_w *shp_w) {
  * @param[l]      Integer specifying the initial level for which to project the
  *                spin Hamiltonian.
  */
-void zshp(zt *t, zh *h, zsh *sh, zshp_w *shp_w, int l) {
+void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l) {
   int i, j;
-  const double complex alpha = 1;
-  const double complex beta = 0;
-  size_t n = t->n;
+  lapack_complex_double one, zero;
+  one = lapack_make_complex_double(1.0,0.0);
+  zero = lapack_make_complex_double(0.0,0.0);
+  lapack_int n = shp_w->nc;
+  int nsh = sh->n;
   
   /* The projection is a simmilarity transformation of the form V H V^dag, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
@@ -167,15 +182,17 @@ void zshp(zt *t, zh *h, zsh *sh, zshp_w *shp_w, int l) {
    * elements that are diagonal in total angular momentum J. */
  
   /* Calculate VH. */
-  cblas_zhemm(CblasColMajor, CblasRight, CblasUpper, n, n, &alpha, shp_w->m, n,
-      h->z, n, &beta, shp_w->a, n);
-  /* Calculate (VH) V^dag. */
-  cblas_ztrmm(CblasColMajor, CblasRight, CblasUpper, CblasConjTrans,
-      CblasNonUnit, n, n, &alpha, h->z, h->n, shp_w->a, n);
+  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one, shp_w->m, n,
+      h->z, n, &zero, shp_w->a, n);
 
-  for (i=0; i<n; i++) {
-    for (j=0; j<n; j++) {
-      sh->a[i*n+j] = shp_w->a[(i+l[0])*n+j+l[0]];
+  /* Calculate (VH) V^dag.  Conjugation argument is unintuitive, but yielded the
+   * correct result when compared to a octave calculation. */
+  cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
+      shp_w->a, n, h->z, n, &zero, shp_w->b, n);
+ 
+  for (i=0; i<nsh; i++) {
+    for (j=0; j<nsh; j++) {
+      sh->a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
     }
   }
 }

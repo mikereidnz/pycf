@@ -9,7 +9,10 @@ CFL
     lables will also be useful for spin Hamiltonians. 
   * Change appropriate struct attributes and function arguments from int to
     size_t
-  * Update doc strings to function return values 
+  * Update doc strings to function return values
+  * Think about a complex tensor-prefactor... since a standard multiplication by
+    a complex number will not preserve the hermiticity of a matrix. Presumably,
+    we multiply by the complex conjugate on the lower-diagonal?
 
 Spin Hamiltonian
 ----------------
