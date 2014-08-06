@@ -1,0 +1,10 @@
+*.a
+*.so
+*.o
+*.swp
+*.pyc
+
+work
+build 
+dist
+examples/exclude
