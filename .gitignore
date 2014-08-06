@@ -6,5 +6,6 @@
 
 work
 build 
+doc/_build
 dist
 examples/exclude
