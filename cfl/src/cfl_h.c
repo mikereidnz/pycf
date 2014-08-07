@@ -103,7 +103,7 @@ zhd_w *zhd_w_alloc(zh *h) {
 
   hd_w = (zhd_w *) malloc(sizeof(zhd_w));
   if (hd_w == 0) {
-    CFL_ERROR_NULL("malloc failed for zhd_w");
+    CFL_ERROR_NULL("malloc failed for hd_w");
   }
 
   /* LAPACK eigenvalue workspace query. */
