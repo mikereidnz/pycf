@@ -151,8 +151,6 @@ zhd_w *zhd_w_alloc(zh *h) {
 
   /* Allocation for matrix element scaling an addition. */
   int i, j;
-  double complex alpha = 1+I;
-  double complex beta = 1+I;
   crs_zhm **coeff_w;
 
   if (h->nt>1) {
@@ -190,7 +188,7 @@ zhd_w *zhd_w_alloc(zh *h) {
       free(coeff_w);
       CFL_ERROR_NULL("alloc failed for coeff_w");
     }
-    crs_zhsam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], alpha, beta);
+    crs_zhsam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], 1, 1);
     for (i=1; i<h->nt-1; i++) {
       coeff_w[i] = crs_zhsam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
       if (coeff_w[i] == 0) {
@@ -203,7 +201,7 @@ zhd_w *zhd_w_alloc(zh *h) {
         }
         CFL_ERROR_NULL("alloc failed for coeff_w");
       }
-      crs_zhsam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], alpha, beta);
+      crs_zhsam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], 1, 1);
     }
   }
   else {
@@ -251,7 +249,6 @@ void zhd_w_free(zhd_w *hd_w) {
  */
 void zhd(zh *h, zhd_w *hd_w) {
   int i;
-  double complex alpha = 1+I;
   char lapack_err[] = "LAPACKE_zhpevd failed with error code: 0";
 
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
@@ -260,7 +257,7 @@ void zhd(zh *h, zhd_w *hd_w) {
     crs_zhsam((h->t[0])->matel, (h->t[1])->matel, hd_w->coeff_w[0], h->coeff[0],
         h->coeff[1]);
     for (i=1; i<hd_w->lcoeff_w; i++) {
-      crs_zhsam(hd_w->coeff_w[i-1], (h->t[i+1])->matel, hd_w->coeff_w[i], alpha,
+      crs_zhsam(hd_w->coeff_w[i-1], (h->t[i+1])->matel, hd_w->coeff_w[i], 1,
           h->coeff[i+1]);
     }
   }
