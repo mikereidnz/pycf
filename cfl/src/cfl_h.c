@@ -175,9 +175,9 @@ zhd_w *zhd_w_alloc(zh *h) {
    * matrix elements are then iteratively added to the previous result.  Since
    * crs_zhsam_alloc also calculates the row_ptr array and number of non-zero
    * elements of C, we have to run through the actual additions in order to
-   * determine the these values for each of the intermediate sums.  Finally, in
-   * case there is only a single tensor, we use the scaling function crs_zhsm
-   * for which we still have to allocate separate memory. 
+   * determine these values for each of the intermediate sums.  Finally, in case
+   * there is only a single tensor, we use the scaling function crs_zhsm for
+   * which we still have to allocate separate memory. 
    */
   if (h->nt>1) {
     coeff_w[0] = crs_zhsam_alloc((h->t[0])->matel, (h->t[1])->matel);
@@ -252,7 +252,8 @@ void zhd(zh *h, zhd_w *hd_w) {
   char lapack_err[] = "LAPACKE_zhpevd failed with error code: 0";
 
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
-   * result is stored in hd_w->coeff_w[i], where is the number of tensors -1. */
+   * result is stored in hd_w->coeff_w[i], where i is the number of tensors -1.
+   */
   if (h->nt>1) {
     crs_zhsam((h->t[0])->matel, (h->t[1])->matel, hd_w->coeff_w[0], h->coeff[0],
         h->coeff[1]);
