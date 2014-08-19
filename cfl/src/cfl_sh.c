@@ -38,12 +38,13 @@
 
 
 /*
- * @brief Allocate storage for a spin Hamiltonian term. 
+ * Allocate storage for a spin Hamiltonian term. 
  *
- * @param[type]   The type of spin Hamiltonian term.
- * @param[data]   Data relevant to this type of spin Hamiltonian. 
+ * Parameters
+ * ----------
+ * n  The dimensions of the spin Hamiltonian term.
  */
-zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data) {
+zsh *zsh_alloc(size_t n) {
   zsh *sh;
   double complex *a;
 
@@ -83,14 +84,12 @@ zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data) {
 
   sh->n = n;
   sh->a = a;
-  sh->type = type;
-  sh->data = data;
 
   return sh;
 }
 
 /*
- * @brief Free spin Hamiltonian storage.
+ * Free spin Hamiltonian storage.
  */
 void zsh_free(zsh *sh) {
   free(sh->a);
@@ -99,7 +98,7 @@ void zsh_free(zsh *sh) {
 }
 
 /*
- * @brief Alloc workspace for the spin Hamiltonian projection.
+ * Alloc workspace for the spin Hamiltonian projection.
  */
 zshp_w *zshp_w_alloc(zt *t) {
   zshp_w *shp_w;
@@ -147,7 +146,7 @@ zshp_w *zshp_w_alloc(zt *t) {
 }
 
 /*
- * @brief Free workspace for spin Hamiltonian projection.
+ * Free workspace for spin Hamiltonian projection.
  */
 zshp_w_free(zshp_w *shp_w) {
   free(shp_w->m);
@@ -157,15 +156,16 @@ zshp_w_free(zshp_w *shp_w) {
 }
 
 /*
- * @brief Project out the spin Hamiltonian given an effective Hamiltonian and
- *        tensor. 
+ * Project out the spin Hamiltonian given an effective Hamiltonian and tensor. 
  *
- * @param[h]      A diagonalized Hamiltonian containing free-ion and
- *                crystal-field interactions.
- * @param[sh]     The spin Hamiltonian object.
- * @param[shp_w]  The projection workspace, allocated with zshp_w_alloc.
- * @param[l]      Integer specifying the initial level for which to project the
- *                spin Hamiltonian.
+ * Parameters
+ * ----------
+ * h      A diagonalized Hamiltonian containing free-ion and crystal-field
+ *        interactions.
+ * sh     The spin Hamiltonian object.
+ * shp_w  The projection workspace, allocated with zshp_w_alloc.
+ * l      Integer specifying the initial level for which to project the spin
+ *        Hamiltonian.
  */
 void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l) {
   int i, j;
@@ -194,5 +194,83 @@ void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l) {
     for (j=0; j<nsh; j++) {
       sh->a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
     }
+  }
+}
+
+/*
+ * Allocate workspace for the spin Hamiltonian inversion function.
+ *
+ * Parameters
+ * ----------
+ * a  Pointer to the coefficient matrix A; it is assumed that the space pointed
+ *    to will not be freed until after the workspace is freed. 
+ * b  The vector of solutions; can be a placeholder of correct dimensions.
+ * m  The number of rows of A and length of b.
+ * n  The number of columns of B, and the length of x. 
+ */
+zshi_w *zshi_w_alloc(double complex *a, double complex *b, size_t m, size_t n) {
+  zshi_w *w;
+
+  w = (zshi_w *) malloc(sizeof(zshi_w));
+  if (w == 0) {
+    CFL_ERROR_NULL("malloc failde for w");
+  }
+
+  /* LAPACK workspace query for over-determined eqn solver. */
+  lapack_complex_double *work, wquery;
+  lapack_int lwork, info;
+
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', m, n, 1, a, m, b, n, &wquery,
+      -1);
+  if (info != 0) {
+    free(w);
+    CFL_ERROR_VOID("LAPACKE workspace query failed");
+  }
+
+  lwork = (lapack_int)wquery;
+  work = calloc(lwork,sizeof(lapack_complex_double));
+  if (work == 0) {
+    free(w);
+    CFL_ERROR_NULL("calloc failed for work");
+  }
+
+  w->lwork = lwork,
+  w->work = work;
+  w->m = m;
+  w->n = n;
+  w->a = a;
+
+  return w;
+}
+
+/* 
+ * Free the spin Hamiltonian inversion workspace. 
+ */
+void zshi_w_free(zshi_w *w) {
+  free(w->work);
+  free(w);
+}
+
+/*
+ * Invert a spin Hamiltonian to obtain the parameter tensor.  The
+ * inversion consists of solving the over-determined system Ax=b.  
+ *
+ * Parameters
+ * ----------
+ * b  The vector b of the system to be solved; more specifically, the spin
+ *    Hamiltonian elements of the term to be inverted stored in an array.  This
+ *    will be overwritten with the solution upon exit, which will correspond to
+ *    the spin Hamiltonian parameter tensor.
+ * w  The workspace allocated with zshi_w_alloc. 
+ */
+void zshi(double complex *b, zshi_w *w) {
+  lapack_int info; 
+  char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
+
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->m, w->n, 1, w->a, w->m, b,
+      w->n, w->work, w->lwork);
+  if (info == 0) {
+    sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
+    CFL_ERROR_VOID(lapack_err);
   }
 }

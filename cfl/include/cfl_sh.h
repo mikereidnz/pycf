@@ -32,73 +32,6 @@
 #include <cfl_tensor.h>
 #include <cfl_h.h>
 
-/*
- * @brief Matrix elements in Cartesian coordinates for angular-momentum operator
- *        J. 
- */
-typedef struct {
-  /* Matrix elements of J_x in a dense array. */
-  double complex *x;
-  /* Matrix elements of J_y in a dense array. */
-  double complex *y;
-  /* Matrix elements of J_z in a dense array. */
-  double complex *z;
-} matel_t;
-
-/*
- * @brief Spin Hamiltonian term types.
- */
-typedef enum {
-  zee = 0,
-  hyp = 1,
-  qua = 2
-} sh_type_t;
-
-/*
- * @brief Struct containing information of Zeeman terms.
- */
-typedef struct {
-  /* The total spin angular momentum quantum number. */
-  float s;
-  /* Pointer to magnetic field array. */
-  double complex *b;
-  /* Pointer to S matrix elements. */
-  matel_t *sm;
-} zee_t;
-
-/*
- * @brief Struct containing information of hyperfine terms.
- */
-typedef struct {
-  /* The total spin angular momentum quantum number. */
-  float s;
-  /* The total nuclear angular momentum quantum number. */
-  float i;
-  /* Pointer to S matrix elements. */
-  matel_t *sm;
-  /* Pointer to I matrix elements. */
-  matel_t *im;
-} hyp_t;
-
-/*
- * @brief Struct containing information of quadrupole terms.
- */
-typedef struct {
-  /* The total nuclear angular momentum quantum number. */
-  float i;
-  /* Pointer to I matrix elements. */
-  matel_t *im;
-} qua_t;
-
-/*
- * @brief Union holding different term data structs.
- */
-typedef union {
-  zee_t *zee;
-  hyp_t *hyp;
-  qua_t *qua;
-} sh_data_t;
-
 /* 
  * @brief State label type. 
  */
@@ -119,12 +52,8 @@ typedef struct {
   size_t n;
   /* State labels corresponding to eigenvalues. */
   state_t *states;
-  /* Pointer to matrix elements stored in a contigious array. */
+  /* Pointer to matrix elements stored in a contiguous array. */
   double complex *a;
-  /* Spin Hamiltonian data type. */
-  sh_type_t type;
-  /* Pointer to union of data types. */
-  sh_data_t *data;
 } zsh;
 
 /*
@@ -141,16 +70,34 @@ typedef struct {
   double complex *b;
 } zshp_w; 
 
+/*
+ * The spin Hamiltonian inversion workspace. 
+ */
+typedef struct {
+  /* The number of rows of the inversion matrix. */
+  size_t m;
+  /* The number of columns of the inversion matrix. */
+  size_t n;
+  /* Pointer to coefficient array, of size m by n. */
+  double complex *a;
+  /* Length of workspace. */
+  int lwork;
+  /* Pointer to workspace required by zgels. */
+  double complex *work;
+} zshi_w;
 
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
 
-zsh *zsh_alloc(size_t n, state_t *states, sh_type_t type, sh_data_t *data);
+zsh *zsh_alloc(size_t n);
 void zsh_free(zsh *sh);
 zshp_w *zshp_w_alloc(zt *t);
 void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l);
+zshi_w *zshi_w_alloc(double complex *a, double complex *b, size_t m, size_t n);
+void zshi_w_free(zshi_w *w);
+void zshi(double complex *b, zshi_w *w);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

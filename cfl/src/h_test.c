@@ -201,15 +201,10 @@ int main (void)
   /*=========================================================================*/
 
   double complex zshp_res[4] = {-3.7417404568, 0, 0, -0.2120561172};
-  state_t *st;
   zsh *sh;
   zshp_w *shp_w;
 
-  sh_data_t *sh_data;
-  zee_t *zeeman;
-  sh_data->zee = zeeman;
-
-  sh = zsh_alloc(2, st, zee, sh_data);
+  sh = zsh_alloc(2);
   shp_w = zshp_w_alloc(t1);
   zshp(h, sh, shp_w, 0);
 
