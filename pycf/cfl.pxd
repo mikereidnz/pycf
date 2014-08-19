@@ -5,9 +5,11 @@ cdef extern from "complex.h":
     double complex cexp(double complex z)
     double complex I
 
+
 cdef extern from "../../cfl/include/cfl_crs.h":
     ctypedef struct crs_zhm:
         pass
+
 
 cdef extern from "../../cfl/include/cfl_h.h":
     ctypedef struct zt:
@@ -29,4 +31,18 @@ cdef extern from "../../cfl/include/cfl_h.h":
     void zhd(zh *h, zhd_w *hd_w) nogil
 
 
-   
+cdef extern from "../../cfl/include/cfl_sh.h":
+    ctypedef struct zsh:
+        pass
+    ctypedef struct zshp_w:
+        pass
+    ctypedef struct zshi_w:
+        pass
+    
+    zsh *zsh_alloc(size_t n)
+    void zsh_free(zsh *sh)
+    zshp_w *zshp_w_alloc(zt *t)
+    void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l)
+    zshi_w *zshi_w_alloc(double complex *a, double complex *b, size_t m, size_t n)
+    void zshi_w_free(zshi_w *w)
+    void zshi(double complex *b, zshi_w *w)

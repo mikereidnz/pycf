@@ -167,3 +167,260 @@ cdef class Hamiltonian:
             cfl.zhd(h, hd_w)
         return (self.w, self.z)
 
+
+cdef class SHTerm:
+    cpdef public str inter
+    cpdef public int n
+    cdef object sh_cap
+
+    def __cinit__(self, n, interaction):
+        cdef cfl.zsh *sh
+
+        self.n = n
+        self.iner = interaction
+        sh = zsh_alloc(n)
+
+        if sh is NULL:
+            self.t_cap = None
+            raise MemoryError("Failed to alloc zsh memory")
+        else:
+            self.sh_cap = PyCapsule_New(<void *>sh, "pycfl.SHTerm", NULL)
+
+    def __dealloc__(self):
+        if self.t_cap is not None:
+            cfl.zsh_free(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SHTerm"))
+
+
+cpdef zeeman_coeff_array(v, t):
+    r"""
+    Generate the Zeeman interaction `coefficient array`.  This consists of a
+    `2j+1 \times 2j+1` by `3 \times 3` array containing the matrix elements of
+    the terms `B_a S_b`, with `a,b \in \{x, y, z\}` and `j` the angular momentum
+    of the rank one tensor `S`.  Here the rows enumerate the `2j+1 \times 2j+1`
+    different state combinations while the columns enumerate all combinations of
+    `a` and `b`.
+
+    Parameters
+    ----------
+    v : numpy.ndarray
+        A `3` by `1` vector of magnetic field strengths `B_x`, `B_y` and `B_z`.
+    t : list
+        Elements consist of the matrix elements of `S_x`, `S_y` and `S_z`.
+
+    Returns
+    -------
+    result : numpy.ndarray
+        A `2j+1 \times 2j+1` by `3 \times 3` array.
+    """
+
+    tl = len(t[0])
+    l = len(t)
+    a = np.zeros([tl, tl, l, l], dtype = np.complex)
+
+    for tr in range(tl):
+        for tc in range(tl):
+            for i in range(l):
+                for j in range(l):
+                    a[tr, tc, i, j] = v[i] * t[j][tr, tc]
+
+    return(np.reshape(a, (tl*tl, l*l)))
+
+
+cpdef hyperfine_coeff_array(t1, t2):
+    r"""
+    Generate the hyperfine interaction `coefficient array`.  This consists of a
+    `2j_1+1 \times 2j_2+1` by `3 \times 3` array containing the matrix elements
+    of the operators `I_a S_b`, with `a,b \in \{x, y, z\}` and `j_1` and `j_2`
+    the angular momentum of the rank one tensors `I` and `S`, respectively.
+    Here the rows enumerate the `2j_1+1 \times 2j_2+1` different state
+    combinations while the columns enumerate all combinations of `a` and `b`.  
+    
+    Parameters
+    ----------
+    t1 : list
+        Elements consist of the matrix elements of `I_x`, `I_y` and `I_z`.
+    t2 : list
+        Elements consist of the matrix elements of `S_x`, `S_y` and `S_z`.
+
+    Returns
+    -------
+    result : numpy.ndarray
+        A `2j_1+1 \times 2j_2+1` by `3 \times 3` array.
+    """
+
+    t1l = len(t1[0])
+    t2l = len(t2[0])
+    l = len(t1)
+
+    cdef __ci(t1i, t2i):
+        """
+        Calculate the row/column index for the coefficient array.
+        """
+        # The t1 upper bound is the t1 length.
+        return(t1i + t1l * t2i)
+
+    a = np.zeros([t1l * t2l, t1l * t2l, l, l], dtype = np.complex)
+
+    for t1r in range(t1l):
+        for t2r in range(t2l):
+            for t1c in range(t1l):
+                for t2c in range(t2l):
+                    for i in range(l):
+                        for j in range(l):
+                            a[__ci(t1r, t2r), __ci(t1c, t2c), i, j] = \
+                                t1[i][t1r, t1c] * t2[j][t2r, t2c]
+
+    return(np.reshape(a, (t1l*t2l*t1l*t2l, l*l)))
+
+
+cpdef quadrupole_coeff_array(t):
+    r""" 
+    Generate the quadrupole interaction `coefficient array`.  This consists of a
+    `2j+1 \times 2j+1` by `3 \times 3` array containing the matrix elements of
+    the operators `I_a I_b`, with `a,b \in \{x, y, z\}` and `j` the angular
+    momentum of the rank one tensor `I`.  Here the rows enumerate the `2j+1
+    \times 2j+1` different state combinations while the columns enumerate all
+    combinations of `a` and `b`.  
+
+    Parameters
+    ----------
+    t : list
+        Elements consist of the matrix elements of `I_x`, `I_y` and `I_z`.
+
+    Returns
+    -------
+    result : numpy.ndarray
+        A `2j+1 \times 2j+1` by `3 \times 3` array.
+    """
+    
+    tl = len(t[0])
+    l = len(t)
+    a = np.zeros([tl, tl, l, l], dtype = np.complex)
+
+    for tr in range(tl):
+        for tc in range(tl):
+            for i in range(l):
+                for j in range(l):
+                    components = 0
+                    for ci in range(tl):
+                        components +=t[i][tr, ci] * t[j][ci, tc]
+                    a[tr, tc, i, j] = components
+
+    return(np.reshape(a, (tl*tl, l*l)))
+
+
+cdef class SpinHamiltonian:
+    r""" 
+    Container for holding data about the spin Hamiltonian. 
+
+    Parameters
+    ----------
+    terms : list
+        Elements are strings which specify the interaction terms.  Possible
+        values are: 'zeeman', 'hyperfine', and 'quadrupole'.  
+    B : numpy.ndarray 
+        A `3` by `1` vector containing values for the magnetic field strengths
+        `B_x`, `B_y` and `B_z`; if ``terms`` contains 'zeeman' this keyword
+        argument must be specified.  
+    S : float
+        The spin projection `S_z`; if ``terms`` contains 'zeeman' or 'hyperfine'
+        this keyword argument must be specified.
+    I : float
+        The nuclear spin projection `I_z`; if ``terms`` contains 'hyperfine' or
+        'quadrupole' this keyword argument must be specified.
+
+    Returns
+    -------
+    object : SpinHamiltonian
+    """
+    cpdef public np.ndarray B
+    cpdef public float S
+    cpdef public float I
+    cpdef public list S_m
+    cpdef public list I_m
+    cpdef public int nsh
+    cpdef public dict coeff_a
+    cpdef public list terms
+    def __cinit__(self, terms, **kwargs):
+        for t in terms:
+            if not any(t in term for term in ['zeeman', 'hyperfine', 'quadrupole']):
+                raise ValueError("Invalid element in terms list.")
+
+        if 'zeeman' in terms:
+            try:
+                B = kwargs['B']
+                self.B = B
+            except KeyError:
+                raise ValueError("Missing keyword argument B.")
+        else:
+            B = None
+        if 'zeeman' in terms or 'hyperfine' in terms:
+            try: 
+                S = kwargs['S']
+            except KeyError:
+                raise ValueError("Missing keyword argument S.")
+            # Calculate the matrix elements of spin operator.
+            S_m = [None]*3
+            for i in range(3):
+                S_m[i] = matel(j_l[i], S)
+            self.S = S
+            self.S_m = S_m
+        else:
+            S_m = None
+
+        if 'hyperfine' in terms or 'quadrupole' in terms:
+            try:
+                I = kwargs['I']
+            except KeyError:
+                raise ValueError("Missing keyword argument I.")
+            # Calculate the matrix elements of nuclear spin operator.
+            I_m = [None]*3
+            for i in range(3):
+                I_m[i] = matel(j_l[i], I)
+
+            self.I = I
+            self.I_m = I_m
+        else:
+            I_m = None
+
+        # Determine spin Hamiltonian dimension.
+        if B != None:
+            if I_m == None:
+                # Only the zeeman term.
+                nsh = 2*S+1
+            else:
+                # Both the zeeman and quadrupole terms.
+                nsh = (2*S+1) * (2*I+1)
+        elif S_m == None:
+            # Only the quadrupole term.
+            nsh = 2*I+1 
+        else:
+            # Contains hyperfine term.
+            nsh = (2*S+1) * (2*I+1)
+        
+        self.nsh = nsh
+
+        self.coeff_a = {}
+        self.terms = []
+        # Calculate the cofficient arrays and alloc spin Hamiltonian terms.
+        if 'zeeman' in terms:
+            # Coefficient arrays are calculated for three B fields; the user
+            # specified B-direction is ignored for inversion. 
+            nz = 2*S+1
+            B_a = np.zeros([3, nz**2, 9], dtype = np.complex)
+            for i in range(3):
+                B_a[i, :, :] = zeeman_coeff_array(np.eye(3,3)[i,:], S_m)
+            self.coeff_a['z'] = np.reshape(B_a, (3 * nz**2, 9))
+            self.terms += [SHTerm(nz, 'zeeman')]
+
+        if 'hyperfine' in terms:
+            nh = 2*S+1 + 2*I+1
+            self.coeff_a['h'] = hyperfine_coeff_array(I_m, S_m)
+            self.terms += [SHTerm(nh, 'hyperfine')]
+
+        if 'quadrupole' in terms: 
+            nq = 2*I+1
+            self.coeff_a['q'] = quadrupole_coeff_array(I_m)
+            self.terms += [SHTerm(nq, 'quadrupole')]
+
+    
