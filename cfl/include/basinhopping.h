@@ -1,0 +1,123 @@
+/*
+ * Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+/*
+ * Basinhopping algorithm, as described in Wales, D J, and Doye J P K, Journal
+ * of Physical Chemistry A, 1997, 101, 5111. This implementation is based on the
+ * python implementation by the SciPy community (scipy.optimize.basinhopping).
+ */
+
+#include <gsl/gsl_rng.h>
+
+/*
+ * Storage for minimum energy. 
+ */
+typedef struct {
+  /* Minimum energy. */
+  double complex e;
+  /* Parameter array corresponding to minimum energy state. */
+  double complex *x;
+} emin_t;
+
+/* Storage for optimization bounds. */
+typedef struct {
+  /* Lower bounds. */
+  double *l;
+  /* Upper bounds. */
+  double *u;
+} bh_bounds;
+
+/* Stepsize struct. */
+typedef struct {
+  /* Pointer to stepsize array. */
+  double *stepsize;
+  /* Number of steps taken. */
+  size_t nstep;
+  /* Number of accepted steps. */
+  size_t naccept;
+  /* Target acceptance rate. */
+  float target_accept_rate;
+  /* Interval for how often to update stepsize. */
+  size_t interval;
+  /* Multiplicative factor whereby the stepsize is updated if the target rate is
+   * not being met. */
+  float factor;
+} bh_step_data;
+
+/* Workspace allocation for basinhopping procedure. */
+typedef struct {
+  /* Pointer to objective function. */
+  double (*f)(size_t *n, double *x, void *data); 
+  /* The number of parameters of the objective function. */
+  size_t n;
+  /* Internal storage for previous itteration parameter list. */
+  double *x;
+  /* The target number of iterations. */ 
+  size_t niter;
+  /* Pointer to data holding stepsize information. */
+  bh_step_data *step_data;
+  /* Pointer to parameter bounds. */
+  bh_bounds *bounds;
+  /* The current energy. */
+  double e;
+  /* The current temperature. */
+  double T;
+  /* Lowest energy state found. */
+  emin_t emin;
+    /* Workspace for local minimization. */
+  gsl_multimin_work *lm_work;
+  /* Random number generator. */
+  gsl_rng; 
+} bh_work;
+
+/*
+ * Data type for gsl_min_wrapper; passed to the minimization wrapper which then
+ * extracts the parameter data from the gsl_vector and calls the objective
+ * function with gsl independent arguments. 
+ */
+typedef struct {
+  /* Pointer to the objective function. */
+  double (*f)(size_t *n, double *x, void *data); 
+  /* Number of parameters. */
+  size_t n;
+  /* Pointer to parameter list storage. */
+  double *x;
+  /* Data to be passed to the minimization function. */
+  void *data;
+} gsl_multimin_data;
+
+/* Work space allocation and initialization data type for gsl multimin. */
+typedef struct {
+  /* Pointer to minimizer. */
+  gsl_multimin_fminimizer *s;
+  /* Objective function in gsl form. */
+  gsl_multimin_function *f;
+  /* Pointer to parameter gsl_vector. */
+  gsl_vector *v;
+  /* Pointer to step size gsl_vector. */
+  gsl_vector *ssv;
+  /* Pointer to gsl_min_wrapper data struct. */
+  gsl_multimin_data *gsl_data;
+} gsl_multimin_work;
+
+
