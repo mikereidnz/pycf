@@ -35,6 +35,7 @@
 #include <gsl/gsl_multimin.h>
 
 #include <cfl_error.h>
+#include <basinhopping.h>
 /* ISSUES:
  *  + local minimization routines only handle doubles; need to split parameters
  *    in to real and complex components in a sensible way... 
@@ -63,13 +64,14 @@
  */
 double gsl_multimin_f_wrapper(const gsl_vector *v, void *data) {
   int i;
-  gsl_multimin_data *d = (gsl_multimin_data *)data;
+  double fval;
+  gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
 
-  for (i=0; i<d->n; i++) {
-    d->x[i] = gsl_vector_get(v, i);
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_data->x[i] = gsl_vector_get(v, i);
   }
-
-  return data->f(d->n, d->x, d->data);
+  
+  return gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->data);
 }
 
 /*
@@ -82,7 +84,7 @@ double gsl_multimin_f_wrapper(const gsl_vector *v, void *data) {
  *  n     The number of arguments of f.
  *  data  Generic data to be passed to f. 
  */
-gsl_multimin_work *gsl_multimin_alloc(void (*f)(size_t *n, double *x, void *data), size_t n, void *data) {
+gsl_multimin_work *gsl_multimin_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data) {
   gsl_multimin_work *w;
   double *x;
   gsl_multimin_data *gsl_data;
@@ -121,7 +123,7 @@ gsl_multimin_work *gsl_multimin_alloc(void (*f)(size_t *n, double *x, void *data
     CFL_ERROR_NULL("malloc failed for gsl_f");
   }
   
-  gsl_f->f = &gsl_multimin_f_wrapper;
+  gsl_f->f = gsl_multimin_f_wrapper;
   gsl_f->n = n;
   gsl_f->params = (void *)gsl_data;
 
@@ -139,12 +141,15 @@ gsl_multimin_work *gsl_multimin_alloc(void (*f)(size_t *n, double *x, void *data
     free(gsl_data);
     free(x);
     free(gsl_f);
-    free(n);
+    free(v);
     CFL_ERROR_NULL("gsl_vector_alloc failed for ssv");
   }
 
   T = gsl_multimin_fminimizer_nmsimplex2; 
   s = gsl_multimin_fminimizer_alloc(T, n);
+
+  /* Initialize parameters. */
+  gsl_vector_set_all(ssv, 1.0);
   
   w->s = s;
   w->f = gsl_f;
@@ -156,7 +161,7 @@ gsl_multimin_work *gsl_multimin_alloc(void (*f)(size_t *n, double *x, void *data
 }
 
 void gsl_multimin_free(gsl_multimin_work *w) {
-  free(w->data->x);
+  free(w->gsl_data->x);
   gsl_multimin_fminimizer_free(w->s);
   free(w->f);
   gsl_vector_free(w->v);
@@ -180,13 +185,12 @@ void gsl_multimin_free(gsl_multimin_work *w) {
  */
 int gsl_multimin(double *x, double *fmin, gsl_multimin_work *w) {
   size_t iter = 0;
-  int status;
+  int i, status;
   double size;
 
   /* Set initial parameters to gsl_vector. */
   for (i=0; i<w->gsl_data->n; i++) {
     gsl_vector_set(w->v, i, x[i]);
-    gsl_vector_set(w->ssv, i, stepsize[i]);
   }
 
   /* Run the minimization. */
@@ -201,13 +205,14 @@ int gsl_multimin(double *x, double *fmin, gsl_multimin_work *w) {
     /* Test for convergence. */
     size = gsl_multimin_fminimizer_size(w->s);
     status = gsl_multimin_test_size(size, 1e-2);
+
   } while (status == GSL_CONTINUE && iter < 100);
 
   /* Set the solution to x and fmin. */
   for (i=0; i<w->gsl_data->n; i++) {
-    x[i] = gsl_vector_get(w->v, i);
+    x[i] = w->gsl_data->x[i];
   }
-  fmin = w->s->f;
+  *fmin = w->s->fval;
 
   if (status == GSL_SUCCESS) 
     return 0;
@@ -216,9 +221,8 @@ int gsl_multimin(double *x, double *fmin, gsl_multimin_work *w) {
 }
 
 
-
 /* Allocate workspace for the basinhopping procedure. */
-bh_work *bh_work_alloc(void (*f)(size_t *n, double *x, void *data), size_t n, void *data, size_t niter, bh_bounds *bounds) {
+bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data, size_t niter, bh_bounds *bounds) {
   bh_work *w;
   double *x;
 
@@ -290,7 +294,7 @@ bh_work *bh_work_alloc(void (*f)(size_t *n, double *x, void *data), size_t n, vo
   w->T = 1.0;
   w->step_data->nstep = 0;
   w->step_data->naccept = 0;
-  w->step_data->accept_rate = 0.5;
+  w->step_data->target_accept_rate = 0.5;
   w->step_data->interval = 50;
   w->step_data->factor = 0.9;
 
@@ -334,7 +338,7 @@ inline int metropolis(double T, double e_new, double e_old, gsl_rng *r) {
 }
 
 /* Set the stepsize manually.  To disable adaptive stepsize adjustment, set
- * accept_rate, interval and factor to NULL. 
+ * accept_rate, interval and factor to 0. 
  */
 void bh_set_stepsize(bh_work *w, double *stepsize, float target_accept_rate,
     size_t interval, float factor) {
@@ -357,11 +361,12 @@ inline void bh_rnd_disp(double *x, bh_work *w) {
  * if so, adjust the stepsize to meet the set target_accept_rate every interval
  * number of steps. */
 inline void bh_takestep(double *x, bh_work *w) {
+  int i;
   float accept_rate;
 
-  if (w->step_data->accept_rate == NULL) {
+  if (w->step_data->target_accept_rate == 0) {
     /* We're not using adaptive stepsize. */
-    bh_rnd_disp(x, w->x, w->step_data->stepsize, w->n);
+    bh_rnd_disp(x, w);
   }
   else {
     w->step_data->nstep++;
@@ -370,14 +375,18 @@ inline void bh_takestep(double *x, bh_work *w) {
       if (accept_rate > w->step_data->target_accept_rate) {
         /* We're accepting too many steps; increase the stepsize to escape
          * the basin. */
-        w->step_data->stepsize /= w->step_data->factor;
+        for (i=0; i<w->n; i++) {
+          w->step_data->stepsize[i] /= w->step_data->factor;
+        }
       } 
       else {
         /* We're accepting too few steps; decrease the stepsize. */
-        w->step_data->stepsize *= w->step_data->factor;
+        for (i=0; i<w->n; i++) {
+          w->step_data->stepsize[i] *= w->step_data->factor;
+        }
       }
     }
-    bh_rnd_disp(x, w->x, w->step_data->stepsize, w->n);
+    bh_rnd_disp(x, w);
   }
 }
 
@@ -398,27 +407,27 @@ void basinhopping(double *x, bh_work *w) {
   double e;
 
   /* Perform initial minimization. */
-  status = gsl_multimin(x, &e, lm_work);
+  status = gsl_multimin(x, &e, w->lm_work);
   if (status) {
-    nfail++;
+    lmin_fail++;
   }
   w->emin->e = e;
-  dacpy(w->emin->a, w->x, n); 
+  dacpy(w->emin->x, w->x, n); 
 
   for (i=0; i<w->niter; i++) {
-    bh_takestep();
-    status = gsl_multimin(x, &e, lm_work);
+    bh_takestep(x, w);
+    status = gsl_multimin(x, &e, w->lm_work);
     if (status) {
-      nfail++;
+      lmin_fail++;
     }
     test = metropolis(w->T, e, w->e, w->rng);
     if (test) {
       w->e = e;
-      w->x = dacpy(w->x, x, n);
+      dacpy(w->x, x, n);
       w->step_data->naccept++;
-      if (e < w->e_min->e) {
-        w->e_min->e = e;
-        dacpy(w->e_min->x, x, n);
+      if (e < w->emin->e) {
+        w->emin->e = e;
+        dacpy(w->emin->x, x, n);
       }
     }
   }
