@@ -64,13 +64,12 @@
  */
 double gsl_multimin_f_wrapper(const gsl_vector *v, void *data) {
   int i;
-  double fval;
   gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
 
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->x[i] = gsl_vector_get(v, i);
   }
-  
+
   return gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->data);
 }
 
@@ -223,6 +222,7 @@ int gsl_multimin(double *x, double *fmin, gsl_multimin_work *w) {
 
 /* Allocate workspace for the basinhopping procedure. */
 bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data, size_t niter, bh_bounds *bounds) {
+  int i;
   bh_work *w;
   double *x;
 
@@ -278,7 +278,7 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
     free(x);
     CFL_ERROR_NULL("malloc failled for w->step_data");
   }
-  w->step_data->stepsize = (double *) calloc(n,sizeof(double));
+  w->step_data->stepsize = (double *) malloc(n*sizeof(double));
   if (w->step_data->stepsize == 0) {
     gsl_rng_free(w->rng);
     gsl_multimin_free(w->lm_work);
@@ -287,17 +287,19 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
     free(w->step_data);
     free(w);
     free(x);
-    CFL_ERROR_NULL("calloc failed for w->step_data->stepsize");
+    CFL_ERROR_NULL("malloc failed for w->step_data->stepsize");
   }
 
   /* Initialize parameters to defaults. */
+  for (i=0; i<n; i++) {
+    w->step_data->stepsize[i] = 0.5;
+  }
   w->T = 1.0;
   w->step_data->nstep = 0;
   w->step_data->naccept = 0;
   w->step_data->target_accept_rate = 0.5;
-  w->step_data->interval = 50;
+  w->step_data->interval = 20;
   w->step_data->factor = 0.9;
-
 
   w->x = x;
   w->n = n;
@@ -308,6 +310,7 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
 }
 
 void bh_work_free(bh_work *w) {
+  free(w->x);
   gsl_rng_free(w->rng);
   gsl_multimin_free(w->lm_work);
   free(w->emin->x);
@@ -335,6 +338,23 @@ inline int metropolis(double T, double e_new, double e_old, gsl_rng *r) {
     return 1;
   else 
     return 0;
+}
+
+/* Check that the boundary constraints have been satisfied. */
+inline int bh_bounds_check(double *x, bh_work *w) {
+  int i;
+  int check = 0;
+  
+  for (i=0; i<w->n; i++) {
+    if (x[i] > w->bounds->u[i] || x[i] < w->bounds->l[i]) {
+      check++;
+    }
+  }
+
+  if (check == 0)
+    return 0;
+  else
+    return 1;
 }
 
 /* Set the stepsize manually.  To disable adaptive stepsize adjustment, set
@@ -398,9 +418,11 @@ inline void bh_takestep(double *x, bh_work *w) {
  * ---------- 
  *  x     Pointer to the initial parameter list; if the routine succeeds, this
  *        is overwritten with the result upon exit.
+ *  fmin  Poiter to a single double; if successfull, this will be overwritten
+ *        with the objective function value for the best-fit parameters. 
  *  w     Pointer to the workspace allocated with bh_work_alloc. 
  */
-void basinhopping(double *x, bh_work *w) {
+int bh_min(double *x, double *fmin, bh_work *w) {
   size_t n = w->n;
   int i, status, test;
   size_t lmin_fail = 0;
@@ -411,8 +433,9 @@ void basinhopping(double *x, bh_work *w) {
   if (status) {
     lmin_fail++;
   }
+  w->e = e;
+  dacpy(w->x, x, n);
   w->emin->e = e;
-  dacpy(w->emin->x, w->x, n); 
 
   for (i=0; i<w->niter; i++) {
     bh_takestep(x, w);
@@ -421,6 +444,10 @@ void basinhopping(double *x, bh_work *w) {
       lmin_fail++;
     }
     test = metropolis(w->T, e, w->e, w->rng);
+    //printf("test=%i\n",test);
+    if (w->bounds != NULL) {
+      test += bh_bounds_check(x, w);
+    }
     if (test) {
       w->e = e;
       dacpy(w->x, x, n);
@@ -431,4 +458,12 @@ void basinhopping(double *x, bh_work *w) {
       }
     }
   }
+
+  /* Set the solution to x and fmin. */
+  for (i=0; i<n; i++) {
+    x[i] = w->emin->x[i];
+  }
+  *fmin = w->emin->e;
+
+  return lmin_fail;
 }

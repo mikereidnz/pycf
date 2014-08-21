@@ -134,7 +134,7 @@ int gsl_multimin(double *x, double *fmin, gsl_multimin_work *w);
 bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data, size_t niter, bh_bounds *bounds);
 void bh_work_free(bh_work *w);
 void bh_set_stepsize(bh_work *w, double *stepsize, float target_accept_rate, size_t interval, float factor);
-void basinhopping(double *x, bh_work *w);
+int bh_min(double *x, double *fmin, bh_work *w); 
 
 #ifdef __cplusplus
 }
