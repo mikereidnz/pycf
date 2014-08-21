@@ -43,12 +43,11 @@ double gsl_test_f(size_t n, double *x, void *params) {
 double bh_test_f1(size_t n, double *x, void *params) {
   double *p = (double *)params;
 
-  return cos(p[0] * x[0] - p[1]) + (x[1] + p[2]) * x[1] + (x[0] + p[2]) * x[0]
-+ 1.010876184442655;
+  return cos(p[0] * x[0] - p[1]) + (x[1] + p[2]) * x[1] + (x[0] + p[2]) * x[0] + 1.010876184442655;
 };
 
 
-double bh_test_f(size_t n, double *x, void *params) {
+double bh_test_f2(size_t n, double *x, void *params) {
   double *p = (double *)params;
   
   return cos(p[0] * x[0] - p[1]) + (x[0] + p[2]) * x[0] + cos(p[0] * x[1] - p[1]) + (x[1] + p[2]) * x[1] + x[0] * x[1] + 1.963879482144252;
@@ -70,18 +69,18 @@ int main (void)
   //double gsl_x[2] = {200.0, 7.0};
   double fmin;
 
-  gsl_multimin_work *gsl_w;
-  gsl_w = gsl_multimin_alloc(&gsl_test_f, 2, gsl_par);
+  gsl_multimin_f_work *gsl_w;
+  gsl_w = gsl_multimin_f_alloc(&gsl_test_f, 2, gsl_par);
 
-  status = gsl_multimin(gsl_x, &fmin, gsl_w);
+  status = gsl_multimin_f(gsl_x, &fmin,(void *)gsl_w);
 
   if (status) {
     printf("gsl minimization failed\n");
   }
 
-  printf("gsl_multimin:\n");
+  printf("gsl_multimin_f:\n");
   dequ_chk(gsl_result, gsl_x, 2);
-  gsl_multimin_free(gsl_w);
+  gsl_multimin_f_free(gsl_w);
 
   /*=========================================================================*/
   /* basin hopping test.                                                     */
@@ -108,17 +107,29 @@ int main (void)
    * become especially relevant when we fit cf stuff, given every bh iteration
    * will be fiercely expensive.  
    */
-  bh_work *bh_w;
-  bh_w = bh_work_alloc(&bh_test_f, 2, bh_par, 300, &bounds);
-  status = bh_min(bh_x, &fmin, bh_w);
-  printf("x0=%.6f, x1=%.6f, fmin=%.6f\n", bh_x[0], bh_x[1], fmin);
-  bh_work_free(bh_w);
+  
+
+  gsl_multimin_f_work *bh_multimin_w1;
+  bh_multimin_w1 = gsl_multimin_f_alloc(&bh_test_f1, 2, bh_par);
 
   bh_work *bh_w1;
   bh_w1 = bh_work_alloc(&bh_test_f1, 2, bh_par, 300, NULL);
-  status = bh_min(bh_x, &fmin, bh_w1);
+  status = bh_min(bh_x, &fmin, bh_w1, &gsl_multimin_f, (void *)bh_multimin_w1);
   printf("x0=%.6f, x1=%.6f, fmin=%.6f\n", bh_x[0], bh_x[1], fmin);
   bh_work_free(bh_w1);
+  
+  gsl_multimin_f_free(bh_multimin_w1);
+
+  gsl_multimin_f_work *bh_multimin_w2;
+  bh_multimin_w2 = gsl_multimin_f_alloc(&bh_test_f2, 2, bh_par);
+
+  bh_work *bh_w2;
+  bh_w2 = bh_work_alloc(&bh_test_f2, 2, bh_par, 300, NULL);
+  status = bh_min(bh_x, &fmin, bh_w2, &gsl_multimin_f, (void *)bh_multimin_w2);
+  printf("x0=%.6f, x1=%.6f, fmin=%.6f\n", bh_x[0], bh_x[1], fmin);
+  bh_work_free(bh_w2);
+  
+  gsl_multimin_f_free(bh_multimin_w2);
 
   return 0;
 }  

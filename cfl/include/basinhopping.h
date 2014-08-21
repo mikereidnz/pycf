@@ -35,6 +35,7 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
 
+
 /*
  * Data type for gsl_min_wrapper; passed to the minimization wrapper which then
  * extracts the parameter data from the gsl_vector and calls the objective
@@ -63,7 +64,8 @@ typedef struct {
   gsl_vector *ssv;
   /* Pointer to gsl_min_wrapper data struct. */
   gsl_multimin_data *gsl_data;
-} gsl_multimin_work;
+} gsl_multimin_f_work;
+
 
 /* Storage for minimum energy. */
 typedef struct {
@@ -118,8 +120,6 @@ typedef struct {
   double T;
   /* Lowest energy state found. */
   emin_t *emin;
-  /* Workspace for local minimization. */
-  gsl_multimin_work *lm_work;
   /* Random number generator. */
   gsl_rng *rng; 
 } bh_work;
@@ -128,13 +128,13 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-gsl_multimin_work *gsl_multimin_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data);
-void gsl_multimin_free(gsl_multimin_work *w);
-int gsl_multimin(double *x, double *fmin, gsl_multimin_work *w);
+gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data);
+void gsl_multimin_f_free(gsl_multimin_f_work *w);
+int gsl_multimin_f(double *x, double *fmin, void *work);
 bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data, size_t niter, bh_bounds *bounds);
 void bh_work_free(bh_work *w);
 void bh_set_stepsize(bh_work *w, double *stepsize, float target_accept_rate, size_t interval, float factor);
-int bh_min(double *x, double *fmin, bh_work *w); 
+int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w);
 
 #ifdef __cplusplus
 }

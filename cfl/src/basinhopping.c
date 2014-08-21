@@ -83,8 +83,8 @@ double gsl_multimin_f_wrapper(const gsl_vector *v, void *data) {
  *  n     The number of arguments of f.
  *  data  Generic data to be passed to f. 
  */
-gsl_multimin_work *gsl_multimin_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data) {
-  gsl_multimin_work *w;
+gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data) {
+  gsl_multimin_f_work *w;
   double *x;
   gsl_multimin_data *gsl_data;
   gsl_multimin_function *gsl_f;
@@ -93,7 +93,7 @@ gsl_multimin_work *gsl_multimin_alloc(double (*f)(size_t n, double *x, void *dat
   const gsl_multimin_fminimizer_type *T;
   gsl_multimin_fminimizer *s;
 
-  w = (gsl_multimin_work *) malloc(sizeof(gsl_multimin_work));
+  w = (gsl_multimin_f_work *) malloc(sizeof(gsl_multimin_f_work));
   if (w == 0) {
     CFL_ERROR_NULL("malloc failed for w");
   }
@@ -159,7 +159,7 @@ gsl_multimin_work *gsl_multimin_alloc(double (*f)(size_t n, double *x, void *dat
   return w;
 }
 
-void gsl_multimin_free(gsl_multimin_work *w) {
+void gsl_multimin_f_free(gsl_multimin_f_work *w) {
   free(w->gsl_data->x);
   gsl_multimin_fminimizer_free(w->s);
   free(w->f);
@@ -180,12 +180,13 @@ void gsl_multimin_free(gsl_multimin_work *w) {
  *        succeeds, this will be overwritten with the best-fit parameters.
  *  fmin  Poiter to a single double; if successfull, this will be overwritten
  *        with the objective function value for the best-fit parameters. 
- *  w     Pointer to the workspace allocated with gsl_multimin_alloc. 
+ *  work  Pointer to the workspace allocated with gsl_multimin_alloc. 
  */
-int gsl_multimin(double *x, double *fmin, gsl_multimin_work *w) {
+int gsl_multimin_f(double *x, double *fmin, void *work) {
   size_t iter = 0;
   int i, status;
   double size;
+  gsl_multimin_f_work *w = (gsl_multimin_f_work *)work;
 
   /* Set initial parameters to gsl_vector. */
   for (i=0; i<w->gsl_data->n; i++) {
@@ -244,17 +245,9 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
     free(x);
     CFL_ERROR_NULL("gsl_rng_alloc failed for rng");
   }
-  w->lm_work = gsl_multimin_alloc(f, n, data);
-  if (w->lm_work == 0) {
-    free(w->rng);
-    free(w);
-    free(x);
-    CFL_ERROR_NULL("gsl_multimin_alloc failed for lm_work");
-  }
   w->emin = (emin_t *) malloc(sizeof(emin_t));
   if (w->emin == 0) {
     gsl_rng_free(w->rng);
-    gsl_multimin_free(w->lm_work);
     free(w);
     free(x);
     CFL_ERROR_NULL("malloc failed for emin");
@@ -262,7 +255,6 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
   w->emin->x = (double *) calloc(n,sizeof(double));
   if (w->emin->x == 0) {
     gsl_rng_free(w->rng);
-    gsl_multimin_free(w->lm_work);
     free(w->emin);
     free(w);
     free(x);
@@ -271,7 +263,6 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
   w->step_data = (bh_step_data *) malloc(sizeof(bh_step_data));
   if (w->step_data == 0) {
     gsl_rng_free(w->rng);
-    gsl_multimin_free(w->lm_work);
     free(w->emin);
     free(w->emin->x);
     free(w);
@@ -281,7 +272,6 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
   w->step_data->stepsize = (double *) malloc(n*sizeof(double));
   if (w->step_data->stepsize == 0) {
     gsl_rng_free(w->rng);
-    gsl_multimin_free(w->lm_work);
     free(w->emin);
     free(w->emin->x);
     free(w->step_data);
@@ -312,7 +302,6 @@ bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, v
 void bh_work_free(bh_work *w) {
   free(w->x);
   gsl_rng_free(w->rng);
-  gsl_multimin_free(w->lm_work);
   free(w->emin->x);
   free(w->emin);
   free(w->step_data->stepsize);
@@ -422,24 +411,25 @@ inline void bh_takestep(double *x, bh_work *w) {
  *        with the objective function value for the best-fit parameters. 
  *  w     Pointer to the workspace allocated with bh_work_alloc. 
  */
-int bh_min(double *x, double *fmin, bh_work *w) {
+int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w) {
   size_t n = w->n;
   int i, status, test;
   size_t lmin_fail = 0;
   double e;
 
   /* Perform initial minimization. */
-  status = gsl_multimin(x, &e, w->lm_work);
+  status = lmin_f(x, &e, lmin_w);
   if (status) {
     lmin_fail++;
   }
   w->e = e;
   dacpy(w->x, x, n);
   w->emin->e = e;
-
+  dacpy(w->emin->x, x, n);
+  
   for (i=0; i<w->niter; i++) {
     bh_takestep(x, w);
-    status = gsl_multimin(x, &e, w->lm_work);
+    status = lmin_f(x, &e, lmin_w);
     if (status) {
       lmin_fail++;
     }
