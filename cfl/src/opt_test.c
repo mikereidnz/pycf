@@ -70,9 +70,6 @@ double bh_test_f2(size_t n, double *x, double *grad, void *params) {
 
 double bh_test_f3(size_t n, double *x, double *grad, void *params) {
   double *p = (double *)params;
-
-  grad[0] = -p[0] * sin(p[0] * x[0] - p[1]) + 2. * x[0] + p[2] + x[1];
-  grad[1] = -p[0] * sin(p[0] * x[1] - p[1]) + 2. * x[1] + p[2] + x[0];
   
   return cos(p[0] * x[0] - p[1]) + (x[0] + p[2]) * x[0] + cos(p[0] * x[1] - p[1]) + (x[1] + p[2]) * x[1] + x[0] * x[1] + 1.963879482144252;
 }
@@ -175,7 +172,7 @@ int main (void)
   gsl_multimin_fdf_free(bh_multimin_w2);
 
   gsl_multimin_fndf_work *bh_multimin_w3;
-  bh_multimin_w3 = gsl_multimin_fndf_alloc(&bh_test_f1, 2, bh_par, gsl_multimin_fdfminimizer_conjugate_fr);
+  bh_multimin_w3 = gsl_multimin_fndf_alloc(&bh_test_f3, 2, bh_par, gsl_multimin_fdfminimizer_conjugate_fr);
 
   bh_work *bh_w3;
   bh_w3 = bh_work_alloc(2, 300, NULL);
