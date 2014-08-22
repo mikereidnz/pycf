@@ -33,35 +33,23 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_deriv.h>
 
 #include <cfl_error.h>
 #include <basinhopping.h>
-/* ISSUES:
- *  + local minimization routines only handle doubles; need to split parameters
- *    in to real and complex components in a sensible way... 
- *  + The paramater array passed to cfl_h expects all parameters in the order
- *    tensors are added to the hamiltonian, yet we're only varying a subset of
- *    them.  We need to copy the parameters to be varied into their correct
- *    position of the parameter array... probably want to avoid simply pointing
- *    to the correct location to avoid aliasing issues with the fortran
- *    subroutines.  To write the real valued parameter list to the complex
- *    valued tensor prefactor list read the nth and n+1th value of the index
- *    array; if they match, the two values should be written as the real and
- *    complex part of the appropriate tensor prefactor list element.  If they
- *    don't match, write the values to the tensor prefactor list elements
- *    specified and increment the copying index by two. 
- *
- */
 
-/*
- * Wrapper for gsl minimization; used to construct a function of type
- * gsl_multimin_function. 
- *
- * Parameters
- * ----------
- *  v     Parameter vector. 
- *  data  Is cast to type gsl_multimin_data.   
- */
+
+/* Utility function for copying arrays. */
+inline void dacpy(double *a, double *b, size_t n) {
+  int i;
+  for (i=0; i<n; i++) {
+    a[i] = b[i];
+  }
+}
+
+/* Wrapper for gsl minimization; used to construct a function of type
+ * gsl_multimin_function. */
 double gsl_multimin_f_wrapper(const gsl_vector *v, void *data) {
   int i;
   gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
@@ -70,27 +58,125 @@ double gsl_multimin_f_wrapper(const gsl_vector *v, void *data) {
     gsl_data->x[i] = gsl_vector_get(v, i);
   }
 
-  return gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->data);
+  return gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->grad, gsl_data->data);
+}
+
+/* Wrapper for gsl minimization with gradient based algorithms; returns the
+ * gradient only. */
+void gsl_multimin_df_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
+  int i;
+  gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
+
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_data->x[i] = gsl_vector_get(v, i);
+  }
+
+  gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->grad, gsl_data->data);
+
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_vector_set(df, i, gsl_data->grad[i]);
+  }
+}
+
+/* Wrapper for gsl minimization with gradient based algorithms; returns the
+ * gradient and the function value. */
+void gsl_multimin_fdf_wrapper(const gsl_vector *v, void *data, double *f, gsl_vector *df) {
+  int i;
+  gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
+
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_data->x[i] = gsl_vector_get(v, i);
+  }
+
+  *f = gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->grad, gsl_data->data);
+
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_vector_set(df, i, gsl_data->grad[i]);
+  }
+}
+
+/* Wrapper for gsl minimization with gradient based algorithms; numerically
+ * estimates the gradient, and returns it. */
+void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
+  int i, status;
+  double result, abserr;
+  gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
+
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_data->x[i] = gsl_vector_get(v, i);
+  }
+
+  /* Copy x to differentiation workspace to prevent x from being modified. */
+  dacpy(gsl_data->df_work, gsl_data->x, gsl_data->n);
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_data->dfi = i;
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+    if (status) {
+      gsl_vector_set(df, i, result);
+    } 
+    else {
+      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+      gsl_vector_set(df, i, result);
+    }
+  }
+}
+
+/* Wrapper for gsl minimization with gradient based algorithms; numerically
+ * estimates the gradient and returns it along with the function value. */
+void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f, gsl_vector *df) {
+  int i, status;
+  double result, abserr;
+  gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
+
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_data->x[i] = gsl_vector_get(v, i);
+  }
+
+  *f = gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->grad, gsl_data->data);
+
+  /* Copy x to differentiation workspace to prevent x from being modified. */
+  dacpy(gsl_data->df_work, gsl_data->x, gsl_data->n);
+  for (i=0; i<gsl_data->n; i++) {
+    gsl_data->dfi = i;
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+    if (status) {
+      gsl_vector_set(df, i, result);
+    } 
+    else {
+      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+      gsl_vector_set(df, i, result);
+    }
+  }
+}
+
+/* Wrapper function for numerically calculating the derivative of an objective
+ * function using gsl numerical derivative facilities. */
+inline double gsl_numerical_df_wrapper(double x, void *data) {
+  gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
+  
+  gsl_data->df_work[gsl_data->dfi] = x;
+  return gsl_data->f(gsl_data->n, gsl_data->df_work, NULL, gsl_data->data);
 }
 
 /*
- * Allocate workspace for using gsl_multimin, which employs the Nelder-Mead
- * Simplex algorithm to perform a local minimization. 
+ * Allocate workspace for using gsl_multimin with derivative free algorithms.
  *
  * Parameters
  * ----------
  *  f     The objective function with generic, gsl independent, arguments. 
  *  n     The number of arguments of f.
  *  data  Generic data to be passed to f. 
+ *  T     The type of optimization algorithm.  Derivative free options are:
+ *          + gsl_multimin_fminimizer_nmsimplex2
+ *          + gsl_multimin_fminimizer_nmsimplex2rand
  */
-gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data) {
+gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fminimizer_type *T) {
   gsl_multimin_f_work *w;
   double *x;
   gsl_multimin_data *gsl_data;
   gsl_multimin_function *gsl_f;
   gsl_vector *v;
   gsl_vector *ssv;
-  const gsl_multimin_fminimizer_type *T;
   gsl_multimin_fminimizer *s;
 
   w = (gsl_multimin_f_work *) malloc(sizeof(gsl_multimin_f_work));
@@ -144,11 +230,9 @@ gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, void 
     CFL_ERROR_NULL("gsl_vector_alloc failed for ssv");
   }
 
-  T = gsl_multimin_fminimizer_nmsimplex2; 
   s = gsl_multimin_fminimizer_alloc(T, n);
-
-  /* Initialize parameters. */
   gsl_vector_set_all(ssv, 1.0);
+  w->epsabs = 1e-2;
   
   w->s = s;
   w->f = gsl_f;
@@ -169,18 +253,254 @@ void gsl_multimin_f_free(gsl_multimin_f_work *w) {
   free(w);
 }
 
+
 /*
- * Run gsl_multimin, which employs the Nelder-Mead Simplex algorithm to perform
- * a local minimization.  In future, this should wrap both the derivative based
- * an derivative free gsl_multimin functions into a common interface. 
+ * Allocate workspace for using gsl_multimin with derivative based algorithms.
+ *
+ * Parameters
+ * ----------
+ *  f     The objective function with generic, gsl independent, arguments. 
+ *  n     The number of arguments of f.
+ *  data  Generic data to be passed to f. 
+ *  T     The type of optimization algorithm.  Derivative free options are:
+ *          + gsl_multimin_fdfminimizer_conjugate_fr
+ *          + gsl_multimin_fdfminimizer_conjugate_pr
+ *          + gsl_multimin_fdfminimizer_vector_bfgs2
+ *          + gsl_multimin_fdfminimizer_steepest_descent
+ */
+gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T) {
+  gsl_multimin_fdf_work *w;
+  double *x;
+  double *grad;
+  gsl_multimin_data *gsl_data;
+  gsl_multimin_function_fdf *gsl_f;
+  gsl_vector *v;
+  gsl_multimin_fdfminimizer *s;
+
+  w = (gsl_multimin_fdf_work *) malloc(sizeof(gsl_multimin_fdf_work));
+  if (w == 0) {
+    CFL_ERROR_NULL("malloc failed for w");
+  }
+  gsl_data = (gsl_multimin_data *) malloc(sizeof(gsl_multimin_data));
+  if (gsl_data == 0) {
+    free(w);
+    CFL_ERROR_NULL("malloc failed for gsl_data");
+  }
+  x = (double *) calloc(n,sizeof(double));
+  if (x == 0) {
+    free(w);
+    free(gsl_data);
+    CFL_ERROR_NULL("calloc failed for x");
+  }
+  grad = (double *) calloc(n,sizeof(double));
+  if (x == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    CFL_ERROR_NULL("calloc failed for grad");
+  } 
+
+  gsl_data->f = f;
+  gsl_data->n = n;
+  gsl_data->x = x;
+  gsl_data->grad = grad;
+  gsl_data->data = data;
+
+  gsl_f = (gsl_multimin_function_fdf *) malloc(sizeof(gsl_multimin_function_fdf));
+  if (gsl_f == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    free(grad);
+    CFL_ERROR_NULL("malloc failed for gsl_f");
+  }
+  
+  gsl_f->f = gsl_multimin_f_wrapper;
+  gsl_f->df = gsl_multimin_df_wrapper;
+  gsl_f->fdf = gsl_multimin_fdf_wrapper;
+  gsl_f->n = n;
+  gsl_f->params = (void *)gsl_data;
+
+  v = gsl_vector_alloc(n);
+  if (v == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    free(grad);
+    free(gsl_f);
+    CFL_ERROR_NULL("gsl_vector_alloc failed for v");
+  }
+
+  s = gsl_multimin_fdfminimizer_alloc(T, n);
+  w->ss = 0.01;
+  w->tol = 1e-4;
+  w->epsabs = 1e-3;
+
+  w->s = s;
+  w->f = gsl_f;
+  w->v = v;
+  w->gsl_data = gsl_data;
+  
+  return w;
+}
+
+void gsl_multimin_fdf_free(gsl_multimin_fdf_work *w) {
+  free(w->gsl_data->x);
+  free(w->gsl_data->grad);
+  gsl_multimin_fdfminimizer_free(w->s);
+  free(w->f);
+  gsl_vector_free(w->v);
+  free(w->gsl_data);
+  free(w);
+}
+
+
+/*
+ * Allocate workspace for using gsl_multimin with derivative based algorithms
+ * and numerical derivative estimation.
+ *
+ * Parameters
+ * ----------
+ *  f     The objective function with generic, gsl independent, arguments. 
+ *  n     The number of arguments of f.
+ *  data  Generic data to be passed to f. 
+ *  T     The type of optimization algorithm.  Derivative free options are:
+ *          + gsl_multimin_fdfminimizer_conjugate_fr
+ *          + gsl_multimin_fdfminimizer_conjugate_pr
+ *          + gsl_multimin_fdfminimizer_vector_bfgs2
+ *          + gsl_multimin_fdfminimizer_steepest_descent
+ */
+gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T) {
+  int i;
+  gsl_multimin_fndf_work *w;
+  double *x;
+  double *grad;
+  gsl_function *dfa;
+  double *df_work;
+  gsl_multimin_data *gsl_data;
+  gsl_multimin_function_fdf *gsl_f;
+  gsl_vector *v;
+  gsl_multimin_fdfminimizer *s;
+
+  w = (gsl_multimin_fndf_work *) malloc(sizeof(gsl_multimin_fndf_work));
+  if (w == 0) {
+    CFL_ERROR_NULL("malloc failed for w");
+  }
+  gsl_data = (gsl_multimin_data *) malloc(sizeof(gsl_multimin_data));
+  if (gsl_data == 0) {
+    free(w);
+    CFL_ERROR_NULL("malloc failed for gsl_data");
+  }
+  x = (double *) calloc(n,sizeof(double));
+  if (x == 0) {
+    free(w);
+    free(gsl_data);
+    CFL_ERROR_NULL("calloc failed for x");
+  }
+  grad = (double *) calloc(n,sizeof(double));
+  if (x == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    CFL_ERROR_NULL("calloc failed for grad");
+  } 
+  dfa = (gsl_function *) malloc(n*sizeof(gsl_function));
+  if (dfa == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    free(grad);
+    CFL_ERROR_NULL("malloc failed for dfa");
+  }
+  df_work = (double *) calloc(n,sizeof(double));
+  if (df_work == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    free(grad);
+    free(dfa);
+    CFL_ERROR_NULL("calloc failed for df_work");
+  }
+
+  gsl_data->f = f;
+  gsl_data->n = n;
+  gsl_data->x = x;
+  gsl_data->grad = grad;
+  gsl_data->dfa = dfa;
+  gsl_data->df_work = df_work;
+  gsl_data->data = data;
+
+  gsl_f = (gsl_multimin_function_fdf *) malloc(sizeof(gsl_multimin_function_fdf));
+  if (gsl_f == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    free(grad);
+    free(dfa);
+    free(df_work);
+    CFL_ERROR_NULL("malloc failed for gsl_f");
+  }
+  
+  gsl_f->f = gsl_multimin_f_wrapper;
+  gsl_f->df = gsl_multimin_ndf_wrapper;
+  gsl_f->fdf = gsl_multimin_fndf_wrapper;
+  gsl_f->n = n;
+  gsl_f->params = (void *)gsl_data;
+
+  for(i=0; i<n; i++) {
+    dfa[i].function = &gsl_numerical_df_wrapper; 
+    dfa[i].params = (void *)gsl_data;
+  }
+
+  v = gsl_vector_alloc(n);
+  if (v == 0) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    free(grad);
+    free(dfa);
+    free(df_work);
+    free(gsl_f);
+    CFL_ERROR_NULL("gsl_vector_alloc failed for v");
+  }
+
+  s = gsl_multimin_fdfminimizer_alloc(T, n);
+  w->ss = 0.01;
+  w->tol = 1e-4;
+  w->epsabs = 1e-3;
+
+  w->s = s;
+  w->f = gsl_f;
+  w->v = v;
+  w->gsl_data = gsl_data;
+  
+  return w;
+}
+
+void gsl_multimin_fndf_free(gsl_multimin_fndf_work *w) {
+  free(w->gsl_data->x);
+  free(w->gsl_data->grad);
+  free(w->gsl_data->dfa);
+  free(w->gsl_data->df_work);
+  gsl_multimin_fdfminimizer_free(w->s);
+  free(w->f);
+  gsl_vector_free(w->v);
+  free(w->gsl_data);
+  free(w);
+}
+
+
+/*
+ * Run gsl_multimin, for derivative free minimization routines.  Any value
+ * written to the grad pointer by an objective function will be neglected.  
  *
  * Parameters
  * ----------
  *  x     Pointer to the initial parameter estimates; if the optimization
  *        succeeds, this will be overwritten with the best-fit parameters.
- *  fmin  Poiter to a single double; if successfull, this will be overwritten
+ *  fmin  Poiter to a single double; if successful, this will be overwritten
  *        with the objective function value for the best-fit parameters. 
- *  work  Pointer to the workspace allocated with gsl_multimin_alloc. 
+ *  work  Pointer to the workspace allocated with gsl_multimin_f_alloc. 
  */
 int gsl_multimin_f(double *x, double *fmin, void *work) {
   size_t iter = 0;
@@ -204,7 +524,7 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
 
     /* Test for convergence. */
     size = gsl_multimin_fminimizer_size(w->s);
-    status = gsl_multimin_test_size(size, 1e-2);
+    status = gsl_multimin_test_size(size, w->epsabs);
 
   } while (status == GSL_CONTINUE && iter < 100);
 
@@ -220,9 +540,120 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
     return 1;
 }
 
+/*
+ * Run gsl_multimin, for derivative based minimization routines.  The objective
+ * function must write the derivative w.r.t. each variable at a given x to the
+ * grad pointer. 
+ *
+ * Parameters
+ * ----------
+ *  x     Pointer to the initial parameter estimates; if the optimization
+ *        succeeds, this will be overwritten with the best-fit parameters.
+ *  fmin  Poiter to a single double; if successful, this will be overwritten
+ *        with the objective function value for the best-fit parameters. 
+ *  work  Pointer to the workspace allocated with gsl_multimin_fdf_alloc. 
+ */
+int gsl_multimin_fdf(double *x, double *fmin, void *work) {
+  size_t iter = 0;
+  int i, status;
+  double size;
+  gsl_multimin_fdf_work *w = (gsl_multimin_fdf_work *)work;
 
-/* Allocate workspace for the basinhopping procedure. */
-bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data, size_t niter, bh_bounds *bounds) {
+  /* Set initial parameters to gsl_vector. */
+  for (i=0; i<w->gsl_data->n; i++) {
+    gsl_vector_set(w->v, i, x[i]);
+  }
+
+  /* Run the minimization. */
+  gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, w->ss, w->tol);
+    do
+    {
+      iter++;
+      status = gsl_multimin_fdfminimizer_iterate(w->s);
+
+      if (status)
+        break;
+
+      status = gsl_multimin_test_gradient(w->s->gradient, w->epsabs);
+    }
+  while (status == GSL_CONTINUE && iter < 100);
+
+  /* Set the solution to x and fmin. */
+  for (i=0; i<w->gsl_data->n; i++) {
+    x[i] = w->gsl_data->x[i];
+  }
+  *fmin = w->s->f;
+
+  if (status == GSL_SUCCESS) 
+    return 0;
+  else 
+    return 1;
+}
+
+
+/*
+ * Run gsl_multimin, for derivative based minimization routines. Derivatives are
+ * estimated numerically using the gsl_deriv_central and, in case of failure of
+ * the central derivative, the gsl_deriv_forward functions.  Any result written
+ * to the grad pointer of an objective function will be ignored. 
+ *
+ * Parameters
+ * ----------
+ *  x     Pointer to the initial parameter estimates; if the optimization
+ *        succeeds, this will be overwritten with the best-fit parameters.
+ *  fmin  Poiter to a single double; if successful, this will be overwritten
+ *        with the objective function value for the best-fit parameters. 
+ *  work  Pointer to the workspace allocated with gsl_multimin_fndf_alloc. 
+ */
+int gsl_multimin_fndf(double *x, double *fmin, void *work) {
+  size_t iter = 0;
+  int i, status;
+  double size;
+  gsl_multimin_fndf_work *w = (gsl_multimin_fndf_work *)work;
+
+  /* Set initial parameters to gsl_vector. */
+  for (i=0; i<w->gsl_data->n; i++) {
+    gsl_vector_set(w->v, i, x[i]);
+  }
+
+  /* Run the minimization. */
+  gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, w->ss, w->tol);
+    do
+    {
+      iter++;
+      status = gsl_multimin_fdfminimizer_iterate(w->s);
+
+      if (status)
+        break;
+
+      status = gsl_multimin_test_gradient(w->s->gradient, w->epsabs);
+    }
+  while (status == GSL_CONTINUE && iter < 100);
+
+  /* Set the solution to x and fmin. */
+  for (i=0; i<w->gsl_data->n; i++) {
+    x[i] = w->gsl_data->x[i];
+  }
+  *fmin = w->s->f;
+
+  if (status == GSL_SUCCESS) 
+    return 0;
+  else 
+    return 1;
+}
+
+/* 
+ * Allocate workspace for the basinhopping procedure. 
+ *
+ * Parameters
+ * ----------
+ *
+ *  n       The number of parameters to be varied.
+ *  niter   The number of basinhopping iterations to complete.
+ *  bounds  Pointer to a bounds object; in case of no bounds, pass a NULL
+ *          pointer.
+ */
+bh_work *bh_work_alloc(size_t n, size_t niter, bh_bounds *bounds) {
   int i;
   bh_work *w;
   double *x;
@@ -307,13 +738,6 @@ void bh_work_free(bh_work *w) {
   free(w->step_data->stepsize);
   free(w->step_data);
   free(w);
-}
-
-inline void dacpy(double *a, double *b, size_t n) {
-  int i;
-  for (i=0; i<n; i++) {
-    a[i] = b[i];
-  }
 }
 
 
@@ -405,11 +829,13 @@ inline void bh_takestep(double *x, bh_work *w) {
  *
  * Parameters
  * ---------- 
- *  x     Pointer to the initial parameter list; if the routine succeeds, this
- *        is overwritten with the result upon exit.
- *  fmin  Poiter to a single double; if successfull, this will be overwritten
- *        with the objective function value for the best-fit parameters. 
- *  w     Pointer to the workspace allocated with bh_work_alloc. 
+ *  x       Pointer to the initial parameter list; if the routine succeeds, this
+ *          is overwritten with the result upon exit.
+ *  fmin    Pointer to a single double; if successful, this will be overwritten
+ *          with the objective function value for the best-fit parameters. 
+ *  w       Pointer to the workspace allocated with bh_work_alloc. 
+ *  lmin_f  Pointer to the local minimization routine. 
+ *  lmin_w  Pointer to the workspace for the local minimization routine.
  */
 int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w) {
   size_t n = w->n;
@@ -434,7 +860,6 @@ int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double 
       lmin_fail++;
     }
     test = metropolis(w->T, e, w->e, w->rng);
-    //printf("test=%i\n",test);
     if (w->bounds != NULL) {
       test += bh_bounds_check(x, w);
     }

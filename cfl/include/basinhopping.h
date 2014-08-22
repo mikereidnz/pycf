@@ -36,23 +36,32 @@
 #include <gsl/gsl_multimin.h>
 
 
-/*
- * Data type for gsl_min_wrapper; passed to the minimization wrapper which then
+/* Data type for gsl_min_wrapper; passed to the minimization wrapper which then
  * extracts the parameter data from the gsl_vector and calls the objective
- * function with gsl independent arguments. 
- */
+ * function with gsl independent arguments.  Similarily, it is used for passing
+ * data to the wrapper function that numerically estimatiates derivatives. */
 typedef struct {
   /* Pointer to the objective function. */
-  double (*f)(size_t n, double *x, void *data); 
+  double (*f)(size_t n, double *x, double *grad, void *data); 
   /* Number of parameters. */
   size_t n;
-  /* Pointer to parameter list storage. */
+  /* Pointer to parameter list. */
   double *x;
-  /* Data to be passed to the minimization function. */
+  /* Pointer to gradient list. */
+  double *grad;
+  /* Pointer to array of derivative functions. */
+  gsl_function *dfa;
+  /* Pointer to numerical differentiation workspace. */
+  double *df_work;
+    /* Index of variable w.r.t. which to differentiate. */
+  size_t dfi;
+  /* Data to be passed to the objective function. */
   void *data;
 } gsl_multimin_data;
 
-/* Work space allocation and initialization data type for gsl multimin. */
+
+/* Work space allocation and initialization data type for gradient free multimin
+ * functions. */
 typedef struct {
   /* Pointer to minimizer. */
   gsl_multimin_fminimizer *s;
@@ -62,9 +71,49 @@ typedef struct {
   gsl_vector *v;
   /* Pointer to step size gsl_vector. */
   gsl_vector *ssv;
+  /* Absolute tolerance used for stopping criteria. */
+  double epsabs;
   /* Pointer to gsl_min_wrapper data struct. */
   gsl_multimin_data *gsl_data;
 } gsl_multimin_f_work;
+
+/* Work space allocation and initialization data type for gradient based
+ * multimin functions. */
+typedef struct {
+  /* Pointer to minimizer. */
+  gsl_multimin_fdfminimizer *s;
+  /* Objective function in gsl form. */
+  gsl_multimin_function_fdf *f;
+  /* Pointer to parameter gsl_vector. */
+  gsl_vector *v;
+  /* Step size. */
+  double ss;
+  /* Line minimization accuracy. */
+  double tol;
+  /* Absolute tolerance used for stopping criteria. */
+  double epsabs;
+  /* Pointer to gsl_min_wrapper data struct. */
+  gsl_multimin_data *gsl_data;
+} gsl_multimin_fdf_work;
+
+/* Work space allocation and initialization data type for gradient based
+ * multimin functions with numerical derivative estimation. */
+typedef struct {
+  /* Pointer to minimizer. */
+  gsl_multimin_fdfminimizer *s;
+  /* Objective function in gsl form. */
+  gsl_multimin_function_fdf *f;
+  /* Pointer to parameter gsl_vector. */
+  gsl_vector *v;
+  /* Step size. */
+  double ss;
+  /* Line minimization accuracy. */
+  double tol;
+  /* Absolute tolerance used for stopping criteria. */
+  double epsabs;
+  /* Pointer to gsl_min_wrapper data struct. */
+  gsl_multimin_data *gsl_data;
+} gsl_multimin_fndf_work;
 
 
 /* Storage for minimum energy. */
@@ -102,8 +151,6 @@ typedef struct {
 
 /* Workspace allocation for basinhopping procedure. */
 typedef struct {
-  /* Pointer to objective function. */
-  double (*f)(size_t n, double *x, void *data); 
   /* The number of parameters of the objective function. */
   size_t n;
   /* Internal storage for previous itteration parameter list. */
@@ -128,10 +175,16 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data);
+gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fminimizer_type *T); 
+gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T);
+gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T);
 void gsl_multimin_f_free(gsl_multimin_f_work *w);
+void gsl_multimin_fdf_free(gsl_multimin_fdf_work *w);
+void gsl_multimin_fndf_free(gsl_multimin_fndf_work *w);
 int gsl_multimin_f(double *x, double *fmin, void *work);
-bh_work *bh_work_alloc(double (*f)(size_t n, double *x, void *data), size_t n, void *data, size_t niter, bh_bounds *bounds);
+int gsl_multimin_fdf(double *x, double *fmin, void *work);
+int gsl_multimin_fndf(double *x, double *fmin, void *work);
+bh_work *bh_work_alloc(size_t n, size_t niter, bh_bounds *bounds);
 void bh_work_free(bh_work *w);
 void bh_set_stepsize(bh_work *w, double *stepsize, float target_accept_rate, size_t interval, float factor);
 int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w);
