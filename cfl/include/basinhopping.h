@@ -157,6 +157,10 @@ typedef struct {
   double *x;
   /* The target number of iterations. */ 
   size_t niter;
+  /* Pointer to local minimization routine. */
+  int (*lmin_f)(double *x, double *fmin, void *w); 
+  /* Pointer to the workspace for the local minimization routine. */
+  void *lmin_w;
   /* Pointer to data holding stepsize information. */
   bh_step_data *step_data;
   /* Pointer to parameter bounds. */
@@ -184,10 +188,10 @@ void gsl_multimin_fndf_free(gsl_multimin_fndf_work *w);
 int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
-bh_work *bh_work_alloc(size_t n, size_t niter, bh_bounds *bounds);
+bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w, bh_bounds *bounds);
 void bh_work_free(bh_work *w);
 void bh_set_stepsize(bh_work *w, double *stepsize, float target_accept_rate, size_t interval, float factor);
-int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w);
+int bh_min(double *x, double *fmin, bh_work *w);
 
 #ifdef __cplusplus
 }

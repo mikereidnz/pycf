@@ -110,12 +110,12 @@ void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
   dacpy(gsl_data->df_work, gsl_data->x, gsl_data->n);
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
-    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-9, &result, &abserr);
     if (status) {
       gsl_vector_set(df, i, result);
     } 
     else {
-      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-9, &result, &abserr);
       gsl_vector_set(df, i, result);
     }
   }
@@ -138,12 +138,12 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f, gsl_v
   dacpy(gsl_data->df_work, gsl_data->x, gsl_data->n);
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
-    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-9, &result, &abserr);
     if (status) {
       gsl_vector_set(df, i, result);
     } 
     else {
-      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-8, &result, &abserr);
+      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-9, &result, &abserr);
       gsl_vector_set(df, i, result);
     }
   }
@@ -262,7 +262,7 @@ void gsl_multimin_f_free(gsl_multimin_f_work *w) {
  *  f     The objective function with generic, gsl independent, arguments. 
  *  n     The number of arguments of f.
  *  data  Generic data to be passed to f. 
- *  T     The type of optimization algorithm.  Derivative free options are:
+ *  T     The type of optimization algorithm.  Derivative based options are:
  *          + gsl_multimin_fdfminimizer_conjugate_fr
  *          + gsl_multimin_fdfminimizer_conjugate_pr
  *          + gsl_multimin_fdfminimizer_vector_bfgs2
@@ -364,7 +364,7 @@ void gsl_multimin_fdf_free(gsl_multimin_fdf_work *w) {
  *  f     The objective function with generic, gsl independent, arguments. 
  *  n     The number of arguments of f.
  *  data  Generic data to be passed to f. 
- *  T     The type of optimization algorithm.  Derivative free options are:
+ *  T     The type of optimization algorithm.  Derivative based options are:
  *          + gsl_multimin_fdfminimizer_conjugate_fr
  *          + gsl_multimin_fdfminimizer_conjugate_pr
  *          + gsl_multimin_fdfminimizer_vector_bfgs2
@@ -650,10 +650,12 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
  *
  *  n       The number of parameters to be varied.
  *  niter   The number of basinhopping iterations to complete.
+ *  lmin_f  Pointer to the local minimization routine. 
+ *  lmin_w  Pointer to the workspace for the local minimization routine.
  *  bounds  Pointer to a bounds object; in case of no bounds, pass a NULL
  *          pointer.
  */
-bh_work *bh_work_alloc(size_t n, size_t niter, bh_bounds *bounds) {
+bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w, bh_bounds *bounds) {
   int i;
   bh_work *w;
   double *x;
@@ -725,6 +727,8 @@ bh_work *bh_work_alloc(size_t n, size_t niter, bh_bounds *bounds) {
   w->x = x;
   w->n = n;
   w->niter = niter;
+  w->lmin_f = lmin_f;
+  w->lmin_w = lmin_w;
   w->bounds = bounds;
   
   return w;
@@ -834,17 +838,15 @@ inline void bh_takestep(double *x, bh_work *w) {
  *  fmin    Pointer to a single double; if successful, this will be overwritten
  *          with the objective function value for the best-fit parameters. 
  *  w       Pointer to the workspace allocated with bh_work_alloc. 
- *  lmin_f  Pointer to the local minimization routine. 
- *  lmin_w  Pointer to the workspace for the local minimization routine.
  */
-int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w) {
+int bh_min(double *x, double *fmin, bh_work *w) {
   size_t n = w->n;
   int i, status, test;
   size_t lmin_fail = 0;
   double e;
 
   /* Perform initial minimization. */
-  status = lmin_f(x, &e, lmin_w);
+  status = w->lmin_f(x, &e, w->lmin_w);
   if (status) {
     lmin_fail++;
   }
@@ -855,7 +857,7 @@ int bh_min(double *x, double *fmin, bh_work *w, int (*lmin_f)(double *x, double 
   
   for (i=0; i<w->niter; i++) {
     bh_takestep(x, w);
-    status = lmin_f(x, &e, lmin_w);
+    status = w->lmin_f(x, &e, w->lmin_w);
     if (status) {
       lmin_fail++;
     }

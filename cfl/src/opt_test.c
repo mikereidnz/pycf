@@ -153,8 +153,8 @@ int main (void)
   bh_multimin_w1 = gsl_multimin_f_alloc(&bh_test_f1, 2, bh_par, gsl_multimin_fminimizer_nmsimplex2);
 
   bh_work *bh_w1;
-  bh_w1 = bh_work_alloc(2, 300, NULL);
-  status = bh_min(bh_x1, &fmin, bh_w1, &gsl_multimin_f, (void *)bh_multimin_w1);
+  bh_w1 = bh_work_alloc(2, 300, &gsl_multimin_f, (void *)bh_multimin_w1, NULL);
+  status = bh_min(bh_x1, &fmin, bh_w1);
   printf("x0=%.6f, x1=%.6f, fmin=%.6f\n", bh_x1[0], bh_x1[1], fmin);
   bh_work_free(bh_w1);
   
@@ -164,19 +164,19 @@ int main (void)
   bh_multimin_w2 = gsl_multimin_fdf_alloc(&bh_test_f2, 2, bh_par, gsl_multimin_fdfminimizer_vector_bfgs2);
 
   bh_work *bh_w2;
-  bh_w2 = bh_work_alloc(2, 300, NULL);
-  status = bh_min(bh_x2, &fmin, bh_w2, &gsl_multimin_fdf, (void *)bh_multimin_w2);
+  bh_w2 = bh_work_alloc(2, 300, &gsl_multimin_fdf, (void *)bh_multimin_w2, NULL);
+  status = bh_min(bh_x2, &fmin, bh_w2);
   printf("x0=%.6f, x1=%.6f, fmin=%.6f\n", bh_x2[0], bh_x2[1], fmin);
   bh_work_free(bh_w2);
   
   gsl_multimin_fdf_free(bh_multimin_w2);
 
   gsl_multimin_fndf_work *bh_multimin_w3;
-  bh_multimin_w3 = gsl_multimin_fndf_alloc(&bh_test_f3, 2, bh_par, gsl_multimin_fdfminimizer_conjugate_fr);
+  bh_multimin_w3 = gsl_multimin_fndf_alloc(&bh_test_f3, 2, bh_par, gsl_multimin_fdfminimizer_vector_bfgs2);
 
   bh_work *bh_w3;
-  bh_w3 = bh_work_alloc(2, 300, NULL);
-  status = bh_min(bh_x3, &fmin, bh_w3, &gsl_multimin_fndf, (void *)bh_multimin_w3);
+  bh_w3 = bh_work_alloc(2, 300, &gsl_multimin_fndf, (void *)bh_multimin_w3, NULL);
+  status = bh_min(bh_x3, &fmin, bh_w3);
   printf("x0=%.6f, x1=%.6f, fmin=%.6f\n", bh_x3[0], bh_x3[1], fmin);
   bh_work_free(bh_w3);
   
