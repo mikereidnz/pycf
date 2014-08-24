@@ -50,10 +50,6 @@ typedef struct {
   double complex *coeff;
   /* Pointer to matrix of the complete Hamiltonian in packed row major form. */
   double complex *ap;
-  /* Pointer to eigenvalue array. */
-  double *w;
-  /* Pointer to eigenvector matrix stored in col major form. */
-  double complex *z;
 } zh;
 
 
@@ -85,12 +81,12 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z); 
+zh *zh_alloc(int n, int nt, char **s, zt **t); 
 void zh_free(zh *h);
 void zh_set_coeff(zh *h, double complex *coeff);
 zhd_w *zhd_w_alloc(zh *h);
 void zhd_w_free(zhd_w *hd_w);
-void zhd(zh *h, zhd_w *hd_w);
+void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w);
 
 #ifdef __cplusplus
 }

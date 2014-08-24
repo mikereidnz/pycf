@@ -166,10 +166,10 @@ int main (void)
   zh *h;
   zhd_w *hd_w;
 
-  h = zh_alloc(4, 2, s, tens, w, z);
+  h = zh_alloc(4, 2, s, tens);
   zh_set_coeff(h, coeff);
   hd_w = zhd_w_alloc(h);
-  zhd(h, hd_w);
+  zhd(w, z, h, hd_w);
   zhd_w_free(hd_w);
  
   printf("hdiag multiple tensors:\n");
@@ -184,10 +184,10 @@ int main (void)
   zh *h2;
   zhd_w *hd_w2;
   
-  h2 = zh_alloc(4, 1, s, tens2, w, z);
+  h2 = zh_alloc(4, 1, s, tens2);
   zh_set_coeff(h2, coeff2);
   hd_w2 = zhd_w_alloc(h2);
-  zhd(h2, hd_w2);
+  zhd(w, z, h2, hd_w2);
   zhd_w_free(hd_w2);
 
   printf("hdiag single tensor:\n");
@@ -203,15 +203,18 @@ int main (void)
   double complex zshp_res[4] = {-3.7417404568, 0, 0, -0.2120561172};
   zsh *sh;
   zshp_w *shp_w;
+  double complex *sha;
+  sha = (double complex *) calloc(2*2,sizeof(double complex));
 
   sh = zsh_alloc(2);
   shp_w = zshp_w_alloc(t1);
-  zshp(h, sh, shp_w, 0);
+  zshp(sha, z, sh, shp_w, 0);
 
   printf("zshp:\n");
-  zequ_chk(zshp_res, sh->a, 4);
+  zequ_chk(zshp_res, sha, 4);
   zshp_w_free(shp_w);
   zsh_free(sh);
+  free(sha);
 
   zh_free(h);
   free(w);

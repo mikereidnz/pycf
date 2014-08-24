@@ -46,7 +46,6 @@
  */
 zsh *zsh_alloc(size_t n) {
   zsh *sh;
-  double complex *a;
 
   sh = (zsh *) malloc(sizeof(zsh));
   if (sh == 0) {
@@ -76,14 +75,7 @@ zsh *zsh_alloc(size_t n) {
   }
 #endif
 
-  a = (double complex *) calloc(n*n,sizeof(double complex));
-  if (a == 0) {
-    free(sh);
-    CFL_ERROR_NULL("calloc failed for a");
-  }
-
   sh->n = n;
-  sh->a = a;
 
   return sh;
 }
@@ -92,7 +84,6 @@ zsh *zsh_alloc(size_t n) {
  * Free spin Hamiltonian storage.
  */
 void zsh_free(zsh *sh) {
-  free(sh->a);
   /* Add state freeing function here, once states are implemented centrally. */
   free(sh);
 }
@@ -160,14 +151,16 @@ zshp_w_free(zshp_w *shp_w) {
  *
  * Parameters
  * ----------
- * h      A diagonalized Hamiltonian containing free-ion and crystal-field
- *        interactions.
- * sh     The spin Hamiltonian object.
- * shp_w  The projection workspace, allocated with zshp_w_alloc.
- * l      Integer specifying the initial level for which to project the spin
+ *  a     Array of length nsh*nsh, with nsh the dimension of the spin
+ *        Hamiltonian; will be overwritten with the result upon exit.      
+ *  hz    Pointer to array containing the eigenvectors that diagonalize the
+ *        Hamiltonian containing free-ion and crystal-field interactions.
+ *  sh    The spin Hamiltonian object.
+ *  shp_w The projection workspace, allocated with zshp_w_alloc.
+ *  l     Integer specifying the initial level for which to project the spin
  *        Hamiltonian.
  */
-void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l) {
+void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w, int l) {
   int i, j;
   lapack_complex_double one, zero;
   one = lapack_make_complex_double(1.0,0.0);
@@ -183,16 +176,16 @@ void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l) {
  
   /* Calculate VH. */
   cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one, shp_w->m, n,
-      h->z, n, &zero, shp_w->a, n);
+      hz, n, &zero, shp_w->a, n);
 
   /* Calculate (VH) V^dag.  Conjugation argument is unintuitive, but yielded the
    * correct result when compared to a octave calculation. */
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
-      shp_w->a, n, h->z, n, &zero, shp_w->b, n);
+      shp_w->a, n, hz, n, &zero, shp_w->b, n);
  
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
-      sh->a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
+      a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
     }
   }
 }
@@ -204,11 +197,10 @@ void zshp(zh *h, zsh *sh, zshp_w *shp_w, int l) {
  * ----------
  * a  Pointer to the coefficient matrix A; it is assumed that the space pointed
  *    to will not be freed until after the workspace is freed. 
- * b  The vector of solutions; can be a placeholder of correct dimensions.
  * m  The number of rows of A and length of b.
  * n  The number of columns of B, and the length of x. 
  */
-zshi_w *zshi_w_alloc(double complex *a, double complex *b, size_t m, size_t n) {
+zshi_w *zshi_w_alloc(double complex *a, size_t m, size_t n) {
   zshi_w *w;
 
   w = (zshi_w *) malloc(sizeof(zshi_w));
@@ -220,7 +212,7 @@ zshi_w *zshi_w_alloc(double complex *a, double complex *b, size_t m, size_t n) {
   lapack_complex_double *work, wquery;
   lapack_int lwork, info;
 
-  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', m, n, 1, a, m, b, n, &wquery,
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', m, n, 1, a, m, NULL, n, &wquery,
       -1);
   if (info != 0) {
     free(w);
@@ -257,17 +249,17 @@ void zshi_w_free(zshi_w *w) {
  *
  * Parameters
  * ----------
- * b  The vector b of the system to be solved; more specifically, the spin
+ * a  The vector of the system to be solved; more specifically, the spin
  *    Hamiltonian elements of the term to be inverted stored in an array.  This
  *    will be overwritten with the solution upon exit, which will correspond to
  *    the spin Hamiltonian parameter tensor.
  * w  The workspace allocated with zshi_w_alloc. 
  */
-void zshi(double complex *b, zshi_w *w) {
+void zshi(double complex *a, zshi_w *w) {
   lapack_int info; 
   char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
 
-  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->m, w->n, 1, w->a, w->m, b,
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->m, w->n, 1, w->a, w->m, a,
       w->n, w->work, w->lwork);
   if (info == 0) {
     sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);

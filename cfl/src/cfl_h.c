@@ -44,12 +44,8 @@
  * @param[nt]   The number of tensors. 
  * @param[s]    Pointer to character arrays containing state labels.
  * @param[t]    Pointer to array of zts.
- * @param[w]    Pointer to double valued array of length n to which eigenvalues
- *              will be written.  
- * @param[z]    Pointer to double complex valued array of length n^2 to which
- *              the eigenvectors will be written.
  */
-zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z) {
+zh *zh_alloc(int n, int nt, char **s, zt **t) {
   zh *h;
   double complex *ap;
 
@@ -68,8 +64,6 @@ zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z) {
   h->states = s;
   h->t = t;
   h->ap = ap;
-  h->w = w;
-  h->z = z;
 
   return h;
 }
@@ -111,8 +105,8 @@ zhd_w *zhd_w_alloc(zh *h) {
   double *rwork, rwquery;
   lapack_int *iwork, iwquery, lwork, lrwork, liwork, info;
 
-  info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, h->w,
-      h->z, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
+  info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, NULL,
+      NULL, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
 
   if (info != 0) {
     free(hd_w);
@@ -243,11 +237,15 @@ void zhd_w_free(zhd_w *hd_w) {
  * @brief Calculate the eigenvalues and corresponding eigenvectors of a
  *        Hamiltonian. 
  * 
+ * @param[w]        Pointer to double valued array of length n to which
+ *                  eigenvalues will be written.  
+ * @param[z]        Pointer to double complex valued array of length n^2 to
+ *                  which the eigenvectors will be written.
  * @param[h]        The Hamiltonian. 
  * @param[hd_w]     The work space for diagonalization; allocated using
  *                  zhd_w_alloc.
  */
-void zhd(zh *h, zhd_w *hd_w) {
+void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) {
   int i;
   char lapack_err[] = "LAPACKE_zhpevd failed with error code: 0";
 
@@ -270,9 +268,9 @@ void zhd(zh *h, zhd_w *hd_w) {
   crs_zhm2zhpa(hd_w->coeff_w[hd_w->lcoeff_w-1], h->ap);
 
   lapack_int info; 
-  info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, h->w,
-      h->z, h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork,
-      hd_w->iwork, hd_w->liwork);
+  info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, w, z,
+      h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
+      hd_w->liwork);
 
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE_zhpevd failed with error code: %i", info);
