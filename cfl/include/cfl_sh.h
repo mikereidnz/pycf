@@ -44,14 +44,28 @@ typedef struct {
   char *state_hash;
 } state_t;
 
+/* Spin Hamiltonian inversion data. */
+typedef struct {
+  /* Pointer to the inversion coefficient matrix A. */
+  double complex *a;
+  /* The number of rows of A and length of b. */
+  size_t m;
+  /* The number of columns of B, and the length of x. */
+  size_t n;
+} zsh_inv_data;
+
 /*
  * @brief Spin Hamiltonian structure definition.
  */
 typedef struct {
   /* Dimension of the spin Hamiltonian. */
   size_t n;
+  /* Pointer to spin Hamiltonian matrix element array. */
+  double complex *a;
   /* State labels corresponding to eigenvalues. */
   state_t *states;
+  /* Pointer to inversion data. */
+  zsh_inv_data *inv_data; 
 } zsh;
 
 /*
@@ -72,12 +86,8 @@ typedef struct {
  * The spin Hamiltonian inversion workspace. 
  */
 typedef struct {
-  /* The number of rows of the inversion matrix. */
-  size_t m;
-  /* The number of columns of the inversion matrix. */
-  size_t n;
-  /* Pointer to coefficient array, of size m by n. */
-  double complex *a;
+  /* Spin Hamiltonian inversion data. */
+  zsh_inv_data *data;
   /* Length of workspace. */
   int lwork;
   /* Pointer to workspace required by zgels. */
@@ -92,9 +102,10 @@ extern "C" {
 zsh *zsh_alloc(size_t n);
 void zsh_free(zsh *sh);
 zshp_w *zshp_w_alloc(zt *t);
-void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w, int l);
-zshi_w *zshi_w_alloc(double complex *a, size_t m, size_t n);
+void zshp(zsh *sh, double complex *hz, int l, zshp_w *shp_w);
+zshi_w *zshi_w_alloc(zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
+void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n); 
 void zshi(double complex *a, zshi_w *w);
 #ifdef __cplusplus
 }

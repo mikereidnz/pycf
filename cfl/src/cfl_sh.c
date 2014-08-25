@@ -51,6 +51,11 @@ zsh *zsh_alloc(size_t n) {
   if (sh == 0) {
     CFL_ERROR_NULL("malloc failed for sh");
   }
+  sh->a = (double complex *) calloc(n*n,sizeof(double complex));
+  if (sh->a == 0) {
+    free(sh);
+    CFL_ERROR_NULL("calloc failed for sh->a");
+  }
 
 #if 0
   st = (label_t *) malloc(sizeof(label_t;));
@@ -75,22 +80,41 @@ zsh *zsh_alloc(size_t n) {
   }
 #endif
 
+  sh->inv_data = (zsh_inv_data *) malloc(sizeof(zsh_inv_data));
+  if (sh->inv_data == 0) {
+    free(sh->a);
+    free(sh);
+    CFL_ERROR_NULL("malloc failed for sh->inv_data");
+  }
+  
   sh->n = n;
 
   return sh;
 }
 
-/*
- * Free spin Hamiltonian storage.
- */
 void zsh_free(zsh *sh) {
-  /* Add state freeing function here, once states are implemented centrally. */
+  free(sh->a);
+  free(sh->inv_data); 
   free(sh);
 }
 
-/*
- * Alloc workspace for the spin Hamiltonian projection.
+/* Set the inversion data for a spin Hamiltonian; a wrapper for cython. 
+ *
+ * Parameters
+ * ----------
+ *  sh  Pointer to spin Hamiltonian for which to set data.
+ *  a   The inversion coefficient matrix A in A x = b. 
+ *  m   The number of rows of A and length of b. 
+ *  n   The number of columns of B, and the length of x.
  */
+
+void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n) {
+  sh->inv_data->a = a;
+  sh->inv_data->m = m;
+  sh->inv_data->n = n;
+}
+
+/* Alloc workspace for the spin Hamiltonian projection. */
 zshp_w *zshp_w_alloc(zt *t) {
   zshp_w *shp_w;
   size_t n = t->n;
@@ -136,10 +160,7 @@ zshp_w *zshp_w_alloc(zt *t) {
   return shp_w;
 }
 
-/*
- * Free workspace for spin Hamiltonian projection.
- */
-zshp_w_free(zshp_w *shp_w) {
+void zshp_w_free(zshp_w *shp_w) {
   free(shp_w->m);
   free(shp_w->a);
   free(shp_w->b);
@@ -151,16 +172,15 @@ zshp_w_free(zshp_w *shp_w) {
  *
  * Parameters
  * ----------
- *  a     Array of length nsh*nsh, with nsh the dimension of the spin
- *        Hamiltonian; will be overwritten with the result upon exit.      
+ *  sh    The spin Hamiltonian object.
  *  hz    Pointer to array containing the eigenvectors that diagonalize the
  *        Hamiltonian containing free-ion and crystal-field interactions.
- *  sh    The spin Hamiltonian object.
- *  shp_w The projection workspace, allocated with zshp_w_alloc.
  *  l     Integer specifying the initial level for which to project the spin
  *        Hamiltonian.
+ *  shp_w The projection workspace, allocated with zshp_w_alloc.
  */
-void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w, int l) {
+
+void zshp(zsh *sh, double complex *hz, int l, zshp_w *shp_w) {
   int i, j;
   lapack_complex_double one, zero;
   one = lapack_make_complex_double(1.0,0.0);
@@ -185,35 +205,35 @@ void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w, int l) 
  
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
-      a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
+      sh->a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
     }
   }
 }
 
 /*
- * Allocate workspace for the spin Hamiltonian inversion function.
+ * Allocate workspace for the spin Hamiltonian inversion function, which
+ * consists of solving the over-determined system Ax=b.
  *
  * Parameters
  * ----------
- * a  Pointer to the coefficient matrix A; it is assumed that the space pointed
- *    to will not be freed until after the workspace is freed. 
- * m  The number of rows of A and length of b.
- * n  The number of columns of B, and the length of x. 
+ *  data    Pointer to a data struct for complex valued spin Hamiltonian
+ *          inversion data.
  */
-zshi_w *zshi_w_alloc(double complex *a, size_t m, size_t n) {
+zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   zshi_w *w;
 
   w = (zshi_w *) malloc(sizeof(zshi_w));
   if (w == 0) {
-    CFL_ERROR_NULL("malloc failde for w");
+    CFL_ERROR_NULL("malloc faild for w");
   }
 
   /* LAPACK workspace query for over-determined eqn solver. */
   lapack_complex_double *work, wquery;
   lapack_int lwork, info;
 
-  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', m, n, 1, a, m, NULL, n, &wquery,
-      -1);
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', d->m, d->n, 1, d->a, d->m, NULL,
+      d->m, &wquery, -1);
+
   if (info != 0) {
     free(w);
     CFL_ERROR_VOID("LAPACKE workspace query failed");
@@ -228,9 +248,7 @@ zshi_w *zshi_w_alloc(double complex *a, size_t m, size_t n) {
 
   w->lwork = lwork,
   w->work = work;
-  w->m = m;
-  w->n = n;
-  w->a = a;
+  w->data = d;
 
   return w;
 }
@@ -259,9 +277,9 @@ void zshi(double complex *a, zshi_w *w) {
   lapack_int info; 
   char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
 
-  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->m, w->n, 1, w->a, w->m, a,
-      w->n, w->work, w->lwork);
-  if (info == 0) {
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, w->data->n, 1,
+      w->data->a, w->data->m, a, w->data->m, w->work, w->lwork);
+  if (info != 0) {
     sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }

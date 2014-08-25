@@ -10,6 +10,8 @@
 #include <cfl_h.h>
 #include <cfl_sh.h>
 
+#include <h_test_data.h>
+
 /* This file contains tests for:
  *  * tensor allocation and scaling/addition functions
  *  * hamiltonian allocation, and diagonalization
@@ -32,7 +34,7 @@ void zequ_chk(double complex *a, double complex *b, size_t n) {
   int p = 0;
 
   for (i=0; i<n; i++) {
-    if (cabs(a[i]-b[i]) >= pow(10,-10)) {
+    if (cabs(a[i]-b[i]) >= 1e-8) {
       p = 1;
     }
   }
@@ -197,24 +199,21 @@ int main (void)
   free(c);
 
   /*=========================================================================*/
-  /* Spin Hamiltonian test.                                                 */
+  /* Spin Hamiltonian projection test.                                       */
   /*=========================================================================*/
 
   double complex zshp_res[4] = {-3.7417404568, 0, 0, -0.2120561172};
   zsh *sh;
   zshp_w *shp_w;
-  double complex *sha;
-  sha = (double complex *) calloc(2*2,sizeof(double complex));
 
   sh = zsh_alloc(2);
   shp_w = zshp_w_alloc(t1);
-  zshp(sha, z, sh, shp_w, 0);
+  zshp(sh, z, 0, shp_w);
 
   printf("zshp:\n");
-  zequ_chk(zshp_res, sha, 4);
+  zequ_chk(zshp_res, sh->a, 4);
   zshp_w_free(shp_w);
   zsh_free(sh);
-  free(sha);
 
   zh_free(h);
   free(w);
@@ -225,5 +224,28 @@ int main (void)
 
   zt_free(t1);
   zt_free(t2);
+
+  /*=========================================================================*/
+  /* Spin Hamiltonian inversion test.                                        */
+  /*=========================================================================*/
+
+  /* Inversion matrix and hyperfine term of the Hamiltonian were externally
+   * calculated for Er:YSO, with experimental A-tensor data source from O.
+   * Guillot_Noel et al, Journal of Alloys and Compounds, 451, (2008) 62. */
+  zsh_inv_data ias_inv_data;
+  ias_inv_data.a = ias_inv;
+  ias_inv_data.m = 256;
+  ias_inv_data.n = 9;
+
+  double complex ias_inv_result[9] = {69.35, -580.73, -248.83, -580.73, 696.30,
+    682.49, -248.83, 682.49, 495.54};
+
+  zshi_w *ias_work = zshi_w_alloc(&ias_inv_data);
+  zshi(ias_term, ias_work);
+
+  printf("Hyperfine inversion test for Eu:YSO:\n");
+  zequ_chk(ias_inv_result, ias_term, 9);
+  
+  zshi_w_free(ias_work);
   return 0;
 }  
