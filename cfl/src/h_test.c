@@ -10,7 +10,7 @@
 #include <cfl_h.h>
 #include <cfl_sh.h>
 
-#include <h_test_data.h>
+#include <test_data.h>
 
 /* This file contains tests for:
  *  * tensor allocation and scaling/addition functions
@@ -229,23 +229,23 @@ int main (void)
   /* Spin Hamiltonian inversion test.                                        */
   /*=========================================================================*/
 
-  /* Inversion matrix and hyperfine term of the Hamiltonian were externally
+  /* The inversion matrix and hyperfine term of the Hamiltonian were externally
    * calculated for Er:YSO, with experimental A-tensor data source from O.
    * Guillot_Noel et al, Journal of Alloys and Compounds, 451, (2008) 62. */
-  zsh_inv_data ias_inv_data;
-  ias_inv_data.a = ias_inv;
-  ias_inv_data.m = 256;
-  ias_inv_data.n = 9;
+  zsh_inv_data hyp_inv_data;
+  hyp_inv_data.a = euyso_hyp_inv;
+  hyp_inv_data.m = 256;
+  hyp_inv_data.n = 9;
 
-  double complex ias_inv_result[9] = {69.35, -580.73, -248.83, -580.73, 696.30,
+  double complex hyp_inv_result[9] = {69.35, -580.73, -248.83, -580.73, 696.30,
     682.49, -248.83, 682.49, 495.54};
 
-  zshi_w *ias_work = zshi_w_alloc(&ias_inv_data);
-  zshi(ias_term, ias_work);
+  zshi_w *hyp_work = zshi_w_alloc(&hyp_inv_data);
+  zshi(euyso_hyp_term, hyp_work);
 
   printf("Hyperfine inversion test for Eu:YSO:\n");
-  zequ_chk(ias_inv_result, ias_term, 9);
+  zequ_chk(hyp_inv_result, euyso_hyp_term, 9);
   
-  zshi_w_free(ias_work);
+  zshi_w_free(hyp_work);
   return 0;
 }  

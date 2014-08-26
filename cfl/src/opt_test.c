@@ -8,7 +8,10 @@
 #include <gsl/gsl_deriv.h>
 
 #include <basinhopping.h>
-
+#include <cfl_tensor.h>
+#include <cfl_h.h>
+#include <cfl_sh.h>
+#include <test_data.h>
 
 /*
  * @brief   Check the equality of two double valued arrays.
@@ -185,5 +188,75 @@ int main (void)
   bh_work_free(bh_w3);
   
   gsl_multimin_fndf_free(bh_multimin_w3);
+
+  /*=========================================================================*/
+  /* h_fit test.                                                             */
+  /*=========================================================================*/
+
+  /* Testing hamiltonian and spin hamiltonian fitting for Ce:LiYF4. Tensor
+   * matrix elements and solutions externally calculated using pyemp. */
+
+  int i;
+  /* Tensor allocs. */
+  zt *eavg, *zeta, *C20, *C40, *C44, *C60, *C64;
+  eavg = (zt *) zt_alloc("eavg", ce_eavg_a, 14);
+  zeta = (zt *) zt_alloc("zeta", ce_zeta_a, 14);
+  C20 = (zt *) zt_alloc("C20", ce_C20_a, 14);
+  C40 = (zt *) zt_alloc("C40", ce_C40_a, 14);
+  C44 = (zt *) zt_alloc("C44", ce_C44_a, 14);
+  C60 = (zt *) zt_alloc("C60", ce_C60_a, 14);
+  C64 = (zt *) zt_alloc("C64", ce_C64_a, 14);
+
+  zt *tensors[7];
+  tensors[0] = eavg;
+  tensors[1] = zeta;
+  tensors[2] = C20;
+  tensors[3] = C40;
+  tensors[4] = C44;
+  tensors[5] = C60;
+  tensors[6] = C64;
+
+  /* Dummy state label preparation. */
+  int nstates = 14;
+  char *s[nstates];
+  for (i=0; i<nstates; i++) {
+    s[i] = malloc(nstates*sizeof(char));
+    if (s[i] == 0) 
+      printf("Error; label array s malloc failed\n");
+    sprintf(s[i], "l=%i", i);
+  }
+
+
+  double *w;
+  double complex *z;
+  w = (double *) calloc(nstates,sizeof(double));
+  z = (double complex *) calloc(nstates*nstates,sizeof(double complex));
+  zh *h;
+  zhd_w *hd_w;
+
+  h = zh_alloc(nstates, 7, s, tensors);
+  zh_set_coeff(h, celiyf4_coeff);
+  hd_w = zhd_w_alloc(h);
+  zhd(w, z, h, hd_w);
+  zhd_w_free(hd_w);
+
+  printf("Ce:LiYF4 diagonalization:\n");
+  dequ_chk(celiyf4_diag_res, w, 14);
+
+
+  zh_free(h);
+  for (i=0; i<nstates; i++) {
+    free(s[i]);
+  }
+  free(w);
+  free(z);
+
+  zt_free(eavg);
+  zt_free(zeta);
+  zt_free(C20);
+  zt_free(C40);
+  zt_free(C44);
+  zt_free(C60);
+  zt_free(C64);
   return 0;
 }  

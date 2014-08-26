@@ -13,6 +13,7 @@ CFL
   * Think about a complex tensor-prefactor... since a standard multiplication by
     a complex number will not preserve the hermiticity of a matrix. Presumably,
     we multiply by the complex conjugate on the lower-diagonal?
+  * Move GSL tolerances to macros. 
 
 Spin Hamiltonian
 ----------------
