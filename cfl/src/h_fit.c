@@ -98,20 +98,28 @@ void efit_data_free(efit_data *data) {
  *
  * Parameters
  * ----------
- *  sh      Array of pointers to spin Hamiltonians.  
+ *  sh      Array of pointers to spin Hamiltonians. If the inversion involves a
+ *          Zeeman term then this function expects three linearly independent
+ *          Zeeman terms in a row.    
  *  nsh     The number of spin Hamiltonians to be fit.
+ *  nzeeman The index of the first Zeeman term; for cases without Zeeman
+ *          interaction, set to -1.
  *  h       Pointer to the complete Hamiltonian.  
  *  hfo     Pointer to the first order Hamiltonian.
  *  ex      Array of experimental energy level data. 
- *  shx     Array of pointers to spin Hamiltonian experimental data. 
+ *  shx     Array of pointers to spin Hamiltonian experimental data.  These must
+ *          be in the same order as the terms in sh.  For Zeeman terms, the
+ *          experimental data position is expected to coincied with the position
+ *          of the first Zeeman term in sh.
  *  n_zx    The number of complex valued parameters to be fit to the complete
  *          Hamiltonian h.
  *  n_fozx  The number of complex valued parameters to be fit to the first order
  *          Hamiltonian hfo.
  *  p       Array of pointers to parameters to be fit.
  */
-eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, zh *h, zh *hfo, double *ex, shx_data **shx, size_t n_zx, size_t n_fozx; param_type **p) {
+eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh *hfo, double *ex, shx_data **shx, size_t n_zx, size_t n_fozx; param_type **p) {
   int i,j;
+  size_t ninv;
   eshfit_data *data;
 
   data = (eshfit_data *) malloc(sizeof(eshfit_data));
@@ -187,13 +195,27 @@ eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, zh *h, zh *hfo, double *ex,
     free(data);
     CFL_ERROR_NULL("calloc failed for data->hfo_coeff");
   }
+  data->shp_w_array = (zshp_w **) malloc(nsh*sizeof(zshp_w *));
+  if (data->shp_w_array == 0) {
+    zhd_w_free(data->hd_w);
+    zhd_w_free(data->hfod_w);
+    free(data->h_evect);
+    free(data->h_eval);
+    free(data->hfo_evect);
+    free(data->hfo_eval);
+    free(data->h_coeff);
+    free(data->hfo_coeff);
+    free(data);
+    CFL_ERROR_NULL("malloc failed for data->shp_w_array *");
+  }
+  
+  /* nfo is the number of tensors of h corresponding to first order
+   * interactions.  We allocate spin Hamiltonian projection space for the
+   * remainder. */
+  int nfo = h->n - nsh;
   for (i=0; i<nsh; i++) {
-    data->shp_w_array[i] = zshp_w_alloc(shx_data[i]->ten);
+    data->shp_w_array[i] = zshp_w_alloc(h->t[nfo+i]);
     if (data->shp_w_array == 0) {
-      for (j=0; j<i; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-        zshi_w_free(data->shi_w_array[j]);
-      }
       zhd_w_free(data->hd_w);
       zhd_w_free(data->hfod_w);
       free(data->h_evect);
@@ -202,16 +224,63 @@ eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, zh *h, zh *hfo, double *ex,
       free(data->hfo_eval);
       free(data->h_coeff);
       free(data->hfo_coeff);
+      for (j=0; j<i; j++) {
+        zshp_w_free(data->shp_w_array[j]);
+      }
+      free(data->shp_w_array);
       free(data);
       CFL_ERROR_NULL("zshp_w_alloc failed for data->shp_w_array");
     }
-    data->shi_w_array[i] = zshi_w_alloc(sh[i]->inv_data);
+  }
+  
+  /* Determine the number of inversions; a Zeeman inversion requires three
+   * terms. */
+  if (nzeeman != -1) {
+    ninv = nsh-2;
+  }
+  else {
+    ninv = nsh;
+  }
+  
+  data->shi_w_array = (zshi_w **) malloc(ninv*sizeof(zshi_w *));
+  if (data->shp_w_array == 0) {
+    zhd_w_free(data->hd_w);
+    zhd_w_free(data->hfod_w);
+    free(data->h_evect);
+    free(data->h_eval);
+    free(data->hfo_evect);
+    free(data->hfo_eval);
+    free(data->h_coeff);
+    free(data->hfo_coeff);
+    for (j=0; j<nsh; j++) {
+      zshp_w_free(data->shp_w_array[j]);
+    }
+    free(data->shp_w_array);
+    free(data);
+    CFL_ERROR_NULL("malloc failed for data->shi_w_array *");
+  }
+  data->sh_pa = (double complex **) malloc(ninv*sizeof(double complex *));
+  if (data->sh_pa == 0) {
+    zhd_w_free(data->hd_w);
+    zhd_w_free(data->hfod_w);
+    free(data->h_evect);
+    free(data->h_eval);
+    free(data->hfo_evect);
+    free(data->hfo_eval);
+    free(data->h_coeff);
+    free(data->hfo_coeff);
+    for (j=0; j<nsh; j++) {
+      zshp_w_free(data->shp_w_array[j]);
+    }
+    free(data->shp_w_array);
+    free(data->shi_w_array);
+    free(data);
+    CFL_ERROR_NULL("malloc failed for data->sh_pa *");
+  }
+
+  for (i=0; i<ninv; i++) {
+    data->shi_w_array[i] = zshi_w_alloc(shx[i]->inv_data);
     if (data->shi_w_array[i] == 0) {
-      for (j=0; j<i; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-        zshi_w_free(data->shi_w_array[j]);
-      }
-      zshp_w_free(data->shp_w_array[i]);
       zhd_w_free(data->hd_w);
       zhd_w_free(data->hfod_w);
       free(data->h_evect);
@@ -220,18 +289,23 @@ eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, zh *h, zh *hfo, double *ex,
       free(data->hfo_eval);
       free(data->h_coeff);
       free(data->hfo_coeff);
-      free(data);
-      CFL_ERROR_NULL("zshi_w_alloc failed for data->shi_w_array");
-    }
-    data->sh_pa[i] = (double complex *) calloc(9,sizeof(double complex));
-    if (data->sh_pa[i] == 0) {
-      for (j=0; j<i; j++) {
+      for (j=0; j<nsh; j++) {
         zshp_w_free(data->shp_w_array[j]);
+      }
+      free(data->shp_w_array);
+      for (j=0; j<i; j++) {
         zshi_w_free(data->shi_w_array[j]);
         free(data->sh_pa[j]);
       }
-      zshp_w_free(data->shp_w_array[i]);
-      zshi_w_free(data->shi_w_array[i]);
+      free(data->shi_w_array);
+      free(data->sh_pa);
+      free(data);
+      CFL_ERROR_NULL("zshi_w_alloc failed for data->shi_w_array");
+    }
+    /* Size m for Zeeman shx is set to three times the size of a single term. */
+    data->sh_pa[i] = (double complex *) calloc(shx[i]->inv_data->m,sizeof(double
+          complex));
+    if (data->sh_pa[i] == 0) {
       zhd_w_free(data->hd_w);
       zhd_w_free(data->hfod_w);
       free(data->h_evect);
@@ -240,15 +314,33 @@ eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, zh *h, zh *hfo, double *ex,
       free(data->hfo_eval);
       free(data->h_coeff);
       free(data->hfo_coeff);
+      for (j=0; j<nsh; j++) {
+        zshp_w_free(data->shp_w_array[j]);
+      }
+      free(data->shp_w_array);
+      for (j=0; j=<i; j++) {
+        zshi_w_free(data->shi_w_array[j]);
+      }
+      free(data->shi_w_array);
+      for (j=0; j<i; j++) {
+        free(data->sh_pa[j]);
+      }
+      free(data->sh_pa);
       free(data);
       CFL_ERROR_NULL("calloc failed for data->sh_pa");
+    }
   }
 
   data->sh = sh;
   data->h = h;
   data->hfo = hfo;
   data->ex = ex;
+  data->nsh = nsh;
+  data->nzeeman = nzeeman;
+  data->ninv = ninv;
   data->shx = shx;
+  data->n_zx = n_zx;
+  data->n_fozx = n_fozx;
   data->p = p;
 }
 
@@ -256,11 +348,6 @@ eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, zh *h, zh *hfo, double *ex,
 void eshfit_data_free(eshfit_data *data) {
   int i;
 
-  for (i=0; i<data->nsh; i++) {
-    zshp_w_free(data->shp_w_array[i]);
-    zshi_w_free(data->shi_w_array[i]);
-    free(data->sh_pa[i]);
-  }
   zhd_w_free(data->hd_w);
   zhd_w_free(data->hfod_w);
   free(data->h_evect);
@@ -269,6 +356,16 @@ void eshfit_data_free(eshfit_data *data) {
   free(data->hfo_eval);
   free(data->h_coeff);
   free(data->hfo_coeff);
+  for (i=0; i<data->nsh; i++) {
+    zshp_w_free(data->shp_w_array[i]);
+  }
+  free(data->shp_w_array);
+  for (i=0; i<data->ninv; i++) {
+    zshi_w_free(data->shi_w_array[i]);
+    free(data->sh_pa[i]);
+  }
+  free(data->shi_w_array);
+  free(data->sh_pa);
   free(data);
 }
 
@@ -359,7 +456,7 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
  * Objective function for fit to both energy levels and spin hamiltonians. 
  */
 void eshfit_obj(size_t n, double *x, double *grad, void *data) {
-  int i, zi;
+  int i, zi, sh_index;
   eshfit_data *d = data;
   double chisq;
 
@@ -417,12 +514,28 @@ void eshfit_obj(size_t n, double *x, double *grad, void *data) {
   zh_set_coeff(d->hfo, d->hfo_coeff);
   zhd(d->hfo_eval, d->hfo_evect, d->hfo, d->hfod_w);
 
-  for (i=0; i<d->nsh; i++) {
-    zshp(d->sh_array[i], d->shx[i]->ten, d->shx[i]->l, d->shp_w_array[i]);
+
+  sh_index = 0;
+  for (i=0; i<d->ninv; i++) {
+    if (i == nzeeman) {
+      /* The dimension of a single Zeeman term. */
+      size_t dz = d->shx[i]->inv_data->m/3;
+      for (j=0; j<3; j++) {
+        zshp(&(sh_pa[i][j*dz]), d->hfo_evect, shx[i]->inv_data->l,
+            d->sh_array[sh_index], d->shp_w_array[sh_index]);
+        sh_index++;
+      }
+    }
+    else {
+      zshp(sh_pa[i], d->hfo_evect, shx[i]->inv_data->l, d->sh_array[sh_index],
+          d->shp_w_array[sh_index]);
+      sh_index++;
+    }
     zshi(sh_pa[i], d->shi_w_array[i]);
     chisq += shx[i]->chisq_weight * zchisq(sh_pa[i], shx[i]->pa);
   }
-
+  //FIXME: zchisq should be changed to shchisq and only use the first 9
+  //components. 
   return chisq;
 }
 

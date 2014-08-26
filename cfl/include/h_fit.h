@@ -41,13 +41,10 @@ typedef struct {
 typedef struct {
   /* Array of nine experimental spin Hamiltonian parameter values. */
   complex double *pa;
-  /* Perturbation matrix elements. */
-  zt *ten;
-  /* Integer specifying the initial level for which to project the spin
-   * Hamiltonian. */
-  int l;
   /* Chi^2 weighting. */
   float chisq_weight;
+  /* Pointer to inversion data. */
+  zsh_inv_data *inv_data; 
 } shx_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -92,6 +89,10 @@ typedef struct {
   zsh **sh_array;
   /* Number of spin Hamiltonians. */
   size_t nsh;
+  /* The index of the first Zeeman term. */
+  size_t nzeeman;
+  /* Number of spin Hamiltonian inversions (depends on term types). */
+  size_t ninv;
   /* Pointer to array of pointers to spin Hamiltonian projection workspaces. */
   zshp_w **shp_w_array;
   /* Pointer to array of pointers spin Hamiltonian inversion workspaces. */
