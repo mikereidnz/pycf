@@ -182,9 +182,9 @@ extern "C" {
 gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fminimizer_type *T); 
 gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T);
 gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T);
-void gsl_multimin_f_free(gsl_multimin_f_work *w);
-void gsl_multimin_fdf_free(gsl_multimin_fdf_work *w);
-void gsl_multimin_fndf_free(gsl_multimin_fndf_work *w);
+void gsl_multimin_f_free(void *work);
+void gsl_multimin_fdf_free(void *work);
+void gsl_multimin_fndf_free(void *work);
 int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);

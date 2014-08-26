@@ -243,7 +243,8 @@ gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, doubl
   return w;
 }
 
-void gsl_multimin_f_free(gsl_multimin_f_work *w) {
+void gsl_multimin_f_free(void *work) {
+  gsl_multimin_f_work *w = (gsl_multimin_f_work *) work;
   free(w->gsl_data->x);
   gsl_multimin_fminimizer_free(w->s);
   free(w->f);
@@ -344,7 +345,8 @@ gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x, d
   return w;
 }
 
-void gsl_multimin_fdf_free(gsl_multimin_fdf_work *w) {
+void gsl_multimin_fdf_free(void *work) {
+  gsl_multimin_fdf_work *w = (gsl_multimin_fdf_work *) work;
   free(w->gsl_data->x);
   free(w->gsl_data->grad);
   gsl_multimin_fdfminimizer_free(w->s);
@@ -477,7 +479,8 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
   return w;
 }
 
-void gsl_multimin_fndf_free(gsl_multimin_fndf_work *w) {
+void gsl_multimin_fndf_free(void *work) {
+  gsl_multimin_fndf_work *w = (gsl_multimin_fndf_work *) work;
   free(w->gsl_data->x);
   free(w->gsl_data->grad);
   free(w->gsl_data->dfa);
