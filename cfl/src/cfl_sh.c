@@ -44,7 +44,7 @@
  * ----------
  * n  The dimensions of the spin Hamiltonian term.
  */
-zsh *zsh_alloc(size_t n) {
+zsh *zsh_alloc(size_t n, char *type) {
   zsh *sh;
 
   sh = (zsh *) malloc(sizeof(zsh));
@@ -80,43 +80,72 @@ zsh *zsh_alloc(size_t n) {
   }
 #endif
 
-  sh->inv_data = (zsh_inv_data *) malloc(sizeof(zsh_inv_data));
-  if (sh->inv_data == 0) {
+  sh->p_data = (zsh_p_data *) malloc(sizeof(zsh_p_data));
+  if (sh->p_data == 0) {
     free(sh->a);
     free(sh);
-    CFL_ERROR_NULL("malloc failed for sh->inv_data");
+    CFL_ERROR_NULL("malloc failed for sh->p_data");
   }
+  sh->p_data->tensor = NULL;
   
   sh->n = n;
+  sh->type = type;
 
   return sh;
 }
 
 void zsh_free(zsh *sh) {
   free(sh->a);
-  free(sh->inv_data); 
+  free(sh->p_data); 
   free(sh);
 }
 
-/* Set the inversion data for a spin Hamiltonian; a wrapper for cython. 
+/* Set the projection data for a spin Hamiltonian; a wrapper for cython. 
  *
  * Parameters
  * ----------
  *  sh  Pointer to spin Hamiltonian for which to set data.
+ *  t   Tensor to be projected; correspond to second order matrix elements of
+ *      the complete Hamiltonian. 
+ *  l   Integer specifying which level of the complete Hamiltonian corresponds
+ *      to the initial level of the spin Hamiltonian.
+ */
+
+void zsh_set_proj(zsh *sh, zt *tensor, int l) {
+  sh->p_data->tensor = tensor;
+  sh->p_data->l = l;
+}
+
+/* Alloc spin Hamiltonian inversion data; a wrapper for cython. 
+ *
+ * Parameters
+ * ----------
  *  a   The inversion coefficient matrix A in A x = b. 
  *  m   The number of rows of A and length of b. 
  *  n   The number of columns of B, and the length of x.
  */
+zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n) {
+  zsh_inv_data *d;
 
-void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n) {
-  sh->inv_data->a = a;
-  sh->inv_data->m = m;
-  sh->inv_data->n = n;
+  d = (zsh_inv_data *) malloc(sizeof(zsh_inv_data));
+  if (d == 0) {
+    CFL_ERROR_NULL("malloc failed for d");
+  }
+  d->a = a;
+  d->m = m;
+  d->n = n;
+
+  return d;
+}
+
+void zsh_inv_data_free(zsh_inv_data *d) {
+  free(d);
 }
 
 /* Alloc workspace for the spin Hamiltonian projection. */
-zshp_w *zshp_w_alloc(zt *t) {
+zshp_w *zshp_w_alloc(zsh *sh) {
   zshp_w *shp_w;
+  zt *t = sh->p_data->tensor;
   size_t n = t->n;
   double complex *a; 
   double complex *b;
@@ -173,14 +202,10 @@ void zshp_w_free(zshp_w *shp_w) {
  * Parameters
  * ----------
  *  sh    The spin Hamiltonian object.
- *  hz    Pointer to array containing the eigenvectors that diagonalize the
- *        Hamiltonian containing free-ion and crystal-field interactions.
- *  l     Integer specifying the initial level for which to project the spin
- *        Hamiltonian.
  *  shp_w The projection workspace, allocated with zshp_w_alloc.
  */
 
-void zshp(zsh *sh, double complex *hz, int l, zshp_w *shp_w) {
+void zshp(zsh *sh, zshp_w *shp_w) {
   int i, j;
   lapack_complex_double one, zero;
   one = lapack_make_complex_double(1.0,0.0);
@@ -196,16 +221,16 @@ void zshp(zsh *sh, double complex *hz, int l, zshp_w *shp_w) {
  
   /* Calculate VH. */
   cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one, shp_w->m, n,
-      hz, n, &zero, shp_w->a, n);
+      sh->p_data->tensor, n, &zero, shp_w->a, n);
 
   /* Calculate (VH) V^dag.  Conjugation argument is unintuitive, but yielded the
    * correct result when compared to a octave calculation. */
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
-      shp_w->a, n, hz, n, &zero, shp_w->b, n);
+      shp_w->a, n, sh->p_data->tensor, n, &zero, shp_w->b, n);
  
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
-      sh->a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
+      sh->a[i*nsh+j] = shp_w->b[(i+sh->p_data->l)*n+j+sh->p_data->l];
     }
   }
 }
@@ -227,7 +252,7 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
     CFL_ERROR_NULL("malloc faild for w");
   }
 
-  /* LAPACK workspace query for over-determined eqn solver. */
+  /* LAPACK workspace query for least-squares eqn solver. */
   lapack_complex_double *work, wquery;
   lapack_int lwork, info;
 

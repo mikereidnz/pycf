@@ -206,9 +206,10 @@ int main (void)
   zsh *sh;
   zshp_w *shp_w;
 
-  sh = zsh_alloc(2);
-  shp_w = zshp_w_alloc(t1);
-  zshp(sh, z, 0, shp_w);
+  sh = zsh_alloc(2, "test");
+  zsh_set_proj(sh, t1, 0);
+  shp_w = zshp_w_alloc(sh);
+  zshp(sh, shp_w);
 
   printf("zshp:\n");
   zequ_chk(zshp_res, sh->a, 4);
