@@ -44,15 +44,6 @@ typedef struct {
   char *state_hash;
 } state_t;
 
-/* Spin Hamiltonian projection data. */
-typedef struct {
-  /* Perturbation matrix elements. */
-  zt *tensor;
-  /* Integer specifying first level of the complete Hamiltonian which
-   * corresponds to a spin Hamiltonian element. */
-  int l;
-} zsh_p_data;
-
 /* Spin Hamiltonian inversion data. */
 typedef struct {
   /* Pointer to the inversion coefficient matrix A. */
@@ -61,6 +52,9 @@ typedef struct {
   size_t m;
   /* The number of columns of B, and the length of x. */
   size_t n;
+  /* Integer specifying the initial level for which to project the spin
+   * Hamiltonian. */
+  size_t l;
 } zsh_inv_data;
 
 /*
@@ -71,12 +65,8 @@ typedef struct {
   size_t n;
   /* Pointer to term type character array. */
   char *type;
-  /* Pointer to spin Hamiltonian matrix element array. */
-  double complex *a;
   /* State labels corresponding to eigenvalues. */
   state_t *states;
-  /* Projection data. */
-  zsh_p_data *p_data;
 } zsh;
 
 /*
@@ -112,10 +102,11 @@ extern "C" {
 
 zsh *zsh_alloc(size_t n, char *type);
 void zsh_free(zsh *sh);
-zshp_w *zshp_w_alloc(zsh *sh);
+zshp_w *zshp_w_alloc(zt *t);
+void zsh_set_proj(zsh *sh, zt *t, int l);
 zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n);
 void zsh_inv_data_free(zsh_inv_data *d);
-void zshp(zsh *sh, zshp_w *shp_w);
+void zshp(double complex *a, double complex *hz, size_t l, zsh *sh, zshp_w *shp_w);
 zshi_w *zshi_w_alloc(zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
 void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n); 

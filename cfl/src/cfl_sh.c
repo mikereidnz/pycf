@@ -51,11 +51,6 @@ zsh *zsh_alloc(size_t n, char *type) {
   if (sh == 0) {
     CFL_ERROR_NULL("malloc failed for sh");
   }
-  sh->a = (double complex *) calloc(n*n,sizeof(double complex));
-  if (sh->a == 0) {
-    free(sh);
-    CFL_ERROR_NULL("calloc failed for sh->a");
-  }
 
 #if 0
   st = (label_t *) malloc(sizeof(label_t;));
@@ -79,14 +74,6 @@ zsh *zsh_alloc(size_t n, char *type) {
     strcpy(st[i], states[i]);
   }
 #endif
-
-  sh->p_data = (zsh_p_data *) malloc(sizeof(zsh_p_data));
-  if (sh->p_data == 0) {
-    free(sh->a);
-    free(sh);
-    CFL_ERROR_NULL("malloc failed for sh->p_data");
-  }
-  sh->p_data->tensor = NULL;
   
   sh->n = n;
   sh->type = type;
@@ -95,26 +82,9 @@ zsh *zsh_alloc(size_t n, char *type) {
 }
 
 void zsh_free(zsh *sh) {
-  free(sh->a);
-  free(sh->p_data); 
   free(sh);
 }
 
-/* Set the projection data for a spin Hamiltonian; a wrapper for cython. 
- *
- * Parameters
- * ----------
- *  sh  Pointer to spin Hamiltonian for which to set data.
- *  t   Tensor to be projected; correspond to second order matrix elements of
- *      the complete Hamiltonian. 
- *  l   Integer specifying which level of the complete Hamiltonian corresponds
- *      to the initial level of the spin Hamiltonian.
- */
-
-void zsh_set_proj(zsh *sh, zt *tensor, int l) {
-  sh->p_data->tensor = tensor;
-  sh->p_data->l = l;
-}
 
 /* Alloc spin Hamiltonian inversion data; a wrapper for cython. 
  *
@@ -143,9 +113,8 @@ void zsh_inv_data_free(zsh_inv_data *d) {
 }
 
 /* Alloc workspace for the spin Hamiltonian projection. */
-zshp_w *zshp_w_alloc(zsh *sh) {
+zshp_w *zshp_w_alloc(zt *t) {
   zshp_w *shp_w;
-  zt *t = sh->p_data->tensor;
   size_t n = t->n;
   double complex *a; 
   double complex *b;
@@ -201,11 +170,16 @@ void zshp_w_free(zshp_w *shp_w) {
  *
  * Parameters
  * ----------
+ *  a     Array of length nsh*nsh, with nsh the dimension of the spin
+ *        Hamiltonian; will be overwritten with the result upon exit.  
+ *  hz    Pointer to array containing the eigenvectors that diagonalize the
+ *        Hamiltonian containing free-ion and crystal-field interactions.
+ *  l     Integer specifying the initial level for which to project the spin
+ *        Hamiltonian.
  *  sh    The spin Hamiltonian object.
  *  shp_w The projection workspace, allocated with zshp_w_alloc.
  */
-
-void zshp(zsh *sh, zshp_w *shp_w) {
+void zshp(double complex *a, double complex *hz, size_t l, zsh *sh, zshp_w *shp_w) {
   int i, j;
   lapack_complex_double one, zero;
   one = lapack_make_complex_double(1.0,0.0);
@@ -218,19 +192,18 @@ void zshp(zsh *sh, zshp_w *shp_w) {
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
    * Zeeman, hyperfine or quadrupole interaction elements; that is, matrix
    * elements that are diagonal in total angular momentum J. */
- 
   /* Calculate VH. */
   cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one, shp_w->m, n,
-      sh->p_data->tensor, n, &zero, shp_w->a, n);
+      hz, n, &zero, shp_w->a, n);
 
   /* Calculate (VH) V^dag.  Conjugation argument is unintuitive, but yielded the
    * correct result when compared to a octave calculation. */
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
-      shp_w->a, n, sh->p_data->tensor, n, &zero, shp_w->b, n);
+      shp_w->a, n, hz, n, &zero, shp_w->b, n);
  
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
-      sh->a[i*nsh+j] = shp_w->b[(i+sh->p_data->l)*n+j+sh->p_data->l];
+      a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
     }
   }
 }

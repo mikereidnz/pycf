@@ -203,18 +203,19 @@ int main (void)
   /*=========================================================================*/
 
   double complex zshp_res[4] = {-3.7417404568, 0, 0, -0.2120561172};
+  double complex *sha = (double complex *) calloc(4,sizeof(double complex));
   zsh *sh;
   zshp_w *shp_w;
 
   sh = zsh_alloc(2, "test");
-  zsh_set_proj(sh, t1, 0);
-  shp_w = zshp_w_alloc(sh);
-  zshp(sh, shp_w);
+  shp_w = zshp_w_alloc(t1);
+  zshp(sha, z, 0, sh, shp_w);
 
   printf("zshp:\n");
-  zequ_chk(zshp_res, sh->a, 4);
+  zequ_chk(zshp_res, sha, 4);
   zshp_w_free(shp_w);
   zsh_free(sh);
+  free(sha);
 
   zh_free(h);
   free(w);
