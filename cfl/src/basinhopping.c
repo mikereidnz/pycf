@@ -566,8 +566,7 @@ int gsl_multimin_fdf(double *x, double *fmin, void *work) {
 
   /* Run the minimization. */
   gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, w->ss, w->tol);
-    do
-    {
+    do {
       iter++;
       status = gsl_multimin_fdfminimizer_iterate(w->s);
 
@@ -575,8 +574,7 @@ int gsl_multimin_fdf(double *x, double *fmin, void *work) {
         break;
 
       status = gsl_multimin_test_gradient(w->s->gradient, w->epsabs);
-    }
-  while (status == GSL_CONTINUE && iter < 100);
+    } while (status == GSL_CONTINUE && iter < 100);
 
   /* Set the solution to x and fmin. */
   for (i=0; i<w->gsl_data->n; i++) {
@@ -618,8 +616,7 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
 
   /* Run the minimization. */
   gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, w->ss, w->tol);
-    do
-    {
+    do {
       iter++;
       status = gsl_multimin_fdfminimizer_iterate(w->s);
 
@@ -627,8 +624,7 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
         break;
 
       status = gsl_multimin_test_gradient(w->s->gradient, w->epsabs);
-    }
-  while (status == GSL_CONTINUE && iter < 100);
+    } while (status == GSL_CONTINUE && iter < 100);
 
   /* Set the solution to x and fmin. */
   for (i=0; i<w->gsl_data->n; i++) {
@@ -839,9 +835,11 @@ inline void bh_takestep(double *x, bh_work *w) {
  *          with the objective function value for the best-fit parameters. 
  *  w       Pointer to the workspace allocated with bh_work_alloc. 
  */
-int bh_min(double *x, double *fmin, bh_work *w) {
-  size_t n = w->n;
+int bh_min(double *x, double *fmin, void *work) {
+
+  bh_work *w = (bh_work *) work;
   int i, status, test;
+  size_t n = w->n;
   size_t lmin_fail = 0;
   double e;
 

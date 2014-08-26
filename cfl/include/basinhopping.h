@@ -191,7 +191,7 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work);
 bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w, bh_bounds *bounds);
 void bh_work_free(bh_work *w);
 void bh_set_stepsize(bh_work *w, double *stepsize, float target_accept_rate, size_t interval, float factor);
-int bh_min(double *x, double *fmin, bh_work *w);
+int bh_min(double *x, double *fmin, void *work);
 
 #ifdef __cplusplus
 }
