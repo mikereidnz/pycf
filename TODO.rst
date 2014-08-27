@@ -14,8 +14,9 @@ CFL
     a complex number will not preserve the hermiticity of a matrix. Presumably,
     we multiply by the complex conjugate on the lower-diagonal?
   * Move GSL tolerances to macros. 
-
-Spin Hamiltonian
-----------------
-
-
+  * use memcpy instead of dacpy.
+  * When passing a void * type argument, does the function call have to cast to
+    void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
+  * In energy and sh fitting routine, check whether there is any difference
+    between h and hfo... if not, call separate fitting function that avoids
+    diagonalizing both.

@@ -25,17 +25,31 @@
 #include <math.h>
 #include <complex.h>
 
-#ifndef _H_MIN_H_ 
-#define _H_MIN_H_
+#include <cfl_h.h>
+#include <cfl_sh.h>
+#include <basinhopping.h>
+
+#ifndef _H_FIT_H_ 
+#define _H_FIT_H_
 
 /* Parameter type, used for conversion of complex parameters to real parameters
  * to-be-varied. */
 typedef struct {
   /* Indicator whether real, purely imaginary, or complex. */
-  char type;
+  int type;
   /* Index of parameter. */
   size_t index;
 } param_type;
+
+/* Experimental energy level data. */
+typedef struct {
+  /* Number of experimental energy levels. */
+  size_t n;
+  /* Array of experimental energy level data. */
+  double *e;
+  /* Index array specifying for which levels we have data. */
+  int *li;
+} ex_data;
 
 /* Experimental spin Hamiltonian data. */
 typedef struct {
@@ -43,9 +57,13 @@ typedef struct {
   complex double *pa;
   /* Chi^2 weighting. */
   float chisq_weight;
-  /* Pointer to inversion data. */
+  /* Pointer to spin Hamiltonian inversion data. */
   zsh_inv_data *inv_data; 
+  /* Level index of complete Hamiltonian which this spin Hamiltonian corresponds
+   * to. */
+  size_t l;
 } shx_data;
+
 
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {
@@ -53,18 +71,18 @@ typedef struct {
   zh *h;
   /* Pointer to workspace for Hamiltonian diagonalization. */
   zhd_w *hd_w;
-  /* Pointer to eigenvector array. */
+  /* Eigenvector array. */
   double complex *evect;
-  /* Pointer to eigenvalue array. */
+  /* Eigenvalue array. */
   double *eval;
-  /* Pointer to array of experimental energy level data. */
-  double *ex;
+  /* Experimental energy level data */
+  ex_data *ex;
   /* The number of parameters once converted to complex type. */
   size_t n_zx;
-  /* Pointer to array of parameter type structs. */
-  param_type *p;
+  /* Array of pointers to parameter type structs. */
+  param_type **p;
   /* Complete cofficient array to be passed to the diagonalization. */
-  double complex *coeff;
+  double complex *h_co;
 } efit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -75,59 +93,72 @@ typedef struct {
   zhd_w *hd_w;
   /* Pointer to workspace for first order Hamiltonian diagonalization. */
   zhd_w *hfod_w;
-  /* Pointer to the complete Hamiltonian eigenvector array. */
+  /* Complete Hamiltonian eigenvector array. */
   double complex *h_evect;
-  /* Pointer to the complete Hamiltonian eigenvalue array. */
+  /* Complete Hamiltonian eigenvalue array. */
   double *h_eval;
   /* Pointer to the first order Hamiltonian. */
   zh *hfo;
-  /* Pointer to the first order Hamiltonian eigenvector array. */
+  /* First order Hamiltonian eigenvector array. */
   double complex *hfo_evect;
-  /* Pointer to the first order Hamiltonian eigenvalue array. */
+  /* First order Hamiltonian eigenvalue array. */
   double *hfo_eval;
-  /* Pointer to array of pointers to spin Hamiltonians. */
-  zsh **sh_array;
+  /* Array of pointers to spin Hamiltonians. */
+  zsh **sh_a;
   /* Number of spin Hamiltonians. */
   size_t nsh;
   /* The index of the first Zeeman term. */
   size_t nzeeman;
   /* Number of spin Hamiltonian inversions (depends on term types). */
   size_t ninv;
-  /* Pointer to array of pointers to spin Hamiltonian projection workspaces. */
+  /* Array of pointers to spin Hamiltonian projection workspaces. */
   zshp_w **shp_w_array;
-  /* Pointer to array of pointers spin Hamiltonian inversion workspaces. */
+  /* Array of pointers spin Hamiltonian inversion workspaces. */
   zshi_w **shi_w_array;
-  /* Pointer to array of pointers to store inverted spin Hamiltonian parameters. */
+  /* Array of pointers to store inverted spin Hamiltonian parameters. */
   double complex **sh_pa;
-  /* Pointer to array of experimental energy level data. */
-  double *ex;
-  /* Pointer to array of pointers to spin Hamiltonian experimental data. */
+  /* Experimental energy level data */
+  ex_data *ex;
+  /* Array of pointers to spin Hamiltonian experimental data. */
   shx_data **shx;
   /* The number of parameters once converted to complex type. */
   size_t n_zx;
   /* The number of parameters of the first order Hamiltonian in complex type. */
   size_t n_fozx;
-  /* Pointer to array of parameter type structs. */
+  /* Array of pointers to parameter type structs. */
   param_type **p;
   /* Complete cofficient array to be passed to the H diagonalization. */
-  double complex *h_coeff;
+  double complex *h_co;
   /* Complete cofficient array to be passed to the first order H
    * diagonalization. */
-  double complex *hfo_coeff;
+  double complex *hfo_co;
 } eshfit_data;
+
+typedef enum {
+  gsl_nmsimplex2rand = 0,
+  gsl_nmsimplex2 = 1,
+  gsl_conjugate_fr = 2,
+  gsl_conjugate_pr = 3,
+  gsl_vector_bfgs2 = 4, 
+} bh_lmin;
 
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-efit_data *efit_data_alloc(zh *h, double *ex, size_t n_zx, param_type **p);
+efit_data *efit_data_alloc(zh *h, double complex *h_co, ex_data *ex, size_t n_zx,
+    param_type **p);
 void efit_data_free(efit_data *data);
-eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, zh *h, zh *hfo, double *ex, shx_data **shx, size_t n_zx, size_t n_fozx; param_type **p);
+eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh
+    *hfo, double complex *h_co, double complex *hfo_co, ex_data *ex, shx_data
+    **shx, size_t n_zx, size_t n_fozx, param_type **p);
 void eshfit_data_free(eshfit_data *data);
-double efit_obj(size_t n, double *x, double *grad, void *data);
-void eshfit_obj(size_t n, double *x, double *grad, void *data);
+int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
+    bh_lmin lmintype);
+int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
+    *bounds, bh_lmin lmintype);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
-#endif /* _H_MIN_H_ */
+#endif /* _H_FIT_H_ */

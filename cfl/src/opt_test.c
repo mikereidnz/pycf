@@ -7,10 +7,11 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_deriv.h>
 
-#include <basinhopping.h>
 #include <cfl_tensor.h>
 #include <cfl_h.h>
 #include <cfl_sh.h>
+#include <basinhopping.h>
+#include <h_fit.h>
 #include <test_data.h>
 
 /*
@@ -198,7 +199,7 @@ int main (void)
 
   int i;
   /* Tensor allocs. */
-  zt *eavg, *zeta, *C20, *C40, *C44, *C60, *C64;
+  zt *eavg, *zeta, *C20, *C40, *C44, *C60, *C64, *magx, *magy, *magz;
   eavg = (zt *) zt_alloc("eavg", ce_eavg_a, 14);
   zeta = (zt *) zt_alloc("zeta", ce_zeta_a, 14);
   C20 = (zt *) zt_alloc("C20", ce_C20_a, 14);
@@ -206,16 +207,12 @@ int main (void)
   C44 = (zt *) zt_alloc("C44", ce_C44_a, 14);
   C60 = (zt *) zt_alloc("C60", ce_C60_a, 14);
   C64 = (zt *) zt_alloc("C64", ce_C64_a, 14);
+  magx = (zt *) zt_alloc("magx", ce_magx_a, 14);
+  magy = (zt *) zt_alloc("magy", ce_magy_a, 14);
+  magz = (zt *) zt_alloc("magz", ce_magz_a, 14);
 
-  zt *tensors[7];
-  tensors[0] = eavg;
-  tensors[1] = zeta;
-  tensors[2] = C20;
-  tensors[3] = C40;
-  tensors[4] = C44;
-  tensors[5] = C60;
-  tensors[6] = C64;
-
+  zt *tensors[7] = {eavg, zeta, C20, C40, C44, C60, C64};
+  
   /* Dummy state label preparation. */
   int nstates = 14;
   char *s[nstates];
@@ -234,6 +231,7 @@ int main (void)
   zh *h;
   zhd_w *hd_w;
 
+  /* Check diagonalization routine. */
   h = zh_alloc(nstates, 7, s, tensors);
   zh_set_coeff(h, celiyf4_coeff);
   hd_w = zhd_w_alloc(h);
@@ -243,6 +241,86 @@ int main (void)
   printf("Ce:LiYF4 diagonalization:\n");
   dequ_chk(celiyf4_diag_res, w, 14);
 
+  /* Manually prepare array of parameter structs. */
+  param_type efit_p0;
+  efit_p0.type = 'r';
+  efit_p0.index = 0;
+  param_type efit_p1;
+  efit_p1.type = 'r';
+  efit_p1.index = 1;
+  param_type efit_p2;
+  efit_p2.type = 'r';
+  efit_p2.index = 2;
+  param_type efit_p3;
+  efit_p3.type = 'r';
+  efit_p3.index = 3;
+  param_type efit_p4;
+  efit_p4.type = 'r';
+  efit_p4.index = 4;
+  param_type efit_p5;
+  efit_p5.type = 'r';
+  efit_p5.index = 6;
+  param_type **p = (param_type **) malloc(6*sizeof(param_type *));
+  p[0] = &efit_p0;
+  p[1] = &efit_p1;
+  p[2] = &efit_p2;
+  p[3] = &efit_p3;
+  p[4] = &efit_p4;
+  p[5] = &efit_p5;
+
+  /* Set up the experimental data struct. */
+  ex_data ce_ex_data;
+  int ex_index[6] = {1, 2, 7, 8, 11, 13};
+  ce_ex_data.n = 6;
+  ce_ex_data.e = ce_ex;
+  ce_ex_data.li = ex_index;
+
+  /* Run energy level fit. */
+  double ce_x0[7] = {2000, 900, 200, -1000, -1000, -100};
+  //efit_data *efit_d;
+  //efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
+  //bh_e_fit(ce_x0, 6, efit_d, 1, NULL, 4);
+  //efit_data_free(efit_d);
+
+  //zh_set_coeff(h, celiyf4_coeff);
+  //for (i=0; i<6; i++) {
+  //  printf("%.5f\n", ce_x0[i]);
+  //}
+
+  /* Spin Hamiltonian and energy level fit. */
+  zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
+  ce_x_sh = zsh_alloc(2, "magx");
+  ce_y_sh = zsh_alloc(2, "magy");
+  ce_z_sh = zsh_alloc(2, "magz");
+  zsh_set_pro(ce_x_sh, magx, 0);
+  zsh_set_pro(ce_y_sh, magy, 0);
+  zsh_set_pro(ce_z_sh, magz, 0);
+  zsh *sh_a[3] = {ce_x_sh, ce_y_sh, ce_z_sh};
+  
+  zsh_inv_data ce_inv_data;
+
+  ce_inv_data.a = ce_zeeman_inv;
+  ce_inv_data.m = 12;
+  ce_inv_data.n = 9;
+  shx_data ce_zeeman_exp_data;
+  ce_zeeman_exp_data.pa = ce_gvalues;
+  ce_zeeman_exp_data.chisq_weight = 1e-9;
+  ce_zeeman_exp_data.inv_data = &ce_inv_data;
+  shx_data *shx[1] = {&ce_zeeman_exp_data};
+  
+  eshfit_data *eshfit_d;
+  eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, celiyf4_coeff,
+      &ce_ex_data, shx, 6, 6, p);
+  status = bh_esh_fit(ce_x0, 6, eshfit_d, 20, NULL, 4);
+  eshfit_data_free(eshfit_d);
+
+  for (i=0; i<6; i++) {
+    printf("%.5f\n", ce_x0[i]);
+  }
+
+  zsh_free(ce_x_sh);
+  zsh_free(ce_y_sh);
+  zsh_free(ce_z_sh);
 
   zh_free(h);
   for (i=0; i<nstates; i++) {
@@ -251,6 +329,7 @@ int main (void)
   free(w);
   free(z);
 
+  free(p);
   zt_free(eavg);
   zt_free(zeta);
   zt_free(C20);
@@ -258,5 +337,8 @@ int main (void)
   zt_free(C44);
   zt_free(C60);
   zt_free(C64);
+  zt_free(magx);
+  zt_free(magy);
+  zt_free(magz);
   return 0;
 }  
