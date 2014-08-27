@@ -282,7 +282,7 @@ int main (void)
   //bh_e_fit(ce_x0, 6, efit_d, 1, NULL, 4);
   //efit_data_free(efit_d);
 
-  //zh_set_coeff(h, celiyf4_coeff);
+  //printf("Energy level only fit:\n");
   //for (i=0; i<6; i++) {
   //  printf("%.5f\n", ce_x0[i]);
   //}
@@ -311,13 +311,14 @@ int main (void)
   eshfit_data *eshfit_d;
   eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, celiyf4_coeff,
       &ce_ex_data, shx, 6, 6, p);
-  status = bh_esh_fit(ce_x0, 6, eshfit_d, 20, NULL, 4);
+  status = bh_esh_fit(ce_x0, 6, eshfit_d, 200, NULL, 4);
   eshfit_data_free(eshfit_d);
 
+  printf("Energy level and spin Hamiltonian fit:\n");
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
-
+  
   zsh_free(ce_x_sh);
   zsh_free(ce_y_sh);
   zsh_free(ce_z_sh);
