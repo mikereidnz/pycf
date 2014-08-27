@@ -32,9 +32,7 @@
 #include <cfl_tensor.h>
 #include <cfl_h.h>
 
-/* 
- * @brief State label type. 
- */
+/* State label type.  */
 typedef struct {
   /* The length of labels */
   size_t l;
@@ -44,6 +42,20 @@ typedef struct {
   char *state_hash;
 } state_t;
 
+/* Spin Hamiltonian projection data. */
+typedef struct {
+  /* Matrix elements of tensor to project in dense storage. */
+  double complex *td;
+  /* Dimension of the tensor. */
+  size_t tn;
+  /* Integer specifying the initial level for which to project the spin
+   * Hamiltonian. */
+  size_t l;
+  /* Flag used to free memory if alloced. */
+  int set_flag;
+} zsh_pro_data;
+
+
 /* Spin Hamiltonian inversion data. */
 typedef struct {
   /* Pointer to the inversion coefficient matrix A. */
@@ -52,14 +64,9 @@ typedef struct {
   size_t m;
   /* The number of columns of B, and the length of x. */
   size_t n;
-  /* Integer specifying the initial level for which to project the spin
-   * Hamiltonian. */
-  size_t l;
 } zsh_inv_data;
 
-/*
- * @brief Spin Hamiltonian structure definition.
- */
+/* Spin Hamiltonian structure definition. */
 typedef struct {
   /* Dimension of the spin Hamiltonian. */
   size_t n;
@@ -67,25 +74,21 @@ typedef struct {
   char *type;
   /* State labels corresponding to eigenvalues. */
   state_t *states;
+  /* Projection data. */
+  zsh_pro_data *pro_data;
 } zsh;
 
-/*
- * @brief Definition of spin Hamiltonian projection workspace type.
- */
+/* Definition of spin Hamiltonian projection workspace type. */
 typedef struct {
   /* Dimension of the complete Hamiltonian. */
   size_t nc;
-  /* Pointer to matrix elements of tensor to project in dense storage. */
-  double complex *m;
-  /* Pointer to array used for storing intermediate values. */
+  /* Array used for storing intermediate values. */
   double complex *a;
-  /* Pointer to array used for storing the final values of the projection. */
+  /* Array used for storing the final values of the projection. */
   double complex *b;
 } zshp_w; 
 
-/*
- * The spin Hamiltonian inversion workspace. 
- */
+/* The spin Hamiltonian inversion workspace. */
 typedef struct {
   /* Spin Hamiltonian inversion data. */
   zsh_inv_data *data;
@@ -102,11 +105,11 @@ extern "C" {
 
 zsh *zsh_alloc(size_t n, char *type);
 void zsh_free(zsh *sh);
-zshp_w *zshp_w_alloc(zt *t);
-void zsh_set_proj(zsh *sh, zt *t, int l);
+zshp_w *zshp_w_alloc(zsh *sh);
+void zsh_set_pro(zsh *sh, zt *t, int l);
 zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n);
 void zsh_inv_data_free(zsh_inv_data *d);
-void zshp(double complex *a, double complex *hz, size_t l, zsh *sh, zshp_w *shp_w);
+void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w);
 zshi_w *zshi_w_alloc(zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
 void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n); 

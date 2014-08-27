@@ -74,7 +74,17 @@ zsh *zsh_alloc(size_t n, char *type) {
     strcpy(st[i], states[i]);
   }
 #endif
-  
+
+  sh->pro_data = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
+  if (sh->pro_data == 0) {
+    free(sh);
+    CFL_ERROR_NULL("malloc failed for sh->pro_data");
+  }
+  /* Since the size of pro_data->td is not known until zsh_set_pro is called we
+   * cannot alloc space for it here.  Instead, we leave this to zsh_set_pro and
+   * use the set_flag to notify zsh_free whether space has been alloced. */
+  sh->pro_data->set_flag = 0;
+
   sh->n = n;
   sh->type = type;
 
@@ -82,9 +92,41 @@ zsh *zsh_alloc(size_t n, char *type) {
 }
 
 void zsh_free(zsh *sh) {
+  if (sh->pro_data->set_flag) {
+    free(sh->pro_data->td);
+  }
+  free(sh->pro_data);
   free(sh);
 }
 
+/* Set the projection data for a spin Hamiltonian; a wrapper function for
+ * cython. 
+ *
+ * Parameters
+ * ----------
+ *  sh      Pointer to the spin Hamlitonian for which to set pro_data.
+ *  t       Pointer to tensor of the complete Hamiltonian for which to project
+ *          out the spin Hamiltonian.  
+ *  l       Integer specifying the initial level for which to project the spin
+ *          Hamiltonian. 
+ */
+void zsh_set_pro(zsh *sh, zt *t, int l) {
+
+  if (!sh->pro_data->set_flag) {
+    sh->pro_data->td = (double complex *) malloc(t->n*t->n*sizeof(double
+          complex));
+    if (sh->pro_data->td == 0) {
+      CFL_ERROR_VOID("malloc failed for pro_data->td");
+    }
+
+    sh->pro_data->set_flag = 1;
+  }
+  /* Convert to dense storage, as required by the blas zhemm and ztrmm functions
+   * in zshp. */
+  crs_zhm2zha(t->matel, sh->pro_data->td);
+  sh->pro_data->tn = t->n;
+  sh->pro_data->l = l;
+}
 
 /* Alloc spin Hamiltonian inversion data; a wrapper for cython. 
  *
@@ -108,49 +150,32 @@ zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n) {
   return d;
 }
 
-void zsh_inv_data_free(zsh_inv_data *d) {
-  free(d);
-}
 
 /* Alloc workspace for the spin Hamiltonian projection. */
-zshp_w *zshp_w_alloc(zt *t) {
+zshp_w *zshp_w_alloc(zsh *sh) {
   zshp_w *shp_w;
-  size_t n = t->n;
+  size_t n = sh->pro_data->tn;
   double complex *a; 
   double complex *b;
-  double complex *m;
 
   shp_w = (zshp_w *) malloc(sizeof(zshp_w));
   if (shp_w == 0) {
     CFL_ERROR_NULL("malloc failed for shp_w");
   }
 
-  m = (double complex *) calloc(n*n, sizeof(double complex));
-  if (m == 0) {
-    free(shp_w);
-    CFL_ERROR_NULL("calloc failed for t");
-  }
-  
-  /* Convert to dense storage, as required by the blas zhemm and ztrmm functions
-   * in zshp. */
-  crs_zhm2zha(t->matel, m);
-
   a = (double complex *) calloc(n*n, sizeof(double complex));
   if (a == 0) {
     free(shp_w);
-    free(m);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
   b = (double complex *) calloc(n*n,sizeof(double complex));
   if (b == 0) {
     free(shp_w);
-    free(m);
     free(a);
     CFL_ERROR_NULL("calloc failed for b");
   }
 
-  shp_w->m = m;
   shp_w->a = a;
   shp_w->b = b;
   shp_w->nc = n;
@@ -159,7 +184,6 @@ zshp_w *zshp_w_alloc(zt *t) {
 }
 
 void zshp_w_free(zshp_w *shp_w) {
-  free(shp_w->m);
   free(shp_w->a);
   free(shp_w->b);
   free(shp_w);
@@ -174,12 +198,10 @@ void zshp_w_free(zshp_w *shp_w) {
  *        Hamiltonian; will be overwritten with the result upon exit.  
  *  hz    Pointer to array containing the eigenvectors that diagonalize the
  *        Hamiltonian containing free-ion and crystal-field interactions.
- *  l     Integer specifying the initial level for which to project the spin
- *        Hamiltonian.
  *  sh    The spin Hamiltonian object.
  *  shp_w The projection workspace, allocated with zshp_w_alloc.
  */
-void zshp(double complex *a, double complex *hz, size_t l, zsh *sh, zshp_w *shp_w) {
+void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w) {
   int i, j;
   lapack_complex_double one, zero;
   one = lapack_make_complex_double(1.0,0.0);
@@ -193,14 +215,15 @@ void zshp(double complex *a, double complex *hz, size_t l, zsh *sh, zshp_w *shp_
    * Zeeman, hyperfine or quadrupole interaction elements; that is, matrix
    * elements that are diagonal in total angular momentum J. */
   /* Calculate VH. */
-  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one, shp_w->m, n,
-      hz, n, &zero, shp_w->a, n);
+  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one,
+      sh->pro_data->td, n, hz, n, &zero, shp_w->a, n);
 
   /* Calculate (VH) V^dag.  Conjugation argument is unintuitive, but yielded the
    * correct result when compared to a octave calculation. */
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
       shp_w->a, n, hz, n, &zero, shp_w->b, n);
- 
+
+  size_t l = sh->pro_data->l;
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
       a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
