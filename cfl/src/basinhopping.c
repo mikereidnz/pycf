@@ -832,8 +832,8 @@ inline void bh_takestep(double *x, bh_work *w) {
  *
  * Parameters
  * ---------- 
- *  x       Pointer to the initial parameter list; if the routine succeeds, this
- *          is overwritten with the result upon exit.
+ *  x       The initial parameter array; if the routine succeeds, this is
+ *          overwritten with the result upon exit.
  *  fmin    Pointer to a single double; if successful, this will be overwritten
  *          with the objective function value for the best-fit parameters. 
  *  w       Pointer to the workspace allocated with bh_work_alloc. 
@@ -884,4 +884,75 @@ int bh_min(double *x, double *fmin, void *work) {
   *fmin = w->emin->e;
 
   return lmin_fail;
+}
+
+/* Complete basinhopping fitting function, which manages memory and local
+ * minimization function calls. 
+ *
+ * Parameters
+ * ----------
+ *  obj_f     Pointer to the objective function.
+ *  x0        The initial parameter array; if the routine succeeds, this is
+ *            overwritten with the result upon exit.
+ *  nx        The number of parameters to be varied.
+ *  data      Generic data to be passed to the objective function.
+ *  niter     The number of basinhopping iterations to complete. 
+ *  bounds    Pointer to a bounds object; in case of no bounds, pass a NULL
+ *            pointer.
+ *  lmintype  The local minimization type; implemented options are:
+ *              + gsl_nmsimplex2rand
+ *              + gsl_nmsimplex2 
+ *              + gsl_conjugate_fr 
+ *              + gsl_conjugate_pr
+ *              + gsl_vector_bfgs2 
+ */
+int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
+    double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds, bh_lmin
+    lmintype) {
+  int status;
+  double fmin;
+  int (*lmin_f)(double *x, double *fmin, void *w);
+  void (*lmin_work_free)(void *work);
+  void *bh_lmin_w;
+
+  switch (lmintype) {
+    case gsl_nmsimplex2rand:
+      bh_lmin_w =(void *) gsl_multimin_f_alloc(obj_f, nx, data,
+          gsl_multimin_fminimizer_nmsimplex2rand);
+      lmin_f = &gsl_multimin_f;
+      lmin_work_free = gsl_multimin_f_free;
+      break;
+    case gsl_nmsimplex2:
+      bh_lmin_w = (void *) gsl_multimin_f_alloc(obj_f, nx, data,
+          gsl_multimin_fminimizer_nmsimplex2rand);
+      lmin_f = &gsl_multimin_f;
+      lmin_work_free = gsl_multimin_f_free;
+      break;
+    case gsl_conjugate_fr:
+      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+          gsl_multimin_fdfminimizer_conjugate_fr);
+      lmin_f = &gsl_multimin_fndf;
+      lmin_work_free = gsl_multimin_fndf_free;
+      break;
+    case gsl_conjugate_pr:
+      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+          gsl_multimin_fdfminimizer_conjugate_pr);
+      lmin_f = &gsl_multimin_fndf;
+      lmin_work_free = gsl_multimin_fndf_free;
+      break;
+    case gsl_vector_bfgs2:
+      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+          gsl_multimin_fdfminimizer_vector_bfgs2);
+      lmin_f = &gsl_multimin_fndf;
+      lmin_work_free = gsl_multimin_fndf_free;
+  }
+
+  bh_work *bh_w;
+  bh_w = bh_work_alloc(nx, niter, lmin_f, bh_lmin_w, bounds);
+  status = bh_min(x0, &fmin, bh_w);
+  bh_work_free(bh_w);
+
+  lmin_work_free(bh_lmin_w);
+
+  return status;
 }

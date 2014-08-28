@@ -134,14 +134,6 @@ typedef struct {
   double complex *hfo_co;
 } eshfit_data;
 
-typedef enum {
-  gsl_nmsimplex2rand = 0,
-  gsl_nmsimplex2 = 1,
-  gsl_conjugate_fr = 2,
-  gsl_conjugate_pr = 3,
-  gsl_vector_bfgs2 = 4, 
-} bh_lmin;
-
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 

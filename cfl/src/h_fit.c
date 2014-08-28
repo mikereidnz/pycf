@@ -492,7 +492,6 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   zh_set_coeff(d->hfo, d->hfo_co);
   zhd(d->hfo_eval, d->hfo_evect, d->hfo, d->hfod_w);
 
-
   sh_index = 0;
   for (i=0; i<d->ninv; i++) {
     if (i == d->nzeeman) {
@@ -574,64 +573,12 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
   return chisq;
 }
 
-
-
-inline int bh_generic_fit(double *x0, size_t nx, void *data, size_t niter,
-    bh_bounds *bounds, bh_lmin lmintype, double (*obj_f)(size_t n, double *x,
-      double *grad, void *data)) {
-  int status;
-  double fmin;
-  int (*lmin_f)(double *x, double *fmin, void *w);
-  void (*lmin_work_free)(void *work);
-  void *bh_lmin_w;
-
-  switch (lmintype) {
-    case gsl_nmsimplex2rand:
-      bh_lmin_w =(void *) gsl_multimin_f_alloc(obj_f, nx, data,
-          gsl_multimin_fminimizer_nmsimplex2rand);
-      lmin_f = &gsl_multimin_f;
-      lmin_work_free = gsl_multimin_f_free;
-      break;
-    case gsl_nmsimplex2:
-      bh_lmin_w = (void *) gsl_multimin_f_alloc(obj_f, nx, data,
-          gsl_multimin_fminimizer_nmsimplex2rand);
-      lmin_f = &gsl_multimin_f;
-      lmin_work_free = gsl_multimin_f_free;
-      break;
-    case gsl_conjugate_fr:
-      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
-          gsl_multimin_fdfminimizer_conjugate_fr);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
-      break;
-    case gsl_conjugate_pr:
-      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
-          gsl_multimin_fdfminimizer_conjugate_pr);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
-      break;
-    case gsl_vector_bfgs2:
-      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
-          gsl_multimin_fdfminimizer_vector_bfgs2);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
-  }
-
-  bh_work *bh_w;
-  bh_w = bh_work_alloc(nx, niter, lmin_f, bh_lmin_w, bounds);
-  status = bh_min(x0, &fmin, bh_w);
-  bh_work_free(bh_w);
-
-  lmin_work_free(bh_lmin_w);
-
-  return status;
-}
-
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
     bh_lmin lmintype) {
   int status;
 
-  status = bh_generic_fit(x0, nx, data, niter, bounds, lmintype, &efit_obj);
+  status = bh_fit(&efit_obj, x0, nx, data, niter, bounds, lmintype); 
+
   return status;
 }
 
@@ -643,12 +590,10 @@ int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
   if (d->n_zx == d->n_fozx) {
     /* The complete and first order Hamiltonians match, so we only need to
      * diagonalize one of them. */
-    status =  bh_generic_fit(x0, nx, data, niter, bounds, lmintype,
-        &eshfit_h_obj);
+    status = bh_fit(&eshfit_h_obj, x0, nx, data, niter, bounds, lmintype); 
   }
   else {
-    status =  bh_generic_fit(x0, nx, data, niter, bounds, lmintype,
-        &eshfit_obj);
+    status = bh_fit(&eshfit_obj, x0, nx, data, niter, bounds, lmintype); 
   }
   return status;
 }

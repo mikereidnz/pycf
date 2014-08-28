@@ -15,6 +15,31 @@
 #include <test_data.h>
 
 /*
+ * @brief   Check the equality of two complex valued arrays.
+ *
+ * @param[a]  Pointer to first array. 
+ * @param[b]  Pointer to second array.
+ * @param[n]  Length of arrays a and b.
+ *
+ */
+void zequ_chk(double complex *a, double complex *b, size_t n) {
+  int i;
+  int p = 0;
+
+  for (i=0; i<n; i++) {
+    if (cabs(a[i]-b[i]) >= 1e-8) {
+      p = 1;
+    }
+  }
+  if (p==0) {
+    printf("pass\n");
+  }
+  else {
+    printf("fail\n");
+  }
+}
+
+/*
  * @brief   Check the equality of two double valued arrays.
  *
  * @param[a]  Pointer to first array. 
@@ -241,6 +266,18 @@ int main (void)
   printf("Ce:LiYF4 diagonalization:\n");
   dequ_chk(celiyf4_diag_res, w, 14);
 
+  /* Inversion test. */
+  zsh_inv_data celiyf4_inv_data;
+  celiyf4_inv_data.a = ce_zeeman_inv;
+  celiyf4_inv_data.m = 12;
+  celiyf4_inv_data.n = 9;
+
+  zshi_w *celiyf4_inv_work = zshi_w_alloc(&celiyf4_inv_data);
+  zshi(ce_zeeman_term, celiyf4_inv_work);
+  printf("Ce:LiYF4 inversion:\n");
+  zequ_chk(ce_gvalues, ce_zeeman_term, 9);
+  zshi_w_free(celiyf4_inv_work);
+
   /* Manually prepare array of parameter structs. */
   param_type efit_p0;
   efit_p0.type = 'r';
@@ -277,15 +314,15 @@ int main (void)
 
   /* Run energy level fit. */
   double ce_x0[7] = {2000, 900, 200, -1000, -1000, -100};
-  //efit_data *efit_d;
-  //efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
-  //bh_e_fit(ce_x0, 6, efit_d, 1, NULL, 4);
-  //efit_data_free(efit_d);
+  efit_data *efit_d;
+  efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
+  bh_e_fit(ce_x0, 6, efit_d, 1, NULL, gsl_vector_bfgs2);
+  efit_data_free(efit_d);
 
-  //printf("Energy level only fit:\n");
-  //for (i=0; i<6; i++) {
-  //  printf("%.5f\n", ce_x0[i]);
-  //}
+  printf("Energy level only fit:\n");
+  for (i=0; i<6; i++) {
+    printf("%.5f\n", ce_x0[i]);
+  }
 
   /* Spin Hamiltonian and energy level fit. */
   zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
@@ -304,14 +341,14 @@ int main (void)
   ce_inv_data.n = 9;
   shx_data ce_zeeman_exp_data;
   ce_zeeman_exp_data.pa = ce_gvalues;
-  ce_zeeman_exp_data.chisq_weight = 1e-9;
+  ce_zeeman_exp_data.chisq_weight = 4e6;
   ce_zeeman_exp_data.inv_data = &ce_inv_data;
   shx_data *shx[1] = {&ce_zeeman_exp_data};
   
   eshfit_data *eshfit_d;
   eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, celiyf4_coeff,
       &ce_ex_data, shx, 6, 6, p);
-  status = bh_esh_fit(ce_x0, 6, eshfit_d, 200, NULL, 4);
+  status = bh_esh_fit(ce_x0, 6, eshfit_d, 1, NULL, gsl_vector_bfgs2);
   eshfit_data_free(eshfit_d);
 
   printf("Energy level and spin Hamiltonian fit:\n");
