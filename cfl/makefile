@@ -1,7 +1,8 @@
 VPATH=src include
 CPPFLAGS=-I include
 CFLAGS=-g -O1 -fPIC 
-#CFLAGS=-O3 -fprofile-generate -fprofile-use -fPIC -mtune=native
+#CFLAGS=-O3 -fprofile-generate -fPIC -mtune=native
+#CFLAGS=-O3 -fprofile-use -fPIC -mtune=native
 LDLIBS=-llapacke -lblas -lm -lgsl
 LDFLAGS=
 
@@ -9,8 +10,8 @@ LDFLAGS=
 
 #cfl_test: cfl_h.o cfl_tensor.o cfl_crs.o -lm
 
-#opt_test: h_fit.o basinhopping.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h cfl_error.h -lm 
-h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h -lm
+opt_test: h_fit.o basinhopping.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h cfl_error.h -lm 
+#h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h -lm
 #crs_test: cfl_h.o cfl_crs.o -lm
 #libcfl.a: cfl_h.o cfl_crs.o 
 #	ar -rs $@ $^

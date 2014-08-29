@@ -776,7 +776,7 @@ inline int bh_bounds_check(double *x, bh_work *w) {
 /* Set the stepsize manually.  To disable adaptive stepsize adjustment, set
  * accept_rate, interval and factor to 0. 
  */
-void bh_set_stepsize(bh_work *w, double *stepsize, float target_accept_rate,
+void bh_set_step(bh_work *w, double *stepsize, float target_accept_rate,
     size_t interval, float factor) {
   w->step_data->stepsize;
   w->step_data->target_accept_rate;

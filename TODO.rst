@@ -17,6 +17,6 @@ CFL
   * use memcpy instead of dacpy.
   * When passing a void * type argument, does the function call have to cast to
     void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
-  * In energy and sh fitting routine, check whether there is any difference
-    between h and hfo... if not, call separate fitting function that avoids
-    diagonalizing both.
+  * In explaination section, discuss the fortran vs c array mess. Everything is
+    expected to be a fortran array at the moment? At least the inversion matrix
+    for the inversion tests needs to be... the rest don't. 
