@@ -6,32 +6,37 @@ cdef extern from "complex.h":
     double complex cexp(double complex z)
     double complex I
 
+cdef extern from "stdlib.h":
+    int atoi(const char *str)
 
 cdef extern from "../../cfl/include/cfl_crs.h":
     ctypedef struct crs_zhm:
         pass
 
 
-cdef extern from "../../cfl/include/cfl_h.h":
+cdef extern from "../../cfl/include/cfl_tensor.h":
     ctypedef struct zt:
         pass
 
+    zt *zt_alloc(char *name, double complex *a, size_t n)
+    void zt_free(zt *zt)
+    zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2)
+    zt *zt_s(char *name, zt *t, double complex s)
+
+
+cdef extern from "../../cfl/include/cfl_h.h":
     ctypedef struct zh:
         pass
 
     ctypedef struct zhd_w:
         pass
     
-    zt *zt_alloc(char *name, double complex *a, int n)
-    void zt_free(zt *zt)
-    zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2)
-    zt *zt_s(char *name, zt *t, double complex s)
-    zh *zh_alloc(int n, int nt, char **s, zt **t, double *w, double complex *z)
-    void zh_free(zh *h) 
+    zh *zh_alloc(int n, int nt, char **s, zt **t) 
+    void zh_free(zh *h)
     void zh_set_coeff(zh *h, double complex *coeff)
     zhd_w *zhd_w_alloc(zh *h)
     void zhd_w_free(zhd_w *hd_w)
-    void zhd(zh *h, zhd_w *hd_w) nogil
+    void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) nogil
 
 
 cdef extern from "../../cfl/include/cfl_sh.h":
@@ -77,6 +82,9 @@ cdef extern from "../../cfl/include/basinhopping.h":
         gsl_conjugate_pr = 3
         gsl_vector_bfgs2 = 4
 
+    ctypedef struct bh_work:
+        pass
+
     int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
             double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
             bh_lmin lmintype)
@@ -89,11 +97,22 @@ cdef extern from "../../cfl/include/h_fit.h":
         int type
         size_t index
 
+    ctypedef struct ex_data:
+        size_t n
+        double *e
+        int *li
+
     ctypedef struct shx_data:
         double complex *pa
         float chisq_weight
         zsh_inv_data *inv_data
         size_t l
+
+    ctypedef struct efit_data:
+        pass
+
+    ctypedef struct eshfit_data:
+        pass
 
     efit_data *efit_data_alloc(zh *h, double complex *h_co, ex_data *ex, size_t
             n_zx, param_type **p)

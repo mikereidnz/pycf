@@ -150,6 +150,9 @@ zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n) {
   return d;
 }
 
+void zsh_inv_data_free(zsh_inv_data *d) {
+  free(d);
+}
 
 /* Alloc workspace for the spin Hamiltonian projection. */
 zshp_w *zshp_w_alloc(zsh *sh) {

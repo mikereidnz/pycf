@@ -7,14 +7,13 @@ import numpy as np
 from numbers import Number
 from cpython.pycapsule cimport *
 from libc.stdlib cimport malloc, free
-
+from matel import matel
 
 cdef class Tensor:
     cdef object t_cap
     cpdef public str name
     cpdef public str tmp_name
     cpdef public int n
-    cpdef public str prefactor_type
     
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -25,7 +24,6 @@ cdef class Tensor:
         cdef cfl.zt *t2
 
         self.name = <str> name
-        self.prefactor_type = "real"
 
         if (data_tuple == None):
             n = a.shape[0]
@@ -33,13 +31,14 @@ cdef class Tensor:
             t = cfl.zt_alloc(name, &a[0,0], n)
             
         elif (len(data_tuple)==3):
+            # Addition or subtraction of tensors.
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
             t2 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[1].t_cap, "pycfl.Tensor")
             t = cfl.zt_sa(<char *>self.name, t1, t2, 1, data_tuple[2])
 
-        elif (len(data_tuple)==2):
-            
+        else:
+            # Scaling of a tensor.
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
             t = cfl.zt_s(<char *>self.name, t1, <double complex> data_tuple[1])
@@ -82,12 +81,6 @@ cdef class Tensor:
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
 
-    def set_prefactor_type(self, t):
-        if t != "real" && t != "imag":
-            raise ValueError("Invalid prefactor_type: {}".format(t))
-        else:
-            self.prefactor_type = t
-
     property t_cap:
         def __get__(self):
             return self.t_cap
@@ -95,10 +88,6 @@ cdef class Tensor:
     property dim:
         def __get__(self):
             return self.n
-
-    property name:
-        def __get__(self):
-            return self.name
 
 
 cdef class Hamiltonian:
@@ -108,6 +97,7 @@ cdef class Hamiltonian:
     cdef int n
     cdef int nt
     cdef list tensors
+    cpdef public np.ndarray co
     cpdef public np.ndarray w
     cpdef public np.ndarray z
     cpdef public object h_cap
@@ -159,7 +149,7 @@ cdef class Hamiltonian:
             free(self.tensor_array)
 
     def __contains__(self, tensor):
-        return tensor in self.tensors:
+        return tensor in self.tensors
 
     def index(self, tensor):
         try:
@@ -167,27 +157,29 @@ cdef class Hamiltonian:
         except ValueError:
             raise ValueError("Tensor {} not an element of the Hamiltonian".format(tensor.name))
             
-    cpdef public set_coeff(self, np.ndarray[double complex, ndim=1, mode='c'] coeff):
-        cfl.zh_set_coeff(self.cfl_zh, &coeff[0])
+    cpdef public set_coeff(self, coeff):
+        cdef np.ndarray[double complex, ndim=1, mode='c'] co
+
+        self.co = coeff
+        co = <np.ndarray[double complex, ndim=1, mode='c']> self.co
+        cfl.zh_set_coeff(self.cfl_zh, &co[0])
         return None
 
     cpdef public diag(self):
         cdef cfl.zh *h = self.cfl_zh
         cdef cfl.zhd_w *hd_w
+        cdef np.ndarray[double, ndim=1, mode="c"] w
+        cdef np.ndarray[double complex, ndim=2, mode="c"] z
         
         hd_w = cfl.zhd_w_alloc(self.cfl_zh)
         if hd_w is NULL:
-            free(tensor_array)
-            free(state_labels)
+            free(self.tensor_array)
+            free(self.state_labels)
             cfl.zh_free(self.cfl_zh)
             raise MemoryError("hd_w alloc failed")
 
-        cdef np.ndarray[double, ndim=1, mode="c"] w
-        cdef np.ndarray[double complex, ndim=2, mode="c"] z
-
-        self.w = np.ascontiguousarray(np.zeros(n), dtype=np.float64)
-        self.z = np.ascontiguousarray(np.zeros(n*n).reshape((n,n)), dtype=np.complex128)
-
+        self.w = np.ascontiguousarray(np.zeros(self.n), dtype=np.float64)
+        self.z = np.ascontiguousarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
         z = <np.ndarray[double complex, ndim=2, mode="c"]> self.z
 
@@ -260,13 +252,6 @@ cpdef hyperfine_sh_coeff(t1, t2):
     t2l = len(t2[0])
     l = len(t1)
 
-    cdef __ci(t1i, t2i):
-        """
-        Calculate the row/column index for the coefficient array.
-        """
-        # The t1 upper bound is the t1 length.
-        return(t1i + t1l * t2i)
-
     a = np.zeros([t1l * t2l, t1l * t2l, l, l], dtype = np.complex)
 
     for t1r in range(t1l):
@@ -275,8 +260,7 @@ cpdef hyperfine_sh_coeff(t1, t2):
                 for t2c in range(t2l):
                     for i in range(l):
                         for j in range(l):
-                            a[__ci(t1r, t2r), __ci(t1c, t2c), i, j] = \
-                                t1[i][t1r, t1c] * t2[j][t2r, t2c]
+                            a[t1r+t1l*t2r, t1c+t1l*t2c, i, j]= t1[i][t1r, t1c] * t2[j][t2r, t2c]
 
     return(np.reshape(a, (t1l*t2l*t1l*t2l, l*l)))
 
@@ -343,9 +327,11 @@ cdef class SHTermData(object):
     """
     Class used to store term references together with the corresponding inversion data.
     """
-    cfl.zsh_inv_data *cfl_inv_data
-    cpdef public np.ndarray coeff
+    cdef cfl.zsh_inv_data *cfl_inv_data
+    cdef np.ndarray coeff
     def __init__(self, n, inter, coeff):
+        cdef np.ndarray[double complex, ndim=2, mode="c"] a
+
         self.inter = inter
         if inter == 'zeeman':
             self.terms = [SHTerm(n, 'zeeman_x'), SHTerm(n, 'zeeman_y'), SHTerm(n, 'zeeman_z')]
@@ -355,7 +341,7 @@ cdef class SHTermData(object):
         # Assign coeff to self, to ensure there exists a reference to the coeff
         # memory for as long as this object exists. 
         self.coeff = coeff
-        a = <np.ndarray[double complex, ndim=2, mode='c']> coeff
+        a = <np.ndarray[double complex, ndim=2, mode='c']> self.coeff
         self.cfl_inv_data = zsh_inv_data_alloc(&a[0,0], coeff.shape[0], coeff.shape[1])
         if self.cfl_inv_data == NULL:
             raise MemoryError("Failed to alloc inv_data memory")
@@ -402,6 +388,9 @@ class SpinHamiltonian:
                 raise ValueError("Missing keyword argument B.")
         else:
             B = None
+           
+        # Calculate matrix elements for the specified terms.
+        j_l = ['jx', 'jy', 'jz']
         if 'zeeman' in terms or 'hyperfine' in terms:
             try: 
                 S = kwargs['S']
@@ -479,34 +468,35 @@ cdef class EFitRunner(object):
     """
 
     cdef Hamiltonian h
-    cdef int np
+    cdef int n_p
+    cdef int n_p_real
+    cdef list param_types
     cdef cfl.ex_data *ex_data
-    cdef cfl.param_array **param_array
+    cdef cfl.param_type **param_array
     cdef np.ndarray ex_e
     cdef np.ndarray ex_li
-    cdef np.ndarray x0_real
+    cdef np.ndarray p0_real
     cdef np.ndarray h_coeff
     cdef cfl.efit_data *efit_data
 
     def __init__(self, h, parameters, co, ex):
         cdef cfl.param_type *param_type_ptr
         cdef np.ndarray[double complex, ndim=1, mode="c"] h_coeff
-        cdef np.ndarray[double, ndim=1, mode="c"] p0_real
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
 
         self.h = h
-        self.np = len(parameters)
+        self.n_p = len(parameters)
 
         param_indices = []
         param_types = []
-        np_real = 0
-        for i,p in enumerate(self.np):
+        n_p_real = 0
+        for i,p in enumerate(parameters):
             # Ensure h contains all the listed tensors
             try:
                 pi = h.index(p)
             except ValueError:
-                raise ValueError("Tensor {} in param_list not found in h".format(t.name))
+                raise ValueError("Tensor {} in param_list not found in h".format(p.name))
             # Workout which tensor each element in param_list corresponds to,
             # determine whether it is real or complex, and split any complex
             # parameters to create a purley real initial value array.
@@ -514,13 +504,15 @@ cdef class EFitRunner(object):
                 raise ValueError("Element {} in coefficients is not a number.".format(co[pi]))
             if isinstance(co[pi], complex):
                 param_types.append('c')
-                np_real += 2
+                n_p_real += 2
             else:
                 param_types.append('r')
-                np_real += 1
+                n_p_real += 1
             param_indices.append(pi)
-    
-        if len(np_real) > len(ex):
+        
+        self.n_p_real = n_p_real
+        self.param_types = param_types
+        if n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds the number of observables. Don't do that.")
 
         # We assign pointers to self to make sure a reference exists for as long
@@ -529,37 +521,38 @@ cdef class EFitRunner(object):
        
         # Prepare experimental energy level data
         self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
-        self.ex_li = np.ascontiguousarray(ex[:,0], dtype=np.int)
-        ex_e = self.ex_e
-        ex_li = self.ex_li
+        self.ex_li = np.ascontiguousarray(ex[:,0], dtype=np.int32)
+       
+        ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
+        ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
         self.ex_data = <cfl.ex_data *>malloc(cython.sizeof(cfl.ex_data))
         if self.ex_data == NULL:
             raise MemoryError("ex_data alloc failed")
-        (*self.ex_data).n = len(ex)
-        (*self.ex_data).e = &ex_e[0]
-        (*self.ex_data).li = &ex_li[0]
-        
+        self.ex_data.n = len(ex)
+        self.ex_data.e = &ex_e[0]
+        self.ex_data.li = &ex_li[0]
+
         # Prepare array of pointers to parameter data structs.
-        self.h_coeff = np.ascontiguousarray(np.array[co], dtype=np.complex128)
-        h_coeff = self.h_coeff
-        self.p0_real = np.ascontiguousarray(np.zeros(np_real), dtype=np.float64)
-        self.param_array = <cfl.param_type **>malloc(lself.np*cython.sizeof(param_type_ptr))
-        if self.param_array == NULL:
+        self.h_coeff = np.ascontiguousarray(np.array(co), dtype=np.complex128)
+        h_coeff = <np.ndarray[double, ndim=1, mode="c"]> self.h_coeff
+        self.p0_real = np.ascontiguousarray(np.zeros(n_p_real), dtype=np.float64)
+        param_array = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
+        if param_array == NULL:
             free(self.ex_data)
             raise MemoryError("param_array alloc failed")
         
         ip_real = 0
-        for i in range(self.np):
-            self.param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
-            if self.param_array[i] is NULL:
+        for i in range(self.n_p):
+            param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
+            if param_array[i] is NULL:
                 for j in range(i-1):
-                    free(self.param_array[j])
+                    free(param_array[j])
                 free(self.ex_data)
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
 
-            (*self.param_array[i]).type = param_types[i]
-            (*self.param_array[i]).index = param_indices[i]
+            param_array[i].type = cfl.atoi(param_types[i])
+            param_array[i].index = param_indices[i]
 
             if param_types[i] == 'c':
                 self.p0_real[ip_real] = np.real(co[i])
@@ -568,22 +561,38 @@ cdef class EFitRunner(object):
             else:
                 self.p0_real[ip_real] = co[i]
                 ip_real += 1
-        
-        
-        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), &h_coeff[0],
-                self.ex_data, self.np, self.param_array);
 
-    def fit(self):
-        x0_real = <np.ndarray[double, ndim=1, mode="c"]> self.x0_real
-        ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
-        ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
+        self.param_array = param_array 
+        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), &h_coeff[0],
+                self.ex_data, self.n_p, self.param_array);
+
+    
+    def bh_fit(self, niter):
+        cdef np.ndarray[double, ndim=1, mode="c"] x0
+        
+        x0 = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        with nogil:
+            bh_e_fit(&x0[0], self.n_p_real, self.efit_data, niter, NULL, gsl_vector_bfgs2)
+
+        coeff = np.zeros(self.n_p, dtype=np.complex128)
+        ri = 0
+        for i in range(self.n_p):
+            if (self.param_types[i] == 'c'): 
+                coeff[i] = np.complex(x0[ri], x0[ri+1])
+                ri += 2
+            else:
+                coeff[i] = x0[ri]
+                ri += 1
+
+        return(coeff)
+
 
 
     def __dealloc__(self):
         if self.ex_data != NULL:
             free(self.ex_data)
         if self.param_array != NULL:
-            for i in range(nx):
+            for i in range(self.n_p):
                 if self.param_array[i] != NULL:
                     free(self.param_array[i])
             free(self.param_array)
@@ -591,8 +600,7 @@ cdef class EFitRunner(object):
             cfl.efit_data_free(self.efit_data)
 
 
-
-cpdef e_fit(h, parameters, x0, ex, niter):
+def e_fit(h, parameters, co, ex, niter):
     r"""
     Fit parameters to energy level data. 
 
@@ -602,11 +610,13 @@ cpdef e_fit(h, parameters, x0, ex, niter):
         The Hamiltonian for which to fit the energy levels. 
     param_list : list
         A list of tensor objects for which to vary the prefactor. 
-    x0 : list
-        The initial values for parameters; must be in the same order as the
-        tensors added to the Hamiltonian.  Furthermore, the type of the elements
-        determines whether the real, or both the real and imaginary, components
-        of the corresponding prefactors are varied.
+    co : list
+        Coefficients for tensors of h.  Values in co which correspond to
+        parameters to be fit, that is, they are specified in param_list, are
+        used as initial values in the fitting process.  Furthermore, the type of
+        elements in co determines whether only the real, or both the real and
+        the imaginary, components of the corresponding prefactors are varied by
+        the fitting routine. 
     ex : np.ndarray
         2 by n dimensional array, with n the dimension of h. The first column
         contains energy level indices and the second column contains
@@ -615,61 +625,15 @@ cpdef e_fit(h, parameters, x0, ex, niter):
         The number of basinhopping iterations to complete. 
         
     stepsize and bounds not implemented for the moment. Leave stepsize to auto
-    tune and no bounds... perhaps done by accepting a minimization object
+    tune and no bounds... perhaps implement by accepting a minimization object
     instead, which has options relevant to that routine already set.  
 
     """
-    cdef cfl.param_type *param_type_ptr
+    efit = EFitRunner(h, parameters, co, ex)
+    coeff = efit.bh_fit(niter)
 
-    param_indices = []
-    param_types = []
-    x0_real = np.array([], dtype=double)
-    nx_real = 0
-    for i,p in enumerate(parameters):
-        # Ensure h contains all the listed tensors
-        try:
-            param_indices.append(h.index(p))
-        except ValueError:
-            raise ValueError("Tensor {} in param_list not found in h".format(t.name))
-        # Workout which tensor each element in param_list corresponds to,
-        # determine whether it is real or complex, and split any complex
-        # parameters to create a purley real initial value array.
-        if not isinstance(x0[i], Number):
-            raise ValueError("Element {} in x0 is not a number.".format(x0[i]))
-        if isinstance(x0[i], complex):
-            param_types.append('c')
-            np.append(x0_real, np.real(x0[i]))
-            np.append(x0_real, np.imag(x0[i]))
-            nx0_real += 2
-        else:
-            param_types.append('r')
-            np.append(x0_real, x0[i])
-            nx0_real += 1
+    return coeff
 
-    if len(nx0_real) > len(ex):
-        raise ValueError("The total (real and imaginary) number of parameters exceeds the number of observables. Don't do that.")
-
-    # Set aside storage 
-    ex_data = <cfl.ex_data *>malloc(cython.sizeof(cfl.ex_data))
-    if ex_data == NULL:
-        raise MemoryError("ex_data alloc failed")
-
-    param_array = <cfl.param_type **>malloc(len(parameters)*cython.sizeof(param_type_ptr))
-    if param_array == NULL:
-        free(ex_data)
-        raise MemoryError("param_array alloc failed")
-
-    for i in range(parameters):
-        param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
-        if param_array[i] is NULL:
-            for j in range(i-1):
-                free(param_array[j])
-            free(ex_data)
-            free(param_array)
-            raise MemoryError("param_array[{}] alloc failed".format(i))
-
-        (*tensor_array[i]).type = param_types[i]
-        (*tensor_array[i]).index = param_indices[i]
 
     
 
