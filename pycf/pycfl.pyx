@@ -514,6 +514,8 @@ cdef class EFitRunner(object):
         self.param_types = param_types
         if n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds the number of observables. Don't do that.")
+        elif ex.shape[1] != 2:
+            raise ValueError("Incorrect ex shape; expected a two column array.")
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
@@ -569,10 +571,12 @@ cdef class EFitRunner(object):
     
     def bh_fit(self, niter):
         cdef np.ndarray[double, ndim=1, mode="c"] x0
+        cdef int cniter
         
         x0 = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        cniter = niter
         with nogil:
-            bh_e_fit(&x0[0], self.n_p_real, self.efit_data, niter, NULL, gsl_vector_bfgs2)
+            bh_e_fit(&x0[0], self.n_p_real, self.efit_data, cniter, NULL, gsl_vector_bfgs2)
 
         coeff = np.zeros(self.n_p, dtype=np.complex128)
         ri = 0
@@ -585,7 +589,6 @@ cdef class EFitRunner(object):
                 ri += 1
 
         return(coeff)
-
 
 
     def __dealloc__(self):
