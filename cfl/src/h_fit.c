@@ -573,6 +573,24 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
   return chisq;
 }
 
+/* Fit energy levels using basinhopping. 
+ *
+ * Parameters
+ * ----------
+ *  x0        The initial parameter array; if the routine succeeds, this is
+ *            overwritten with the result upon exit.
+ *  nx        The number of parameters to be varied.
+ *  data      Data to be passed to the objective function, of type efit_data.
+ *  niter     The number of basinhopping iterations to complete. 
+ *  bounds    Pointer to a bounds object; in case of no bounds, pass a NULL
+ *            pointer.
+ *  lmintype  The local minimization type; implemented options are:
+ *              + gsl_nmsimplex2rand
+ *              + gsl_nmsimplex2 
+ *              + gsl_conjugate_fr 
+ *              + gsl_conjugate_pr
+ *              + gsl_vector_bfgs2 
+ */
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
     bh_lmin lmintype) {
   int status;
@@ -582,6 +600,24 @@ int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
   return status;
 }
 
+/* Fit energy levels and spin Hamiltonian data using basinhopping. 
+ *
+ * Parameters
+ * ----------
+ *  x0        The initial parameter array; if the routine succeeds, this is
+ *            overwritten with the result upon exit.
+ *  nx        The number of parameters to be varied.
+ *  data      Data to be passed to the objective function, of type eshfit_data.
+ *  niter     The number of basinhopping iterations to complete. 
+ *  bounds    Pointer to a bounds object; in case of no bounds, pass a NULL
+ *            pointer.
+ *  lmintype  The local minimization type; implemented options are:
+ *              + gsl_nmsimplex2rand
+ *              + gsl_nmsimplex2 
+ *              + gsl_conjugate_fr 
+ *              + gsl_conjugate_pr
+ *              + gsl_vector_bfgs2 
+ */
 int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
     *bounds, bh_lmin lmintype) {
   int status;
