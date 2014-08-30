@@ -59,9 +59,6 @@ typedef struct {
   float chisq_weight;
   /* Pointer to spin Hamiltonian inversion data. */
   zsh_inv_data *inv_data; 
-  /* Level index of complete Hamiltonian which this spin Hamiltonian corresponds
-   * to. */
-  size_t l;
 } shx_data;
 
 

@@ -106,7 +106,6 @@ cdef extern from "../../cfl/include/h_fit.h":
         double complex *pa
         float chisq_weight
         zsh_inv_data *inv_data
-        size_t l
 
     ctypedef struct efit_data:
         pass
