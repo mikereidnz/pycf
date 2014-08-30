@@ -106,9 +106,10 @@ void efit_data_free(efit_data *data) {
  *  nzeeman The index of the first Zeeman term; for cases without Zeeman
  *          interaction, set to -1.
  *  h       Pointer to the complete Hamiltonian.  
- *  hfo     Pointer to the first order Hamiltonian.
+ *  hfo     Pointer to the first order Hamiltonian; can be NULL if identical to
+ *          h.
  *  h_co    Coefficient array for h.
- *  hfo_co  Coefficient array for hfo.
+ *  hfo_co  Coefficient array for hfo; can be NULL if identical to h_co.
  *  ex      Experimental energy level data.  
  *  shx     Array of pointers to spin Hamiltonian experimental data.  These must
  *          be in the same order as the terms in sh.  For Zeeman terms, the
@@ -117,7 +118,7 @@ void efit_data_free(efit_data *data) {
  *  n_zx    The number of complex valued parameters to be fit to the complete
  *          Hamiltonian h.
  *  n_fozx  The number of complex valued parameters to be fit to the first order
- *          Hamiltonian hfo.
+ *          Hamiltonian hfo; must be specified, even if hfo is NULL.
  *  p       Array of pointers to parameters to be fit.
  */
 eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
