@@ -79,7 +79,7 @@ typedef struct {
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* Complete cofficient array to be passed to the diagonalization. */
-  double complex *h_co;
+  double complex *coeff;
 } efit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -120,27 +120,22 @@ typedef struct {
   shx_data **shx;
   /* The number of parameters once converted to complex type. */
   size_t n_zx;
-  /* The number of parameters of the first order Hamiltonian in complex type. */
-  size_t n_fozx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
-  /* Complete cofficient array to be passed to the H diagonalization. */
-  double complex *h_co;
-  /* Complete cofficient array to be passed to the first order H
-   * diagonalization. */
-  double complex *hfo_co;
+  /* Complete cofficient array to be passed to the diagonalization. */
+  double complex *coeff;
 } eshfit_data;
 
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-efit_data *efit_data_alloc(zh *h, double complex *h_co, ex_data *ex, size_t n_zx,
-    param_type **p);
+efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t
+    n_zx, param_type **p);
 void efit_data_free(efit_data *data);
 eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh
-    *hfo, double complex *h_co, double complex *hfo_co, ex_data *ex, shx_data
-    **shx, size_t n_zx, size_t n_fozx, param_type **p);
+    *hfo, double complex *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
+    param_type **p);
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
     bh_lmin lmintype);

@@ -346,9 +346,9 @@ int main (void)
   shx_data *shx[1] = {&ce_zeeman_exp_data};
   
   eshfit_data *eshfit_d;
-  eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, celiyf4_coeff,
-      &ce_ex_data, shx, 6, 6, p);
-  status = bh_esh_fit(ce_x0, 6, eshfit_d, 200, NULL, gsl_vector_bfgs2);
+  eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, NULL, celiyf4_coeff,
+      &ce_ex_data, shx, 6, p);
+  status = bh_esh_fit(ce_x0, 6, eshfit_d, 2, NULL, gsl_vector_bfgs2);
   eshfit_data_free(eshfit_d);
 
   printf("Energy level and spin Hamiltonian fit:\n");

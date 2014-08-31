@@ -43,12 +43,12 @@
  * Parameters
  * ----------
  *  h       Pointer to the Hamiltonian.  
- *  h_co    Coefficient array for h.
+ *  coeff   Coefficient array for h.
  *  ex      Experimental energy level data. 
  *  n_zx    The number of complex valued parameters to be fit to the Hamiltonian
  *  p       Array of pointers to parameters to be fit.
  */
-efit_data *efit_data_alloc(zh *h, double complex *h_co, ex_data *ex, size_t n_zx,
+efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t n_zx,
     param_type **p) {
   efit_data *data;
 
@@ -78,7 +78,7 @@ efit_data *efit_data_alloc(zh *h, double complex *h_co, ex_data *ex, size_t n_zx
   }
 
   data->h = h;
-  data->h_co = h_co;
+  data->coeff = coeff;
   data->ex = ex;
   data->n_zx = n_zx;
   data->p = p;
@@ -108,8 +108,7 @@ void efit_data_free(efit_data *data) {
  *  h       Pointer to the complete Hamiltonian.  
  *  hfo     Pointer to the first order Hamiltonian; can be NULL if identical to
  *          h.
- *  h_co    Coefficient array for h.
- *  hfo_co  Coefficient array for hfo; can be NULL if identical to h_co.
+ *  coeff   Tensor coefficient array.
  *  ex      Experimental energy level data.  
  *  shx     Array of pointers to spin Hamiltonian experimental data.  These must
  *          be in the same order as the terms in sh.  For Zeeman terms, the
@@ -117,13 +116,11 @@ void efit_data_free(efit_data *data) {
  *          of the first Zeeman term in sh.
  *  n_zx    The number of complex valued parameters to be fit to the complete
  *          Hamiltonian h.
- *  n_fozx  The number of complex valued parameters to be fit to the first order
- *          Hamiltonian hfo; must be specified, even if hfo is NULL.
  *  p       Array of pointers to parameters to be fit.
  */
 eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
-    *hfo, double complex *h_co, double complex *hfo_co, ex_data *ex, shx_data
-    **shx, size_t n_zx, size_t n_fozx, param_type **p) {
+    *hfo, double complex *coeff, ex_data *ex, shx_data
+    **shx, size_t n_zx, param_type **p) {
   int i,j;
   size_t ninv;
   eshfit_data *data;
@@ -256,7 +253,7 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
     }
   }
 
-  if (n_zx != n_fozx) {
+  if (hfo != NULL) {
     /* Only alloc data if we require a separate first order Hamiltonian. */
     data->hfod_w = zhd_w_alloc(hfo);
     if (data->hfod_w == 0) {
@@ -327,15 +324,13 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
   data->sh_a = sh_a;
   data->h = h;
   data->hfo = hfo;
-  data->h_co = h_co;
-  data->hfo_co = hfo_co;
+  data->coeff = coeff;
   data->ex = ex;
   data->nsh = nsh;
   data->nzeeman = nzeeman;
   data->ninv = ninv;
   data->shx = shx;
   data->n_zx = n_zx;
-  data->n_fozx = n_fozx;
   data->p = p;
 
   return data;
@@ -347,7 +342,7 @@ void eshfit_data_free(eshfit_data *data) {
   zhd_w_free(data->hd_w);
   free(data->h_evect);
   free(data->h_eval);
-  if (data->n_zx != data->n_fozx) {
+  if (data->hfo != NULL) {
     zhd_w_free(data->hfod_w);
     free(data->hfo_evect);
     free(data->hfo_eval);
@@ -403,31 +398,46 @@ inline double shchisq(complex double *pa, complex double *xpa) {
   return chisq;
 }
 
-/* Objective function for fit to energy levels only. */
-double efit_obj(size_t n, double *x, double *grad, void *data) {
+/* Parse an array of doubles into an array of complex doubles using param_type
+ * data. 
+ *
+ * Parameters
+ * ----------
+ *  n_zx      The number of complex parameters
+ *  p         Array of param_type data.
+ *  coeff     Complex array which will be overwritten with the parsed data.
+ *  x         Source of data. 
+ */
+inline void parse_param_data(size_t n_zx, param_type **p, double complex *coeff,
+    double *x) {
   int i, zi;
-  efit_data *d = data;
 
   i = 0;
-  for(zi=0; zi<d->n_zx; zi++) {
-    if (d->p[zi]->type == 'c') {
+  for(zi=0; zi<n_zx; zi++) {
+    if (p[zi]->type == 'c') {
       /* Parameter is a complex number. */
-      d->h_co[d->p[zi]->index] = x[i]+x[i+1]*I;
+      coeff[p[zi]->index] = x[i]+x[i+1]*I;
       i+=2;
     }
-    else if (d->p[zi]->type == 'i') {
+    else if (p[zi]->type == 'i') {
       /* Parameter is a purely imaginary number. */
-      d->h_co[d->p[zi]->index] = x[i]*I;
+      coeff[p[zi]->index] = x[i]*I;
       i++;
     }
     else {
       /* Parameter is a purely real number. */
-      d->h_co[d->p[zi]->index] = x[i];
+      coeff[p[zi]->index] = x[i];
       i++;
     }
   }
+}
 
-  zh_set_coeff(d->h, d->h_co);
+/* Objective function for fit to energy levels only. */
+double efit_obj(size_t n, double *x, double *grad, void *data) {
+  efit_data *d = data;
+
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
+  zh_set_coeff(d->h, d->coeff);
   zhd(d->eval, d->evect, d->h, d->hd_w);
 
   return echisq(d->eval, d->ex);
@@ -435,62 +445,20 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
 
 /*  Objective function for fit to both energy levels and spin Hamiltonians. */
 double eshfit_obj(size_t n, double *x, double *grad, void *data) {
-  int i, j, zi, sh_index;
+  int i, j, sh_index;
   eshfit_data *d = data;
   double chisq;
 
-  i = 0;
-  /* Assign parameters that are varied to the coefficient arrays of both the
-   * first order and the complete Hamiltonian; that is, all non-second order
-   * parameters. */
-  for(zi=0; zi<d->n_fozx; zi++) {
-    if (d->p[zi]->type == 'c') {
-      /* Parameter is a complex number. */
-      d->h_co[d->p[zi]->index] = x[i]+x[i+1]*I;
-      d->hfo_co[d->p[zi]->index] = x[i]+x[i+1]*I;
-      i+=2;
-    }
-    else if (d->p[zi]->type == 'i') {
-      /* Parameter is a purely imaginary number. */
-      d->h_co[d->p[zi]->index] = x[i]*I;
-      d->hfo_co[d->p[zi]->index] = x[i]*I;
-      i++;
-    }
-    else {
-      /* Parameter is a purely real number. */
-      d->h_co[d->p[zi]->index] = x[i];
-      d->hfo_co[d->p[zi]->index] = x[i];
-      i++;
-    }
-  }
-  /* Assign any remaining second order parameters to coefficient array of the
-   * complete Hamiltonian. */
-  for(zi=d->n_fozx; zi<d->n_zx; zi++) {
-    if (d->p[zi]->type == 'c') {
-      /* Parameter is a complex number. */
-      d->h_co[d->p[zi]->index] = x[i]+x[i+1]*I;
-      i+=2;
-    }
-    else if (d->p[zi]->type == 'i') {
-      /* Parameter is a purely imaginary number. */
-      d->h_co[d->p[zi]->index] = x[i]*I;
-      i++;
-    }
-    else {
-      /* Parameter is a purely real number. */
-      d->h_co[d->p[zi]->index] = x[i];
-      i++;
-    }
-  }
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
 
   /* Calculate the energy level chi^2. */
-  zh_set_coeff(d->h, d->h_co);
+  zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
   chisq = echisq(d->h_eval, d->ex);
 
   /* Diagonalize the first order Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
-  zh_set_coeff(d->hfo, d->hfo_co);
+  zh_set_coeff(d->hfo, d->coeff);
   zhd(d->hfo_eval, d->hfo_evect, d->hfo, d->hfod_w);
 
   sh_index = 0;
@@ -518,34 +486,14 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
 /*  Objective function for fit to both energy levels and spin Hamiltonians in
  *  case the complete Hamiltonian is the same as the first order Hamiltonian. */
 double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
-  int i, j, zi, sh_index;
+  int i, j, sh_index;
   eshfit_data *d = data;
   double chisq;
 
-  i = 0;
-  /* Assign parameters that are varied to the coefficient arrays of both the
-   * first order and the complete Hamiltonian; that is, all non-second order
-   * parameters. */
-  for(zi=0; zi<d->n_zx; zi++) {
-    if (d->p[zi]->type == 'c') {
-      /* Parameter is a complex number. */
-      d->h_co[d->p[zi]->index] = x[i]+x[i+1]*I;
-      i+=2;
-    }
-    else if (d->p[zi]->type == 'i') {
-      /* Parameter is a purely imaginary number. */
-      d->h_co[d->p[zi]->index] = x[i]*I;
-      i++;
-    }
-    else {
-      /* Parameter is a purely real number. */
-      d->h_co[d->p[zi]->index] = x[i];
-      i++;
-    }
-  }
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
 
   /* Calculate the energy level chi^2. */
-  zh_set_coeff(d->h, d->h_co);
+  zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
   chisq = echisq(d->h_eval, d->ex);
 
@@ -624,7 +572,7 @@ int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
   int status;
   eshfit_data *d = data;
 
-  if (d->n_zx == d->n_fozx) {
+  if (d->hfo == NULL) {
     /* The complete and first order Hamiltonians match, so we only need to
      * diagonalize one of them. */
     status = bh_fit(&eshfit_h_obj, x0, nx, data, niter, bounds, lmintype); 
