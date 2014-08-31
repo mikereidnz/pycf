@@ -1,6 +1,29 @@
 # file: ccfl.pxd
 #cython: c_string_encoding=ascii
 
+# Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+
 cdef extern from "complex.h":
     double complex conj(double complex z)
     double complex cexp(double complex z)
@@ -113,12 +136,12 @@ cdef extern from "../../cfl/include/h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
-    efit_data *efit_data_alloc(zh *h, double complex *h_co, ex_data *ex, size_t
+    efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t
             n_zx, param_type **p)
     void efit_data_free(efit_data *data)
     eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h,
-            zh *hfo, double complex *h_co, double complex *hfo_co, ex_data *ex,
-            shx_data **shx, size_t n_zx, size_t n_fozx, param_type **p)
+            zh *hfo, double complex *coeff, ex_data *ex, shx_data **shx, size_t
+            n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
             *bounds, bh_lmin lmintype) nogil
