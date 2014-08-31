@@ -468,7 +468,7 @@ cdef class SHTermData(object):
     cdef public float chisq_weight
 
     def __init__(self, d, inter, coeff):
-        cdef np.ndarray[double complex, ndim=2, mode="c"] a
+        cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
         self.type = inter
         self.pro_data = 0
         self.exp_data = 0
@@ -479,8 +479,8 @@ cdef class SHTermData(object):
         
         # Assign coeff to self, to ensure there exists a reference to the coeff
         # memory for as long as this object exists. 
-        self.coeff = coeff
-        a = <np.ndarray[double complex, ndim=2, mode='c']> self.coeff
+        self.coeff = np.asfortranarray(coeff, dtype=np.complex128)
+        a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.coeff
         self.cfl_inv_data = zsh_inv_data_alloc(&a[0,0], coeff.shape[0], coeff.shape[1])
         if self.cfl_inv_data == NULL:
             raise MemoryError("Failed to alloc inv_data memory")
