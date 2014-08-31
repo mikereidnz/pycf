@@ -159,7 +159,7 @@ cdef class Hamiltonian:
     cdef cfl.zh *cfl_zh
     cdef cfl.zt **tensor_array
     cdef char **state_labels
-    cdef list states
+    cdef public list states
     cdef int n
     cdef int nt
     cdef list tensors
@@ -902,11 +902,11 @@ cdef class ESHFitRunner(object):
                 raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
             if inter.type == 'zeeman':
                 for t in inter.terms:
-                    if t.tensor.name in h:
+                    if t.tensor in h:
                         so_tensors += [t.tensor]
                 self.nzeeman = i
             else:
-                if inter.term.tensor.name in h:
+                if inter.term.tensor in h:
                     so_tensors += [inter.term.tensor]
             
         if n_p_real > len(ex) + sh.nsh:
@@ -1029,6 +1029,7 @@ cdef class ESHFitRunner(object):
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
                     <cfl.zh *>PyCapsule_GetPointer(self.hfo.h_cap, "pycfl.Hamiltonian"), &coeff[0],
                     self.ex_data, shx_array, self.n_p, self.param_array)
+            print("True")
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
