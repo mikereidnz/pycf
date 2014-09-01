@@ -83,13 +83,14 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     zsh *zsh_alloc(size_t n, char *type)
     void zsh_free(zsh *sh)
     zshp_w *zshp_w_alloc(zsh *sh)
-    void zsh_set_pro(zsh *sh, zt *t, int l)
+    void zshp_w_free(zshp_w *shp_w)
     zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n)
     void zsh_inv_data_free(zsh_inv_data *d)
-    void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w)
     zshi_w *zshi_w_alloc(zsh_inv_data *d)
     void zshi_w_free(zshi_w *w)
-    void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n)
+    void zsh_set_pro(zsh *sh, zt *t, int l)
+    void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n) 
+    void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w)
     void zshi(double complex *a, zshi_w *w)
 
 

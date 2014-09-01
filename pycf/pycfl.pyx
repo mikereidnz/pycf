@@ -29,13 +29,15 @@ cimport numpy as np
 import numpy as np
 from numbers import Number
 from cpython.pycapsule cimport *
+from python_ref cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from matel import matel
 
 
 # TODO: 
 #       + Implement direct calls to zshi and zshp
-#       + Check whether the t_cap property statement in Tensor is required.
+#       + Apply a small magnetic field along z, to obtain state labels. Maybe
+#         something to directly implement in the cfl projection interface. 
 
 cdef class Tensor:
     r"""
@@ -57,7 +59,7 @@ cdef class Tensor:
     t : Tensor
 
     """
-    cdef object t_cap
+    cdef public object t_cap
     cpdef public str name
     cdef public str tmp_name
     cpdef public int n
@@ -128,14 +130,6 @@ cdef class Tensor:
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
 
-    property t_cap:
-        def __get__(self):
-            return self.t_cap
-
-    property dim:
-        def __get__(self):
-            return self.n
-
 
 cdef class Hamiltonian:
     r"""
@@ -171,7 +165,7 @@ cdef class Hamiltonian:
         cdef char *char_ptr
         cdef cfl.zt *ten_array_ptr
 
-        n = tensors[0].dim
+        n = tensors[0].n
         self.n = n
         self.nt = len(tensors)
         self.tensors = tensors
@@ -538,6 +532,7 @@ cdef class SpinHamiltonian:
     cdef public list interactions 
     cdef public int nsh
     cdef public int dsh
+    cdef int nzeeman
     def __init__(self, interactions, **kwargs):
         if not isinstance(interactions, list):
             interactions = [interactions]
@@ -684,7 +679,96 @@ cdef class SpinHamiltonian:
             
         raise ValueError("This spin Hamiltonian object was not instantiated with {} "
             "interaction support.".format(interaction))
+    
+    def calc_param(self, h):
+        r"""
+        Calculate the spin Hamiltonian parameters given a complete Hamiltonian.
 
+        Parameters
+        ----------
+        h : Hamiltonian
+            The corresponding complete Hamiltonian. 
+
+        Returns
+        -------
+        param : list
+            Elements are nd.arrays corresponding spin Hamiltonian tensors of
+            interactions specified when the spin Hamiltonian object was
+            instantiated. 
+        """
+        cdef cfl.zshp_w shp_w
+        cdef list shp_work_list = []
+        cdef list shi_work_list = []
+        cdef list result_list = []
+        cdef np.ndarray[double complex, ndim=1, mode="c"] a
+        cdef np.ndarray[double complex, ndim=2, mode="c"] cz
+        cdef int cj
+        cdef int z_num
+        
+        # Alloc projection and inversion workspace.
+        for inter in self.interactions:
+            if inter.type == 'zeeman':
+                for t in inter.terms: 
+                    shp_work_list += [PyCapsule_New(<void *>cfl.zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(
+                        t.sh_cap, "pycfl.SHTerm")), "pycfl.SHCalcParamProWork", NULL)]
+            else:
+                shp_work_list += [PyCapsule_New(<void *>cfl.zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(
+                    inter.term.sh_cap, "pycfl.SHTerm")), "pycfl.SHCalcParamProWork", NULL)]
+            shi_work_list += [PyCapsule_New(<void *>cfl.zshi_w_alloc(<cfl.zsh_inv_data *>PyCapsule_GetPointer(
+                inter.inv_data_cap, "pycfl.InvData")), "pycfl.SHCalcParamInvWork", NULL)]
+
+        # Determine whether there are any second order tensors; that is, whether
+        # the complete Hamiltonian contains any interactions that are also part
+        # of the spin Hamiltonian.  Furthermore, we record the location of the
+        # Zeeman tensor. 
+        so_tensors = []
+        self.nzeeman = -1
+        for i,inter in enumerate(self.interactions):
+            if not inter.pro_data:
+                raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
+            if inter.type == 'zeeman':
+                for t in inter.terms:
+                    if t.tensor in h:
+                        so_tensors += [t.tensor]
+                self.nzeeman = i
+            else:
+                if inter.term.tensor in h:
+                    so_tensors += [inter.term.tensor]
+           
+        # If required, replace the h with the first order Hamiltonian
+        fo_tensors = []
+        if len(so_tensors) != 0:
+            for i,t in enumerate(h):
+                if t not in so_tensors:
+                    fo_tensors += [t]
+            h = Hamiltonian(fo_tensors, h.states)
+
+        # Diagonalize the complete Hamiltonian, then determine the sh terms and
+        # finally do the inversion for each interaction of sh.
+        (w, z) = h.diag()
+        cz = <np.ndarray[double complex, ndim=2, mode="c"]> z
+        for i,inter in enumerate(self.interactions):
+            if inter.type == 'zeeman':
+                # Since Zeeman interactions require three sh terms for inversion
+                # we create a results array (a) big enough to hold the matrix
+                # elements of three sh terms; then we fill a in three blocks.
+                z_num = inter.terms[0].n**2
+                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(z_num*3, dtype=np.complex128)
+                for j,t in enumerate(inter.terms):
+                    cj = j
+                    cfl.zshp(&a[cj*z_num], &cz[0,0], <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm"),
+                            <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
+            else:
+                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.term.n**2, dtype=np.complex128)
+                cfl.zshp(&a[0], &cz[0,0], <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm"), 
+                        <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
+            # Do the inversion; we can directly pass on 'a' even in the Zeeman
+            # case, since the coefficient matrix in zsh_inv_data is of
+            # appropriate dimension to solve using three Zeeman terms.
+            cfl.zshi(&a[0], <cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
+            result_list += [a[0:9].reshape(3,3)]
+        
+        return result_list
 
 
 
@@ -692,6 +776,24 @@ cdef class EFitRunner(object):
     """
     Class used to store data required by, and to run, a crystal field fit using
     energy level data. 
+
+    Parameters
+    ----------
+    parameters : list
+        A list of tensor objects for which to vary the prefactor. 
+    h : Hamiltonian
+        The Hamiltonian for which to fit the energy levels. 
+    coeff_list : list
+        Coefficients for tensors.  Values in ``coeff_list`` that correspond to
+        parameters to be fit, that is, that are specified in ``parameters``, are
+        used as initial values in the fitting process.  Furthermore, the type of
+        elements in ``coeff_list`` determines whether only the real, or both the
+        real and the imaginary, components of the corresponding prefactors are
+        varied by the fitting routine.
+    ex : np.ndarray
+        2 by n dimensional array, with n the number available experimental
+        energy levels. The first column contains energy level indices and the
+        second column contains corresponding experimental energy level values. 
     """
     cdef Hamiltonian h
     cdef int n_p
@@ -796,6 +898,16 @@ cdef class EFitRunner(object):
         self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
                 &coeff[0], self.ex_data, self.n_p, self.param_array);
 
+    def __dealloc__(self):
+        if self.ex_data != NULL:
+            free(self.ex_data)
+        if self.param_array != NULL:
+            for i in range(self.n_p):
+                if self.param_array[i] != NULL:
+                    free(self.param_array[i])
+            free(self.param_array)
+        if self.efit_data != NULL:
+            cfl.efit_data_free(self.efit_data)
     
     def bh_fit(self, niter):
         cdef np.ndarray[double, ndim=1, mode="c"] x0
@@ -819,22 +931,32 @@ cdef class EFitRunner(object):
         return(coeff)
 
 
-    def __dealloc__(self):
-        if self.ex_data != NULL:
-            free(self.ex_data)
-        if self.param_array != NULL:
-            for i in range(self.n_p):
-                if self.param_array[i] != NULL:
-                    free(self.param_array[i])
-            free(self.param_array)
-        if self.efit_data != NULL:
-            cfl.efit_data_free(self.efit_data)
 
 
 cdef class ESHFitRunner(object):
     """
     Class used to store data required by, and to run, a crystal field fit using
     energy level and spin Hamiltonian data. 
+
+    Parameters
+    ----------
+    parameters : list
+        A list of tensor objects for which to vary the prefactor. 
+    sh : SpinHamiltonian
+        The spin Hamiltonian object to be fit. 
+    h : Hamiltonian
+        The Hamiltonian for which to fit the energy levels. 
+    coeff_list : list
+        Coefficients for tensors.  Values in ``coeff_list`` that correspond to
+        parameters to be fit, that is, that are specified in ``parameters``, are
+        used as initial values in the fitting process.  Furthermore, the type of
+        elements in ``coeff_list`` determines whether only the real, or both the
+        real and the imaginary, components of the corresponding prefactors are
+        varied by the fitting routine.
+    ex : np.ndarray
+        2 by n dimensional array, with n the number available experimental
+        energy levels. The first column contains energy level indices and the
+        second column contains corresponding experimental energy level values. 
     """
     cdef SpinHamiltonian sh
     cdef Hamiltonian h
@@ -908,13 +1030,7 @@ cdef class ESHFitRunner(object):
             else:
                 if inter.term.tensor in h:
                     so_tensors += [inter.term.tensor]
-            
-        if n_p_real > len(ex) + sh.nsh:
-            raise ValueError("The total (real and imaginary) number of parameters "
-                "exceeds the number of observables. Don't do that.")
-        elif ex.shape[1] != 2:
-            raise ValueError("Incorrect ex shape; expected a two column array.")
-
+           
         # If required, generate the first order Hamiltonian. 
         fo_tensors = []
         if len(so_tensors) != 0:
@@ -924,6 +1040,12 @@ cdef class ESHFitRunner(object):
             self.hfo = Hamiltonian(fo_tensors, h.states)
         else:
             self.hfo = None
+
+        if n_p_real > len(ex) + sh.nsh:
+            raise ValueError("The total (real and imaginary) number of parameters "
+                "exceeds the number of observables. Don't do that.")
+        elif ex.shape[1] != 2:
+            raise ValueError("Incorrect ex shape; expected a two column array.")
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
@@ -991,6 +1113,7 @@ cdef class ESHFitRunner(object):
             free(sh_array)
             raise MemoryError("shx_array alloc failed")
         self.shx_array = shx_array
+        j = 0
         for i,inter in enumerate(sh.interactions):
             if inter.type == 'zeeman':
                 for j,t in enumerate(inter.terms):
@@ -1029,12 +1152,28 @@ cdef class ESHFitRunner(object):
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
                     <cfl.zh *>PyCapsule_GetPointer(self.hfo.h_cap, "pycfl.Hamiltonian"), &coeff[0],
                     self.ex_data, shx_array, self.n_p, self.param_array)
-            print("True")
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
                     self.ex_data, shx_array, self.n_p, self.param_array)
-        
+ 
+    def __dealloc__(self):
+        if self.ex_data != NULL:
+            free(self.ex_data)
+        if self.param_array != NULL:
+            for i in range(self.n_p):
+                if self.param_array[i] != NULL:
+                    free(self.param_array[i])
+            free(self.param_array)
+        if self.sh_array != NULL:
+            free(self.sh_array)
+        if self.shx_array != NULL:
+            for i in range(len(self.sh.interactions)):
+                if self.shx_array[i] != NULL:
+                    free(self.shx_array[i])
+            free(self.shx_array)
+        if self.eshfit_data != NULL:
+            cfl.eshfit_data_free(self.eshfit_data)
      
     def bh_fit(self, niter):
         cdef np.ndarray[double, ndim=1, mode="c"] x0
@@ -1056,25 +1195,6 @@ cdef class ESHFitRunner(object):
                 ri += 1
 
         return(coeff)
-
-    
-    def __dealloc__(self):
-        if self.ex_data != NULL:
-            free(self.ex_data)
-        if self.param_array != NULL:
-            for i in range(self.n_p):
-                if self.param_array[i] != NULL:
-                    free(self.param_array[i])
-            free(self.param_array)
-        if self.sh_array != NULL:
-            free(self.sh_array)
-        if self.shx_array != NULL:
-            for i in range(len(self.sh.interactions)):
-                if self.shx_array[i] != NULL:
-                    free(self.shx_array[i])
-            free(self.shx_array)
-        if self.eshfit_data != NULL:
-            cfl.eshfit_data_free(self.eshfit_data)
 
 
 def e_fit(parameters, h, coeff, ex, niter):
