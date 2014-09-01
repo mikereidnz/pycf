@@ -767,6 +767,11 @@ cdef class SpinHamiltonian:
             # appropriate dimension to solve using three Zeeman terms.
             cfl.zshi(&a[0], <cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
             result_list += [a[0:9].reshape(3,3)]
+
+        for i in range(len(shp_work_list)):
+            cfl.zshp_w_free(<cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
+        for i in range(len(shi_work_list)):
+            cfl.zshi_w_free(<cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
         
         return result_list
 
