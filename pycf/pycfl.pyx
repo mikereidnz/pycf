@@ -35,7 +35,6 @@ from matel import matel
 
 
 # TODO: 
-#       + Implement direct calls to zshi and zshp
 #       + Apply a small magnetic field along z, to obtain state labels. Maybe
 #         something to directly implement in the cfl projection interface. 
 
@@ -161,6 +160,7 @@ cdef class Hamiltonian:
     cdef public np.ndarray w
     cdef public np.ndarray z
     cdef public object h_cap
+    cdef int coeff_set
     def __cinit__(self, tensors, states):
         cdef char *char_ptr
         cdef cfl.zt *ten_array_ptr
@@ -170,6 +170,7 @@ cdef class Hamiltonian:
         self.nt = len(tensors)
         self.tensors = tensors
         self.states = states
+        self.coeff_set = 0
                 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function. 
@@ -239,6 +240,7 @@ cdef class Hamiltonian:
         self.coeff = coeff
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
+        self.coeff_set = 1
         return None
 
     cpdef public diag(self):
@@ -257,6 +259,8 @@ cdef class Hamiltonian:
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="c"] z
         
+        if not self.coeff_set:
+            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
         hd_w = cfl.zhd_w_alloc(self.cfl_zh)
         if hd_w is NULL:
             free(self.tensor_array)
@@ -705,8 +709,10 @@ cdef class SpinHamiltonian:
         cdef int cj
         cdef int z_num
         
-        # Alloc projection and inversion workspace.
-        for inter in self.interactions:
+        so_tensors = []
+        self.nzeeman = -1
+        for i,inter in enumerate(self.interactions):
+            # Alloc projection and inversion workspace.
             if inter.type == 'zeeman':
                 for t in inter.terms: 
                     shp_work_list += [PyCapsule_New(<void *>cfl.zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(
@@ -717,13 +723,10 @@ cdef class SpinHamiltonian:
             shi_work_list += [PyCapsule_New(<void *>cfl.zshi_w_alloc(<cfl.zsh_inv_data *>PyCapsule_GetPointer(
                 inter.inv_data_cap, "pycfl.InvData")), "pycfl.SHCalcParamInvWork", NULL)]
 
-        # Determine whether there are any second order tensors; that is, whether
-        # the complete Hamiltonian contains any interactions that are also part
-        # of the spin Hamiltonian.  Furthermore, we record the location of the
-        # Zeeman tensor. 
-        so_tensors = []
-        self.nzeeman = -1
-        for i,inter in enumerate(self.interactions):
+            # Determine whether there are any second order tensors; that is,
+            # whether the complete Hamiltonian contains any interactions that
+            # are also part of the spin Hamiltonian.  Furthermore, we record the
+            # location of the Zeeman tensor, if it exists. 
             if not inter.pro_data:
                 raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
             if inter.type == 'zeeman':
@@ -735,7 +738,7 @@ cdef class SpinHamiltonian:
                 if inter.term.tensor in h:
                     so_tensors += [inter.term.tensor]
            
-        # If required, replace the h with the first order Hamiltonian
+        # If required, replace h with the first order Hamiltonian
         fo_tensors = []
         if len(so_tensors) != 0:
             for i,t in enumerate(h):
@@ -763,8 +766,7 @@ cdef class SpinHamiltonian:
                 cfl.zshp(&a[0], &cz[0,0], <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm"), 
                         <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
             # Do the inversion; we can directly pass on 'a' even in the Zeeman
-            # case, since the coefficient matrix in zsh_inv_data is of
-            # appropriate dimension to solve using three Zeeman terms.
+            # case.
             cfl.zshi(&a[0], <cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
             result_list += [a[0:9].reshape(3,3)]
 
