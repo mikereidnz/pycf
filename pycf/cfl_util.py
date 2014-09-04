@@ -4,6 +4,8 @@ from __future__ import division
 import numpy as np
 import re
 
+import pycf.cfl as cfl
+
 def get_tensor_dim(source):
     "Generator for extracting tensor dimensions from '*.mi_' files."
     match = False
@@ -40,26 +42,29 @@ class ImportSLJM:
         # Generate a dictionary of lists, with list elements [row, col, matel].
         i = 0
         tensor_elements = {}
-        tensors = {}
+        tensor_matrices = {}
         for td in tensor_dims:
             tensor_elements[td[0]] = data[i:i+int(td[1]), :]
             i += int(td[1])
-            # Fill in zero matrix elements of final tensor dict.
-            tensors[td[0]] = np.zeros((dim, dim), dtype=np.complex128)
+            # Create zero matrix for each tensor. 
+            tensor_matrices[td[0]] = np.zeros((dim, dim), dtype=np.complex128)
         
-        # Populate tensors with non-zero matrix elements.
-        for t in tensors:
+        # Populate tensor matrices with non-zero matrix elements.
+        for t in tensor_matrices:
             for e in tensor_elements[t]:
-                tensors[t][np.real(e[0])-1, np.real(e[1])-1] = e[2]
-
-        tensors['MAGX'] = tensors['MAG11'] * 1/np.sqrt(2)
-        tensors['MAGY'] = tensors['MAGX'] * np.complex(0, -1)
-        tensors['MAGZ'] = tensors['MAG10']
-
-        # Add Hermitian conjugate.
-        for t in tensors:
-            tensors[t] = tensors[t].conj().T - np.diag(np.diag(tensors[t])) + tensors[t]
+                tensor_matrices[t][np.real(e[0])-1, np.real(e[1])-1] = e[2]
         
+        if 'MAG11' in tensor_matrices and 'MAG10' in tensor_matrices:
+            tensor_matrices['MAGX'] = tensor_matrices['MAG11'] * 1/np.sqrt(2)
+            tensor_matrices['MAGY'] = tensor_matrices['MAGX'] * np.complex(0, -1)
+            tensor_matrices['MAGZ'] = tensor_matrices['MAG10']
+       
+        # Create tensors; since tensors use compressed row storage for hermitian
+        # matrices, we do not require the lower triangular half.
+        tensors = {}
+        for t in tensor_matrices:
+            tensors[t] = cfl.Tensor(t, tensor_matrices[t])
+
         self.tensors = tensors
 
     def print_available_tensors(self):
