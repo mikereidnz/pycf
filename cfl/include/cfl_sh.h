@@ -32,16 +32,6 @@
 #include <cfl_tensor.h>
 #include <cfl_h.h>
 
-/* State label type.  */
-typedef struct {
-  /* The length of labels */
-  size_t l;
-  /* Pointer to arrays of length l of state labels. */
-  char **states;
-  /* Pointer to hash of states. */
-  char *state_hash;
-} state_t;
-
 /* Spin Hamiltonian projection data. */
 typedef struct {
   /* Matrix elements of tensor to project in dense storage. */
@@ -73,7 +63,7 @@ typedef struct {
   /* Pointer to term type character array. */
   char *type;
   /* State labels corresponding to eigenvalues. */
-  state_t *states;
+  sl *states;
   /* Projection data. */
   zsh_pro_data *pro_data;
 } zsh;

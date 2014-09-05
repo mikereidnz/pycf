@@ -38,11 +38,16 @@ cdef extern from "../../cfl/include/cfl_crs.h":
 
 
 cdef extern from "../../cfl/include/cfl_tensor.h":
+    ctypedef struct sl:
+        pass
+
     ctypedef struct zt:
         pass
 
-    zt *zt_alloc(char *name, double complex *a, size_t n)
-    void zt_free(zt *zt)
+    sl *sl_alloc(size_t n, char **states)
+    void sl_free(sl *l)
+    zt *zt_alloc(char *name, double complex *a, size_t n, sl *states)
+    void zt_free(zt *t)
     zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2)
     zt *zt_s(char *name, zt *t, double complex s)
 
@@ -54,7 +59,7 @@ cdef extern from "../../cfl/include/cfl_h.h":
     ctypedef struct zhd_w:
         pass
     
-    zh *zh_alloc(int n, int nt, char **s, zt **t) 
+    zh *zh_alloc(int n, int nt, zt **t) 
     void zh_free(zh *h)
     void zh_set_coeff(zh *h, double complex *coeff)
     zhd_w *zhd_w_alloc(zh *h)

@@ -23,9 +23,8 @@
 
 
 /*
- * @file    cfl_h.c
- * @brief   Diagonalization, and associated, routines for crystal-field and spin
- *          Hamiltonians.
+ * Diagonalization, and associated, routines for crystal-field and spin
+ * Hamiltonians.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,16 +37,25 @@
 #include <cfl_h.h>
 
 /*
- * @brief Allocate storage for complex valued Hamiltonians.
+ * Allocate storage for complex valued Hamiltonians.
  *
- * @param[n]    The dimension of the Hamiltonian.
- * @param[nt]   The number of tensors. 
- * @param[s]    Pointer to character arrays containing state labels.
- * @param[t]    Pointer to array of zts.
+ * Parameters
+ * ----------
+ *  n     The dimension of the Hamiltonian.
+ *  nt    The number of tensors. 
+ *  t     Pointer to array of zts.
  */
-zh *zh_alloc(int n, int nt, char **s, zt **t) {
+zh *zh_alloc(int n, int nt, zt **t) {
   zh *h;
+  int i;
   double complex *ap;
+
+  /* Ensure all tensors have matching state labels. */
+  for (i=1; i<nt; i++) {
+    if (t[0]->states->hash != t[i]->states->hash) {
+      CFL_ERROR_NULL("Tensors have mismatching state labels")
+    }
+  }
 
   h = (zh *) malloc(sizeof(zh));
   if (h == 0) {
@@ -61,36 +69,34 @@ zh *zh_alloc(int n, int nt, char **s, zt **t) {
 
   h->n = n;
   h->nt = nt;
-  h->states = s;
   h->t = t;
   h->ap = ap;
 
   return h;
 }
 
-/*
- * @brief Free storage of a complex valued Hamiltonian.
- *
- * @params[m]     Pointer to the Hamiltonian to be freed. 
- */
 void zh_free(zh *h) {
   free(h->ap);
   free(h);
 }
 
 /*
- * @brief Set the coefficient array pointer; a wrapper for Cython. 
+ * Set the coefficient array pointer; a wrapper for Cython. 
  *
- * @param[coeff]    Pointer to the coefficient array.  
+ * Parameters
+ * ----------
+ *  coeff     Pointer to the coefficient array.  
  */
 void zh_set_coeff(zh *h, double complex *coeff) {
   h->coeff = coeff;
 }
 
 /*
- * @brief Allocate storage for the Hamiltonian diagonalization. 
+ * Allocate storage for the Hamiltonian diagonalization. 
  *
- * @param[h]    The Hamiltonian to be diagonalized.
+ * Parameters
+ * ----------
+ * h    The Hamiltonian to be diagonalized.
  */
 zhd_w *zhd_w_alloc(zh *h) {
   zhd_w *hd_w;
@@ -214,12 +220,6 @@ zhd_w *zhd_w_alloc(zh *h) {
   return hd_w;
 }
 
-
-/*
- * @brief Free Hamiltonian digitalization workspace storage.
- *
- * @param[hd_w]    Pointer to Hamiltonian diagonalization workspace.
- */
 void zhd_w_free(zhd_w *hd_w) {
   int i;
 
@@ -234,16 +234,16 @@ void zhd_w_free(zhd_w *hd_w) {
 }
 
 /*
- * @brief Calculate the eigenvalues and corresponding eigenvectors of a
- *        Hamiltonian. 
+ * Calculate the eigenvalues and corresponding eigenvectors of a Hamiltonian. 
  * 
- * @param[w]        Pointer to double valued array of length n to which
- *                  eigenvalues will be written.  
- * @param[z]        Pointer to double complex valued array of length n^2 to
- *                  which the eigenvectors will be written.
- * @param[h]        The Hamiltonian. 
- * @param[hd_w]     The work space for diagonalization; allocated using
- *                  zhd_w_alloc.
+ * Parameters
+ * ----------
+ *  w       Pointer to double valued array of length n to which eigenvalues
+ *          will be written.  
+ *  z       Pointer to double complex valued array of length n^2 to which the
+ *          eigenvectors will be written.
+ *  h       The Hamiltonian. 
+ *  hd_w    The work space for diagonalization; allocated using zhd_w_alloc.
  */
 void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) {
   int i;

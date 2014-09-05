@@ -219,25 +219,10 @@ int main (void)
   /* h_fit test.                                                             */
   /*=========================================================================*/
 
+  int i;
   /* Testing hamiltonian and spin hamiltonian fitting for Ce:LiYF4. Tensor
    * matrix elements and solutions externally calculated using pyemp. */
 
-  int i;
-  /* Tensor allocs. */
-  zt *eavg, *zeta, *C20, *C40, *C44, *C60, *C64, *magx, *magy, *magz;
-  eavg = (zt *) zt_alloc("eavg", ce_eavg_a, 14);
-  zeta = (zt *) zt_alloc("zeta", ce_zeta_a, 14);
-  C20 = (zt *) zt_alloc("C20", ce_C20_a, 14);
-  C40 = (zt *) zt_alloc("C40", ce_C40_a, 14);
-  C44 = (zt *) zt_alloc("C44", ce_C44_a, 14);
-  C60 = (zt *) zt_alloc("C60", ce_C60_a, 14);
-  C64 = (zt *) zt_alloc("C64", ce_C64_a, 14);
-  magx = (zt *) zt_alloc("magx", ce_magx_a, 14);
-  magy = (zt *) zt_alloc("magy", ce_magy_a, 14);
-  magz = (zt *) zt_alloc("magz", ce_magz_a, 14);
-
-  zt *tensors[7] = {eavg, zeta, C20, C40, C44, C60, C64};
-  
   /* Dummy state label preparation. */
   int nstates = 14;
   char *s[nstates];
@@ -248,6 +233,23 @@ int main (void)
     sprintf(s[i], "l=%i", i);
   }
 
+  sl *states;
+  states = sl_alloc(4, s);
+
+  /* Tensor allocs. */
+  zt *eavg, *zeta, *C20, *C40, *C44, *C60, *C64, *magx, *magy, *magz;
+  eavg = (zt *) zt_alloc("eavg", ce_eavg_a, 14, states);
+  zeta = (zt *) zt_alloc("zeta", ce_zeta_a, 14, states);
+  C20 = (zt *) zt_alloc("C20", ce_C20_a, 14, states);
+  C40 = (zt *) zt_alloc("C40", ce_C40_a, 14, states);
+  C44 = (zt *) zt_alloc("C44", ce_C44_a, 14, states);
+  C60 = (zt *) zt_alloc("C60", ce_C60_a, 14, states);
+  C64 = (zt *) zt_alloc("C64", ce_C64_a, 14, states);
+  magx = (zt *) zt_alloc("magx", ce_magx_a, 14, states);
+  magy = (zt *) zt_alloc("magy", ce_magy_a, 14, states);
+  magz = (zt *) zt_alloc("magz", ce_magz_a, 14, states);
+
+  zt *tensors[7] = {eavg, zeta, C20, C40, C44, C60, C64};
 
   double *w;
   double complex *z;
@@ -257,7 +259,7 @@ int main (void)
   zhd_w *hd_w;
 
   /* Check diagonalization routine. */
-  h = zh_alloc(nstates, 7, s, tensors);
+  h = zh_alloc(nstates, 7, tensors);
   zh_set_coeff(h, celiyf4_coeff);
   hd_w = zhd_w_alloc(h);
   zhd(w, z, h, hd_w);
@@ -378,5 +380,6 @@ int main (void)
   zt_free(magx);
   zt_free(magy);
   zt_free(magz);
+  sl_free(states);
   return 0;
 }  

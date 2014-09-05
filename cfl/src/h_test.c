@@ -99,10 +99,21 @@ int main (void)
   double complex b[16] = {0, I, 0, 0, -I, 0, 1+2*I, 0, 0, 1-2*I, 0, 2+3*I, 0, 0,
     2-3*I, 0};
 
+  /* State label preparation. */
+  char *s[4];
+  for (i=0; i<4; i++) {
+    s[i] = malloc(4*sizeof(char));
+    if (s[i] == 0) 
+      printf("Error; label array s malloc failed\n");
+    sprintf(s[i], "l=%i", i);
+  }
+  sl *states;
+  states = sl_alloc(4, s);
+
   /* Tensor allocs; neglecting state labels for now. */
   zt *t1, *t2;
-  t1 = (zt *) zt_alloc("aten", a, 4);
-  t2 = (zt *) zt_alloc("bten", b, 4);
+  t1 = (zt *) zt_alloc("aten", a, 4, states);
+  t2 = (zt *) zt_alloc("bten", b, 4, states);
 
   /*=========================================================================*/
   /* Tensor tests.                                                           */
@@ -142,15 +153,6 @@ int main (void)
   /*=========================================================================*/
   /* Hamiltonian tests.                                                      */
   /*=========================================================================*/
-  
-  /* State label preparation. */
-  char *s[4];
-  for (i=0; i<4; i++) {
-    s[i] = malloc(4*sizeof(char));
-    if (s[i] == 0) 
-      printf("Error; label array s malloc failed\n");
-    sprintf(s[i], "l=%i", i);
-  }
 
   double *w;
   double complex *z;
@@ -168,7 +170,7 @@ int main (void)
   zh *h;
   zhd_w *hd_w;
 
-  h = zh_alloc(4, 2, s, tens);
+  h = zh_alloc(4, 2, tens);
   zh_set_coeff(h, coeff);
   hd_w = zhd_w_alloc(h);
   zhd(w, z, h, hd_w);
@@ -186,7 +188,7 @@ int main (void)
   zh *h2;
   zhd_w *hd_w2;
   
-  h2 = zh_alloc(4, 1, s, tens2);
+  h2 = zh_alloc(4, 1, tens2);
   zh_set_coeff(h2, coeff2);
   hd_w2 = zhd_w_alloc(h2);
   zhd(w, z, h2, hd_w2);
@@ -222,12 +224,13 @@ int main (void)
   zh_free(h);
   free(w);
   free(z);
-  for (i=0; i<4; i++) {
-    free(s[i]);
-  }
 
   zt_free(t1);
   zt_free(t2);
+  sl_free(states);
+  for (i=0; i<4; i++) {
+    free(s[i]);
+  }
 
   /*=========================================================================*/
   /* Spin Hamiltonian inversion test.                                        */

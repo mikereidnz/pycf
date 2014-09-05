@@ -21,24 +21,30 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/*
- * @file    cfl_tensor.h
- * @brief   Common cfl typdefs and associated functions.
- */
-
 #ifndef _CFL_TENSOR_H_
 #define _CFL_TENSOR_H_
 
 #include <cfl_crs.h>
 
-/* 
- * @brief The tensor structure for complex valued matrix elements.
- */
+/* State label type. */
+typedef struct {
+  /* The number of states. */
+  size_t n;
+  /* Pointer to arrays of length l of state labels. */
+  char **states;
+  /* Pointer to hash of states. */
+  long hash;
+} sl;
+
+ 
+/* The tensor structure for complex valued matrix elements. */
 typedef struct {
   /* Pointer to tensor name character array. */
   char *name;
   /* Dimension of the matrix elements. */
   int n;
+  /* State labels of the tensor. */
+  sl *states;
   /* Pointer to the matrix elements stored in CRS form. */
   crs_zhm *matel;
 } zt; 
@@ -49,8 +55,10 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-zt *zt_alloc(char *name, double complex *a, size_t n);
-void zt_free(zt *zt);
+sl *sl_alloc(size_t n, char **states);
+void sl_free(sl *l);
+zt *zt_alloc(char *name, double complex *a, size_t n, sl *states);
+void zt_free(zt *t);
 zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2);
 zt *zt_s(char *name, zt *t, double complex s);
 

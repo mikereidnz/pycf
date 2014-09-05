@@ -36,7 +36,50 @@ from matel import matel
 
 # TODO: 
 #       + Apply a small magnetic field along z, to obtain state labels. Maybe
-#         something to directly implement in the cfl projection interface. 
+#         something to directly implement in the cfl projection interface.
+
+cdef class StateLabels:
+    r"""
+    State label type for tensors and spin Hamiltonians.
+
+    Paramters
+    ---------
+    n : int
+        The number of states.
+    states : list
+        Elements are strings corresponding to labels; all labels must be of
+        equal length.
+    """
+    cdef cfl.sl *cfl_sl
+    cdef public object sl_cap
+    def __cinit__(self, labels):
+        cdef char *char_ptr
+        cdef char **state_labels
+        cdef int label_length
+
+        state_labels = <char **>malloc(len(labels)*cython.sizeof(char_ptr))
+        if state_labels == NULL:
+            raise MemoryError("state_labels array alloc failed")
+
+        label_length = len(labels[0])
+        for i,l in enumerate(labels):
+            if (len(l) != label_length):
+                free(state_labels)
+                raise ValueError("State label '%s' is not of the same length as the first "
+                    "label in states" % l)
+            state_labels[i] = l
+
+        self.cfl_sl = cfl.sl_alloc(len(labels), state_labels) 
+        free(state_labels)
+        if self.cfl_sl == NULL:
+            raise MemoryError("cfl_sl alloc failed")
+        else:
+            self.sl_cap = PyCapsule_New(<void *>self.cfl_sl, "pycfl.StateLabels", NULL)
+
+    def __dealloc__(self):
+        if self.cfl_sl != NULL:
+            cfl.sl_free(self.cfl_sl)
+
 
 cdef class Tensor:
     r"""
@@ -62,21 +105,23 @@ cdef class Tensor:
     cpdef public str name
     cdef public str tmp_name
     cpdef public int n
+    cdef public StateLabels states
     
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='c']a,
+    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='c']a, states,
             object data_tuple=None):
         cdef cfl.zt *t
         cdef cfl.zt *t1
         cdef cfl.zt *t2
 
         self.name = <str> name
+        self.states = states
 
         if (data_tuple == None):
             n = a.shape[0]
             self.n = n
-            t = cfl.zt_alloc(name, &a[0,0], n)
+            t = cfl.zt_alloc(name, &a[0,0], n, <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
             
         elif (len(data_tuple)==3):
             # Addition or subtraction of tensors.
@@ -106,26 +151,26 @@ cdef class Tensor:
             raise TypeError("Only objects of type Tensor can be added to Tensors")
         t1.tmp_name = "{0}+{1}".format(t1.name, t2.name)
         d = (t1, t2, 1)
-        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d) 
+        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), t1.states, data_tuple=d) 
 
     def __sub__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
             raise TypeError("Only objects of type Tensor can be added to Tensors")
         t1.tmp_name = "{0}-{1}".format(t1.name, t2.name)
         d = (t1, t2, -1)
-        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d) 
+        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), t1.states, data_tuple=d) 
 
     def __mul__(x, y):
         if isinstance(x, Number):
             if isinstance(y, Tensor):
                 y.tmp_name = "{0:.2f}x{1}".format(x, y)
                 d = (y, x)
-                return Tensor(<char *>y.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d)
+                return Tensor(<char *>y.tmp_name, np.array([[]],dtype=np.complex128), y.states, data_tuple=d)
         elif isinstance(x, Tensor):
             if isinstance(y, Number):
                 x.tmp_name = "{0:.2f}x{1}".format(y, x)
                 d = (x, y)
-                return Tensor(<char *>x.tmp_name, np.array([[]],dtype=np.complex128), data_tuple=d)
+                return Tensor(<char *>x.tmp_name, np.array([[]],dtype=np.complex128), x.states, data_tuple=d)
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
 
@@ -140,9 +185,6 @@ cdef class Hamiltonian:
     tensors : list
         A list with components of type Tensor; this specifies the type of
         interactions modeled by the Hamiltonian.
-    states : list
-        A list of strings, which specify the state labels of the Hamiltonian.
-        This may be depreciated in favour of Tensor state labeling.
 
     Returns
     -------
@@ -151,8 +193,6 @@ cdef class Hamiltonian:
     """
     cdef cfl.zh *cfl_zh
     cdef cfl.zt **tensor_array
-    cdef char **state_labels
-    cdef public list states
     cdef int n
     cdef int nt
     cdef list tensors
@@ -161,15 +201,13 @@ cdef class Hamiltonian:
     cdef public np.ndarray z
     cdef public object h_cap
     cdef int coeff_set
-    def __cinit__(self, tensors, states):
-        cdef char *char_ptr
+    def __cinit__(self, tensors):
         cdef cfl.zt *ten_array_ptr
 
         n = tensors[0].n
         self.n = n
         self.nt = len(tensors)
         self.tensors = tensors
-        self.states = states
         self.coeff_set = 0
                 
         # Create array of tensors and array of character arrays to be passed to
@@ -177,25 +215,15 @@ cdef class Hamiltonian:
         tensor_array = <cfl.zt **>malloc(len(tensors)*cython.sizeof(ten_array_ptr))
         if tensor_array is NULL:
             raise MemoryError("tensor_array alloc failed")
-        state_labels = <char **>malloc(len(states)*cython.sizeof(char_ptr))
-        if state_labels is NULL:
-            free(tensor_array)
-            raise MemoryError("state_labels alloc failed")
         
-        self.state_labels = state_labels
         self.tensor_array = tensor_array
-
-        for i,s in enumerate(states):
-            state_labels[i] = s
-
         for i,t in enumerate(tensors):
             tensor_array[i] = <cfl.zt *> PyCapsule_GetPointer(t.t_cap, "pycfl.Tensor")
 
         # Allocate storage for zh. 
-        self.cfl_zh = cfl.zh_alloc(n, self.nt, state_labels, tensor_array)
+        self.cfl_zh = cfl.zh_alloc(n, self.nt, tensor_array)
         if self.cfl_zh is NULL:
             free(tensor_array)
-            free(state_labels)
             raise MemoryError("cfl_zh alloc failed")
         else:
             self.h_cap = PyCapsule_New(<void *>self.cfl_zh, "pycfl.Hamiltonian", NULL)
@@ -203,9 +231,6 @@ cdef class Hamiltonian:
     def __dealloc__(self):
         if self.cfl_zh is not NULL:
             cfl.zh_free(self.cfl_zh)
-
-        if self.state_labels is not NULL:
-            free(self.state_labels)
 
         if self.tensor_array is not NULL:
             free(self.tensor_array)
@@ -264,7 +289,6 @@ cdef class Hamiltonian:
         hd_w = cfl.zhd_w_alloc(self.cfl_zh)
         if hd_w is NULL:
             free(self.tensor_array)
-            free(self.state_labels)
             cfl.zh_free(self.cfl_zh)
             raise MemoryError("hd_w alloc failed")
 
@@ -744,7 +768,7 @@ cdef class SpinHamiltonian:
             for i,t in enumerate(h):
                 if t not in so_tensors:
                     fo_tensors += [t]
-            h = Hamiltonian(fo_tensors, h.states)
+            h = Hamiltonian(fo_tensors)
 
         # Diagonalize the complete Hamiltonian, then determine the sh terms and
         # finally do the inversion for each interaction of sh.
@@ -1044,7 +1068,7 @@ cdef class ESHFitRunner(object):
             for i,t in enumerate(h):
                 if t not in so_tensors:
                     fo_tensors += [t]
-            self.hfo = Hamiltonian(fo_tensors, h.states)
+            self.hfo = Hamiltonian(fo_tensors)
         else:
             self.hfo = None
 

@@ -22,9 +22,8 @@
  */
 
 /*
- * @file    cfl_h.h
- * @brief   Diagonalization, and associated, routines for crystal-field and spin
- *          Hamiltonians.
+ * Diagonalization, and associated, routines for crystal-field and spin
+ * Hamiltonians.
  */
 
 #ifndef _CFL_H_H_
@@ -34,16 +33,12 @@
 #include <cfl_crs.h>
 #include <cfl_tensor.h>
 
-/*
- * @brief The Hamiltonian structure.
- */
+/* The Hamiltonian structure. */
 typedef struct {
   /* Dimension of the Hamiltonian. */
   int n;
   /* Number of tensors. */
   int nt;
-  /* State labels corresponding to eigenvalues. */
-  char **states;
   /* Pointer to array of pointers to complex valued tensors. */
   zt **t;
   /* Tensor coefficients. */
@@ -53,9 +48,7 @@ typedef struct {
 } zh;
 
 
-/*
- * @brief Work space type declaration for Hamiltonian diagonalization. 
- */
+/* Work space type declaration for Hamiltonian diagonalization. */
 typedef struct {
   /* Workspace for summing the tensors for currently set coefficents. */
   crs_zhm **coeff_w;
@@ -81,7 +74,7 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-zh *zh_alloc(int n, int nt, char **s, zt **t); 
+zh *zh_alloc(int n, int nt, zt **t); 
 void zh_free(zh *h);
 void zh_set_coeff(zh *h, double complex *coeff);
 zhd_w *zhd_w_alloc(zh *h);
