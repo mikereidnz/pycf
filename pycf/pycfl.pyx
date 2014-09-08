@@ -76,6 +76,7 @@ cdef class StateLabels:
         else:
             self.sl_cap = PyCapsule_New(<void *>self.cfl_sl, "pycfl.StateLabels", NULL)
 
+
     def __dealloc__(self):
         if self.cfl_sl != NULL:
             cfl.sl_free(self.cfl_sl)
@@ -141,7 +142,7 @@ cdef class Tensor:
             raise MemoryError("Cannot alloc zt memory")
         else:
             self.t_cap = PyCapsule_New(<void *>t, "pycfl.Tensor", NULL)
-            
+
     def __dealloc__(self):
         if self.t_cap is not None:
             cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
@@ -163,12 +164,12 @@ cdef class Tensor:
     def __mul__(x, y):
         if isinstance(x, Number):
             if isinstance(y, Tensor):
-                y.tmp_name = "{0:.2f}x{1}".format(x, y)
+                y.tmp_name = "{0:.2f}x{1}".format(x, y.name)
                 d = (y, x)
                 return Tensor(<char *>y.tmp_name, np.array([[]],dtype=np.complex128), y.states, data_tuple=d)
         elif isinstance(x, Tensor):
             if isinstance(y, Number):
-                x.tmp_name = "{0:.2f}x{1}".format(y, x)
+                x.tmp_name = "{0:.2f}x{1}".format(y, x.name)
                 d = (x, y)
                 return Tensor(<char *>x.tmp_name, np.array([[]],dtype=np.complex128), x.states, data_tuple=d)
         else:

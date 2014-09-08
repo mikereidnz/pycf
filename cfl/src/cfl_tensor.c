@@ -45,10 +45,10 @@
  *  str_a     Array of strings to hash. 
  */
 long state_hash(size_t n, char **str_a) {
-  long hash = 5381;
+  unsigned long hash = 5381;
   int i, c;
   char *str;
-  
+   
   for (i=0; i<n; i++) {
     str = str_a[i];
     while (c = *str++) {
@@ -56,7 +56,6 @@ long state_hash(size_t n, char **str_a) {
       hash = ((hash << 5) + hash) + c;
     }
   }
-
   return hash;
 }
 
@@ -115,7 +114,6 @@ void sl_free(sl *l) {
   free(l);
 }
 
-
 /*
  * Allocate storage for complex valued tensors. 
  *
@@ -144,7 +142,7 @@ zt *zt_alloc(char *name, double complex *a, size_t n, sl *states) {
   t->n = n;
   t->states = states;
   t->matel = ma;
-
+  
   return t;
 }
 
@@ -170,7 +168,10 @@ zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2) {
   zt *t;
 
   if (t1->n != t2->n) {
-    CFL_ERROR_VOID("tensor dimensions do not match");
+    CFL_ERROR_VOID("dimensions of tensors to be added do not match");
+  }
+  else if (t1->states->hash != t2->states->hash) {
+    CFL_ERROR_VOID("state labels of tensors to be added don't match");
   }
 
   t = (zt *) malloc(sizeof(zt));
@@ -187,6 +188,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2) {
 
   t->name = name;
   t->n = t1->n;
+  t->states = t1->states;
 
   return t;
 }
@@ -218,6 +220,7 @@ zt *zt_s(char *name, zt *t, double complex s) {
 
   ts->name = name;
   ts->n = t->n;
+  ts->states = t->states;
 
   return ts;
 } 
