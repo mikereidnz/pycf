@@ -490,20 +490,16 @@ cdef class SHTermData(object):
     """
     cpdef public str type
     cdef public int pro_data
-    cdef public int exp_data
     cdef public list terms
     cdef public SHTerm term
     cdef np.ndarray coeff
     cdef cfl.zsh_inv_data *cfl_inv_data
     cdef public object inv_data_cap
-    cdef public np.ndarray exp_tensor
-    cdef public float chisq_weight
 
     def __init__(self, d, inter, coeff):
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
         self.type = inter
         self.pro_data = 0
-        self.exp_data = 0
         if inter == 'zeeman':
             self.terms = [SHTerm(d, 'zeeman_x'), SHTerm(d, 'zeeman_y'), SHTerm(d, 'zeeman_z')]
         else:
@@ -530,11 +526,6 @@ cdef class SHTermData(object):
         else:
             self.term.set_pro_data(tensor, l)
         self.pro_data = 1
-
-    def set_exp_data(self, exp_tensor, chisq_weight):
-        self.exp_tensor = exp_tensor
-        self.chisq_weight = chisq_weight
-        self.exp_data = 1
 
 
 cdef class SpinHamiltonian:
@@ -688,35 +679,6 @@ cdef class SpinHamiltonian:
         raise ValueError("This spin Hamiltonian object was not instantiated with {} "
             "interaction support.".format(interaction))
 
-    
-    def set_exp_data(self, interaction, exp_tensor, chisq_weight):
-        r"""
-        Set the inversion data for a specific spin Hamiltonian interaction. 
-
-        Parameters
-        ----------
-        interaction : string
-            Valid options are 'zeeman', 'hyperfine', and 'quadrupole'. 
-        exp_tensor : np.ndarray
-            One by nine dimensional array of dtype=np.complex128 specifying the
-            experimental spin Hamiltonian tensor values.
-        chisq_weight : float
-            The weighting applied to the chi_square fit for this interaction.
-        """
-        for i in self.interactions:
-            if i.type == interaction:
-                if not isinstance(exp_tensor, np.ndarray):
-                    raise TypeError("exp_tensor must be a np.ndarray.")
-                if exp_tensor.shape == (3, 3):
-                    i.set_exp_data(np.ascontiguousarray(exp_tensor.flatten(), dtype=np.complex128), chisq_weight)
-                elif exp_tensor.shape == (9,):
-                    i.set_exp_data(np.ascontiguousarray(exp_tensor, dtype=np.complex128), chisq_weight)
-                else: 
-                    raise ValueError("exp_tensor must either be a (3, 3) or (9, 1) array.")
-                return
-            
-        raise ValueError("This spin Hamiltonian object was not instantiated with {} "
-            "interaction support.".format(interaction))
     
     def calc_param(self, h):
         r"""
@@ -1012,11 +974,13 @@ cdef class ESHFitRunner(object):
     cdef cfl.shx_data **shx_array
     cdef np.ndarray ex_e
     cdef np.ndarray ex_li
+    cdef list shx_list
+    cdef dict weights
     cdef np.ndarray p0_real
     cdef np.ndarray coeff
     cdef cfl.eshfit_data *eshfit_data
 
-    def __init__(self, parameters, sh, h, coeff_list, ex):
+    def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.zsh *zsh_array_ptr
         cdef cfl.shx_data *shx_data_ptr
@@ -1145,6 +1109,7 @@ cdef class ESHFitRunner(object):
             free(param_array)
             raise MemoryError("sh_array alloc failed")
         self.sh_array = sh_array
+        self.weights = weights
         shx_array = <cfl.shx_data **>malloc(len(sh.interactions)*cython.sizeof(shx_data_ptr))
         if shx_array == NULL:
             for i in range(self.n_p):
@@ -1153,9 +1118,44 @@ cdef class ESHFitRunner(object):
             free(param_array)
             free(sh_array)
             raise MemoryError("shx_array alloc failed")
+        self.shx_list = []
         self.shx_array = shx_array
         j = 0
         for i,inter in enumerate(sh.interactions):
+            if inter.type not in shx:
+                for j in range(i):
+                    free(shx_array[j])
+                for j in range(self.n_p):
+                    free(param_array[i])
+                free(self.ex_data)
+                free(param_array)
+                free(sh_array)
+                free(shx_array)
+                raise ValueError("The spin Hamiltonian experimental data dictonary is missing data for the {} interaction.".format(inter.type))
+            elif not isinstance(shx[inter.type], np.ndarray):
+                for j in range(i):
+                    free(shx_array[j])
+                for j in range(self.n_p):
+                    free(param_array[i])
+                free(self.ex_data)
+                free(param_array)
+                free(sh_array)
+                free(shx_array)
+                raise TypeError("exp_tensor must be a np.ndarray.")
+            elif shx[inter.type].shape == (3, 3):
+                self.shx_list += [np.ascontiguousarray(shx[inter.type].flatten(), dtype=np.complex128)]
+            elif shx[inter.type].shape == (9,):
+                self.shx_list += [np.ascontiguousarray(shx[inter.type], dtype=np.complex128)]
+            else:
+                for j in range(i):
+                    free(shx_array[j])
+                for j in range(self.n_p):
+                    free(param_array[i])
+                free(self.ex_data)
+                free(param_array)
+                free(sh_array)
+                free(shx_array)
+                raise ValueError("exp_tensor must either be a (3, 3) or (9, 1) array.")
             if inter.type == 'zeeman':
                 for j,t in enumerate(inter.terms):
                     sh_array[i+j] = <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm")
@@ -1173,19 +1173,9 @@ cdef class ESHFitRunner(object):
                 free(sh_array)
                 free(shx_array)
                 raise MemoryError("shx_array[{}] alloc failed".format(i))
-            if not inter.exp_data:
-                for j in range(i-1):
-                    free(shx_array[j])
-                for j in range(self.n_p):
-                    free(param_array[i])
-                free(self.ex_data)
-                free(param_array)
-                free(sh_array)
-                free(shx_array)
-                raise ValueError("The spin Hamiltonian interaction {} is missing experimental data.".format(i.type))
-            shx_pa = <np.ndarray[double complex, ndim=1, mode="c"]> inter.exp_tensor
+            shx_pa = <np.ndarray[double complex, ndim=1, mode="c"]> self.shx_list[i]
             shx_array[i].pa = &shx_pa[0]
-            shx_array[i].chisq_weight = inter.chisq_weight
+            shx_array[i].chisq_weight = self.weights[inter.type]
             shx_array[i].inv_data = <cfl.zsh_inv_data *>PyCapsule_GetPointer(inter.inv_data_cap, "pycfl.InvData")
         
         if (self.hfo != None):
@@ -1273,7 +1263,7 @@ def e_fit(parameters, h, coeff, ex, niter):
     return coeff
 
 
-def esh_fit(parameters, sh, h, coeff, ex, niter):
+def esh_fit(parameters, sh, h, coeff, ex, shx, weights, niter):
     r"""
     Fit parameters to energy level data. 
  
@@ -1300,7 +1290,7 @@ def esh_fit(parameters, sh, h, coeff, ex, niter):
         The number of basinhopping iterations to complete. 
         
     """
-    eshfit = ESHFitRunner(parameters, sh, h, coeff, ex)
+    eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights)
     coeff = eshfit.bh_fit(niter)
  
     return coeff
