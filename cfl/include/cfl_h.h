@@ -39,6 +39,8 @@ typedef struct {
   int n;
   /* Number of tensors. */
   int nt;
+  /* State labels. */
+  sl *states;
   /* Pointer to array of pointers to complex valued tensors. */
   zt **t;
   /* Tensor coefficients. */

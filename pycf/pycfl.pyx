@@ -304,6 +304,15 @@ cdef class Hamiltonian:
         cfl.zhd_w_free(hd_w)
         return (w, z)
 
+    cpdef print_labels(self):
+        cdef cfl.zh *h = self.cfl_zh
+
+        labels = [] 
+        for i in range(self.n):
+            labels += [h.states.states[i]]
+
+        return labels
+
 
 cpdef zeeman_sh_coeff(v, t):
     r"""
@@ -721,7 +730,7 @@ cdef class SpinHamiltonian:
         Returns
         -------
         param : list
-            Elements are nd.arrays corresponding spin Hamiltonian tensors of
+            Elements are nd.arrays corresponding to spin Hamiltonian tensors of
             interactions specified when the spin Hamiltonian object was
             instantiated. 
         """

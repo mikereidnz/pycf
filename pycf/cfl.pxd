@@ -39,7 +39,9 @@ cdef extern from "../../cfl/include/cfl_crs.h":
 
 cdef extern from "../../cfl/include/cfl_tensor.h":
     ctypedef struct sl:
-        pass
+        size_t n
+        char **states
+        long hash
 
     ctypedef struct zt:
         pass
@@ -54,8 +56,13 @@ cdef extern from "../../cfl/include/cfl_tensor.h":
 
 cdef extern from "../../cfl/include/cfl_h.h":
     ctypedef struct zh:
-        pass
-
+        int n
+        int nt
+        sl *states
+        zt **t
+        double complex *coeff
+        double complex *ap
+        
     ctypedef struct zhd_w:
         pass
     
@@ -65,7 +72,7 @@ cdef extern from "../../cfl/include/cfl_h.h":
     zhd_w *zhd_w_alloc(zh *h)
     void zhd_w_free(zhd_w *hd_w)
     void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) nogil
-
+    void h_getlabels(zh *h, char **states)
 
 cdef extern from "../../cfl/include/cfl_sh.h":
     ctypedef struct zsh:

@@ -28,6 +28,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <complex.h>
 #include <lapacke.h>
@@ -50,17 +51,19 @@ zh *zh_alloc(int n, int nt, zt **t) {
   int i;
   double complex *ap;
 
+  h = (zh *) malloc(sizeof(zh));
+  if (h == 0) {
+    CFL_ERROR_NULL("malloc failed for h");
+  }
+
   /* Ensure all tensors have matching state labels. */
   for (i=1; i<nt; i++) {
     if (t[0]->states->hash != t[i]->states->hash) {
       CFL_ERROR_NULL("Tensors have mismatching state labels")
     }
   }
+  h->states = t[0]->states;
 
-  h = (zh *) malloc(sizeof(zh));
-  if (h == 0) {
-    CFL_ERROR_NULL("malloc failed for h");
-  }
   ap = (double complex *) calloc(n*(n+1)/2,sizeof(double complex));
   if (ap == 0) {
     free(h);
