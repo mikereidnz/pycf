@@ -160,9 +160,10 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2):
     ex_i=0
     for i in range(len(z)):
         line = "{0:<6}".format(i+1)
+        N = np.sum(np.abs(z[i, :]))
         for j in range(nstates):
             si = sort_list[i][j]
-            line += "({0: .3f}) {1:5.1%} {2:>5} {3} ".format(z[i,si], np.abs(z[i,si]), si+1, labels[si])
+            line += "({0: .3f}) {1:5.1%} {2:>5} {3} ".format(z[i,si], np.abs(z[i,si])/N, si+1, labels[si])
         s += line + " {: >10.4f}".format(w[i])
         if ex != None:
             if ex[ex_i,0] == i:
