@@ -174,7 +174,7 @@ int main (void)
 
   double bounds_l[2] = {-10, -10};
   double bounds_u[2] = {10, 10};
-  bh_bounds bounds;
+  cfl_min_bounds bounds;
 
   bounds.l = bounds_l;
   bounds.u = bounds_u;

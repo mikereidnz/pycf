@@ -130,7 +130,7 @@ typedef struct {
   double *l;
   /* Upper bounds. */
   double *u;
-} bh_bounds;
+} cfl_min_bounds;
 
 /* Implemented local minimization routines for the generic bh_fit function. */
 typedef enum {
@@ -173,7 +173,7 @@ typedef struct {
   /* Pointer to data holding stepsize information. */
   bh_step_data *step_data;
   /* Pointer to parameter bounds. */
-  bh_bounds *bounds;
+  cfl_min_bounds *bounds;
   /* The current energy. */
   double e;
   /* The current temperature. */
@@ -204,13 +204,13 @@ int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
 bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double
-      *fmin, void *w), void *lmin_w, bh_bounds *bounds);
+      *fmin, void *w), void *lmin_w, cfl_min_bounds *bounds);
 void bh_work_free(bh_work *w);
 void bh_set_step(bh_work *w, double *stepsize, float target_accept_rate,
     size_t interval, float factor);
 int bh_min(double *x, double *fmin, void *work);
 int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
-    double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds, bh_lmin
+    double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, bh_lmin
     lmintype);
 #ifdef __cplusplus
 }

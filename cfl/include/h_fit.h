@@ -137,9 +137,9 @@ eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh
     *hfo, double complex *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
     param_type **p);
 void eshfit_data_free(eshfit_data *data);
-int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
+int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
     bh_lmin lmintype);
-int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
+int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
     *bounds, bh_lmin lmintype);
 #ifdef __cplusplus
 }

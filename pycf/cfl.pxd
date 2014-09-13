@@ -107,7 +107,7 @@ cdef extern from "../../cfl/include/cfl_sh.h":
 
 
 cdef extern from "../../cfl/include/basinhopping.h":
-    ctypedef struct bh_bounds:
+    ctypedef struct cfl_min_bounds:
         double *l
         double *u
 
@@ -122,7 +122,7 @@ cdef extern from "../../cfl/include/basinhopping.h":
         pass
 
     int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
-            double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds,
+            double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
             bh_lmin lmintype)
     void bh_set_step(bh_work *w, double *stepsize, float target_accept_rate,
             size_t interval, float factor)
@@ -156,7 +156,7 @@ cdef extern from "../../cfl/include/h_fit.h":
             zh *hfo, double complex *coeff, ex_data *ex, shx_data **shx, size_t
             n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
-    int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
+    int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
             *bounds, bh_lmin lmintype) nogil
-    int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, bh_bounds
+    int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
             *bounds, bh_lmin lmintype) nogil

@@ -654,7 +654,7 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
  *  bounds  Pointer to a bounds object; in case of no bounds, pass a NULL
  *          pointer.
  */
-bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w, bh_bounds *bounds) {
+bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_w, cfl_min_bounds *bounds) {
   int i;
   bh_work *w;
   double *x;
@@ -907,7 +907,7 @@ int bh_min(double *x, double *fmin, void *work) {
  *              + gsl_vector_bfgs2 
  */
 int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
-    double *x0, size_t nx, void *data, size_t niter, bh_bounds *bounds, bh_lmin
+    double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, bh_lmin
     lmintype) {
   int status;
   double fmin;
