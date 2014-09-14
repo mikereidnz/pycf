@@ -169,8 +169,8 @@ def wigner_9j(a, b, c, d, e, f, g, h, i):
         j_{31} & j_{32} & j_{33}
         \end{Bmatrix}.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     a : integer or half-integer
         The value of `j_{11}`.
     b : integer or half-integer
