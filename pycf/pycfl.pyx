@@ -32,13 +32,19 @@ from cpython.pycapsule cimport *
 from python_ref cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from matel import matel
-
+from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 
 # TODO: 
 #       + Apply a small magnetic field along z, to obtain state labels. Maybe
 #         something to directly implement in the cfl projection interface.
 #       + Add checks whether efit/eshfit data alloc functions return NULL and
 #       corresponding frees.
+#       + Current SpinHamiltonian has a really confusing naming scheme with
+#       interactions... the local variable interactions is a list of strings,
+#       whereas self.interactions is a list of SHTermData objects... rename
+#       self.interactions to self.inter_data, or whatever. Then, assign
+#       interactions to self.interactions, which will correct bug in sh summary
+#       printing for eshfit.
 
 cdef class StateLabels:
     r"""
@@ -204,6 +210,7 @@ cdef class Hamiltonian:
     cdef public np.ndarray z
     cdef public object h_cap
     cdef int coeff_set
+    cdef int diag_run
     def __cinit__(self, tensors):
         cdef cfl.zt *ten_array_ptr
 
@@ -212,6 +219,7 @@ cdef class Hamiltonian:
         self.nt = len(tensors)
         self.tensors = tensors
         self.coeff_set = 0
+        self.diag_run = 0
                 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function. 
@@ -304,16 +312,19 @@ cdef class Hamiltonian:
             cfl.zhd(&w[0], &z[0,0], h, hd_w)
 
         cfl.zhd_w_free(hd_w)
+        self.diag_run = 1
         return (w, z)
 
-    cpdef print_labels(self):
+    cpdef public gen_summary(self):
         cdef cfl.zh *h = self.cfl_zh
 
-        labels = [] 
-        for i in range(self.n):
-            labels += [h.states.states[i]]
-
-        return labels
+        if self.diag_run:
+            labels = [] 
+            for i in range(self.n):
+                labels += [h.states.states[i]]
+            return gen_e_summary(self.w, self.z, labels)
+        else:
+            raise ValueError("Hamiltonian must have run diag prior to summary generation.")
 
 
 cpdef zeeman_sh_coeff(v, t):
@@ -803,6 +814,8 @@ cdef class EFitRunner(object):
     cdef Hamiltonian h
     cdef int n_p
     cdef int n_p_real
+    cpdef public dict param_initial
+    cpdef public list param_indices
     cdef list param_types
     cdef cfl.ex_data *ex_data
     cdef cfl.param_type **param_array
@@ -819,10 +832,11 @@ cdef class EFitRunner(object):
         cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
-
+        
         self.h = h
         self.n_p = len(parameters)
-
+        
+        self.param_initial = {}
         param_indices = []
         param_types = []
         n_p_real = 0
@@ -844,8 +858,12 @@ cdef class EFitRunner(object):
                 param_types.append('r')
                 n_p_real += 1
             param_indices.append(pi)
+            # Create dict with initial values of coefficients; used for printing
+            # a fitting summary.
+            self.param_initial[p.name] = coeff_list[pi]
         
         self.n_p_real = n_p_real
+        self.param_indices = param_indices
         self.param_types = param_types
         if n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds "
@@ -929,19 +947,19 @@ cdef class EFitRunner(object):
             algorithm, bounds and other settings as applicable to the selected
             algorithm.
         """
-        cdef np.ndarray[double, ndim=1, mode="c"] x0
+        cdef np.ndarray[double, ndim=1, mode="c"] x
 
-        x0 = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        min_object.minimize(self.obj_f_cap, x0, self.efit_data_cap)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        min_object.minimize(self.obj_f_cap, x, self.efit_data_cap)
 
-        coeff = np.zeros(self.n_p, dtype=np.complex128)
+        coeff = self.coeff 
         ri = 0
         for i in range(self.n_p):
             if (self.param_types[i] == 'c'): 
-                coeff[i] = np.complex(x0[ri], x0[ri+1])
+                coeff[self.param_indices[i]] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[i] = x0[ri]
+                coeff[self.param_indices[i]] = x[ri]
                 ri += 1
 
         return(coeff)
@@ -982,6 +1000,8 @@ cdef class ESHFitRunner(object):
     cdef Hamiltonian hfo
     cdef int n_p
     cdef int n_p_real
+    cpdef public dict param_initial
+    cpdef public list param_indices
     cdef list param_types
     cdef int nzeeman
     cdef cfl.ex_data *ex_data
@@ -1011,6 +1031,7 @@ cdef class ESHFitRunner(object):
         self.h = h
         self.n_p = len(parameters)
 
+        self.param_initial = {}
         param_indices = []
         param_types = []
         n_p_real = 0
@@ -1032,8 +1053,13 @@ cdef class ESHFitRunner(object):
                 param_types.append('r')
                 n_p_real += 1
             param_indices.append(pi)
+
+            # Create dict with initial values of coefficients; used for printing
+            # a fitting summary.
+            self.param_initial[p.name] = coeff_list[pi]
         
         self.n_p_real = n_p_real
+        self.param_indices = param_indices
         self.param_types = param_types
         
         # Determine whether there are any second order tensors; that is, whether
@@ -1242,19 +1268,19 @@ cdef class ESHFitRunner(object):
             algorithm, bounds and other settings as applicable to the selected
             algorithm.
         """
-        cdef np.ndarray[double, ndim=1, mode="c"] x0
+        cdef np.ndarray[double, ndim=1, mode="c"] x
 
-        x0 = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        min_object.minimize(self.obj_f_cap, x0, self.eshfit_data_cap)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap)
 
-        coeff = np.zeros(self.n_p, dtype=np.complex128)
+        coeff = self.coeff 
         ri = 0
         for i in range(self.n_p):
             if (self.param_types[i] == 'c'): 
-                coeff[i] = np.complex(x0[ri], x0[ri+1])
+                coeff[self.param_indices[i]] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[i] = x0[ri]
+                coeff[self.param_indices[i]] = x[ri]
                 ri += 1
 
         return(coeff)
@@ -1272,7 +1298,8 @@ cdef class CFLMin:
         Dictionary of arguments for the minimization routine.
 
     """
-    cdef str method
+    cpdef public str method
+    cpdef public dict kwargs
     cdef int niter
     cdef np.ndarray lbounds
     cdef np.ndarray ubounds
@@ -1284,6 +1311,7 @@ cdef class CFLMin:
         cdef cfl.cfl_min_bounds *bounds
 
         self.method = method
+        self.kwargs = kwargs
 
         if 'bounds' in kwargs:
             self.lbounds = kwargs['bounds'][0]
@@ -1333,6 +1361,7 @@ cdef class CFLMin:
                 cfl.bh_fit(obj_f_ptr, &cx0[0], cnx, data_ptr, self.niter, self.bounds, self.bh_lmintype)
 
 
+
 def e_fit(parameters, h, coeff, ex, cfl_min):
     r"""
     Fit parameters to energy level data. 
@@ -1359,9 +1388,18 @@ def e_fit(parameters, h, coeff, ex, cfl_min):
         corresponding options.
     """
     efit = EFitRunner(parameters, h, coeff, ex)
-    coeff = efit.fit(cfl_min)
+    x = efit.fit(cfl_min)
+    
+    h.set_coeff(x)
+    h.diag()
+    summary = "=============\n"
+    summary+= "e_fit summary\n"
+    summary+= "=============\n\n"
+    summary += h.gen_summary()
+    summary += "\n"
+    summary += gen_fit_summary(np.real(x), efit.param_indices, efit.param_initial, cfl_min.method, **cfl_min.kwargs)
 
-    return coeff
+    return {'coeff': x, 'summary': summary}
 
 
 def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
@@ -1401,14 +1439,23 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
     """
     eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights)
     coeff = eshfit.fit(cfl_min)
- 
-    return coeff
-
-   
 
 
+    x = eshfit.fit(cfl_min)
+    
+    h.set_coeff(x)
+    h.diag()
 
+    summary = "===============\n"
+    summary+= "esh_fit summary\n"
+    summary+= "===============\n\n"
+    summary += h.gen_summary()
+    summary += "\n"
+    print(sh.calc_param(h))
+    print(sh.interactions)
+    summary += gen_sh_summary(sh.calc_param(h), sh.interactions, shx)
+    summary += "\n"
+    summary += gen_fit_summary(np.real(x), eshfit.param_indices, eshfit.param_initial, cfl_min.method, **cfl_min.kwargs)
 
-
-
+    return {'coeff': x, 'summary': summary}
 
