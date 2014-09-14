@@ -37,6 +37,8 @@ from matel import matel
 # TODO: 
 #       + Apply a small magnetic field along z, to obtain state labels. Maybe
 #         something to directly implement in the cfl projection interface.
+#       + Add checks whether efit/eshfit data alloc functions return NULL and
+#       corresponding frees.
 
 cdef class StateLabels:
     r"""
@@ -794,7 +796,7 @@ cdef class EFitRunner(object):
         real and the imaginary, components of the corresponding prefactors are
         varied by the fitting routine.
     ex : np.ndarray
-        2 by n dimensional array, with n the number available experimental
+        2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
         second column contains corresponding experimental energy level values. 
     """
@@ -809,6 +811,8 @@ cdef class EFitRunner(object):
     cdef np.ndarray p0_real
     cdef np.ndarray coeff
     cdef cfl.efit_data *efit_data
+    cdef object obj_f_cap
+    cdef object efit_data_cap
 
     def __init__(self, parameters, h, coeff_list, ex):
         cdef cfl.param_type *param_type_ptr
@@ -900,6 +904,8 @@ cdef class EFitRunner(object):
 
         self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
                 &coeff[0], self.ex_data, self.n_p, self.param_array);
+        self.efit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
+        self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -912,14 +918,21 @@ cdef class EFitRunner(object):
         if self.efit_data != NULL:
             cfl.efit_data_free(self.efit_data)
     
-    def bh_fit(self, niter):
+    def fit(self, min_object):
+        r"""
+        Run the fit using the provided minimization object.
+
+        Parameters
+        ----------
+        min_object : CFLMin
+            The minimization object to be used, which sets the optimization
+            algorithm, bounds and other settings as applicable to the selected
+            algorithm.
+        """
         cdef np.ndarray[double, ndim=1, mode="c"] x0
-        cdef int cniter
-        
+
         x0 = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        cniter = niter
-        with nogil:
-            bh_e_fit(&x0[0], self.n_p_real, self.efit_data, cniter, NULL, gsl_vector_bfgs2)
+        min_object.minimize(self.obj_f_cap, x0, self.efit_data_cap)
 
         coeff = np.zeros(self.n_p, dtype=np.complex128)
         ri = 0
@@ -932,7 +945,6 @@ cdef class EFitRunner(object):
                 ri += 1
 
         return(coeff)
-
 
 
 
@@ -957,9 +969,13 @@ cdef class ESHFitRunner(object):
         real and the imaginary, components of the corresponding prefactors are
         varied by the fitting routine.
     ex : np.ndarray
-        2 by n dimensional array, with n the number available experimental
+        2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
         second column contains corresponding experimental energy level values. 
+    shx : dict
+        Specifies the experimental spin Hamiltonian data.  Valid keys are
+        'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
+        np.ndarrays corresponding to the experimental spin Hamiltonian tensor.
     """
     cdef SpinHamiltonian sh
     cdef Hamiltonian h
@@ -979,6 +995,8 @@ cdef class ESHFitRunner(object):
     cdef np.ndarray p0_real
     cdef np.ndarray coeff
     cdef cfl.eshfit_data *eshfit_data
+    cdef object obj_f_cap
+    cdef object eshfit_data_cap
 
     def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights):
         cdef cfl.param_type *param_type_ptr
@@ -1131,7 +1149,8 @@ cdef class ESHFitRunner(object):
                 free(param_array)
                 free(sh_array)
                 free(shx_array)
-                raise ValueError("The spin Hamiltonian experimental data dictonary is missing data for the {} interaction.".format(inter.type))
+                raise ValueError("The spin Hamiltonian experimental data dictonary "
+                        "is missing data for the {} interaction.".format(inter.type))
             elif not isinstance(shx[inter.type], np.ndarray):
                 for j in range(i):
                     free(shx_array[j])
@@ -1183,11 +1202,16 @@ cdef class ESHFitRunner(object):
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
                     <cfl.zh *>PyCapsule_GetPointer(self.hfo.h_cap, "pycfl.Hamiltonian"), &coeff[0],
                     self.ex_data, shx_array, self.n_p, self.param_array)
+            self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
+
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
                     self.ex_data, shx_array, self.n_p, self.param_array)
- 
+            self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_h_obj, "pycfl.MinObjF", NULL)
+
+        self.eshfit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
+
     def __dealloc__(self):
         if self.ex_data != NULL:
             free(self.ex_data)
@@ -1206,14 +1230,22 @@ cdef class ESHFitRunner(object):
         if self.eshfit_data != NULL:
             cfl.eshfit_data_free(self.eshfit_data)
      
-    def bh_fit(self, niter):
+
+    def fit(self, min_object):
+        r"""
+        Run the fit using the provided minimization object.
+
+        Parameters
+        ----------
+        min_object : CFLMin
+            The minimization object to be used, which sets the optimization
+            algorithm, bounds and other settings as applicable to the selected
+            algorithm.
+        """
         cdef np.ndarray[double, ndim=1, mode="c"] x0
-        cdef int cniter
-        
+
         x0 = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        cniter = niter
-        with nogil:
-            bh_esh_fit(&x0[0], self.n_p_real, self.eshfit_data, cniter, NULL, gsl_vector_bfgs2)
+        min_object.minimize(self.obj_f_cap, x0, self.eshfit_data_cap)
 
         coeff = np.zeros(self.n_p, dtype=np.complex128)
         ri = 0
@@ -1227,8 +1259,81 @@ cdef class ESHFitRunner(object):
 
         return(coeff)
 
+cdef class CFLMin:
+    r"""
+    Object for initializing and configuring minimization routines to be passed
+    to e_fit or esh_fit.
 
-def e_fit(parameters, h, coeff, ex, niter):
+    Parameters
+    ----------
+    method : string
+        The minimization routine to employ.
+    kwargs : string
+        Dictionary of arguments for the minimization routine.
+
+    """
+    cdef str method
+    cdef int niter
+    cdef np.ndarray lbounds
+    cdef np.ndarray ubounds
+    cdef cfl.cfl_min_bounds *bounds
+    cdef cfl.bh_lmin bh_lmintype
+    def __cinit__(self, method, **kwargs):
+        cdef np.ndarray[double, ndim=1, mode="c"] clb
+        cdef np.ndarray[double, ndim=1, mode="c"] cub
+        cdef cfl.cfl_min_bounds *bounds
+
+        self.method = method
+
+        if 'bounds' in kwargs:
+            self.lbounds = kwargs['bounds'][0]
+            self.ubounds = kwargs['bounds'][1]
+            clb = <np.ndarray[double, ndim=1, mode="c"]> self.lbounds
+            cub = <np.ndarray[double, ndim=1, mode="c"]> self.ubounds
+            bounds = <cfl.cfl_min_bounds *>malloc(cython.sizeof(cfl.cfl_min_bounds))
+            bounds.l = &clb[0]
+            bounds.u = &cub[0]
+            self.bounds = bounds
+        else:
+            self.bounds = NULL
+
+        if method == 'basinhopping':
+            if 'niter' in kwargs:
+                self.niter = kwargs['niter']
+            else:
+                self.niter = 100
+            if 'lmin_type' in kwargs:
+                self.bh_lmintype = {'gsl_nmsimplex2rand' : gsl_nmsimplex2rand,
+                        'gsl_nmsimplex2' : gsl_nmsimplex2,
+                        'gsl_conjugate_fr' : gsl_conjugate_fr,
+                        'gsl_conjugate_pr' : gsl_conjugate_pr,
+                        'gsl_vector_bfgs2' : gsl_vector_bfgs2}[kwargs['lmin_type']]
+            else:
+                self.bh_lmintype = gsl_vector_bfgs2
+        else:
+            raise NotImplementedError("Minimization method '%s' is not an existing option." % method)
+
+    def __dealloc__(self):
+        if self.bounds != NULL:
+            free(self.bounds)
+
+    cpdef minimize(self, objective_f, x0, data):
+        cdef np.ndarray[double, ndim=1, mode="c"] cx0
+        cdef size_t cnx
+        cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
+        cdef void *data_ptr
+
+        cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
+        cnx = <size_t> len(x0)
+
+        obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(objective_f, "pycfl.MinObjF")
+        data_ptr = <void *>PyCapsule_GetPointer(data, "pycfl.MinData")
+        if self.method == 'basinhopping':
+            with nogil:
+                cfl.bh_fit(obj_f_ptr, &cx0[0], cnx, data_ptr, self.niter, self.bounds, self.bh_lmintype)
+
+
+def e_fit(parameters, h, coeff, ex, cfl_min):
     r"""
     Fit parameters to energy level data. 
 
@@ -1246,24 +1351,20 @@ def e_fit(parameters, h, coeff, ex, niter):
         the imaginary, components of the corresponding prefactors are varied by
         the fitting routine. 
     ex : np.ndarray
-        2 by n dimensional array, with n the number available experimental
+        2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
         second column contains corresponding experimental energy level values. 
-    niter : int
-        The number of basinhopping iterations to complete. 
-        
-    stepsize and bounds not implemented for the moment. Leave stepsize to auto
-    tune and no bounds... perhaps implement by accepting a minimization object
-    instead, which has options relevant to that routine already set.  
-
+    cfl_min : CFLMin
+        The minimization object which sets the optimization algorithm and
+        corresponding options.
     """
     efit = EFitRunner(parameters, h, coeff, ex)
-    coeff = efit.bh_fit(niter)
+    coeff = efit.fit(cfl_min)
 
     return coeff
 
 
-def esh_fit(parameters, sh, h, coeff, ex, shx, weights, niter):
+def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
     r"""
     Fit parameters to energy level data. 
  
@@ -1283,15 +1384,23 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, niter):
         the imaginary, components of the corresponding prefactors are varied by
         the fitting routine.
     ex : np.ndarray
-        2 by n dimensional array, with n the number available experimental
+        2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
         second column contains corresponding experimental energy level values. 
-    niter : int
-        The number of basinhopping iterations to complete. 
-        
+    shx : dict
+        Specifies the experimental spin Hamiltonian data.  Valid keys are
+        'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
+        np.ndarrays corresponding to the experimental spin Hamiltonian tensor.
+    weights : dict
+        Set the weighting for `\chi^2` contributions of terms to be fit.  Valid
+        keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
+        corresponding values should be floats.
+    cfl_min : CFLMin 
+        The minimization object which sets the optimization algorithm and
+        corresponding options.
     """
     eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights)
-    coeff = eshfit.bh_fit(niter)
+    coeff = eshfit.fit(cfl_min)
  
     return coeff
 

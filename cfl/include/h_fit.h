@@ -141,6 +141,9 @@ int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bo
     bh_lmin lmintype);
 int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
     *bounds, bh_lmin lmintype);
+double efit_obj(size_t n, double *x, double *grad, void *data);
+double eshfit_obj(size_t n, double *x, double *grad, void *data);
+double eshfit_h_obj(size_t n, double *x, double *grad, void *data);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

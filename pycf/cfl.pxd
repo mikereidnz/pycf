@@ -123,7 +123,7 @@ cdef extern from "../../cfl/include/basinhopping.h":
 
     int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
             double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
-            bh_lmin lmintype)
+            bh_lmin lmintype) nogil
     void bh_set_step(bh_work *w, double *stepsize, float target_accept_rate,
             size_t interval, float factor)
 
@@ -160,3 +160,6 @@ cdef extern from "../../cfl/include/h_fit.h":
             *bounds, bh_lmin lmintype) nogil
     int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
             *bounds, bh_lmin lmintype) nogil
+    double efit_obj(size_t n, double *x, double *grad, void *data) nogil
+    double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil
+    double eshfit_h_obj(size_t n, double *x, double *grad, void *data) nogil 
