@@ -77,13 +77,13 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2):
     return s
 
 def gen_sh_summary(param, inter, shx=None):
-    np.set_printoptions(precision=4)
+    np.set_printoptions(formatter={'float': lambda x: '{:8.5f}'.format(x)})
     s = "Spin Hamiltonian summary\n"
     s+= "========================\n\n"
     for i in inter:
         s += uline_str("%s interaction\n" % i)
         if shx != None:
-            s += uline_char("Theory                     Experiment              Exp-Theory\n")
+            s += uline_char("Theory                        Experiment                    Exp-Theory\n")
         else:
             s += uline("Theory\n")
         for j in range(3):
@@ -112,7 +112,6 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, **kwargs):
         Additional, optimization algorithm specific, settings to print.
 
     """
-    np.set_printoptions(precision=4)
     s = "Fitting summary\n"
     s+= "===============\n\n"
 

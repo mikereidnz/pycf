@@ -39,12 +39,7 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #         something to directly implement in the cfl projection interface.
 #       + Add checks whether efit/eshfit data alloc functions return NULL and
 #       corresponding frees.
-#       + Current SpinHamiltonian has a really confusing naming scheme with
-#       interactions... the local variable interactions is a list of strings,
-#       whereas self.interactions is a list of SHTermData objects... rename
-#       self.interactions to self.inter_data, or whatever. Then, assign
-#       interactions to self.interactions, which will correct bug in sh summary
-#       printing for eshfit.
+
 
 cdef class StateLabels:
     r"""
@@ -202,7 +197,7 @@ cdef class Hamiltonian:
     """
     cdef cfl.zh *cfl_zh
     cdef cfl.zt **tensor_array
-    cdef int n
+    cdef public int n
     cdef int nt
     cdef list tensors
     cdef public np.ndarray coeff
@@ -572,6 +567,7 @@ cdef class SpinHamiltonian:
     cpdef public float I_spin
     cpdef public list I_matel
     cdef public list interactions 
+    cdef public list inter_data
     cdef public int nsh
     cdef public int dsh
     cdef int nzeeman
@@ -581,6 +577,7 @@ cdef class SpinHamiltonian:
         for i in interactions:
             if i not in ['zeeman', 'hyperfine', 'quadrupole']:
                 raise ValueError("Invalid element in interactions list: '{}'.".format(i))
+        self.interactions = interactions
 
         if 'zeeman' in interactions:
             try:
@@ -640,7 +637,7 @@ cdef class SpinHamiltonian:
         self.dsh = dsh
         # Calculate the cofficient arrays and alloc spin Hamiltonian
         # interactions.
-        self.interactions = []
+        self.inter_data = []
         self.nsh = 0
         if 'zeeman' in interactions:
             # Coefficient arrays are calculated for three B fields; the user
@@ -650,19 +647,19 @@ cdef class SpinHamiltonian:
             for i in range(3):
                 B_a[i, :, :] = zeeman_sh_coeff(np.eye(3,3)[i,:], S_matel)
             zeeman = SHTermData(dz, 'zeeman', np.reshape(B_a, (3 * dz**2, 9)))
-            self.interactions += [zeeman]
+            self.inter_data += [zeeman]
             self.nsh += 3
 
         if 'hyperfine' in interactions:
             dh = 2*S_spin+1 + 2*I_spin+1
             hyperfine = SHTermData(dh, 'hyperfine', hyperfine_sh_coeff(I_matel, S_matel))
-            self.interactions += [hyperfine]
+            self.inter_data += [hyperfine]
             self.nsh += 1
 
         if 'quadrupole' in interactions: 
             dq = 2*I_spin+1
             quadrupole = SHTermData(dq, 'quadrupole', quadrupole_sh_coeff(I_matel))
-            self.interactions += [quadrupole]
+            self.inter_data += [quadrupole]
             self.nsh += 1
 
     
@@ -681,7 +678,7 @@ cdef class SpinHamiltonian:
             The level of the complete Hamiltonian for which to project the spin
             Hamiltonian.
         """
-        for i in self.interactions:
+        for i in self.inter_data:
             if i.type == interaction:
                 if interaction == 'zeeman':
                     if not isinstance(tensor, list):
@@ -720,7 +717,7 @@ cdef class SpinHamiltonian:
         
         so_tensors = []
         self.nzeeman = -1
-        for i,inter in enumerate(self.interactions):
+        for i,inter in enumerate(self.inter_data):
             # Alloc projection and inversion workspace.
             if inter.type == 'zeeman':
                 for t in inter.terms: 
@@ -759,7 +756,7 @@ cdef class SpinHamiltonian:
         # finally do the inversion for each interaction of sh.
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=2, mode="c"]> z
-        for i,inter in enumerate(self.interactions):
+        for i,inter in enumerate(self.inter_data):
             if inter.type == 'zeeman':
                 # Since Zeeman interactions require three sh terms for inversion
                 # we create a results array (a) big enough to hold the matrix
@@ -1068,7 +1065,7 @@ cdef class ESHFitRunner(object):
         # Zeeman tensor. 
         so_tensors = []
         self.nzeeman = -1
-        for i,inter in enumerate(sh.interactions):
+        for i,inter in enumerate(sh.inter_data):
             if not inter.pro_data:
                 raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
             if inter.type == 'zeeman':
@@ -1154,7 +1151,7 @@ cdef class ESHFitRunner(object):
             raise MemoryError("sh_array alloc failed")
         self.sh_array = sh_array
         self.weights = weights
-        shx_array = <cfl.shx_data **>malloc(len(sh.interactions)*cython.sizeof(shx_data_ptr))
+        shx_array = <cfl.shx_data **>malloc(len(sh.inter_data)*cython.sizeof(shx_data_ptr))
         if shx_array == NULL:
             for i in range(self.n_p):
                 free(param_array[i])
@@ -1165,7 +1162,7 @@ cdef class ESHFitRunner(object):
         self.shx_list = []
         self.shx_array = shx_array
         j = 0
-        for i,inter in enumerate(sh.interactions):
+        for i,inter in enumerate(sh.inter_data):
             if inter.type not in shx:
                 for j in range(i):
                     free(shx_array[j])
@@ -1249,7 +1246,7 @@ cdef class ESHFitRunner(object):
         if self.sh_array != NULL:
             free(self.sh_array)
         if self.shx_array != NULL:
-            for i in range(len(self.sh.interactions)):
+            for i in range(len(self.sh.inter_data)):
                 if self.shx_array[i] != NULL:
                     free(self.shx_array[i])
             free(self.shx_array)
@@ -1391,11 +1388,19 @@ def e_fit(parameters, h, coeff, ex, cfl_min):
     x = efit.fit(cfl_min)
     
     h.set_coeff(x)
-    h.diag()
+    (w, z) = h.diag()
+
+    # Generate labels and run gen_e_summary directly.  We do this rather than
+    # call h.gen_summary, since public methods can't have optional arguments in
+    # cython, so one can't include experimental data there.
+    cdef cfl.zh *cflh = <cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian")
+    labels = [] 
+    for i in range(h.n):
+        labels += [cflh.states.states[i]]
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n\n"
-    summary += h.gen_summary()
+    summary += gen_e_summary(w, z, labels, ex)
     summary += "\n"
     summary += gen_fit_summary(np.real(x), efit.param_indices, efit.param_initial, cfl_min.method, **cfl_min.kwargs)
 
@@ -1438,21 +1443,23 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
         corresponding options.
     """
     eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights)
-    coeff = eshfit.fit(cfl_min)
-
-
     x = eshfit.fit(cfl_min)
     
     h.set_coeff(x)
-    h.diag()
+    (w, z) = h.diag()
 
+    # Generate labels and run gen_e_summary directly.  We do this rather than
+    # call h.gen_summary, since public methods can't have optional arguments in
+    # cython, so one can't include experimental data there.
+    cdef cfl.zh *cflh = <cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian")
+    labels = [] 
+    for i in range(h.n):
+        labels += [cflh.states.states[i]]
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n\n"
-    summary += h.gen_summary()
+    summary += gen_e_summary(w, z, labels, ex)
     summary += "\n"
-    print(sh.calc_param(h))
-    print(sh.interactions)
     summary += gen_sh_summary(sh.calc_param(h), sh.interactions, shx)
     summary += "\n"
     summary += gen_fit_summary(np.real(x), eshfit.param_indices, eshfit.param_initial, cfl_min.method, **cfl_min.kwargs)
