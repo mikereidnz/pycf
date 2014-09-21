@@ -31,20 +31,22 @@
 #include <stdlib.h>
 #include <math.h>
 #include <complex.h>
-#include <cfl_error.h>
-#include <cfl_crs.h>
+#include "cfl_error.h"
+#include "cfl_crs.h"
 
 /*===========================================================================*/
 /* Exported functions.                                                       */
 /*===========================================================================*/
 
 /*
- * @brief Allocate storage and fill in values of a Hermitian sparse matrix in
- *        upper-triangular compressed row storage format for double valued
- *        complex entries.
+ * Allocate storage and fill in values of a Hermitian sparse matrix in
+ * upper-triangular compressed row storage format for double valued complex
+ * entries.
  *
- * @param[a]    An n by n dense matrix stored as a one dimensional array.
- * @param[n]    The number of columns and rows of a. 
+ * Parameters
+ * ----------
+ * a    An n by n dense matrix stored as a one dimensional array.
+ * n    The number of columns and rows of a. 
  */
 crs_zhm *crs_zhm_alloc(double complex a[], int n) {
   int i,j;
@@ -135,11 +137,6 @@ crs_zhm *crs_zhm_alloc(double complex a[], int n) {
   return crs_m;
 }
 
-/*
- * @brief Free storage of a Hermitian CRS matrix.
- *
- * @params[m]   Pointer to the matrix to be freed. 
- */
 void crs_zhm_free(crs_zhm *crs_m) {
   free(crs_m->val);
   free(crs_m->col_in);
@@ -148,14 +145,16 @@ void crs_zhm_free(crs_zhm *crs_m) {
 }
 
 /*
- * @brief Convert a Hermitian CRS matrix to a Hermitian dense matrix AP in
- *        packed storage form.  Provided the input array for the CRS matrix
- *        creation was in column-major form then AP will correspond to the
- *        lower-triangular portion of A, packed columnwise with index such that
- *        AP(i + j*(2*n-(j+1))/2) = A(i,j) for 0<=i<=j.  
- *        
- * @param[crs_m]    Pointer to the sparse matrix in CRS form of dimension n.
- * @param[a]        Pointer to double complex valued array of length n*(n+1)/2. 
+ * Convert a Hermitian CRS matrix to a Hermitian dense matrix AP in packed
+ * storage form.  Provided the input array for the CRS matrix creation was in
+ * column-major form then AP will correspond to the lower-triangular portion of
+ * A, packed columnwise with index such that AP(i + j*(2*n-(j+1))/2) = A(i,j)
+ * for 0<=i<=j.  
+ *       
+ * Parameters
+ * ----------
+ * crs_m    Pointer to the sparse matrix in CRS form of dimension n.
+ * a        Pointer to double complex valued array of length n*(n+1)/2. 
  */
 void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
   int i, j;
@@ -186,11 +185,13 @@ void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
 }
 
 /*
- * @brief Convert a Hermitian CRS matrix to a Hermitian dense matrix A. 
+ * Convert a Hermitian CRS matrix to a Hermitian dense matrix A. 
  *
- * @param[crs_m]    Pointer to the sparse matrix in CRS form.
- * @param[a]        Pointer to allocated block sufficient for storing n*n double
- *                  complex values.
+ * Parameters
+ * ----------
+ * crs_m    Pointer to the sparse matrix in CRS form.
+ * a        Pointer to allocated block sufficient for storing n*n double complex
+ *          values.
  */
 void crs_zhm2zha(crs_zhm *crs_m, double complex *a) {
   int i, j;
@@ -218,13 +219,16 @@ void crs_zhm2zha(crs_zhm *crs_m, double complex *a) {
 }
 
 /*
- * @brief Given three sparse matrices of the same shape in Hermitian CRS form,
- *        A, B, and C, this function calculates the number of non-zero elements
- *        of C, the row_ptr of C, and allocates storage for a crs_zhm object. 
- * @param[a]    Pointer to the sparse Hermitian matrix A, in CRS form.
- * @param[b]    Pointer to the sparse Hermitian matrix B, in CRS form.
- * @param[m]    The number of columns of A, B, and C.
- * @param[n]    The number of rows of A, B, and C. 
+ * Given three sparse matrices of the same shape in Hermitian CRS form, A, B,
+ * and C, this function calculates the number of non-zero elements of C, the
+ * row_ptr of C, and allocates storage for a crs_zhm object. 
+ *
+ * Parameters
+ * ----------
+ * a    Pointer to the sparse Hermitian matrix A, in CRS form.
+ * b    Pointer to the sparse Hermitian matrix B, in CRS form.
+ * m    The number of columns of A, B, and C.
+ * n    The number of rows of A, B, and C. 
  */
 crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
   int i,j,k;
@@ -237,7 +241,7 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
   int match = 0;
   
   if (a->n != b->n) {
-    CFL_ERROR_VOID("matrix dimensions don't match");
+    CFL_ERROR_NULL("matrix dimensions don't match");
   }
   else
     n = a->n;
@@ -295,15 +299,17 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
 
   
 /*
- * @brief Add and scale matrices in Hermitian CRS form; that is, given CRS
- *        matrices A, B, and C, in addition to scalers alpha and beta, then this
- *        function calculates C where C = alpha * A + beta * B.
+ * Add and scale matrices in Hermitian CRS form; that is, given CRS matrices A,
+ * B, and C, in addition to scalers alpha and beta, then this function
+ * calculates C where C = alpha * A + beta * B.
  *
- * @param[a]      Hermitian CRS matrix A of dimension n by n.
- * @param[b]      Hermitian CRS matrix B of dimension n by n.
- * @param[c]      Hermitian CRS matrix C of dimension n by n.
- * @param[alpha]  Double complex valued scaler alpha.
- * @param[beta]   Double complex valued scalar beta.
+ * Parmeters
+ * ---------
+ * a      Hermitian CRS matrix A of dimension n by n.
+ * b      Hermitian CRS matrix B of dimension n by n.
+ * c      Hermitian CRS matrix C of dimension n by n.
+ * alpha  Double complex valued scaler alpha.
+ * beta   Double complex valued scalar beta.
  */
 void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
     complex beta) {
@@ -350,10 +356,12 @@ void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
 }
 
 /*
- * @brief Allocate storage for multiplication of Hermitian CRS matrix by a
- *        double complex scalar.
+ * Allocate storage for multiplication of Hermitian CRS matrix by a double
+ * complex scalar.
  *
- * @param[crs_m]    Pointer to CRS matrix to be scaled. 
+ * Parameters
+ * ----------
+ * crs_m    Pointer to CRS matrix to be scaled. 
  */
 crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
   int i;
@@ -401,13 +409,14 @@ crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
 }
 
 /*
- * @brief Multiply a matrix in Hermitian CRS form by a double complex scalar. 
+ * Multiply a matrix in Hermitian CRS form by a double complex scalar. 
  *
- * @param[crs_m]    Pointer to a CRS matrix of dimension n by n.
- * @param[crs_sm]   Pointer to a CRS matrix to which the result will be written;
- *                  must have the same n, nnz, col_in, and row_ptr values as
- *                  crs_m. 
- * @param[s]        Double complex valued scalar whereby to multiply crs_m.
+ * Parameters
+ * ----------
+ * crs_m    Pointer to a CRS matrix of dimension n by n.
+ * crs_sm   Pointer to a CRS matrix to which the result will be written; must
+ *          have the same n, nnz, col_in, and row_ptr values as crs_m. 
+ * s        Double complex valued scalar whereby to multiply crs_m.
  */
 void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, double complex s) {
   int i;

@@ -29,8 +29,8 @@
 #ifndef _CFL_SH_H_
 #define _CFL_SH_H_
 
-#include <cfl_tensor.h>
-#include <cfl_h.h>
+#include "cfl_tensor.h"
+#include "cfl_h.h"
 
 /* Spin Hamiltonian projection data. */
 typedef struct {

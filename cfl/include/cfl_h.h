@@ -30,8 +30,8 @@
 #define _CFL_H_H_
 
 #include <complex.h>
-#include <cfl_crs.h>
-#include <cfl_tensor.h>
+#include "cfl_crs.h"
+#include "cfl_tensor.h"
 
 /* The Hamiltonian structure. */
 typedef struct {

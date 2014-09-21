@@ -25,11 +25,11 @@
 #include <math.h>
 #include <complex.h>
 
-#include <cfl_h.h>
-#include <cfl_sh.h>
-#include <cfl_error.h>
-#include <basinhopping.h>
-#include <h_fit.h>
+#include "cfl_h.h"
+#include "cfl_sh.h"
+#include "cfl_error.h"
+#include "basinhopping.h"
+#include "h_fit.h"
 
 /* TODO:
  *  + Add sigma to chi^2, static at first, then adaptive with annealing. 

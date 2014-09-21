@@ -32,9 +32,9 @@
 #include <gsl/gsl_cblas.h>
 #include <lapacke.h>
 
-#include <cfl_error.h>
-#include <cfl_tensor.h>
-#include <cfl_sh.h>
+#include "cfl_error.h"
+#include "cfl_tensor.h"
+#include "cfl_sh.h"
 
 
 /*
@@ -207,8 +207,8 @@ void zshp_w_free(zshp_w *shp_w) {
 void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w) {
   int i, j;
   lapack_complex_double one, zero;
-  one = lapack_make_complex_double(1.0,0.0);
-  zero = lapack_make_complex_double(0.0,0.0);
+  one = 1;
+  zero = 0;
   lapack_int n = shp_w->nc;
   int nsh = sh->n;
   
@@ -260,7 +260,7 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
 
   if (info != 0) {
     free(w);
-    CFL_ERROR_VOID("LAPACKE workspace query failed");
+    CFL_ERROR_NULL("LAPACKE workspace query failed");
   }
 
   lwork = (lapack_int)wquery;

@@ -33,9 +33,10 @@
 #include <complex.h>
 #include <lapacke.h>
 
-#include <cfl_error.h>
-#include <cfl_tensor.h>
-#include <cfl_h.h>
+#include "cfl_config.h"
+#include "cfl_error.h"
+#include "cfl_tensor.h"
+#include "cfl_h.h"
 
 /*
  * Allocate storage for complex valued Hamiltonians.
@@ -109,19 +110,22 @@ zhd_w *zhd_w_alloc(zh *h) {
     CFL_ERROR_NULL("malloc failed for hd_w");
   }
 
-  /* LAPACK eigenvalue workspace query. */
+
+  /* hpevd workspace query. */
   lapack_complex_double *work, wquery;
   double *rwork, rwquery;
   lapack_int *iwork, iwquery, lwork, lrwork, liwork, info;
-
+#if USE_MKL
+  info = LAPACKE_zhpevd(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, NULL,
+      NULL, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
+#else
   info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, NULL,
       NULL, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
-
+#endif /* USE_MKL */
   if (info != 0) {
     free(hd_w);
-    CFL_ERROR_VOID("LAPACKE workspace query failed");
+    CFL_ERROR_NULL("LAPACKE workspace query failed");
   }
-
   lwork = (lapack_int)wquery;
   lrwork = (lapack_int)rwquery;
   liwork = (lapack_int)iwquery;
@@ -270,10 +274,16 @@ void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) {
    * for diagonalization. */
   crs_zhm2zhpa(hd_w->coeff_w[hd_w->lcoeff_w-1], h->ap);
 
-  lapack_int info; 
+  lapack_int info;
+#if USE_MKL
+  info = LAPACKE_zhpevd(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, w, z,
+      h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
+      hd_w->liwork);
+#else
   info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, w, z,
       h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
       hd_w->liwork);
+#endif /* USE_MKL */
 
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE_zhpevd failed with error code: %i", info);

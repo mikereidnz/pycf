@@ -39,7 +39,13 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #         something to directly implement in the cfl projection interface.
 #       + Add checks whether efit/eshfit data alloc functions return NULL and
 #       corresponding frees.
-
+#       + Add final objective function value to summary.
+#       + There is a double free bug in cython interface for some frees during
+#       an exception.  Specifically, if one does not provide the correct shx
+#       data dict (change zeeman to something else). 
+#       + Add energy level weighting support to eshfit.  If e key is present,
+#       divide all dict elements by e weighting.  Also, add check to ensure
+#       weighting is present for all sh terms. IF not, either fail, or set to 1.
 
 cdef class StateLabels:
     r"""

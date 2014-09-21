@@ -168,10 +168,10 @@ zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2) {
   zt *t;
 
   if (t1->n != t2->n) {
-    CFL_ERROR_VOID("dimensions of tensors to be added do not match");
+    CFL_ERROR_NULL("dimensions of tensors to be added do not match");
   }
   else if (t1->states->hash != t2->states->hash) {
-    CFL_ERROR_VOID("state labels of tensors to be added don't match");
+    CFL_ERROR_NULL("state labels of tensors to be added don't match");
   }
 
   t = (zt *) malloc(sizeof(zt));

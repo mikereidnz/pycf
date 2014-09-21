@@ -35,9 +35,8 @@
 /* Data structures and types.                                                */
 /*===========================================================================*/
 
-/*
- * @brief Compressed row storage matrix for complex valued Hermitian sparse
- *        matrices.
+/* 
+ * Compressed row storage matrix for complex valued Hermitian sparse matrices.
  */
 typedef struct {
   /* Number of rows and columns. */
