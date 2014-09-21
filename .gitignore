@@ -4,6 +4,8 @@
 *.swp
 *.pyc
 
+callgrind.*
+perf.*
 work
 build 
 doc/_build
