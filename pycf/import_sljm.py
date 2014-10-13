@@ -35,7 +35,7 @@ def get_state_number(source):
         else:
             yield [0]
 
-class ImportSLJM:
+class ImportSLJM(object):
     r"""
     Import the matrix elements and state labels from an SLJM calc plain text file. 
 
@@ -96,11 +96,8 @@ class ImportSLJM:
             tensors[t] = cfl.Tensor(t, tensor_matrices[t], sl)
 
         self.tensors = tensors
+        self.__dict__.update(tensors)
 
-    def print_available_tensors(self):
+    def print_names(self):
         for t in self.tensors:
             print(t)
-
-    def get_tensors(self):
-        return self.tensors
-
