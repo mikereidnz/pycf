@@ -51,7 +51,7 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2):
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[i,:]))[::-1]]
-    heading = "Lev.  " + ("Percentage                  " + "State" + " "*(len(labels[0])-4))*nstates + "       Theory"
+    heading = "Lev.  " + ("Percentage                   " + "State" + " "*(len(labels[0])-4))*nstates + "       Theory"
     if ex != None:
         heading += "     Experiment     Exp-Theory \n"
     else:
@@ -64,7 +64,7 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2):
         N = np.sum(np.abs(z[i, :]))
         for j in range(nstates):
             si = sort_list[i][j]
-            line += "({0: .3f}) {1:5.1%} {2:>5} {3} ".format(z[i,si], np.abs(z[i,si])/N, si+1, labels[si])
+            line += "({0: .3f}) {1:6.1%} {2:>5} {3} ".format(z[i,si], np.abs(z[i,si])/N, si+1, labels[si])
         s += line + " {: >12.4f}".format(w[i])
         if ex != None:
             if ex[ex_i,0] == i:
