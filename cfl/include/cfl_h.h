@@ -44,9 +44,9 @@ typedef struct {
   /* Pointer to array of pointers to complex valued tensors. */
   zt **t;
   /* Tensor coefficients. */
-  double complex *coeff;
+  complex double *coeff;
   /* Pointer to matrix of the complete Hamiltonian in packed row major form. */
-  double complex *ap;
+  complex double *ap;
 } zh;
 
 
@@ -57,7 +57,7 @@ typedef struct {
   /* Length of coeff_w array. */
   int lcoeff_w;
   /* Workspace for LAPACKE_zhpevd. */
-  double complex *work;
+  complex double *work;
   /* Dimensions of LAPACKE_zhpevd work. */
   int lwork;
   /* LAPACKE_zhpevd RWORK. */
@@ -78,10 +78,10 @@ extern "C" {
 
 zh *zh_alloc(int n, int nt, zt **t); 
 void zh_free(zh *h);
-void zh_set_coeff(zh *h, double complex *coeff);
+void zh_set_coeff(zh *h, complex double *coeff);
 zhd_w *zhd_w_alloc(zh *h);
 void zhd_w_free(zhd_w *hd_w);
-void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w);
+void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w);
 
 #ifdef __cplusplus
 }

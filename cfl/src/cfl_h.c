@@ -50,7 +50,7 @@
 zh *zh_alloc(int n, int nt, zt **t) {
   zh *h;
   int i;
-  double complex *ap;
+  complex double *ap;
 
   h = (zh *) malloc(sizeof(zh));
   if (h == 0) {
@@ -65,7 +65,7 @@ zh *zh_alloc(int n, int nt, zt **t) {
   }
   h->states = t[0]->states;
 
-  ap = (double complex *) calloc(n*(n+1)/2,sizeof(double complex));
+  ap = (complex double *) calloc(n*(n+1)/2,sizeof(complex double));
   if (ap == 0) {
     free(h);
     CFL_ERROR_NULL("calloc failed for ap");
@@ -91,7 +91,7 @@ void zh_free(zh *h) {
  * ----------
  *  coeff     Pointer to the coefficient array.  
  */
-void zh_set_coeff(zh *h, double complex *coeff) {
+void zh_set_coeff(zh *h, complex double *coeff) {
   h->coeff = coeff;
 }
 
@@ -112,36 +112,31 @@ zhd_w *zhd_w_alloc(zh *h) {
 
 
   /* hpevd workspace query. */
-  lapack_complex_double *work, wquery;
+  complex double *work, wquery;
   double *rwork, rwquery;
-  lapack_int *iwork, iwquery, lwork, lrwork, liwork, info;
-#if USE_MKL
-  info = LAPACKE_zhpevd(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, NULL,
-      NULL, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
-#else
+  int *iwork, iwquery, lwork, lrwork, liwork, info;
   info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, NULL,
       NULL, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
-#endif /* USE_MKL */
   if (info != 0) {
     free(hd_w);
     CFL_ERROR_NULL("LAPACKE workspace query failed");
   }
-  lwork = (lapack_int)wquery;
-  lrwork = (lapack_int)rwquery;
-  liwork = (lapack_int)iwquery;
+  lwork = (int)wquery;
+  lrwork = (int)rwquery;
+  liwork = (int)iwquery;
 
-  work = calloc(lwork,sizeof(lapack_complex_double));
+  work = calloc(lwork,sizeof(complex double));
   if (work == 0) {
     free(hd_w);
     CFL_ERROR_NULL("calloc failed for work");
   }
-  rwork = calloc(lrwork,sizeof(lapack_int));
+  rwork = calloc(lrwork,sizeof(double));
   if (rwork == 0) {
     free(hd_w);
     free(work);
     CFL_ERROR_NULL("calloc failed for rwork");
   }
-  iwork = calloc(liwork,sizeof(lapack_int));
+  iwork = calloc(liwork,sizeof(int));
   if (iwork == 0) {
     free(hd_w);
     free(work);
@@ -247,12 +242,12 @@ void zhd_w_free(zhd_w *hd_w) {
  * ----------
  *  w       Pointer to double valued array of length n to which eigenvalues
  *          will be written.  
- *  z       Pointer to double complex valued array of length n^2 to which the
+ *  z       Pointer to complex double valued array of length n^2 to which the
  *          eigenvectors will be written.
  *  h       The Hamiltonian. 
  *  hd_w    The work space for diagonalization; allocated using zhd_w_alloc.
  */
-void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) {
+void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
   int i;
   char lapack_err[] = "LAPACKE_zhpevd failed with error code: 0";
 
@@ -274,16 +269,10 @@ void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) {
    * for diagonalization. */
   crs_zhm2zhpa(hd_w->coeff_w[hd_w->lcoeff_w-1], h->ap);
 
-  lapack_int info;
-#if USE_MKL
-  info = LAPACKE_zhpevd(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, w, z,
-      h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
-      hd_w->liwork);
-#else
+  int info;
   info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, w, z,
       h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
       hd_w->liwork);
-#endif /* USE_MKL */
 
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE_zhpevd failed with error code: %i", info);
