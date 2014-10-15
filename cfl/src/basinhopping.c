@@ -29,6 +29,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_vector.h>
@@ -39,14 +40,6 @@
 #include <cfl_error.h>
 #include <basinhopping.h>
 
-
-/* Utility function for copying arrays. */
-inline void dacpy(double *a, double *b, size_t n) {
-  int i;
-  for (i=0; i<n; i++) {
-    a[i] = b[i];
-  }
-}
 
 /* Wrapper for gsl minimization; used to construct a function of type
  * gsl_multimin_function. */
@@ -107,7 +100,7 @@ void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
   }
 
   /* Copy x to differentiation workspace to prevent x from being modified. */
-  dacpy(gsl_data->df_work, gsl_data->x, gsl_data->n);
+  memcpy(gsl_data->df_work, gsl_data->x, gsl_data->n*sizeof(double));
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
     status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-9, &result, &abserr);
@@ -135,7 +128,7 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f, gsl_v
   *f = gsl_data->f(gsl_data->n, gsl_data->x, gsl_data->grad, gsl_data->data);
 
   /* Copy x to differentiation workspace to prevent x from being modified. */
-  dacpy(gsl_data->df_work, gsl_data->x, gsl_data->n);
+  memcpy(gsl_data->df_work, gsl_data->x, gsl_data->n*sizeof(double));
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
     status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], 1e-9, &result, &abserr);
@@ -852,9 +845,9 @@ int bh_min(double *x, double *fmin, void *work) {
     lmin_fail++;
   }
   w->e = e;
-  dacpy(w->x, x, n);
+  memcpy(w->x, x, n*sizeof(double));
   w->emin->e = e;
-  dacpy(w->emin->x, x, n);
+  memcpy(w->emin->x, x, n*sizeof(double));
   
   for (i=0; i<w->niter; i++) {
     bh_takestep(x, w);
@@ -868,11 +861,11 @@ int bh_min(double *x, double *fmin, void *work) {
     }
     if (test) {
       w->e = e;
-      dacpy(w->x, x, n);
+      memcpy(w->x, x, n*sizeof(double));
       w->step_data->naccept++;
       if (e < w->emin->e) {
         w->emin->e = e;
-        dacpy(w->emin->x, x, n);
+        memcpy(w->emin->x, x, n*sizeof(double));
       }
     }
   }
