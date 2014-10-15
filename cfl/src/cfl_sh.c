@@ -26,6 +26,7 @@
  * @brief   Spin Hamiltonian routines.
  */
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <math.h>
 #include <complex.h>
@@ -113,7 +114,7 @@ void zsh_free(zsh *sh) {
 void zsh_set_pro(zsh *sh, zt *t, int l) {
 
   if (!sh->pro_data->set_flag) {
-    sh->pro_data->td = (double complex *) malloc(t->n*t->n*sizeof(double
+    sh->pro_data->td = (complex double *) malloc(t->n*t->n*sizeof(double
           complex));
     if (sh->pro_data->td == 0) {
       CFL_ERROR_VOID("malloc failed for pro_data->td");
@@ -136,7 +137,7 @@ void zsh_set_pro(zsh *sh, zt *t, int l) {
  *  m   The number of rows of A and length of b. 
  *  n   The number of columns of B, and the length of x.
  */
-zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n) {
+zsh_inv_data *zsh_inv_data_alloc(complex double *a, size_t m, size_t n) {
   zsh_inv_data *d;
 
   d = (zsh_inv_data *) malloc(sizeof(zsh_inv_data));
@@ -158,21 +159,21 @@ void zsh_inv_data_free(zsh_inv_data *d) {
 zshp_w *zshp_w_alloc(zsh *sh) {
   zshp_w *shp_w;
   size_t n = sh->pro_data->tn;
-  double complex *a; 
-  double complex *b;
+  complex double *a; 
+  complex double *b;
 
   shp_w = (zshp_w *) malloc(sizeof(zshp_w));
   if (shp_w == 0) {
     CFL_ERROR_NULL("malloc failed for shp_w");
   }
 
-  a = (double complex *) calloc(n*n, sizeof(double complex));
+  a = (complex double *) calloc(n*n, sizeof(complex double));
   if (a == 0) {
     free(shp_w);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
-  b = (double complex *) calloc(n*n,sizeof(double complex));
+  b = (complex double *) calloc(n*n,sizeof(complex double));
   if (b == 0) {
     free(shp_w);
     free(a);
@@ -204,28 +205,23 @@ void zshp_w_free(zshp_w *shp_w) {
  *  sh    The spin Hamiltonian object.
  *  shp_w The projection workspace, allocated with zshp_w_alloc.
  */
-void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w) {
+void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
   int i, j;
   lapack_complex_double one, zero;
   one = 1;
   zero = 0;
   lapack_int n = shp_w->nc;
   int nsh = sh->n;
-  
-  /* The projection is a simmilarity transformation of the form V H V^dag, where
+  /* The projection is a simmilarity transformation of the form V^dag H V, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
-   * Zeeman, hyperfine or quadrupole interaction elements; that is, matrix
-   * elements that are diagonal in total angular momentum J. */
-  /* Calculate VH. */
+   * Zeeman, hyperfine or quadrupole interaction elements. */
+  /* Calculate H V. */
   cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one,
       sh->pro_data->td, n, hz, n, &zero, shp_w->a, n);
-
-  /* Calculate (VH) V^dag.  Conjugation argument is unintuitive, but yielded the
-   * correct result when compared to a octave calculation. */
+  /* Calculate V^dag (HV). */
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
-      shp_w->a, n, hz, n, &zero, shp_w->b, n);
-
+      hz, n, shp_w->a, n, &zero, shp_w->b, n);
   size_t l = sh->pro_data->l;
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
@@ -245,6 +241,7 @@ void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w) {
  */
 zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   zshi_w *w;
+  complex double *a;
 
   w = (zshi_w *) malloc(sizeof(zshi_w));
   if (w == 0) {
@@ -264,14 +261,26 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   }
 
   lwork = (lapack_int)wquery;
-  work = calloc(lwork,sizeof(lapack_complex_double));
+  work = (complex double *) calloc(lwork,sizeof(complex double));
   if (work == 0) {
     free(w);
+    CFL_ERROR_NULL("calloc failed for work");
+  }
+  
+  /* Storage for the inversion coefficient matrix; since this is overwritten by
+   * zgels we must keey a copy of the inversion matrix d->a to allow for
+   * repeated evaluations. */
+  a = (complex double *) calloc(d->m*d->n,sizeof(complex double));
+  if (work == 0) {
+    free(w);
+    free(work);
     CFL_ERROR_NULL("calloc failed for work");
   }
 
   w->lwork = lwork,
   w->work = work;
+  w->a = a;
+  w->a_size = d->m*d->n*sizeof(double complex);
   w->data = d;
 
   return w;
@@ -282,6 +291,7 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
  */
 void zshi_w_free(zshi_w *w) {
   free(w->work);
+  free(w->a);
   free(w);
 }
 
@@ -297,12 +307,14 @@ void zshi_w_free(zshi_w *w) {
  *    the spin Hamiltonian parameter tensor.
  * w  The workspace allocated with zshi_w_alloc. 
  */
-void zshi(double complex *a, zshi_w *w) {
+void zshi(complex double *a, zshi_w *w) {
   lapack_int info; 
   char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
-
+  
+  /* Store a copy of the inversion matrix. */
+  memcpy((void *)w->a, (void *)w->data->a, w->a_size);
   info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, w->data->n, 1,
-      w->data->a, w->data->m, a, w->data->m, w->work, w->lwork);
+      w->a, w->data->m, a, w->data->m, w->work, w->lwork);
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);

@@ -35,7 +35,7 @@
 /* Spin Hamiltonian projection data. */
 typedef struct {
   /* Matrix elements of tensor to project in dense storage. */
-  double complex *td;
+  complex double *td;
   /* Dimension of the tensor. */
   size_t tn;
   /* Integer specifying the initial level for which to project the spin
@@ -49,7 +49,7 @@ typedef struct {
 /* Spin Hamiltonian inversion data. */
 typedef struct {
   /* Pointer to the inversion coefficient matrix A. */
-  double complex *a;
+  complex double *a;
   /* The number of rows of A and length of b. */
   size_t m;
   /* The number of columns of B, and the length of x. */
@@ -73,19 +73,24 @@ typedef struct {
   /* Dimension of the complete Hamiltonian. */
   size_t nc;
   /* Array used for storing intermediate values. */
-  double complex *a;
+  complex double *a;
   /* Array used for storing the final values of the projection. */
-  double complex *b;
+  complex double *b;
 } zshp_w; 
 
 /* The spin Hamiltonian inversion workspace. */
 typedef struct {
   /* Spin Hamiltonian inversion data. */
   zsh_inv_data *data;
+  /* Storage for inversion coefficient matrix; since zgels overwrites this upon
+   * exit we can't pass the pointer to a of the zsh_inv_data object directly. */
+  complex double *a;
+  /* The size of a */
+  size_t a_size;
   /* Length of workspace. */
   int lwork;
   /* Pointer to workspace required by zgels. */
-  double complex *work;
+  complex double *work;
 } zshi_w;
 
 /* Function prototypes. */
@@ -97,14 +102,14 @@ zsh *zsh_alloc(size_t n, char *type);
 void zsh_free(zsh *sh);
 zshp_w *zshp_w_alloc(zsh *sh);
 void zshp_w_free(zshp_w *shp_w);
-zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n);
+zsh_inv_data *zsh_inv_data_alloc(complex double *a, size_t m, size_t n);
 void zsh_inv_data_free(zsh_inv_data *d);
 zshi_w *zshi_w_alloc(zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
 void zsh_set_pro(zsh *sh, zt *t, int l);
-void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n); 
-void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w);
-void zshi(double complex *a, zshi_w *w);
+void zsh_set_inv(zsh *sh, complex double *a, size_t m, size_t n); 
+void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w);
+void zshi(complex double *a, zshi_w *w);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
