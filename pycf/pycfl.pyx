@@ -311,8 +311,10 @@ cdef class Hamiltonian:
 
         with nogil:
             cfl.zhd(&w[0], &z[0,0], h, hd_w)
+        
 
         cfl.zhd_w_free(hd_w)
+
         self.diag_run = 1
         return (w, z)
 
@@ -817,7 +819,7 @@ cdef class EFitRunner(object):
     cdef Hamiltonian h
     cdef int n_p
     cdef int n_p_real
-    cpdef public dict param_initial
+    cpdef public list param_initial
     cpdef public list param_indices
     cdef list param_types
     cdef cfl.ex_data *ex_data
@@ -838,22 +840,25 @@ cdef class EFitRunner(object):
         
         self.h = h
         self.n_p = len(parameters)
-        
-        self.param_initial = {}
+       
+        self.param_initial = []
         param_indices = []
         param_types = []
         n_p_real = 0
+        # Since coeff_list has tensor coefficients in the same order as the
+        # order in which tensors were passed to the Hamiltonian constructor we
+        # determine the index of each parameter to be varied of the Hamiltonian,
+        # which will coincide with the corresponding coeff_list index.
         for i,p in enumerate(parameters):
-            # Ensure h contains all the listed tensors
+            # Hamiltonian/coeff_list index of current param. 
             try:
                 pi = h.index(p)
             except ValueError:
-                raise ValueError("Tensor {} in param_list not found in h".format(p.name))
-            # Work out which tensor each element in param_list corresponds to,
-            # determine whether it is real or complex, and split any complex
-            # parameters to create a purley real initial value array.
+                raise ValueError("Tensor {} in parameters not found in h".format(p.name))
             if not isinstance(coeff_list[pi], Number):
                 raise ValueError("Element {} in coefficients is not a number.".format(coeff_list[pi]))
+            # The parameter type is recorded such that any complex parameters
+            # can be split into two real parameters.
             if isinstance(coeff_list[pi], complex):
                 param_types.append('c')
                 n_p_real += 2
@@ -861,9 +866,11 @@ cdef class EFitRunner(object):
                 param_types.append('r')
                 n_p_real += 1
             param_indices.append(pi)
-            # Create dict with initial values of coefficients; used for printing
-            # a fitting summary.
-            self.param_initial[p.name] = coeff_list[pi]
+
+            # Create a list of tuples with initial values of coefficients and
+            # the corresponding tensor name; used for printing a fitting
+            # summary.
+            self.param_initial += [(coeff_list[pi], p.name)]
         
         self.n_p_real = n_p_real
         self.param_indices = param_indices
@@ -909,16 +916,17 @@ cdef class EFitRunner(object):
                 free(self.ex_data)
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
-
+            
+            pi = param_indices[i]
             param_array[i].type = cfl.atoi(param_types[i])
-            param_array[i].index = param_indices[i]
+            param_array[i].index = pi
 
             if param_types[i] == 'c':
-                self.p0_real[ip_real] = np.real(coeff_list[i])
-                self.p0_real[ip_real+1] = np.imag(coeff_list[i])
+                self.p0_real[ip_real] = np.real(coeff_list[pi])
+                self.p0_real[ip_real+1] = np.imag(coeff_list[pi])
                 ip_real += 2
             else:
-                self.p0_real[ip_real] = coeff_list[i]
+                self.p0_real[ip_real] = coeff_list[pi]
                 ip_real += 1
 
         self.param_array = param_array 
@@ -1003,7 +1011,7 @@ cdef class ESHFitRunner(object):
     cdef Hamiltonian hfo
     cdef int n_p
     cdef int n_p_real
-    cpdef public dict param_initial
+    cpdef public list param_initial
     cpdef public list param_indices
     cdef list param_types
     cdef int nzeeman
@@ -1034,21 +1042,24 @@ cdef class ESHFitRunner(object):
         self.h = h
         self.n_p = len(parameters)
 
-        self.param_initial = {}
+        self.param_initial = []
         param_indices = []
         param_types = []
         n_p_real = 0
+        # Since coeff_list has tensor coefficients in the same order as the
+        # order in which tensors were passed to the Hamiltonian constructor we
+        # determine the index of each parameter to be varied of the Hamiltonian,
+        # which will coincide with the corresponding coeff_list index.
         for i,p in enumerate(parameters):
-            # Ensure h contains all the listed tensors
+            # Hamiltonian/coeff_list index of current param. 
             try:
                 pi = h.index(p)
             except ValueError:
-                raise ValueError("Tensor {} in param_list not found in h".format(p.name))
-            # Work out which tensor each element in param_list corresponds to,
-            # determine whether it is real or complex, and split any complex
-            # parameters to create a purley real initial value array.
+                raise ValueError("Tensor {} in parameters not found in h".format(p.name))
             if not isinstance(coeff_list[pi], Number):
                 raise ValueError("Element {} in coefficients is not a number.".format(coeff_list[pi]))
+            # The parameter type is recorded such that any complex parameters
+            # can be split into two real parameters.
             if isinstance(coeff_list[pi], complex):
                 param_types.append('c')
                 n_p_real += 2
@@ -1057,18 +1068,20 @@ cdef class ESHFitRunner(object):
                 n_p_real += 1
             param_indices.append(pi)
 
-            # Create dict with initial values of coefficients; used for printing
-            # a fitting summary.
-            self.param_initial[p.name] = coeff_list[pi]
-        
+            # Create a list of tuples with initial values of coefficients and
+            # the corresponding tensor name; used for printing a fitting
+            # summary.
+            self.param_initial += [(coeff_list[pi], p.name)]
+       
         self.n_p_real = n_p_real
         self.param_indices = param_indices
         self.param_types = param_types
         
-        # Determine whether there are any second order tensors; that is, whether
-        # the complete Hamiltonian contains any interactions that are also part
-        # of the spin Hamiltonian.  Furthermore, we record the location of the
-        # Zeeman tensor. 
+        # Determine whether the complete Hamiltonian contains any interactions
+        # that are also part of the spin Hamiltonian.  Furthermore, we record
+        # the location of the Zeeman tensor. 
+        # FIXME: change so_tensors to sh_tensors, provided there is no
+        # nomenclature conflict elsewhere.
         so_tensors = []
         self.nzeeman = -1
         for i,inter in enumerate(sh.inter_data):
@@ -1136,15 +1149,16 @@ cdef class ESHFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
 
+            pi = param_indices[i]
             param_array[i].type = cfl.atoi(param_types[i])
-            param_array[i].index = param_indices[i]
+            param_array[i].index = pi
 
             if param_types[i] == 'c':
-                self.p0_real[ip_real] = np.real(coeff_list[i])
-                self.p0_real[ip_real+1] = np.imag(coeff_list[i])
+                self.p0_real[ip_real] = np.real(coeff_list[pi])
+                self.p0_real[ip_real+1] = np.imag(coeff_list[pi])
                 ip_real += 2
             else:
-                self.p0_real[ip_real] = coeff_list[i]
+                self.p0_real[ip_real] = coeff_list[pi]
                 ip_real += 1
         
         # Array of spin Hamiltonians and experimental spin Hamiltonian data.
@@ -1270,6 +1284,12 @@ cdef class ESHFitRunner(object):
             The minimization object to be used, which sets the optimization
             algorithm, bounds and other settings as applicable to the selected
             algorithm.
+
+        Returns
+        -------
+        coeff : np.ndarray
+            Coefficient array with complex entries.
+            
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
@@ -1298,7 +1318,16 @@ cdef class CFLMin:
     method : string
         The minimization routine to employ.
     kwargs : string
-        Dictionary of arguments for the minimization routine.
+        Dictionary of arguments for the minimization routine.  Arguments defined
+        for all minimization routines are:
+            - ``bounds``, a tuple containing two npndarray vectors of a length
+              equivalent to the number of parameters to be varied, specifying,
+              respectively, the lower and upper bounds.
+        Basinhopping specific arguments are:
+            - ``niter``, the number of basinhopping iterations to complete;
+            - ``lmin_type``, the local minimization routine to be used;
+              implemented options are 'gsl_nmsimplex2', 'gsl_conjugate_fr',
+              'gsl_conjugate_pr', and 'gsl_vector_bfgs2'.
 
     """
     cpdef public str method
@@ -1317,6 +1346,7 @@ cdef class CFLMin:
         self.kwargs = kwargs
 
         if 'bounds' in kwargs:
+            #FIXME: currently complex parameters need two real bounds specified in bounds.
             self.lbounds = kwargs['bounds'][0]
             self.ubounds = kwargs['bounds'][1]
             clb = <np.ndarray[double, ndim=1, mode="c"]> self.lbounds
@@ -1450,7 +1480,9 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
     """
     eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights)
     x = eshfit.fit(cfl_min)
-    
+    print("Coeff:")
+    print(x) 
+    print("\n")
     h.set_coeff(x)
     (w, z) = h.diag()
 

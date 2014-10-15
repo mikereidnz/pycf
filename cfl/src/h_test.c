@@ -27,7 +27,7 @@
  * @param[n]  Length of arrays a and b.
  *
  */
-void zequ_chk(double complex *a, double complex *b, size_t n) {
+void zequ_chk(complex double *a, complex double *b, size_t n) {
   int i;
   int p = 0;
 
@@ -75,7 +75,7 @@ void dequ_chk(double *a, double *b, size_t n) {
  * @param[a]  Pointer to a.
  * @param[n]  Dimension of the matrix a. 
  */
-void mprint(double complex *a, size_t n) {
+void mprint(complex double *a, size_t n) {
   int i,j;
 
   for (i=0; i<n; i++) {
@@ -90,11 +90,11 @@ int main (void)
 {
   int i, j;
 
-  double complex alpha = 2;
-  double complex beta = 4;
-  double complex a[16] = {0, I, 2*I, 3*I, -I, 1, 1+2*I, 1+3*I, -2*I, 1-2*I, 2,
+  complex double alpha = 2;
+  complex double beta = 4;
+  complex double a[16] = {0, I, 2*I, 3*I, -I, 1, 1+2*I, 1+3*I, -2*I, 1-2*I, 2,
     2+3*I, -3*I, 1-3*I, 2-3*I, 3};
-  double complex b[16] = {0, I, 0, 0, -I, 0, 1+2*I, 0, 0, 1-2*I, 0, 2+3*I, 0, 0,
+  complex double b[16] = {0, I, 0, 0, -I, 0, 1+2*I, 0, 0, 1-2*I, 0, 2+3*I, 0, 0,
     2-3*I, 0};
 
   /* State label preparation. */
@@ -118,12 +118,12 @@ int main (void)
   /*=========================================================================*/
   
   /* zt_sa test. */
-  double complex *c;
+  complex double *c;
    
-  double complex ztsa_res[16] = {0, 6*I, 4*I, 6*I, -6*I, 2, 6+12*I, 2+6*I, -4*I,
+  complex double ztsa_res[16] = {0, 6*I, 4*I, 6*I, -6*I, 2, 6+12*I, 2+6*I, -4*I,
     6-12*I, 4, 12+18*I, -6*I, 2-6*I, 12-18*I, 6};
   
-  c = (double complex *) calloc(16,sizeof(double complex));
+  c = (complex double *) calloc(16,sizeof(complex double));
   if (c==0) {
     printf("Error; failed to calloc c");
   }
@@ -137,7 +137,7 @@ int main (void)
   zt_free(t3);
 
   /* zt_s test. */
-  double complex zts_res[16] = {0, 2*I, +4*I, 6*I, -2*I, 2, 2+4*I, 2+6*I, -4*I,
+  complex double zts_res[16] = {0, 2*I, +4*I, 6*I, -2*I, 2, 2+4*I, 2+6*I, -4*I,
     2-4*I, 4, 4+6*I, -6*I, 2-6*I, 4-6*I, 6};
 
   t3 = zt_s("cten", t1, alpha);
@@ -153,13 +153,13 @@ int main (void)
   /*=========================================================================*/
 
   double *w;
-  double complex *z;
+  complex double *z;
   w = (double *) calloc(4,sizeof(double));
-  z = (double complex *) calloc(4*4,sizeof(double complex));
+  z = (complex double *) calloc(4*4,sizeof(complex double));
 
   /* Test Hamiltonian alloc and diag with two tensors. */
   zt *tens[2];
-  double complex coeff[2];
+  complex double coeff[2];
   double hdiag_res[4] = {-19.89945633, -7.16829888, 5.43631787, 33.63143733};
   tens[0] = t1;
   tens[1] = t2;
@@ -179,7 +179,7 @@ int main (void)
 
   /* Test diagonalization of Hamiltonian with a single tensor. */
   zt *tens2[1];
-  double complex coeff2[1];
+  complex double coeff2[1];
   double h2diag_res[4] = {-7.48348091, -0.42411223, 1.65736632, 18.25022682};
   tens2[0] = t1;
   coeff2[0] = alpha;
@@ -197,28 +197,7 @@ int main (void)
   zh_free(h2);
 
   free(c);
-
-  /*=========================================================================*/
-  /* Spin Hamiltonian projection test.                                       */
-  /*=========================================================================*/
-
-  double complex zshp_res[4] = {-3.7417404568, 0, 0, -0.2120561172};
-  double complex *sha = (double complex *) calloc(4,sizeof(double complex));
-  zsh *sh;
-  zshp_w *shp_w;
-
-  sh = zsh_alloc(2, "test");
-
-  zsh_set_pro(sh, t1, 0);
-  shp_w = zshp_w_alloc(sh);
-  zshp(sha, z, sh, shp_w);
-
-  printf("zshp:\n");
-  zequ_chk(zshp_res, sha, 4);
-  zshp_w_free(shp_w);
-  zsh_free(sh);
-  free(sha);
-
+  
   zh_free(h);
   free(w);
   free(z);
@@ -231,9 +210,105 @@ int main (void)
   }
 
   /*=========================================================================*/
+  /* Spin Hamiltonian projection test.                                       */
+  /*=========================================================================*/
+  /* Projection for Cerium, with Hamiltonian containing spin orbit and C20
+   * matrix elements. */
+  complex double zshp_res[4] = {2.13091586, 0, 0, -2.13091586};
+  complex double *sha = (complex double *) calloc(4,sizeof(complex double));
+  zsh *sh;
+  zshp_w *shp_w;
+
+  complex double zeta_matel[196] = {1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, -2.00000020623, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2.00000020623, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, -2.00000020623, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2.00000020623,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, -2.00000020623, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      -2.00000020623, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467};
+  complex double c20_matel[196] = {-0.333333308417, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, -0.285714264357, 0.116642359985, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0.116642359985, -0.0476190440595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0.0571428528714, 0.0903507835368, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0.0903507835368, 0.142857132179, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0.228571411486, 0.0329914414876, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.0329914414876, 0.238095220298, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.228571411486, -0.0329914414876, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -0.0329914414876, 0.238095220298, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.0571428528714, -0.0903507835368, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -0.0903507835368, 0.142857132179, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -0.285714264357, -0.116642359985, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -0.116642359985, -0.0476190440595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -0.333333308417};
+  complex double magz_matel[196] = {4.00116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 2.14202857143, 0.350738936998, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.350738936998, 2.85797142857, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1.28521714286, 0.45280202062, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.45280202062, 1.71478285714, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.428405714286, 0.496019761555, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.496019761555, 0.571594285714, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -0.428405714286, 0.496019761555, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.496019761555, -0.571594285714, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -1.28521714286, 0.45280202062, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.45280202062, -1.71478285714, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -2.14202857143, 0.350738936998, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0.350738936998, -2.85797142857, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    -4.00116};
+    
+  w = (double *) calloc(14,sizeof(double));
+  z = (complex double *) calloc(196,sizeof(complex double));
+  char *ce_s[14]; 
+  for (i=0; i<14; i++) {
+    ce_s[i] = malloc(5*sizeof(char));
+    if (ce_s[i] == 0) 
+      printf("Error; label array ce_s malloc failed\n");
+    sprintf(ce_s[i], "l=%02d", i);
+  }
+  states = sl_alloc(14, ce_s);
+
+  zt *zeta, *c20, *magz;
+  zeta = (zt *) zt_alloc("zeta", zeta_matel, 14, states);
+  c20 = (zt *) zt_alloc("c20", c20_matel, 14, states);
+  magz = (zt *) zt_alloc("magz", magz_matel, 14, states);
+  
+  tens[0] = zeta;
+  tens[1] = c20;
+  coeff[0] = 10;
+  coeff[1] = 5;
+  h = zh_alloc(14, 2, tens);
+  zh_set_coeff(h, coeff);
+  hd_w = zhd_w_alloc(h);
+  zhd(w, z, h, hd_w);
+  zhd_w_free(hd_w);
+
+  sh = zsh_alloc(2, "ce test");
+  zsh_set_pro(sh, magz, 0);
+  shp_w = zshp_w_alloc(sh);
+  zshp(sha, z, sh, shp_w);
+  zshp_w_free(shp_w);
+  zsh_free(sh);
+  printf("zshp:\n");
+  zequ_chk(zshp_res, sha, 4);
+
+  zh_free(h);
+  zt_free(zeta);
+  zt_free(c20);
+  zt_free(magz);
+  free(sha);
+  free(w);
+  free(z);
+  sl_free(states);
+  for (i=0; i<14; i++) {
+    free(ce_s[i]);
+  }
+  /*=========================================================================*/
   /* Spin Hamiltonian inversion test.                                        */
   /*=========================================================================*/
-  double complex euyso_hyp_inv[2304] = {0, 0, 0, 0, 0, 0, 0, 0, 0,
+  complex double euyso_hyp_inv[2304] = {0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.661437827766, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.661437827766, 0,
     0.866025403784, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.866025403784, 0,
     0.968245836552, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.968245836552, 0,
@@ -361,7 +436,7 @@ int main (void)
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1.25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 1.75};
 
-  double complex euyso_hyp_term[256] = {867.195, -164.585574683-451.424703072*I,
+  complex double euyso_hyp_term[256] = {867.195, -164.585574683-451.424703072*I,
     0, 0, 0, 0, 0, 0, -435.4525-1194.3575*I, -414.688446118+768.233579437*I, 0,
     0, 0, 0, 0, 0, -164.585574683+451.424703072*I, 619.425,
     -215.493101224-591.053677829*I, 0, 0, 0, 0, 0, 506.429872829,
@@ -408,7 +483,7 @@ int main (void)
   hyp_inv_data.m = 256;
   hyp_inv_data.n = 9;
 
-  double complex hyp_inv_result[9] = {69.35, -580.73, -248.83, -580.73, 696.30,
+  complex double hyp_inv_result[9] = {69.35, -580.73, -248.83, -580.73, 696.30,
     682.49, -248.83, 682.49, 495.54};
 
   zshi_w *hyp_work = zshi_w_alloc(&hyp_inv_data);

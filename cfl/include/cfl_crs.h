@@ -44,7 +44,7 @@ typedef struct {
   /* Number of non-zero entries. */
   int nnz;
   /* Pointer to data array of length nnz. */
-  double complex *val;
+  complex double *val;
   /* Pointer to column index array of length nnz. */
   int *col_in;
   /* Pointer to row pointer array of length n+1, with the last element
@@ -60,15 +60,15 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-crs_zhm *crs_zhm_alloc(double complex a[], int n);
+crs_zhm *crs_zhm_alloc(complex double a[], int n);
 void crs_zhm_free(crs_zhm *crs_m); 
-void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap);
-void crs_zhm2zha(crs_zhm *crs_m, double complex *a);
+void crs_zhm2zhpa(crs_zhm *crs_m, complex double *ap);
+void crs_zhm2zha(crs_zhm *crs_m, complex double *a);
 crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b);
-void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
+void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, complex double alpha, double
     complex beta);
 crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m);
-void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, double complex s);
+void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, complex double s);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

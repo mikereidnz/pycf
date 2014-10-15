@@ -914,7 +914,7 @@ int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
   int (*lmin_f)(double *x, double *fmin, void *w);
   void (*lmin_work_free)(void *work);
   void *bh_lmin_w;
-
+ 
   switch (lmintype) {
     case gsl_nmsimplex2rand:
       bh_lmin_w =(void *) gsl_multimin_f_alloc(obj_f, nx, data,

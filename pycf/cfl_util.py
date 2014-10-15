@@ -103,8 +103,10 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, **kwargs):
     ----------
     coeff : np.ndarray
         Contains the fitted interaction coefficients.
-    coeff_initial : dict
-        Keys correspond are tensor names and values are the initial coefficients
+    param_indices : dict
+        Initial values of coefficients for tensors to be fit.
+    param_initial : dict
+        Keys correspond of tensor names and values are the initial coefficients
         of the tensors. 
     method : str
         The optimization algorithm used for the fit.
@@ -116,8 +118,8 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, **kwargs):
     s+= "===============\n\n"
 
     s += uline_char("Tensor_name                    Coeff             Initial_coeff                Difference\n")
-    for i,t in enumerate(param_initial):
-        s += "{0:<15} {1: >20.4f} {2: >25.4f} {3: >25.4f}\n".format(t+":", coeff[param_indices[i]], param_initial[t], coeff[param_indices[i]]-param_initial[t])
+    for i in range(len(param_initial)):
+        s += "{0:<15} {1: >20.4f} {2: >25.4f} {3: >25.4f}\n".format(param_initial[i][1]+":", coeff[param_indices[i]], param_initial[i][0], coeff[param_indices[i]]-param_initial[i][0])
     
     s += "\n" + uline_str("Optimization routine details:\n")
     s += "{0:<20} {1: <}\n".format("method:", method)

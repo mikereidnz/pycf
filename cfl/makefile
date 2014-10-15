@@ -1,11 +1,12 @@
-CC=icc
+CC=gcc
 VPATH=src include
 CPPFLAGS=-I include
-CFLAGS=-g -O3 -fPIC -mkl
+CFLAGS=-g -O3 -fPIC 
+#CFLAGS=-g -O3 -fPIC -mkl
 #CFLAGS=-O3 -fprofile-generate -fPIC -mtune=native
 #CFLAGS=-O3 -fprofile-use -fPIC -mtune=native
-#LDLIBS=-llapacke -lblas -lm -lgsl
-LDLIBS=-lmkl_intel_lp64 -lgsl
+LDLIBS=-llapacke -lblas -lm -lgsl
+#LDLIBS=-lmkl_intel_lp64 -lgsl
 LDFLAGS=
 #libcfl.so: h_fit.o basinhopping.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
 
@@ -23,7 +24,7 @@ basinhopping.o: basinhopping.h cfl_error.h
 
 cfl_sh.o: cfl_tensor.o cfl_sh.h cfl_error.h
 
-cfl_h.o: cfl_tensor.o cfl_h.h cfl_error.h
+cfl_h.o: cfl_tensor.o cfl_h.h cfl_error.h cfl_config.h
 
 cfl_tensor.o: cfl_crs.o cfl_tensor.h cfl_error.h
 

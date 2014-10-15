@@ -2,11 +2,13 @@ CFL
 ===
 
   * Update makefile to explicitly list rules; then add targets for shared objects
-  * Create python jmcalc parser
-  * Change spectrum labels of zh objects to copy the string and store internally
-  * Calculate hash of state labels, and provide a state comparison function. 
-  * Merge zh and state label functions to a common source file, since state
-    lables will also be useful for spin Hamiltonians. 
+  * Consolidate #ifdef statements for mkl version, and add mkl linking to
+    setup.py. 
+  * Change nomenclature to avoid first/second order for spin Hamiltonian
+    interactions...
+  * ImportSLJM should parse and create crs tensors one at a time (at least the
+    step that populate the dense matrix), to avoid unreasonable memory use for
+    large matrices. 
   * Change appropriate struct attributes and function arguments from int to
     size_t
   * Update doc strings to function return values

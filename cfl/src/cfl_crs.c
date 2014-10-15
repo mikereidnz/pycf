@@ -48,14 +48,14 @@
  * a    An n by n dense matrix stored as a one dimensional array.
  * n    The number of columns and rows of a. 
  */
-crs_zhm *crs_zhm_alloc(double complex a[], int n) {
+crs_zhm *crs_zhm_alloc(complex double a[], int n) {
   int i,j;
   int vi = 0;
   int ri = 0;
   int nnz = 0;
   int zrow = 1;
   crs_zhm *crs_m;
-  double complex *val;
+  complex double *val;
   int *col_in;
   int *row_ptr;
   /* Determining the number of non-zero entries in the upper-triangular portion
@@ -79,7 +79,7 @@ crs_zhm *crs_zhm_alloc(double complex a[], int n) {
   if (crs_m == 0) {
     CFL_ERROR_NULL("malloc failed for crs_m");
   }
-  val = (double complex *) calloc(nnz,sizeof(double complex));
+  val = (complex double *) calloc(nnz,sizeof(complex double));
   if (val == 0) {
     free(crs_m);
     CFL_ERROR_NULL("calloc failed for val");
@@ -154,9 +154,9 @@ void crs_zhm_free(crs_zhm *crs_m) {
  * Parameters
  * ----------
  * crs_m    Pointer to the sparse matrix in CRS form of dimension n.
- * a        Pointer to double complex valued array of length n*(n+1)/2. 
+ * a        Pointer to complex double valued array of length n*(n+1)/2. 
  */
-void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
+void crs_zhm2zhpa(crs_zhm *crs_m, complex double *ap) {
   int i, j;
   int vi = 0;
   int n = crs_m->n;
@@ -189,11 +189,11 @@ void crs_zhm2zhpa(crs_zhm *crs_m, double complex *ap) {
  *
  * Parameters
  * ----------
- * crs_m    Pointer to the sparse matrix in CRS form.
- * a        Pointer to allocated block sufficient for storing n*n double complex
- *          values.
+ * crs_m    Pointer to the sparse matrix in CRS form.  
+ * a        Pointer to allocated block of sufficient size to store n*n complex
+ *          double values.
  */
-void crs_zhm2zha(crs_zhm *crs_m, double complex *a) {
+void crs_zhm2zha(crs_zhm *crs_m, complex double *a) {
   int i, j;
   int vi = 0;
   int n = crs_m->n;
@@ -233,7 +233,7 @@ void crs_zhm2zha(crs_zhm *crs_m, double complex *a) {
 crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
   int i,j,k;
   int nnz;
-  double complex *val;
+  complex double *val;
   int *col_in;
   int *row_ptr;
   crs_zhm *crs_m;
@@ -274,7 +274,7 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
     free(row_ptr);
     CFL_ERROR_NULL("malloc failed for crs_m");
   }
-  val = (double complex *) calloc(nnz,sizeof(double complex));
+  val = (complex double *) calloc(nnz,sizeof(complex double));
   if (val == 0) {
     free(row_ptr);
     free(crs_m);
@@ -311,7 +311,7 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
  * alpha  Double complex valued scaler alpha.
  * beta   Double complex valued scalar beta.
  */
-void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
+void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, complex double alpha, double
     complex beta) {
   int i, j;
   int ai = 0;
@@ -366,7 +366,7 @@ void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, double complex alpha, double
 crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
   int i;
   crs_zhm *crs_sm;
-  double complex *val;
+  complex double *val;
   int *col_in;
   int *row_ptr;
 
@@ -374,7 +374,7 @@ crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
   if (crs_sm == 0) {
     CFL_ERROR_NULL("malloc failed for crs_sm");
   }
-  val = (double complex *) calloc(crs_m->nnz,sizeof(double complex));
+  val = (complex double *) calloc(crs_m->nnz,sizeof(complex double));
   if (val == 0) {
     free(crs_sm);
     CFL_ERROR_NULL("calloc failed for col_in");
@@ -409,7 +409,7 @@ crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
 }
 
 /*
- * Multiply a matrix in Hermitian CRS form by a double complex scalar. 
+ * Multiply a matrix in Hermitian CRS form by a complex double scalar. 
  *
  * Parameters
  * ----------
@@ -418,7 +418,7 @@ crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
  *          have the same n, nnz, col_in, and row_ptr values as crs_m. 
  * s        Double complex valued scalar whereby to multiply crs_m.
  */
-void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, double complex s) {
+void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, complex double s) {
   int i;
 
   for (i=0; i<crs_m->nnz; i++) {

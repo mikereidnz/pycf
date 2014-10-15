@@ -31,6 +31,18 @@
 #include "basinhopping.h"
 #include "h_fit.h"
 
+/*
+ * Outline:
+ * --------
+ *  The objective function has a standardized argument format s.t. it can be
+ *  used with all cfl minimization routines.  The parameter-to-be-varied array
+ *  of this format is double valued and must be parsed to a complex double array
+ *  for Hamiltonian diagonalization.  This is done by objective functions using
+ *  a call to parse_param_data for each iteration.  
+ *
+ */
+
+
 /* TODO:
  *  + Add sigma to chi^2, static at first, then adaptive with annealing. 
  *  + Note: it should be written in the overview that weighting should be
@@ -38,7 +50,7 @@
  */
 
 /*
- * Alloc data for fitting both energy levels.
+ * Alloc data for fitting to energy levels.
  *
  * Parameters
  * ----------
@@ -48,7 +60,7 @@
  *  n_zx    The number of complex valued parameters to be fit to the Hamiltonian
  *  p       Array of pointers to parameters to be fit.
  */
-efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t n_zx,
+efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t n_zx,
     param_type **p) {
   efit_data *data;
 
@@ -63,7 +75,7 @@ efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t n_z
     CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
   }
 
-  data->evect = (double complex *) calloc(h->n*h->n,sizeof(double complex));
+  data->evect = (complex double *) calloc(h->n*h->n,sizeof(complex double));
   if (data->evect == 0) {
     zhd_w_free(data->hd_w);
     free(data);
@@ -95,7 +107,7 @@ void efit_data_free(efit_data *data) {
 
 
 /*
- * Alloc data for fitting both energy levels and spin hamiltonians.
+ * Alloc data for fitting to both energy levels and spin Hamiltonians.
  *
  * Parameters
  * ----------
@@ -119,7 +131,7 @@ void efit_data_free(efit_data *data) {
  *  p       Array of pointers to parameters to be fit.
  */
 eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
-    *hfo, double complex *coeff, ex_data *ex, shx_data
+    *hfo, complex double *coeff, ex_data *ex, shx_data
     **shx, size_t n_zx, param_type **p) {
   int i,j;
   size_t ninv;
@@ -134,7 +146,7 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
     free(data);
     CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
   }
-  data->h_evect = (double complex *) calloc(h->n*h->n,sizeof(double complex));
+  data->h_evect = (complex double *) calloc(h->n*h->n,sizeof(complex double));
   if (data->h_evect == 0) {
     zhd_w_free(data->hd_w);
     free(data);
@@ -196,7 +208,7 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
     free(data);
     CFL_ERROR_NULL("malloc failed for data->shi_w_array *");
   }
-  data->sh_pa = (double complex **) malloc(ninv*sizeof(double complex *));
+  data->sh_pa = (complex double **) malloc(ninv*sizeof(complex double *));
   if (data->sh_pa == 0) {
     zhd_w_free(data->hd_w);
     free(data->h_evect);
@@ -230,7 +242,7 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       CFL_ERROR_NULL("zshi_w_alloc failed for data->shi_w_array");
     }
     /* Size m for Zeeman shx is set to three times the size of a single term. */
-    data->sh_pa[i] = (double complex *) calloc(shx[i]->inv_data->m,sizeof(double
+    data->sh_pa[i] = (complex double *) calloc(shx[i]->inv_data->m,sizeof(double
           complex));
     if (data->sh_pa[i] == 0) {
       zhd_w_free(data->hd_w);
@@ -275,7 +287,7 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       free(data);
       CFL_ERROR_NULL("zhd_w_alloc failed for data->hfod_w");
     }
-    data->hfo_evect = (double complex *) calloc(hfo->n*hfo->n,sizeof(double
+    data->hfo_evect = (complex double *) calloc(hfo->n*hfo->n,sizeof(double
           complex));
     if (data->hfo_evect == 0) {
       zhd_w_free(data->hd_w);
@@ -365,7 +377,7 @@ void eshfit_data_free(eshfit_data *data) {
  *
  * Parameters
  * ----------
- *  e     The theoretical energy array.
+ *  e         The theoretical energy array.
  *  ex_data   Pointer to the experimental data struct.
  */
 inline double echisq(double *e, ex_data *d) {
@@ -384,7 +396,7 @@ inline double echisq(double *e, ex_data *d) {
  * Parameters
  * ----------
  *  pa    The theoretical parameter array.
- *  xpa  The experimental parameter array. 
+ *  xpa   The experimental parameter array. 
  *  n     The number of parameters.
  */
 inline double shchisq(complex double *pa, complex double *xpa) {
@@ -394,7 +406,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
   for (i=0; i<9; i++) {
     chisq += pow(cabs(pa[i] - xpa[i]), 2);
   }
-
+  
   return chisq;
 }
 
@@ -408,7 +420,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
  *  coeff     Complex array which will be overwritten with the parsed data.
  *  x         Source of data. 
  */
-inline void parse_param_data(size_t n_zx, param_type **p, double complex *coeff,
+inline void parse_param_data(size_t n_zx, param_type **p, complex double *coeff,
     double *x) {
   int i, zi;
 
@@ -499,7 +511,6 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
-
   sh_index = 0;
   for (i=0; i<d->ninv; i++) {
     if (i == d->nzeeman) {
@@ -519,6 +530,7 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
     zshi(d->sh_pa[i], d->shi_w_array[i]);
     chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
+
   return chisq;
 }
 

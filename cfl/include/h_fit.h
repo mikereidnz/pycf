@@ -32,12 +32,13 @@
 #ifndef _H_FIT_H_ 
 #define _H_FIT_H_
 
-/* Parameter type, used for conversion of complex parameters to real parameters
- * to-be-varied. */
+/* Parameter type, used for conversion of real parameters returned by
+ * optimization routines into complex parameters for Hamiltonian
+ * diagonalization. */
 typedef struct {
   /* Indicator whether real, purely imaginary, or complex. */
   int type;
-  /* Index of parameter. */
+  /* Complex (resultant) parameter array index. */
   size_t index;
 } param_type;
 
@@ -69,7 +70,7 @@ typedef struct {
   /* Pointer to workspace for Hamiltonian diagonalization. */
   zhd_w *hd_w;
   /* Eigenvector array. */
-  double complex *evect;
+  complex double *evect;
   /* Eigenvalue array. */
   double *eval;
   /* Experimental energy level data */
@@ -79,7 +80,7 @@ typedef struct {
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* Complete cofficient array to be passed to the diagonalization. */
-  double complex *coeff;
+  complex double *coeff;
 } efit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -91,13 +92,13 @@ typedef struct {
   /* Pointer to workspace for first order Hamiltonian diagonalization. */
   zhd_w *hfod_w;
   /* Complete Hamiltonian eigenvector array. */
-  double complex *h_evect;
+  complex double *h_evect;
   /* Complete Hamiltonian eigenvalue array. */
   double *h_eval;
   /* Pointer to the first order Hamiltonian. */
   zh *hfo;
   /* First order Hamiltonian eigenvector array. */
-  double complex *hfo_evect;
+  complex double *hfo_evect;
   /* First order Hamiltonian eigenvalue array. */
   double *hfo_eval;
   /* Array of pointers to spin Hamiltonians. */
@@ -113,7 +114,7 @@ typedef struct {
   /* Array of pointers spin Hamiltonian inversion workspaces. */
   zshi_w **shi_w_array;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
-  double complex **sh_pa;
+  complex double **sh_pa;
   /* Experimental energy level data */
   ex_data *ex;
   /* Array of pointers to spin Hamiltonian experimental data. */
@@ -123,18 +124,18 @@ typedef struct {
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* Complete cofficient array to be passed to the diagonalization. */
-  double complex *coeff;
+  complex double *coeff;
 } eshfit_data;
 
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t
+efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t
     n_zx, param_type **p);
 void efit_data_free(efit_data *data);
 eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh
-    *hfo, double complex *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
+    *hfo, complex double *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
     param_type **p);
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
