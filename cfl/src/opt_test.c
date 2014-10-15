@@ -10,6 +10,8 @@
 #include "cfl_tensor.h"
 #include "cfl_h.h"
 #include "cfl_sh.h"
+
+#include "cfl_min_wrap.h"
 #include "basinhopping.h"
 #include "h_fit.h"
 
