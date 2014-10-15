@@ -128,7 +128,7 @@ cdef extern from "../../cfl/include/basinhopping.h":
             size_t interval, float factor)
 
 
-cdef extern from "../../cfl/include/h_fit.h":
+cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct param_type:
         int type
         size_t index

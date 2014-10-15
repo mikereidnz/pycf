@@ -13,7 +13,7 @@
 
 #include "cfl_min_wrap.h"
 #include "basinhopping.h"
-#include "h_fit.h"
+#include "cfl_h_fit.h"
 
 /*
  * @brief   Check the equality of two complex valued arrays.

@@ -25,12 +25,12 @@
 #include <math.h>
 #include <complex.h>
 
-#include <cfl_h.h>
-#include <cfl_sh.h>
-#include <basinhopping.h>
+#include "cfl_h.h"
+#include "cfl_sh.h"
+#include "basinhopping.h"
 
-#ifndef _H_FIT_H_ 
-#define _H_FIT_H_
+#ifndef _CFL_H_FIT_H_ 
+#define _CFL_H_FIT_H_
 
 /* Parameter type, used for conversion of real parameters returned by
  * optimization routines into complex parameters for Hamiltonian
@@ -149,4 +149,4 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data);
 }
 #endif /* __cplusplus */
 
-#endif /* _H_FIT_H_ */
+#endif /* _CFL_H_FIT_H_ */

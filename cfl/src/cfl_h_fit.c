@@ -29,12 +29,22 @@
 #include "cfl_sh.h"
 #include "cfl_error.h"
 #include "basinhopping.h"
-#include "h_fit.h"
+#include "cfl_h_fit.h"
 
 /*
  * Outline:
  * --------
- *  The objective function has a standardized argument format s.t. it can be
+ *
+ *  Basic layout: 
+ *    + There are three objective functions: efit_obj, eshfit_obj, and
+ *    eshfit_h_obj.  They are used for fitting to energy levels, and energy
+ *    levels in addition to spin Hamiltonian data.  The difference between
+ *    eshfit_obj and eshfit_h_obj is that the latter is used if the complete
+ *    Hamiltonian is the same as the projection Hamiltonian. 
+ *    + bh_e_fit and bh_esh_fit are wrappers to directly call basinhopping
+ *    without explicit reference to the objective functions.
+ *
+ *  The objective functions have a standardized argument format s.t. they can be
  *  used with all cfl minimization routines.  The parameter-to-be-varied array
  *  of this format is double valued and must be parsed to a complex double array
  *  for Hamiltonian diagonalization.  This is done by objective functions using
@@ -496,7 +506,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
 }
 
 /*  Objective function for fit to both energy levels and spin Hamiltonians in
- *  case the complete Hamiltonian is the same as the first order Hamiltonian. */
+ *  case the complete Hamiltonian is the same as the projection Hamiltonian. */
 double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
   int i, j, sh_index;
   eshfit_data *d = data;

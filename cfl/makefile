@@ -12,13 +12,13 @@ LDFLAGS=
 
 #cfl_test: cfl_h.o cfl_tensor.o cfl_crs.o -lm
 
-opt_test: h_fit.o basinhopping.o cfl_min_wrap.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h cfl_error.h -lm
-#h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h -lm
+#opt_test: cfl_h_fit.o basinhopping.o cfl_min_wrap.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h cfl_error.h -lm
+h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o test_data.h -lm
 #crs_test: cfl_h.o cfl_crs.o -lm
 #libcfl.a: cfl_h.o cfl_crs.o 
 #	ar -rs $@ $^
 
-h_fit.o: basinhopping.o cfl_min_wrap.o cfl_sh.o cfl_h.o h_fit.h cfl_error.h
+cfl_h_fit.o: basinhopping.o cfl_min_wrap.o cfl_sh.o cfl_h.o cfl_h_fit.h cfl_error.h
 
 basinhopping.o: basinhopping.h cfl_error.h cfl_min_wrap.o
 
