@@ -304,52 +304,20 @@ int bh_min(double *x, double *fmin, void *work) {
  *              + gsl_vector_bfgs2 
  */
 int bh_fit(double (*obj_f)(size_t n, double *x, double *grad, void *data),
-    double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, bh_lmin
-    lmintype) {
+    double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
+    cfl_lmin algorithm) {
   int status;
   double fmin;
-  int (*lmin_f)(double *x, double *fmin, void *w);
-  void (*lmin_work_free)(void *work);
-  void *bh_lmin_w;
- 
-  switch (lmintype) {
-    case gsl_nmsimplex2rand:
-      bh_lmin_w =(void *) gsl_multimin_f_alloc(obj_f, nx, data,
-          gsl_multimin_fminimizer_nmsimplex2rand);
-      lmin_f = &gsl_multimin_f;
-      lmin_work_free = gsl_multimin_f_free;
-      break;
-    case gsl_nmsimplex2:
-      bh_lmin_w = (void *) gsl_multimin_f_alloc(obj_f, nx, data,
-          gsl_multimin_fminimizer_nmsimplex2rand);
-      lmin_f = &gsl_multimin_f;
-      lmin_work_free = gsl_multimin_f_free;
-      break;
-    case gsl_conjugate_fr:
-      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
-          gsl_multimin_fdfminimizer_conjugate_fr);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
-      break;
-    case gsl_conjugate_pr:
-      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
-          gsl_multimin_fdfminimizer_conjugate_pr);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
-      break;
-    case gsl_vector_bfgs2:
-      bh_lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
-          gsl_multimin_fdfminimizer_vector_bfgs2);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
-  }
+  cfl_lmin_obj *lmin_obj;
+
+  lmin_obj = cfl_lmin_alloc(obj_f, x0, nx, data, algorithm);
 
   bh_work *bh_w;
-  bh_w = bh_work_alloc(nx, niter, lmin_f, bh_lmin_w, bounds);
+  bh_w = bh_work_alloc(nx, niter, lmin_obj->lmin_f, lmin_obj->lmin_w, bounds);
   status = bh_min(x0, &fmin, bh_w);
   bh_work_free(bh_w);
 
-  lmin_work_free(bh_lmin_w);
+  cfl_lmin_free(lmin_obj);
 
   return status;
 }

@@ -149,7 +149,7 @@ inline double gsl_numerical_df_wrapper(double x, void *data) {
  * Parameters
  * ----------
  *  f     The objective function with generic, gsl independent, arguments. 
- *  n     The number of arguments of f.
+ *  n     The number of parameters to be varied.
  *  data  Generic data to be passed to f. 
  *  T     The type of optimization algorithm.  Derivative free options are:
  *          + gsl_multimin_fminimizer_nmsimplex2
@@ -245,7 +245,7 @@ void gsl_multimin_f_free(void *work) {
  * Parameters
  * ----------
  *  f     The objective function with generic, gsl independent, arguments. 
- *  n     The number of arguments of f.
+ *  n     The number of parameters to be varied.
  *  data  Generic data to be passed to f. 
  *  T     The type of optimization algorithm.  Derivative based options are:
  *          + gsl_multimin_fdfminimizer_conjugate_fr
@@ -345,7 +345,7 @@ void gsl_multimin_fdf_free(void *work) {
  * Parameters
  * ----------
  *  f     The objective function with generic, gsl independent, arguments. 
- *  n     The number of arguments of f.
+ *  n     The number of parameters to be varied.
  *  data  Generic data to be passed to f. 
  *  T     The type of optimization algorithm.  Derivative based options are:
  *          + gsl_multimin_fdfminimizer_conjugate_fr
@@ -618,3 +618,80 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
   else 
     return 1;
 }
+
+
+/*
+ * Common interface function for all of the wrapped local minimization routines.
+ *
+ * Parameters
+ * ----------
+ *  obj_f     Pointer to the objective function.
+ *  x0        The initial parameter array; if the routine succeeds, this is
+ *            overwritten with the result upon exit.
+ *  nx        The number of parameters to be varied.
+ *  data      Generic data to be passed to the objective function.
+ *  lmintype  The local minimization type; implemented options are:
+ *              + gsl_nmsimplex2rand
+ *              + gsl_nmsimplex2 
+ *              + gsl_conjugate_fr 
+ *              + gsl_conjugate_pr
+ *              + gsl_vector_bfgs2 
+ */
+cfl_lmin_obj *cfl_lmin_alloc(double (*obj_f)(size_t n, double *x, double *grad, void *data),
+    double *x0, size_t nx, void *data, cfl_lmin algorithm) {
+  int (*lmin_f)(double *x, double *fmin, void *w);
+  void (*lmin_work_free)(void *work);
+  void *lmin_w;
+  cfl_lmin_obj *obj;
+
+  obj = (cfl_lmin_obj *) malloc(sizeof(cfl_lmin_obj));
+  if (obj == 0) {
+    CFL_ERROR_NULL("malloc failed for obj");
+  }
+
+  switch (algorithm) {
+    case gsl_nmsimplex2rand:
+      lmin_w =(void *) gsl_multimin_f_alloc(obj_f, nx, data,
+          gsl_multimin_fminimizer_nmsimplex2rand);
+      lmin_f = &gsl_multimin_f;
+      lmin_work_free = gsl_multimin_f_free;
+      break;
+    case gsl_nmsimplex2:
+      lmin_w = (void *) gsl_multimin_f_alloc(obj_f, nx, data,
+          gsl_multimin_fminimizer_nmsimplex2rand);
+      lmin_f = &gsl_multimin_f;
+      lmin_work_free = gsl_multimin_f_free;
+      break;
+    case gsl_conjugate_fr:
+      lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+          gsl_multimin_fdfminimizer_conjugate_fr);
+      lmin_f = &gsl_multimin_fndf;
+      lmin_work_free = gsl_multimin_fndf_free;
+      break;
+    case gsl_conjugate_pr:
+      lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+          gsl_multimin_fdfminimizer_conjugate_pr);
+      lmin_f = &gsl_multimin_fndf;
+      lmin_work_free = gsl_multimin_fndf_free;
+      break;
+    case gsl_vector_bfgs2:
+      lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+          gsl_multimin_fdfminimizer_vector_bfgs2);
+      lmin_f = &gsl_multimin_fndf;
+      lmin_work_free = gsl_multimin_fndf_free;
+  }
+
+  obj->lmin_w = lmin_w;
+  obj->lmin_f = lmin_f;
+  obj->lmin_work_free = lmin_work_free;
+
+  return obj;
+}
+
+void cfl_lmin_free(cfl_lmin_obj *obj) {
+   obj->lmin_work_free(obj->lmin_w);
+   free(obj);
+}
+  
+
+

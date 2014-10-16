@@ -105,19 +105,22 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w)
     void zshi(double complex *a, zshi_w *w)
 
-
-cdef extern from "../../cfl/include/basinhopping.h":
+cdef extern from "../../cfl/include/cfl_min_wrap.h":
     ctypedef struct cfl_min_bounds:
         double *l
         double *u
 
-    ctypedef enum bh_lmin:
+    ctypedef enum cfl_lmin:
         gsl_nmsimplex2rand = 0
         gsl_nmsimplex2 = 1
         gsl_conjugate_fr = 2
         gsl_conjugate_pr = 3
         gsl_vector_bfgs2 = 4
+        nlopt_cobyla = 5
+        nlopt_bobyqa = 6 
+        nlopt_sbplx = 7
 
+cdef extern from "../../cfl/include/basinhopping.h":
     ctypedef struct bh_work:
         pass
 

@@ -563,7 +563,7 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
  *              + gsl_vector_bfgs2 
  */
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
-    bh_lmin lmintype) {
+    cfl_lmin lmintype) {
   int status;
 
   status = bh_fit(&efit_obj, x0, nx, data, niter, bounds, lmintype); 
@@ -590,7 +590,7 @@ int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bo
  *              + gsl_vector_bfgs2 
  */
 int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
-    *bounds, bh_lmin lmintype) {
+    *bounds, cfl_lmin lmintype) {
   int status;
   eshfit_data *d = data;
 

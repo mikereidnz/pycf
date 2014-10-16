@@ -1336,7 +1336,7 @@ cdef class CFLMin:
     cdef np.ndarray lbounds
     cdef np.ndarray ubounds
     cdef cfl.cfl_min_bounds *bounds
-    cdef cfl.bh_lmin bh_lmintype
+    cdef cfl.cfl_lmin cfl_lmintype
     def __cinit__(self, method, **kwargs):
         cdef np.ndarray[double, ndim=1, mode="c"] clb
         cdef np.ndarray[double, ndim=1, mode="c"] cub
@@ -1364,13 +1364,13 @@ cdef class CFLMin:
             else:
                 self.niter = 100
             if 'lmin_type' in kwargs:
-                self.bh_lmintype = {'gsl_nmsimplex2rand' : gsl_nmsimplex2rand,
+                self.cfl_lmintype = {'gsl_nmsimplex2rand' : gsl_nmsimplex2rand,
                         'gsl_nmsimplex2' : gsl_nmsimplex2,
                         'gsl_conjugate_fr' : gsl_conjugate_fr,
                         'gsl_conjugate_pr' : gsl_conjugate_pr,
                         'gsl_vector_bfgs2' : gsl_vector_bfgs2}[kwargs['lmin_type']]
             else:
-                self.bh_lmintype = gsl_vector_bfgs2
+                self.cfl_lmintype = gsl_vector_bfgs2
         else:
             raise NotImplementedError("Minimization method '%s' is not an existing option." % method)
 
@@ -1379,6 +1379,23 @@ cdef class CFLMin:
             free(self.bounds)
 
     cpdef minimize(self, objective_f, x0, data):
+        r"""
+        Run the minimization. 
+
+        Parameters
+        ----------
+        objective_f : PyCapsule
+            Capsule for pointer to the objective function of type 
+            double (*)(size_t, double *, double *, void *).  The PyCapsule name
+            is "pycfl.MinObjF". 
+        x0 : np.ndarray
+            Real valued vector.  Upon entry, these are the initial guesses for
+            the parameters; if minimization is successful, x0 will be
+            overwritten with the solution.a
+        data : PyCapsule
+            Capsule for any data to be passed to the objective function, of type
+            void *.  The PyCapsule name is "pycfl.MinData". 
+        """
         cdef np.ndarray[double, ndim=1, mode="c"] cx0
         cdef size_t cnx
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
@@ -1391,7 +1408,7 @@ cdef class CFLMin:
         data_ptr = <void *>PyCapsule_GetPointer(data, "pycfl.MinData")
         if self.method == 'basinhopping':
             with nogil:
-                cfl.bh_fit(obj_f_ptr, &cx0[0], cnx, data_ptr, self.niter, self.bounds, self.bh_lmintype)
+                cfl.bh_fit(obj_f_ptr, &cx0[0], cnx, data_ptr, self.niter, self.bounds, self.cfl_lmintype)
 
 
 

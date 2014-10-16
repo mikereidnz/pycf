@@ -521,7 +521,7 @@ int main (void)
   eshfit_data *eshfit_d;
   eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, NULL, celiyf4_coeff,
       &ce_ex_data, shx, 6, p);
-  status = bh_esh_fit(ce_x0, 6, eshfit_d, 20, NULL, gsl_vector_bfgs2);
+  status = bh_esh_fit(ce_x0, 6, eshfit_d, 2, NULL, gsl_vector_bfgs2);
   eshfit_data_free(eshfit_d);
 
   printf("Energy level and spin Hamiltonian fit:\n");

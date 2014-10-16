@@ -27,6 +27,36 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
 
+/* Implemented local minimization routines. */
+typedef enum {
+  gsl_nmsimplex2rand = 0,
+  gsl_nmsimplex2 = 1,
+  gsl_conjugate_fr = 2,
+  gsl_conjugate_pr = 3,
+  gsl_vector_bfgs2 = 4,
+  nlopt_cobyla = 5,
+  nlopt_bobyqa = 6, 
+  nlopt_sbplx = 7
+} cfl_lmin;
+
+/* Local minimization object. */
+typedef struct {
+  /* Pointer to the local minimization function. */
+  int (*lmin_f)(double *x, double *fmin, void *w);
+  /* Pointer to the local minimization workspace. */
+  void *lmin_w;
+  /* Pointer to the local minimization workspace freeing function. */
+  void (*lmin_work_free)(void *work);
+} cfl_lmin_obj;
+
+/* Storage for optimization bounds. */
+typedef struct {
+  /* Lower bounds. */
+  double *l;
+  /* Upper bounds. */
+  double *u;
+} cfl_min_bounds;
+
 /* Data type for gsl_min_wrapper; passed to the minimization wrapper which then
  * extracts the parameter data from the gsl_vector and calls the objective
  * function with gsl independent arguments.  Similarily, it is used for passing
@@ -111,6 +141,11 @@ void gsl_multimin_fndf_free(void *work);
 int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
+cfl_lmin_obj *cfl_lmin_alloc(double (*obj_f)(size_t n, double *x, double *grad,
+      void *data), double *x0, size_t nx, void *data, cfl_lmin algorithm);
+
+
+//void *nlopt_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, cfl_lmin algorithm);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
