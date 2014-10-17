@@ -26,28 +26,39 @@
 
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
+#include <nlopt.h>
 
-/* Implemented local minimization routines. */
 typedef enum {
   gsl_nmsimplex2rand = 0,
   gsl_nmsimplex2 = 1,
   gsl_conjugate_fr = 2,
   gsl_conjugate_pr = 3,
-  gsl_vector_bfgs2 = 4,
-  nlopt_cobyla = 5,
-  nlopt_bobyqa = 6, 
-  nlopt_sbplx = 7
-} cfl_lmin;
+  gsl_vector_bfgs2 = 4
+} gsl_min_alg;
+
+typedef enum {
+  nlopt_cobyla = 1,
+  nlopt_bobyqa = 2, 
+  nlopt_sbplx = 3
+} nlopt_min_alg;
+
+typedef enum {
+  gsl = 1,
+  nlopt = 2,
+  bh = 3
+} cfl_min_t;
 
 /* Local minimization object. */
 typedef struct {
-  /* Pointer to the local minimization function. */
-  int (*lmin_f)(double *x, double *fmin, void *w);
-  /* Pointer to the local minimization workspace. */
-  void *lmin_w;
-  /* Pointer to the local minimization workspace freeing function. */
-  void (*lmin_work_free)(void *work);
-} cfl_lmin_obj;
+  /* Pointer to the minimization function. */
+  int (*min_f)(double *x, double *fmin, void *w);
+  /* Number of parameters. */
+  size_t n;
+  /* Pointer to data required by minimization. */
+  void *min_data;
+  /* Pointer to the minimization object freeing function. */
+  void (*min_obj_free)(void *obj);
+} cfl_min_obj;
 
 /* Storage for optimization bounds. */
 typedef struct {
@@ -141,11 +152,12 @@ void gsl_multimin_fndf_free(void *work);
 int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
-cfl_lmin_obj *cfl_lmin_alloc(double (*obj_f)(size_t n, double *x, double *grad,
-      void *data), double *x0, size_t nx, void *data, cfl_lmin algorithm);
-
-
-//void *nlopt_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, cfl_lmin algorithm);
+cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
+      void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
+    cfl_min_bounds *bounds);
+cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
+      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm);
+void cfl_min_free(cfl_min_obj *obj);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

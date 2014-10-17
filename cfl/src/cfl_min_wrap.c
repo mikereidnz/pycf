@@ -29,6 +29,8 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_deriv.h>
 
+#include <nlopt.h>
+
 #include "cfl_config.h"
 #include "cfl_error.h"
 #include "cfl_min_wrap.h"
@@ -619,77 +621,142 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
     return 1;
 }
 
+/* Wrapper for nlopt minimization. */
+inline int nlopt_min_f(double *x, double *min, void *data) {
+  return nlopt_optimize((nlopt_opt )data, x, min);
+}
+
+void nlopt_free(void *data) {
+  nlopt_opt opt = (nlopt_opt )data;
+  nlopt_destroy(opt);
+}
 
 /*
- * Common interface function for all of the wrapped local minimization routines.
+ * Generate cfl_min_obj settings object for nlopt based minimization routines. 
+ *  
+ * Parameters
+ * ----------
+ *  obj_f       Pointer to the objective function.
+ *  n           The number of parameters to be varied.
+ *  data        Generic data to be passed to the objective function.
+ *  algorithm   The minimization algorithm.
+ *  xtol
+ *  bounds
+ */
+cfl_min_obj *nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
+      void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
+    cfl_min_bounds *bounds) {
+  cfl_min_obj *obj;
+  double default_lb[2] = {-HUGE_VAL, 0};
+  nlopt_opt opt;
+
+  obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
+  if (obj == 0) {
+    CFL_ERROR_NULL("malloc failed for obj");
+  }
+  opt = nlopt_create(algorithm, n);
+  if (opt == 0) {
+    free(obj);
+    CFL_ERROR_NULL("nlopt_create failed for opt");
+  }
+
+  if (bounds != NULL) {
+    nlopt_set_lower_bounds(opt, bounds->l);
+    nlopt_set_upper_bounds(opt, bounds->u);
+  }
+  else {
+    nlopt_set_lower_bounds(opt, default_lb);
+  }
+
+  nlopt_set_min_objective(opt, (nlopt_func) f, data);
+  nlopt_set_xtol_rel(opt, xtol);
+
+  obj->min_f = &nlopt_min_f;
+  obj->n = n;
+  obj->min_data = (void *)opt;
+  obj->min_obj_free = nlopt_free;
+
+  return obj;
+}
+
+
+
+/*
+ * Generate cfl_min_obj settings object for gsl based minimization routines. 
  *
  * Parameters
  * ----------
- *  obj_f     Pointer to the objective function.
- *  x0        The initial parameter array; if the routine succeeds, this is
- *            overwritten with the result upon exit.
- *  nx        The number of parameters to be varied.
- *  data      Generic data to be passed to the objective function.
- *  lmintype  The local minimization type; implemented options are:
+ *  obj_f       Pointer to the objective function.
+ *  x0          The initial parameter array; if the routine succeeds, this is
+ *              overwritten with the result upon exit.
+ *  n           The number of parameters to be varied.
+ *  data        Generic data to be passed to the objective function.
+ *  algorithm   The local minimization type; implemented options are:
  *              + gsl_nmsimplex2rand
  *              + gsl_nmsimplex2 
  *              + gsl_conjugate_fr 
  *              + gsl_conjugate_pr
  *              + gsl_vector_bfgs2 
  */
-cfl_lmin_obj *cfl_lmin_alloc(double (*obj_f)(size_t n, double *x, double *grad, void *data),
-    double *x0, size_t nx, void *data, cfl_lmin algorithm) {
-  int (*lmin_f)(double *x, double *fmin, void *w);
-  void (*lmin_work_free)(void *work);
-  void *lmin_w;
-  cfl_lmin_obj *obj;
+cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
+      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm) {
+  int (*min_f)(double *x, double *fmin, void *w);
+  void (*min_obj_free)(void *obj);
+  void *min_data;
+  cfl_min_obj *obj;
 
-  obj = (cfl_lmin_obj *) malloc(sizeof(cfl_lmin_obj));
+  obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
   if (obj == 0) {
     CFL_ERROR_NULL("malloc failed for obj");
   }
 
   switch (algorithm) {
     case gsl_nmsimplex2rand:
-      lmin_w =(void *) gsl_multimin_f_alloc(obj_f, nx, data,
+      min_data =(void *) gsl_multimin_f_alloc(obj_f, n, data,
           gsl_multimin_fminimizer_nmsimplex2rand);
-      lmin_f = &gsl_multimin_f;
-      lmin_work_free = gsl_multimin_f_free;
+      min_f = &gsl_multimin_f;
+      min_obj_free = gsl_multimin_f_free;
       break;
     case gsl_nmsimplex2:
-      lmin_w = (void *) gsl_multimin_f_alloc(obj_f, nx, data,
+      min_data = (void *) gsl_multimin_f_alloc(obj_f, n, data,
           gsl_multimin_fminimizer_nmsimplex2rand);
-      lmin_f = &gsl_multimin_f;
-      lmin_work_free = gsl_multimin_f_free;
+      min_f = &gsl_multimin_f;
+      min_obj_free = gsl_multimin_f_free;
       break;
     case gsl_conjugate_fr:
-      lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+      min_data = (void *) gsl_multimin_fndf_alloc(obj_f, n, data,
           gsl_multimin_fdfminimizer_conjugate_fr);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
+      min_f = &gsl_multimin_fndf;
+      min_obj_free = gsl_multimin_fndf_free;
       break;
     case gsl_conjugate_pr:
-      lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+      min_data = (void *) gsl_multimin_fndf_alloc(obj_f, n, data,
           gsl_multimin_fdfminimizer_conjugate_pr);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
+      min_f = &gsl_multimin_fndf;
+      min_obj_free = gsl_multimin_fndf_free;
       break;
     case gsl_vector_bfgs2:
-      lmin_w = (void *) gsl_multimin_fndf_alloc(obj_f, nx, data,
+      min_data = (void *) gsl_multimin_fndf_alloc(obj_f, n, data,
           gsl_multimin_fdfminimizer_vector_bfgs2);
-      lmin_f = &gsl_multimin_fndf;
-      lmin_work_free = gsl_multimin_fndf_free;
+      min_f = &gsl_multimin_fndf;
+      min_obj_free = gsl_multimin_fndf_free;
   }
 
-  obj->lmin_w = lmin_w;
-  obj->lmin_f = lmin_f;
-  obj->lmin_work_free = lmin_work_free;
+  obj->min_data = min_data;
+  obj->n = n;
+  obj->min_f = min_f;
+  obj->min_obj_free = min_obj_free;
 
   return obj;
 }
 
-void cfl_lmin_free(cfl_lmin_obj *obj) {
-   obj->lmin_work_free(obj->lmin_w);
+int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) {
+
+
+}
+
+void cfl_min_free(cfl_min_obj *obj) {
+   obj->min_obj_free(obj->min_data);
    free(obj);
 }
   

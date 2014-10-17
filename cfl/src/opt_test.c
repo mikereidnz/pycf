@@ -489,7 +489,10 @@ int main (void)
   double ce_x0[7] = {2000, 900, 200, -1000, -1000, -100};
   efit_data *efit_d;
   efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
-  bh_e_fit(ce_x0, 6, efit_d, 1, NULL, gsl_vector_bfgs2);
+  cfl_min_obj *lmin_obj;
+  lmin_obj = cfl_gsl_min_alloc(&efit_obj, 6, efit_d, 4);
+  bh_fit(ce_x0, 2, NULL, lmin_obj);
+  cfl_min_free(lmin_obj);
   efit_data_free(efit_d);
 
   printf("Energy level only fit:\n");
@@ -497,60 +500,60 @@ int main (void)
     printf("%.5f\n", ce_x0[i]);
   }
 
-  /* Spin Hamiltonian and energy level fit. */
-  zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
-  ce_x_sh = zsh_alloc(2, "magx");
-  ce_y_sh = zsh_alloc(2, "magy");
-  ce_z_sh = zsh_alloc(2, "magz");
-  zsh_set_pro(ce_x_sh, magx, 0);
-  zsh_set_pro(ce_y_sh, magy, 0);
-  zsh_set_pro(ce_z_sh, magz, 0);
-  zsh *sh_a[3] = {ce_x_sh, ce_y_sh, ce_z_sh};
-  
-  zsh_inv_data ce_inv_data;
+  ///* Spin Hamiltonian and energy level fit. */
+  //zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
+  //ce_x_sh = zsh_alloc(2, "magx");
+  //ce_y_sh = zsh_alloc(2, "magy");
+  //ce_z_sh = zsh_alloc(2, "magz");
+  //zsh_set_pro(ce_x_sh, magx, 0);
+  //zsh_set_pro(ce_y_sh, magy, 0);
+  //zsh_set_pro(ce_z_sh, magz, 0);
+  //zsh *sh_a[3] = {ce_x_sh, ce_y_sh, ce_z_sh};
+  //
+  //zsh_inv_data ce_inv_data;
 
-  ce_inv_data.a = ce_zeeman_inv;
-  ce_inv_data.m = 12;
-  ce_inv_data.n = 9;
-  shx_data ce_zeeman_exp_data;
-  ce_zeeman_exp_data.pa = ce_gvalues;
-  ce_zeeman_exp_data.chisq_weight = 4e6;
-  ce_zeeman_exp_data.inv_data = &ce_inv_data;
-  shx_data *shx[1] = {&ce_zeeman_exp_data};
-  
-  eshfit_data *eshfit_d;
-  eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, NULL, celiyf4_coeff,
-      &ce_ex_data, shx, 6, p);
-  status = bh_esh_fit(ce_x0, 6, eshfit_d, 2, NULL, gsl_vector_bfgs2);
-  eshfit_data_free(eshfit_d);
+  //ce_inv_data.a = ce_zeeman_inv;
+  //ce_inv_data.m = 12;
+  //ce_inv_data.n = 9;
+  //shx_data ce_zeeman_exp_data;
+  //ce_zeeman_exp_data.pa = ce_gvalues;
+  //ce_zeeman_exp_data.chisq_weight = 4e6;
+  //ce_zeeman_exp_data.inv_data = &ce_inv_data;
+  //shx_data *shx[1] = {&ce_zeeman_exp_data};
+  //
+  //eshfit_data *eshfit_d;
+  //eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, NULL, celiyf4_coeff,
+  //    &ce_ex_data, shx, 6, p);
+  //status = bh_esh_fit(ce_x0, 6, eshfit_d, 2, NULL, gsl_vector_bfgs2);
+  //eshfit_data_free(eshfit_d);
 
-  printf("Energy level and spin Hamiltonian fit:\n");
-  for (i=0; i<6; i++) {
-    printf("%.5f\n", ce_x0[i]);
-  }
-  
-  zsh_free(ce_x_sh);
-  zsh_free(ce_y_sh);
-  zsh_free(ce_z_sh);
+  //printf("Energy level and spin Hamiltonian fit:\n");
+  //for (i=0; i<6; i++) {
+  //  printf("%.5f\n", ce_x0[i]);
+  //}
+  //
+  //zsh_free(ce_x_sh);
+  //zsh_free(ce_y_sh);
+  //zsh_free(ce_z_sh);
 
-  zh_free(h);
-  for (i=0; i<nstates; i++) {
-    free(s[i]);
-  }
-  free(w);
-  free(z);
+  //zh_free(h);
+  //for (i=0; i<nstates; i++) {
+  //  free(s[i]);
+  //}
+  //free(w);
+  //free(z);
 
-  free(p);
-  zt_free(eavg);
-  zt_free(zeta);
-  zt_free(C20);
-  zt_free(C40);
-  zt_free(C44);
-  zt_free(C60);
-  zt_free(C64);
-  zt_free(magx);
-  zt_free(magy);
-  zt_free(magz);
-  sl_free(states);
+  //free(p);
+  //zt_free(eavg);
+  //zt_free(zeta);
+  //zt_free(C20);
+  //zt_free(C40);
+  //zt_free(C44);
+  //zt_free(C60);
+  //zt_free(C64);
+  //zt_free(magx);
+  //zt_free(magy);
+  //zt_free(magz);
+  //sl_free(states);
   return 0;
 }  

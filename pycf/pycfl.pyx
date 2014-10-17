@@ -1391,7 +1391,7 @@ cdef class CFLMin:
         x0 : np.ndarray
             Real valued vector.  Upon entry, these are the initial guesses for
             the parameters; if minimization is successful, x0 will be
-            overwritten with the solution.a
+            overwritten with the solution.
         data : PyCapsule
             Capsule for any data to be passed to the objective function, of type
             void *.  The PyCapsule name is "pycfl.MinData". 
