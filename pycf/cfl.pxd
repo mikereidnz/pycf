@@ -25,9 +25,9 @@
 
 
 cdef extern from "complex.h":
-    double complex conj(double complex z)
-    double complex cexp(double complex z)
-    double complex I
+    complex doubleconj(complex doublez)
+    complex doublecexp(complex doublez)
+    complex doubleI
 
 cdef extern from "stdlib.h":
     int atoi(const char *str)
@@ -48,10 +48,10 @@ cdef extern from "../../cfl/include/cfl_tensor.h":
     
     sl *sl_alloc(size_t n, char **states)
     void sl_free(sl *l)
-    zt *zt_alloc(char *name, double complex *a, size_t n, sl *states)
+    zt *zt_alloc(char *name, complex double*a, size_t n, sl *states)
     void zt_free(zt *t)
-    zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2)
-    zt *zt_s(char *name, zt *t, double complex s)
+    zt *zt_sa(char *name, zt *t1, zt *t2, complex doubles1, complex doubles2)
+    zt *zt_s(char *name, zt *t, complex doubles)
 
 
 cdef extern from "../../cfl/include/cfl_h.h":
@@ -60,18 +60,18 @@ cdef extern from "../../cfl/include/cfl_h.h":
         int nt
         sl *states
         zt **t
-        double complex *coeff
-        double complex *ap
+        complex double*coeff
+        complex double*ap
         
     ctypedef struct zhd_w:
         pass
     
     zh *zh_alloc(int n, int nt, zt **t) 
     void zh_free(zh *h)
-    void zh_set_coeff(zh *h, double complex *coeff)
+    void zh_set_coeff(zh *h, complex double*coeff)
     zhd_w *zhd_w_alloc(zh *h)
     void zhd_w_free(zhd_w *hd_w)
-    void zhd(double *w, double complex *z, zh *h, zhd_w *hd_w) nogil
+    void zhd(double *w, complex double*z, zh *h, zhd_w *hd_w) nogil
     void h_getlabels(zh *h, char **states)
 
 cdef extern from "../../cfl/include/cfl_sh.h":
@@ -88,7 +88,7 @@ cdef extern from "../../cfl/include/cfl_sh.h":
         pass
 
     ctypedef struct zsh_inv_data:
-        double complex *a
+        complex double*a
         size_t m
         size_t n
     
@@ -96,14 +96,14 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     void zsh_free(zsh *sh)
     zshp_w *zshp_w_alloc(zsh *sh)
     void zshp_w_free(zshp_w *shp_w)
-    zsh_inv_data *zsh_inv_data_alloc(double complex *a, size_t m, size_t n)
+    zsh_inv_data *zsh_inv_data_alloc(complex double*a, size_t m, size_t n)
     void zsh_inv_data_free(zsh_inv_data *d)
     zshi_w *zshi_w_alloc(zsh_inv_data *d)
     void zshi_w_free(zshi_w *w)
     void zsh_set_pro(zsh *sh, zt *t, int l)
-    void zsh_set_inv(zsh *sh, double complex *a, size_t m, size_t n) 
-    void zshp(double complex *a, double complex *hz, zsh *sh, zshp_w *shp_w)
-    void zshi(double complex *a, zshi_w *w)
+    void zsh_set_inv(zsh *sh, complex double*a, size_t m, size_t n) 
+    void zshp(complex double*a, complex double*hz, zsh *sh, zshp_w *shp_w)
+    void zshi(complex double*a, zshi_w *w)
 
 cdef extern from "../../cfl/include/cfl_min_wrap.h":
     ctypedef struct cfl_min_bounds:
@@ -142,7 +142,7 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         int *li
 
     ctypedef struct shx_data:
-        double complex *pa
+        complex double*pa
         float chisq_weight
         zsh_inv_data *inv_data
 
@@ -152,11 +152,11 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
-    efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t
+    efit_data *efit_data_alloc(zh *h, complex double*coeff, ex_data *ex, size_t
             n_zx, param_type **p)
     void efit_data_free(efit_data *data)
     eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h,
-            zh *hfo, double complex *coeff, ex_data *ex, shx_data **shx, size_t
+            zh *hfo, complex double*coeff, ex_data *ex, shx_data **shx, size_t
             n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds

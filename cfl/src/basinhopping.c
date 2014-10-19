@@ -51,8 +51,9 @@
  *  bounds      Pointer to a bounds object; in case of no bounds, pass a NULL
  *              pointer.
  */
-bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double *fmin, void *w), void *lmin_data, cfl_min_bounds *bounds) {
+bh_work *bh_work_alloc(size_t niter, cfl_min_obj *lmin_obj, cfl_min_bounds *bounds) {
   int i;
+  size_t n = lmin_obj->n;
   bh_work *w;
   double *x;
 
@@ -123,14 +124,14 @@ bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double *
   w->x = x;
   w->n = n;
   w->niter = niter;
-  w->lmin_f = lmin_f;
-  w->lmin_data = lmin_data;
+  w->lmin_obj = lmin_obj;
   w->bounds = bounds;
   
   return w;
 }
 
-void bh_work_free(bh_work *w) {
+void bh_work_free(void *work) {
+  bh_work *w = (bh_work *) work;
   free(w->x);
   gsl_rng_free(w->rng);
   free(w->emin->x);
@@ -231,8 +232,9 @@ inline void bh_takestep(double *x, bh_work *w) {
  * ---------- 
  *  x       The initial parameter array; if the routine succeeds, this is
  *          overwritten with the result upon exit.
- *  fmin    Pointer to a single double; if successful, this will be overwritten
- *          with the objective function value for the best-fit parameters. 
+ *  fmin    Pointer to a double valued variable; if successful, this will be
+ *          overwritten with the objective function value for the best-fit
+ *          parameters. 
  *  w       Pointer to the workspace allocated with bh_work_alloc. 
  */
 int bh_min(double *x, double *fmin, void *work) {
@@ -244,7 +246,7 @@ int bh_min(double *x, double *fmin, void *work) {
   double e;
 
   /* Perform initial minimization. */
-  status = w->lmin_f(x, &e, w->lmin_data);
+  status = w->lmin_obj->min_f(x, &e, w->lmin_obj->min_data);
   if (status) {
     lmin_fail++;
   }
@@ -255,7 +257,7 @@ int bh_min(double *x, double *fmin, void *work) {
   
   for (i=0; i<w->niter; i++) {
     bh_takestep(x, w);
-    status = w->lmin_f(x, &e, w->lmin_data);
+    status = w->lmin_obj->min_f(x, &e, w->lmin_obj->min_data);
     if (status) {
       lmin_fail++;
     }
@@ -297,8 +299,7 @@ cfl_min_obj *cfl_bh_min_setup(size_t niter, cfl_min_bounds *bounds, cfl_min_obj 
 
   bh_work *bh_w;
   cfl_min_obj *obj;
-
-  bh_w = bh_work_alloc(lmin->n, niter, lmin->min_f, lmin->min_data, bounds);
+  bh_w = bh_work_alloc(niter, lmin, bounds);
   if (bh_w == 0) {
     CFL_ERROR_NULL("bh_work_alloc failed for bh_w");
   }
@@ -311,14 +312,7 @@ cfl_min_obj *cfl_bh_min_setup(size_t niter, cfl_min_bounds *bounds, cfl_min_obj 
   obj->min_data = bh_w;
   obj->n = lmin->n;
   obj->min_f = &bh_min;
-  //FIXME: This needs dedicated freeing function that calls the freeing function
-  //of the lmin function before freeing itself... as it currently stands, the
-  //lmin pointer is lost.  This could be solved by creating an additional void
-  //pointer elmenent in cfl_min_obj used for storing misc data? No. A much nicer
-  //method would be to modify the bh_work struct to store a cfl_min_obj ptr, and
-  //let bh_work_free destroy the lmin cfl_min_obj object. 
-  
-  obj->min_obj_free = &bh_work_free;
+  obj->min_obj_free = bh_work_free;
 
   return obj;
 }

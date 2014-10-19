@@ -256,8 +256,8 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       CFL_ERROR_NULL("zshi_w_alloc failed for data->shi_w_array");
     }
     /* Size m for Zeeman shx is set to three times the size of a single term. */
-    data->sh_pa[i] = (complex double *) calloc(shx[i]->inv_data->m,sizeof(double
-          complex));
+    data->sh_pa[i] = (complex double *) calloc(shx[i]->inv_data->m,sizeof(complex
+          double));
     if (data->sh_pa[i] == 0) {
       zhd_w_free(data->hd_w);
       free(data->h_evect);
@@ -301,8 +301,8 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       free(data);
       CFL_ERROR_NULL("zhd_w_alloc failed for data->hfod_w");
     }
-    data->hfo_evect = (complex double *) calloc(hfo->n*hfo->n,sizeof(double
-          complex));
+    data->hfo_evect = (complex double *) calloc(hfo->n*hfo->n,sizeof(complex
+          double));
     if (data->hfo_evect == 0) {
       zhd_w_free(data->hd_w);
       free(data->h_evect);

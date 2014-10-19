@@ -42,16 +42,11 @@ typedef enum {
   nlopt_sbplx = 3
 } nlopt_min_alg;
 
-typedef enum {
-  gsl = 1,
-  nlopt = 2,
-  bh = 3
-} cfl_min_t;
 
 /* Local minimization object. */
 typedef struct {
   /* Pointer to the minimization function. */
-  int (*min_f)(double *x, double *fmin, void *w);
+  int (*min_f)(double *x, double *fmin, void *d);
   /* Number of parameters. */
   size_t n;
   /* Pointer to data required by minimization. */
@@ -157,6 +152,7 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
     cfl_min_bounds *bounds);
 cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
       *grad, void *data), size_t n, void *data, gsl_min_alg algorithm);
+int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
 void cfl_min_free(cfl_min_obj *obj);
 #ifdef __cplusplus
 }

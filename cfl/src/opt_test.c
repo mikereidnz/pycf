@@ -91,15 +91,6 @@ double bh_test_f1(size_t n, double *x, double *grad, void *params) {
 
 double bh_test_f2(size_t n, double *x, double *grad, void *params) {
   double *p = (double *)params;
-
-  grad[0] = -p[0] * sin(p[0] * x[0] - p[1]) + 2. * x[0] + p[2] + x[1];
-  grad[1] = -p[0] * sin(p[0] * x[1] - p[1]) + 2. * x[1] + p[2] + x[0];
-  
-  return cos(p[0] * x[0] - p[1]) + (x[0] + p[2]) * x[0] + cos(p[0] * x[1] - p[1]) + (x[1] + p[2]) * x[1] + x[0] * x[1] + 1.963879482144252;
-}
-
-double bh_test_f3(size_t n, double *x, double *grad, void *params) {
-  double *p = (double *)params;
   
   return cos(p[0] * x[0] - p[1]) + (x[0] + p[2]) * x[0] + cos(p[0] * x[1] - p[1]) + (x[1] + p[2]) * x[1] + x[0] * x[1] + 1.963879482144252;
 }
@@ -109,7 +100,7 @@ int main (void)
 {
 
   /*=========================================================================*/
-  /* gsl Nelder-Mead simplex test.                                           */
+  /* gsl minimization routines test.                                         */
   /*=========================================================================*/
   int status;
   double gsl_result[2] = {1.0, 2.0};
@@ -121,6 +112,7 @@ int main (void)
   double gsl_x3[2] = {10.0, -5.0};
   double fmin;
 
+  /* Derivative free Nelder-Mead simplex. */
   gsl_multimin_f_work *gsl_w1;
   gsl_w1 = gsl_multimin_f_alloc(&gsl_test_f1, 2, gsl_par, gsl_multimin_fminimizer_nmsimplex2);
 
@@ -134,6 +126,7 @@ int main (void)
   dequ_chk(gsl_result, gsl_x1, 2);
   gsl_multimin_f_free(gsl_w1);
 
+  /* Fletcher-Reeves conjugate gradient algorithm. */
   gsl_multimin_fdf_work *gsl_w2;
   gsl_w2 = gsl_multimin_fdf_alloc(&gsl_test_f2, 2, gsl_par, gsl_multimin_fdfminimizer_conjugate_fr);
 
@@ -147,6 +140,8 @@ int main (void)
   dequ_chk(gsl_result, gsl_x2, 2);
   gsl_multimin_fdf_free(gsl_w2);
 
+  /* Vector Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm with numerical
+   * derivative estimation. */
   gsl_multimin_fndf_work *gsl_w3;
   gsl_w3 = gsl_multimin_fndf_alloc(&gsl_test_f1, 2, gsl_par, gsl_multimin_fdfminimizer_vector_bfgs2);
 
@@ -167,11 +162,9 @@ int main (void)
 
   double bh_result1[2] = {-0.19472980, -0.10130833};
   double bh_result2[2] = {-0.19415263, -0.19415263};
-  double bh_result3[2] = {-0.19415263, -0.19415263};
   double bh_par[3] = {14.5, 0.3, 0.2};
   double bh_x1[2] =  {-20, 13};
   double bh_x2[2] =  {-20, 13};
-  double bh_x3[2] =  {-20, 13};
 
   double bounds_l[2] = {-10, -10};
   double bounds_u[2] = {10, 10};
@@ -180,41 +173,32 @@ int main (void)
   bounds.l = bounds_l;
   bounds.u = bounds_u;
 
-  gsl_multimin_f_work *bh_multimin_w1;
-  bh_multimin_w1 = gsl_multimin_f_alloc(&bh_test_f1, 2, bh_par, gsl_multimin_fminimizer_nmsimplex2);
+  /* Basinhopping test with derivative free gsl local minimization. */
+  cfl_min_obj *lmin_obj1, *bhmin_obj1;
 
-  bh_work *bh_w1;
-  bh_w1 = bh_work_alloc(2, 300, &gsl_multimin_f, (void *)bh_multimin_w1, NULL);
-  status = bh_min(bh_x1, &fmin, bh_w1);
-  printf("bh with gsl_multimin_f local minimization:\n");
+  lmin_obj1 = cfl_gsl_min_setup(&bh_test_f1, 2, bh_par, gsl_nmsimplex2);
+  bhmin_obj1 = cfl_bh_min_setup(5, &bounds, lmin_obj1);
+  status = cfl_min(bh_x1, &fmin, bhmin_obj1);
+  printf("bh with gsl_nmsimplex2 local minimization:\n");
   dequ_chk(bh_result1, bh_x1, 2);
-  bh_work_free(bh_w1);
-  
-  gsl_multimin_f_free(bh_multimin_w1);
 
-  gsl_multimin_fdf_work *bh_multimin_w2;
-  bh_multimin_w2 = gsl_multimin_fdf_alloc(&bh_test_f2, 2, bh_par, gsl_multimin_fdfminimizer_vector_bfgs2);
+  cfl_min_free(bhmin_obj1);
+  cfl_min_free(lmin_obj1);
 
-  bh_work *bh_w2;
-  bh_w2 = bh_work_alloc(2, 300, &gsl_multimin_fdf, (void *)bh_multimin_w2, NULL);
-  status = bh_min(bh_x2, &fmin, bh_w2);
-  printf("bh with gsl_multimin_fdf local minimization:\n");
+  /* Basinhopping test with gsl local minimization using numerical derivative
+   * gradient estimation. */
+  cfl_min_obj *lmin_obj2, *bhmin_obj2;
+
+  lmin_obj2 = cfl_gsl_min_setup(&bh_test_f2, 2, bh_par, gsl_vector_bfgs2);
+  bhmin_obj2 = cfl_bh_min_setup(5, &bounds, lmin_obj2);
+  status = cfl_min(bh_x2, &fmin, bhmin_obj2);
+  printf("bh with gsl_vector_bfgs2 local minimization:\n");
   dequ_chk(bh_result2, bh_x2, 2);
-  bh_work_free(bh_w2);
-  
-  gsl_multimin_fdf_free(bh_multimin_w2);
 
-  gsl_multimin_fndf_work *bh_multimin_w3;
-  bh_multimin_w3 = gsl_multimin_fndf_alloc(&bh_test_f3, 2, bh_par, gsl_multimin_fdfminimizer_vector_bfgs2);
+  cfl_min_free(bhmin_obj2);
+  cfl_min_free(lmin_obj2);
 
-  bh_work *bh_w3;
-  bh_w3 = bh_work_alloc(2, 300, &gsl_multimin_fndf, (void *)bh_multimin_w3, NULL);
-  status = bh_min(bh_x3, &fmin, bh_w3);
-  printf("bh with gsl_multimin_fndf local minimization:\n");
-  dequ_chk(bh_result3, bh_x3, 2);
-  bh_work_free(bh_w3);
-  
-  gsl_multimin_fndf_free(bh_multimin_w3);
+
 
   /*=========================================================================*/
   /* h_fit test.                                                             */
@@ -488,11 +472,16 @@ int main (void)
   /* Run energy level fit. */
   double ce_x0[7] = {2000, 900, 200, -1000, -1000, -100};
   efit_data *efit_d;
+  cfl_min_obj *efit_lmin_obj, *efit_min_obj;
+  
   efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
-  cfl_min_obj *lmin_obj;
-  lmin_obj = cfl_gsl_min_alloc(&efit_obj, 6, efit_d, 4);
-  bh_fit(ce_x0, 2, NULL, lmin_obj);
-  cfl_min_free(lmin_obj);
+  efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, 6, efit_d, gsl_vector_bfgs2);
+  efit_min_obj = cfl_bh_min_setup(2, NULL, efit_lmin_obj);
+
+  status = cfl_min(ce_x0, &fmin, efit_min_obj);
+
+  cfl_min_free(efit_min_obj);
+  cfl_min_free(efit_lmin_obj);
   efit_data_free(efit_d);
 
   printf("Energy level only fit:\n");
@@ -500,60 +489,89 @@ int main (void)
     printf("%.5f\n", ce_x0[i]);
   }
 
-  ///* Spin Hamiltonian and energy level fit. */
-  //zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
-  //ce_x_sh = zsh_alloc(2, "magx");
-  //ce_y_sh = zsh_alloc(2, "magy");
-  //ce_z_sh = zsh_alloc(2, "magz");
-  //zsh_set_pro(ce_x_sh, magx, 0);
-  //zsh_set_pro(ce_y_sh, magy, 0);
-  //zsh_set_pro(ce_z_sh, magz, 0);
-  //zsh *sh_a[3] = {ce_x_sh, ce_y_sh, ce_z_sh};
-  //
-  //zsh_inv_data ce_inv_data;
+  /* Spin Hamiltonian and energy level fit. */
+  zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
+  ce_x_sh = zsh_alloc(2, "magx");
+  ce_y_sh = zsh_alloc(2, "magy");
+  ce_z_sh = zsh_alloc(2, "magz");
+  zsh_set_pro(ce_x_sh, magx, 0);
+  zsh_set_pro(ce_y_sh, magy, 0);
+  zsh_set_pro(ce_z_sh, magz, 0);
+  zsh *sh_a[3] = {ce_x_sh, ce_y_sh, ce_z_sh};
+  
+  zsh_inv_data ce_inv_data;
 
-  //ce_inv_data.a = ce_zeeman_inv;
-  //ce_inv_data.m = 12;
-  //ce_inv_data.n = 9;
-  //shx_data ce_zeeman_exp_data;
-  //ce_zeeman_exp_data.pa = ce_gvalues;
-  //ce_zeeman_exp_data.chisq_weight = 4e6;
-  //ce_zeeman_exp_data.inv_data = &ce_inv_data;
-  //shx_data *shx[1] = {&ce_zeeman_exp_data};
-  //
-  //eshfit_data *eshfit_d;
-  //eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, NULL, celiyf4_coeff,
-  //    &ce_ex_data, shx, 6, p);
-  //status = bh_esh_fit(ce_x0, 6, eshfit_d, 2, NULL, gsl_vector_bfgs2);
-  //eshfit_data_free(eshfit_d);
+  ce_inv_data.a = ce_zeeman_inv;
+  ce_inv_data.m = 12;
+  ce_inv_data.n = 9;
+  shx_data ce_zeeman_exp_data;
+  ce_zeeman_exp_data.pa = ce_gvalues;
+  ce_zeeman_exp_data.chisq_weight = 4e6;
+  ce_zeeman_exp_data.inv_data = &ce_inv_data;
+  shx_data *shx[1] = {&ce_zeeman_exp_data};
+  
+  /* Testing objective function used when there are no spin Hamiltonian terms in
+   * the projection Hamiltonian. */
+  eshfit_data *eshfit_d;
+  cfl_min_obj *eshfit_lmin_obj, *eshfit_min_obj;
+  
+  eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, NULL, celiyf4_coeff, &ce_ex_data,
+      shx, 6, p);
 
-  //printf("Energy level and spin Hamiltonian fit:\n");
-  //for (i=0; i<6; i++) {
-  //  printf("%.5f\n", ce_x0[i]);
-  //}
-  //
-  //zsh_free(ce_x_sh);
-  //zsh_free(ce_y_sh);
-  //zsh_free(ce_z_sh);
+  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_h_obj, 6, eshfit_d, gsl_vector_bfgs2);
+  eshfit_min_obj = cfl_bh_min_setup(2, NULL, eshfit_lmin_obj);
 
-  //zh_free(h);
-  //for (i=0; i<nstates; i++) {
-  //  free(s[i]);
-  //}
-  //free(w);
-  //free(z);
+  status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 
-  //free(p);
-  //zt_free(eavg);
-  //zt_free(zeta);
-  //zt_free(C20);
-  //zt_free(C40);
-  //zt_free(C44);
-  //zt_free(C60);
-  //zt_free(C64);
-  //zt_free(magx);
-  //zt_free(magy);
-  //zt_free(magz);
-  //sl_free(states);
+  cfl_min_free(eshfit_min_obj);
+  cfl_min_free(eshfit_lmin_obj);
+  eshfit_data_free(eshfit_d);
+
+  printf("Energy level and spin Hamiltonian fit (eshfit_h_obj):\n");
+  for (i=0; i<6; i++) {
+    printf("%.5f\n", ce_x0[i]);
+  }
+  /* Testing objective function used when spin Hamiltonian terms are also part
+   * of the projection Hamiltonian. */
+  eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, &ce_ex_data,
+      shx, 6, p);
+
+  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, 6, eshfit_d, gsl_vector_bfgs2);
+  eshfit_min_obj = cfl_bh_min_setup(2, NULL, eshfit_lmin_obj);
+
+  status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
+
+  cfl_min_free(eshfit_min_obj);
+  cfl_min_free(eshfit_lmin_obj);
+  eshfit_data_free(eshfit_d);
+
+  printf("Energy level and spin Hamiltonian fit (eshfit_obj):\n");
+  for (i=0; i<6; i++) {
+    printf("%.5f\n", ce_x0[i]);
+  }
+
+  zsh_free(ce_x_sh);
+  zsh_free(ce_y_sh);
+  zsh_free(ce_z_sh);
+
+  zh_free(h);
+  for (i=0; i<nstates; i++) {
+    free(s[i]);
+  }
+  free(w);
+  free(z);
+
+  free(p);
+  zt_free(eavg);
+  zt_free(zeta);
+  zt_free(C20);
+  zt_free(C40);
+  zt_free(C44);
+  zt_free(C60);
+  zt_free(C64);
+  zt_free(magx);
+  zt_free(magy);
+  zt_free(magz);
+  sl_free(states);
   return 0;
 }  

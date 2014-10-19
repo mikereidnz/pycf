@@ -67,10 +67,8 @@ typedef struct {
   double *x;
   /* The target number of iterations. */ 
   size_t niter;
-  /* Pointer to local minimization routine. */
-  int (*lmin_f)(double *x, double *fmin, void *w); 
-  /* Pointer to data for the local minimization routine. */
-  void *lmin_data;
+  /* Pointer to local minimization cfl_min_obj. */
+  cfl_min_obj *lmin_obj;
   /* Pointer to data holding stepsize information. */
   bh_step_data *step_data;
   /* Pointer to parameter bounds. */
@@ -89,14 +87,12 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-bh_work *bh_work_alloc(size_t n, size_t niter, int (*lmin_f)(double *x, double
-      *fmin, void *w), void *lmin_data, cfl_min_bounds *bounds);
-void bh_work_free(bh_work *w);
+bh_work *bh_work_alloc(size_t niter, cfl_min_obj *lmin_obj, cfl_min_bounds *bounds);
+void bh_work_free(void *work);
 void bh_set_step(bh_work *w, double *stepsize, float target_accept_rate,
     size_t interval, float factor);
 int bh_min(double *x, double *fmin, void *work);
-int bh_fit(double *x0, size_t niter, cfl_min_bounds *bounds, cfl_min_obj
-    *min_obj);
+cfl_min_obj *cfl_bh_min_setup(size_t niter, cfl_min_bounds *bounds, cfl_min_obj *lmin);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -20,6 +20,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -34,6 +35,21 @@
 #include "cfl_config.h"
 #include "cfl_error.h"
 #include "cfl_min_wrap.h"
+
+/* Overview
+ * --------
+ *
+ *  The primary interface for all minimization routines to create a cfl_min_obj
+ *  object and pass it to cfl_min to perform the minimization.  There are
+ *  different functions for creating cfl_min_obj objects, in particular, one for
+ *  wrapped gsl minimizations, one for wrapped nlopt minimizations, and one for
+ *  the cfl implentation of the basinhopping algorinthm.  All cfl_min_obj
+ *  objects must be freed with a call to cfl_min_free. 
+ *
+ *  This file contais common cfl minimization functions, in addition to wrapping
+ *  both gsl and nlopt minimization algorithms. 
+ */
+
 
 /* Wrapper for gsl minimization; used to construct a function of type
  * gsl_multimin_function. */
@@ -679,16 +695,12 @@ cfl_min_obj *nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
   return obj;
 }
 
-
-
 /*
  * Generate cfl_min_obj settings object for gsl based minimization routines. 
  *
  * Parameters
  * ----------
  *  obj_f       Pointer to the objective function.
- *  x0          The initial parameter array; if the routine succeeds, this is
- *              overwritten with the result upon exit.
  *  n           The number of parameters to be varied.
  *  data        Generic data to be passed to the objective function.
  *  algorithm   The local minimization type; implemented options are:
@@ -750,9 +762,19 @@ cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
   return obj;
 }
 
+/*
+ * Perform minimization for a cfl_min_obj object. 
+ *
+ * Parameters
+ * ----------
+ *  x0      The starting values of the parameters to be fit. 
+ *  fmin    Point to a double valued variable which will be overwritten with the
+ *          objective function value upon return.
+ *  obj     The cfl_min_obj for which to run the minimization.
+ */
 int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) {
 
-
+  return obj->min_f(x0, fmin, obj->min_data);
 }
 
 void cfl_min_free(cfl_min_obj *obj) {
