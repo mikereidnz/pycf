@@ -57,10 +57,10 @@ extern "C" {
 
 sl *sl_alloc(size_t n, char **states);
 void sl_free(sl *l);
-zt *zt_alloc(char *name, double complex *a, size_t n, sl *states);
+zt *zt_alloc(char *name, complex double *a, size_t n, sl *states);
 void zt_free(zt *t);
-zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2);
-zt *zt_s(char *name, zt *t, double complex s);
+zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2);
+zt *zt_s(char *name, zt *t, complex double s);
 
 #ifdef __cplusplus
 }

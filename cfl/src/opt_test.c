@@ -165,7 +165,7 @@ int main (void)
   double nlopt_x1[2] = {10.0, -5.0};
   cfl_min_obj *nlopt_min_obj;
 
-  nlopt_min_obj = nlopt_min_setup(&gsl_test_f1, 2, gsl_par, nlopt_cobyla, 1e-6, NULL);
+  nlopt_min_obj = cfl_nlopt_min_setup(&gsl_test_f1, 2, gsl_par, nlopt_cobyla, 1e-6, NULL);
   status = cfl_min(nlopt_x1, &fmin, nlopt_min_obj);
 
   printf("nlopt cobyla:\n");
@@ -486,7 +486,6 @@ int main (void)
   ce_ex_data.li = ex_index;
 
   /* Run energy level fit. */
-
   efit_data *efit_d;
   cfl_min_obj *efit_lmin_obj, *efit_min_obj;
   
@@ -549,12 +548,13 @@ int main (void)
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
+
   /* Testing objective function used when spin Hamiltonian terms are also part
    * of the projection Hamiltonian. */
   eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, &ce_ex_data,
       shx, 6, p);
 
-  eshfit_lmin_obj = nlopt_min_setup(&eshfit_obj, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
+  eshfit_lmin_obj = cfl_nlopt_min_setup(&eshfit_obj, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
   eshfit_min_obj = cfl_bh_min_setup(20, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);

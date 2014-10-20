@@ -705,7 +705,7 @@ void nlopt_free(void *data) {
  *  xtol        Stopping criteria for relative tolerance in parameters x.
  *  bounds      Linear bounds on the parameters.
  */
-cfl_min_obj *nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
+cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
     cfl_min_bounds *bounds) {
   cfl_min_obj *obj;
