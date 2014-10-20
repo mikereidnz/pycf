@@ -26,7 +26,7 @@
 #define _BASINHOPPING_H_
 
 #include <gsl/gsl_rng.h>
-#include "cfl_min_wrap.h"
+#include "cfl_min.h"
 
 /*
  * Basinhopping algorithm, as described in Wales, D J, and Doye J P K, Journal

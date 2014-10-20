@@ -34,7 +34,7 @@
 
 #include "cfl_config.h"
 #include "cfl_error.h"
-#include "cfl_min_wrap.h"
+#include "cfl_min.h"
 
 /* Overview
  * --------

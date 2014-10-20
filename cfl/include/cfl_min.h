@@ -21,8 +21,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef _CFL_MIN_WRAP_H_ 
-#define _CFL_MIN_WRAP_H_
+#ifndef _CFL_MIN_H_ 
+#define _CFL_MIN_H_
 
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
@@ -160,7 +160,7 @@ void cfl_min_free(cfl_min_obj *obj);
 }
 #endif /* __cplusplus */
 
-#endif /* _CFL_MIN_WRAP_H_ */
+#endif /* _CFL_MIN_H_ */
 
 
 

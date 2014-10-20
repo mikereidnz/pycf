@@ -35,7 +35,7 @@
 
 #include <gsl/gsl_multimin.h>
 #include "cfl_error.h"
-#include "cfl_min_wrap.h"
+#include "cfl_min.h"
 #include "basinhopping.h"
 
 /* 
