@@ -22,9 +22,14 @@
  */
 
 /*
- * @file    cfl_sh.c
- * @brief   Spin Hamiltonian routines.
+ * Overview
+ * ========
+ *
+ * Spin Hamiltonian data structure used for spin Hamiltonian projection from a
+ * complete Hamiltonian (see cfl_h.c) and inversion of spin Hamiltonians to
+ * obtain the spin Hamiltonian parameter matrices. 
  */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -212,7 +217,7 @@ void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
   zero = 0;
   lapack_int n = shp_w->nc;
   int nsh = sh->n;
-  /* The projection is a simmilarity transformation of the form V^dag H V, where
+  /* The projection is a similarity transformation of the form V^dag H V, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
    * Zeeman, hyperfine or quadrupole interaction elements. */
@@ -268,8 +273,8 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   }
   
   /* Storage for the inversion coefficient matrix; since this is overwritten by
-   * zgels we must keey a copy of the inversion matrix d->a to allow for
-   * repeated evaluations. */
+   * zgels we must key a copy of the inversion matrix d->a to allow for repeated
+   * evaluations. */
   a = (complex double *) calloc(d->m*d->n,sizeof(complex double));
   if (work == 0) {
     free(w);

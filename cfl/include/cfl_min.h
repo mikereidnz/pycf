@@ -53,7 +53,7 @@ typedef struct {
   size_t n;
   /* Pointer to data required by minimization. */
   void *min_data;
-  /* Pointer to the minimization object freeing function. */
+  /* Pointer to the cfl_min_obj object freeing function. */
   void (*min_obj_free)(void *obj);
 } cfl_min_obj;
 
@@ -67,8 +67,8 @@ typedef struct {
 
 /* Data type for gsl_min_wrapper; passed to the minimization wrapper which then
  * extracts the parameter data from the gsl_vector and calls the objective
- * function with gsl independent arguments.  Similarily, it is used for passing
- * data to the wrapper function that numerically estimatiates derivatives. */
+ * function with gsl independent arguments.  Similarly, it is used for passing
+ * data to the wrapper function that numerically estimates derivatives. */
 typedef struct {
   /* Pointer to the objective function. */
   double (*f)(size_t n, double *x, double *grad, void *data); 

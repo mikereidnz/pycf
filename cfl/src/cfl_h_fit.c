@@ -32,30 +32,32 @@
 #include "cfl_h_fit.h"
 
 /*
- * Outline:
- * --------
+ * Overview:
+ * =========
  *
- *  Basic layout: 
- *    + There are three objective functions: efit_obj, eshfit_obj, and
- *    eshfit_h_obj.  They are used for fitting to energy levels, and energy
- *    levels in addition to spin Hamiltonian data.  The difference between
- *    eshfit_obj and eshfit_h_obj is that the latter is used if the complete
- *    Hamiltonian is the same as the projection Hamiltonian. 
- *    + bh_e_fit and bh_esh_fit are wrappers to directly call basinhopping
- *    without explicit reference to the objective functions.
+ * cfl_h_fit.c provides three objective functions for fitting crystal field
+ * parameters to energy levels and spin Hamiltonian data.  These are: efit_obj,
+ * eshfit_obj, and eshfit_h_obj, which are, respectively, used for fitting to
+ * energy levels, energy levels in addition to spin Hamiltonian data for cases
+ * where the complete Hamiltonian contains terms that also occur in the spin
+ * Hamiltonian, and energy levels in addition to spin Hamiltonian data for cases
+ * where the complete Hamiltonian does not contain any terms that also occur in
+ * the spin Hamiltonian.
  *
- *  The objective functions have a standardized argument format s.t. they can be
- *  used with all cfl minimization routines.  The parameter-to-be-varied array
- *  of this format is double valued and must be parsed to a complex double array
- *  for Hamiltonian diagonalization.  This is done by objective functions using
- *  a call to parse_param_data for each iteration.  
+ * The objective functions can be directly passed to all cfl_min algorithms (see
+ * cfl_min.c).  In order to facilitate this, objective functions parse the real
+ * double valued parameter array employed by the minimization routines to obtain
+ * complex valued tensor coefficients.  This then allows for the crystal field
+ * Hamiltonian to be diagonalized, and any necessary projections to the spin
+ * Hamiltonian space performed, to complete the optimization.  
+ *
+ * The basic work flow consists of workspace allocation using the function
+ * appropriate to the problem being solved, which is then passed to the
+ * objective function via the additional data argument.  Upon completion of the
+ * minimization, the workspace must be freed again.
  *
  */
 
-/*
- * Provides objective functions to be used with optimization routines
- * (from basinhopping or cfl_min_wrap) to fit crystal field parameters to energy
- * levels and spin Hamiltonian data. */
 
 /* TODO:
  *  + Add sigma to chi^2, static at first, then adaptive with annealing. 
@@ -138,7 +140,7 @@ void efit_data_free(efit_data *data) {
  *  ex      Experimental energy level data.  
  *  shx     Array of pointers to spin Hamiltonian experimental data.  These must
  *          be in the same order as the terms in sh.  For Zeeman terms, the
- *          experimental data position is expected to coincied with the position
+ *          experimental data position is expected to coincide with the position
  *          of the first Zeeman term in sh.
  *  n_zx    The number of complex valued parameters to be fit to the complete
  *          Hamiltonian h.

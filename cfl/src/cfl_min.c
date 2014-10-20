@@ -37,17 +37,47 @@
 #include "cfl_min.h"
 
 /* Overview
- * --------
+ * ========
  *
- *  The primary interface for all minimization routines to create a cfl_min_obj
- *  object and pass it to cfl_min to perform the minimization.  There are
- *  different functions for creating cfl_min_obj objects, in particular, one for
- *  wrapped gsl minimizations, one for wrapped nlopt minimizations, and one for
- *  the cfl implementation of the basinhopping algorinthm.  All cfl_min_obj
- *  objects must be freed with a call to cfl_min_free. 
+ * All implemented/wrapped minimization routines are most easily run by creating
+ * a cfl_min_obj object and passing it to cfl_min to run the minimization.
+ * There are different functions for creating cfl_min_obj objects, in
+ * particular, one for wrapped gsl minimizations, one for wrapped nlopt
+ * minimizations, and one for the basinhopping algorithm.  All cfl_min_obj
+ * objects must be freed with a call to cfl_min_free.  This interface was chosen
+ * so as to allow one to easily test different local minimization routines with
+ * the basinhopping algorithm in addition to exposing a common interface to
+ * extensions linked to cfl.
  *
- *  This file contais common cfl minimization functions, in addition to wrapping
- *  both gsl and nlopt minimization algorithms. 
+ * All objective functions must be of the form double (*f)(size_t n, double *x,
+ * double *grad, void *data), with n the number of parameters to be varied; x an
+ * array of the parameters; grad an array that should be NULL for derivative
+ * free (or numerical derivative estimation wrapper) functions, and overwritten
+ * with the gradient for each variable upon function return; and data can be any
+ * additional information the function may require.  The function should return
+ * the objective function value for the provided parameters.
+ *
+ * This file contains common cfl minimization functions, in addition to wrapping
+ * both gsl and nlopt minimization algorithms.  See basinhopping.c for the
+ * basinhopping implementation.  
+ *
+ * gsl multimin
+ * ------------
+ * There are three types of gsl multimin wrappers, denoted by the suffixes f,
+ * df, and ndf.  These, respectively, stand for wrappers of derivative free
+ * routines, wrappers for gradient based routines that expect an objective
+ * function that returns a derivative, and wrappers for gradient based routines
+ * with numerical derivative estimation.  The execution routine consists of
+ * workspace allocation, minimization, and workspace freeing.  Since gsl
+ * minimization routines require custom data structures (gsl functions and
+ * vectors) there are dedicated wrapper functions for objective functions
+ * following the cfl min argument convention.  
+ *
+ * nlopt
+ * -----
+ * Since the nlopt interface is quite similar to cfl_min the setup function
+ * simply creates an nlopt object and sets the implemented optional parameters.
+ *
  */
 
 

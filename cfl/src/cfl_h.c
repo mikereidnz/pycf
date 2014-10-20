@@ -23,6 +23,9 @@
 
 
 /*
+ * Overview
+ * ========
+ *
  * Diagonalization, and associated, routines for crystal-field and spin
  * Hamiltonians.
  */

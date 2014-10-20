@@ -28,12 +28,6 @@
 #include <gsl/gsl_rng.h>
 #include "cfl_min.h"
 
-/*
- * Basinhopping algorithm, as described in Wales, D J, and Doye J P K, Journal
- * of Physical Chemistry A, 1997, 101, 5111. This implementation is based on the
- * python implementation by the SciPy community (scipy.optimize.basinhopping).
- */
-
 /* Storage for minimum energy. */
 typedef struct {
   /* Minimum energy. */
@@ -63,7 +57,7 @@ typedef struct {
 typedef struct {
   /* The number of parameters of the objective function. */
   size_t n;
-  /* Internal storage for previous itteration parameter list. */
+  /* Internal storage for previous iteration parameter list. */
   double *x;
   /* The target number of iterations. */ 
   size_t niter;

@@ -23,9 +23,14 @@
 
 
 /*
- * Diagonalization, and associated, routines for crystal-field and spin
- * Hamiltonians.
+ * Overview
+ * ========
+ *
+ * Tensor data storage used by cfl Hamiltonians and spin Hamiltonians.  State
+ * label hashes can be used to efficiently check whether tensors span the same
+ * state space.
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -124,7 +129,7 @@ void sl_free(sl *l) {
  *  n       The dimension of the matrix element matrix.
  *  states  Pointer to state labels struct.
  */
-zt *zt_alloc(char *name, double complex *a, size_t n, sl *states) {
+zt *zt_alloc(char *name, complex double *a, size_t n, sl *states) {
   zt *t;
   size_t sl_len;
   t = (zt *) malloc(sizeof(zt));
@@ -164,7 +169,7 @@ void zt_free(zt *t) {
  *  s1      A complex valued scale factor for the first tensor.
  *  s2      A complex valued scale factor for the second tensor.
  */
-zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2) {
+zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
   zt *t;
 
   if (t1->n != t2->n) {
@@ -203,7 +208,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2) {
  *  t       Pointer to the input tensor.
  *  s       A complex valued scale factor.
  */
-zt *zt_s(char *name, zt *t, double complex s) {
+zt *zt_s(char *name, zt *t, complex double s) {
   zt *ts;
 
   ts = (zt *) malloc(sizeof(zt));

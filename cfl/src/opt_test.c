@@ -16,11 +16,13 @@
 #include "cfl_h_fit.h"
 
 /*
- * @brief   Check the equality of two complex valued arrays.
+ * Check the equality of two complex valued arrays.
  *
- * @param[a]  Pointer to first array. 
- * @param[b]  Pointer to second array.
- * @param[n]  Length of arrays a and b.
+ * Parameters
+ * ----------
+ * a  Pointer to first array. 
+ * b  Pointer to second array.
+ * n  Length of arrays a and b.
  *
  */
 void zequ_chk(complex double *a, complex double *b, size_t n) {
@@ -41,11 +43,13 @@ void zequ_chk(complex double *a, complex double *b, size_t n) {
 }
 
 /*
- * @brief   Check the equality of two double valued arrays.
+ * Check the equality of two double valued arrays.
  *
- * @param[a]  Pointer to first array. 
- * @param[b]  Pointer to second array.
- * @param[n]  Length of arrays a and b.
+ * Parameters
+ * ----------
+ * a  Pointer to first array. 
+ * b  Pointer to second array.
+ * n  Length of arrays a and b.
  *
  */
 void dequ_chk(double *a, double *b, size_t n) {
@@ -112,8 +116,6 @@ int main (void)
   double gsl_x3[2] = {10.0, -5.0};
   double fmin;
 
-
-#if 0
   /* Derivative free Nelder-Mead simplex. */
   gsl_multimin_f_work *gsl_w1;
   gsl_w1 = gsl_multimin_f_alloc(&gsl_test_f1, 2, gsl_par, gsl_multimin_fminimizer_nmsimplex2);
@@ -212,7 +214,6 @@ int main (void)
   cfl_min_free(bhmin_obj2);
   cfl_min_free(lmin_obj2);
 
-#endif
 
   /*=========================================================================*/
   /* h_fit test.                                                             */

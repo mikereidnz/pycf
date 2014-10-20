@@ -6,7 +6,7 @@
 #include <cfl_crs.h>
 #include <cfl_h.h>
 
-equ_chk(double complex *a, double complex *b, size_t n) {
+equ_chk(complex double *a, complex double *b, size_t n) {
   int i;
   int p = 0;
 
@@ -28,9 +28,9 @@ int main (void)
   int i, j;
 
   /* CRS tests. */
-  double complex a[16] = {0, 0+I, 0+2*I, 0+3*I, 0-I, 1, 1+2*I, 1+3*I, 0-2*I,
+  complex double a[16] = {0, 0+I, 0+2*I, 0+3*I, 0-I, 1, 1+2*I, 1+3*I, 0-2*I,
     1-2*I, 2, 2+3*I, 0-3*I, 1-3*I, 2-3*I, 3};
-  double complex b[16] = {0, 0+I, 0, 0, 0-I, 0, 1+2*I, 0, 0, 1-2*I, 0, 2+3*I, 0,
+  complex double b[16] = {0, 0+I, 0, 0, 0-I, 0, 1+2*I, 0, 0, 1-2*I, 0, 2+3*I, 0,
     0, 2-3*I, 0};
 
   /* Allocs used by multiple crs tests. */
@@ -38,8 +38,8 @@ int main (void)
   crs_zhm *mb = crs_zhm_alloc(b, 4);
 
   /* crs_zhm2zha test. */
-  double complex *aa;
-  aa = (double complex *) calloc(16,sizeof(double complex));
+  complex double *aa;
+  aa = (complex double *) calloc(16,sizeof(complex double));
   if (aa==0) {
     printf("Error; failed to calloc aa");
   }
@@ -49,9 +49,9 @@ int main (void)
   free(aa);
 
   /* crs_zhm2zhpa test. */
-  double complex bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
-  double complex *bbp;
-  bbp = (double complex *) calloc(10,sizeof(double complex));
+  complex double bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
+  complex double *bbp;
+  bbp = (complex double *) calloc(10,sizeof(complex double));
   crs_zhm2zhpa(mb, bbp);
 
   printf("crs_zhm2zhpa:\n");
@@ -59,13 +59,13 @@ int main (void)
   free(bbp);
 
   /* crs_zhsam test. */
-  double complex zhsam_res[16] = {0, 0+3*I, 0+2*I, 0+3*I, 0-3*I, 1, 3+6*I,
+  complex double zhsam_res[16] = {0, 0+3*I, 0+2*I, 0+3*I, 0-3*I, 1, 3+6*I,
     1+3*I, 0-2*I, 3-6*I, 2+0*I, 6+9*I, 0-3*I, 1-3*I, 6-9*I, 3};
-  double complex *c;
-  double complex alpha = 1;
-  double complex beta = 2;
+  complex double *c;
+  complex double alpha = 1;
+  complex double beta = 2;
 
-  c = (double complex *) calloc(16,sizeof(double complex));
+  c = (complex double *) calloc(16,sizeof(complex double));
   if (c==0) {
     printf("Error; failed to calloc c.");
   }
@@ -80,11 +80,11 @@ int main (void)
   free(c);
 
   /* crs_zhsm test. */
-  double complex zhsm_res[16] = {0, 0+2*I, 0+4*I, 0+6*I, 0-2*I, 2, 2+4*I, 2+6*I,
+  complex double zhsm_res[16] = {0, 0+2*I, 0+4*I, 0+6*I, 0-2*I, 2, 2+4*I, 2+6*I,
     0-4*I, 2-4*I, 4, 4+6*I, 0-6*I, 2-6*I, 4-6*I, 6};
-  double complex *d;
+  complex double *d;
  
-  d = (double complex *) calloc(16,sizeof(double complex));
+  d = (complex double *) calloc(16,sizeof(complex double));
   if (d==0) {
     printf("Error; failed to calloc d.");
   }

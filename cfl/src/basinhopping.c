@@ -23,9 +23,17 @@
 
 
 /*
+ * Overview
+ * ========
  * Basinhopping algorithm, as described in Wales, D J, and Doye J P K, Journal
  * of Physical Chemistry A, 1997, 101, 5111. This implementation is based on the
  * python implementation by the SciPy community (scipy.optimize.basinhopping).
+ *
+ * Depends on cfl_min data types.  Specifically, cfl_min_obj and cfl_min_bounds.
+ * The easiest method to run an optimization is to create a cfl_min_obj object
+ * using cfl_bh_min_setup and then passing it to cfl_min, prior to freeing it
+ * with cfl_min_free (see cfl_min.c).  Alternatively, manually alloc workspace
+ * and call bh_min.  
  */
 
 #include <stdlib.h>
