@@ -39,7 +39,9 @@ typedef enum {
 typedef enum {
   nlopt_cobyla = 1,
   nlopt_bobyqa = 2, 
-  nlopt_sbplx = 3
+  nlopt_sbplx = 3, 
+  nlopt_crs2_lm = 4,
+  nlopt_esch = 5
 } nlopt_min_alg;
 
 
@@ -147,7 +149,7 @@ void gsl_multimin_fndf_free(void *work);
 int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
-cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
+cfl_min_obj *nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
     cfl_min_bounds *bounds);
 cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double

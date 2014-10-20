@@ -43,7 +43,7 @@
  *  object and pass it to cfl_min to perform the minimization.  There are
  *  different functions for creating cfl_min_obj objects, in particular, one for
  *  wrapped gsl minimizations, one for wrapped nlopt minimizations, and one for
- *  the cfl implentation of the basinhopping algorinthm.  All cfl_min_obj
+ *  the cfl implementation of the basinhopping algorinthm.  All cfl_min_obj
  *  objects must be freed with a call to cfl_min_free. 
  *
  *  This file contais common cfl minimization functions, in addition to wrapping
@@ -83,7 +83,8 @@ void gsl_multimin_df_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
 
 /* Wrapper for gsl minimization with gradient based algorithms; returns the
  * gradient and the function value. */
-void gsl_multimin_fdf_wrapper(const gsl_vector *v, void *data, double *f, gsl_vector *df) {
+void gsl_multimin_fdf_wrapper(const gsl_vector *v, void *data, double *f,
+    gsl_vector *df) {
   int i;
   gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
 
@@ -113,12 +114,14 @@ void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
   memcpy(gsl_data->df_work, gsl_data->x, gsl_data->n*sizeof(double));
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
-    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H, &result, &abserr);
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H,
+        &result, &abserr);
     if (status) {
       gsl_vector_set(df, i, result);
     } 
     else {
-      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H, &result, &abserr);
+      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i],
+          GSL_DERIV_H, &result, &abserr);
       gsl_vector_set(df, i, result);
     }
   }
@@ -126,7 +129,8 @@ void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
 
 /* Wrapper for gsl minimization with gradient based algorithms; numerically
  * estimates the gradient and returns it along with the function value. */
-void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f, gsl_vector *df) {
+void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f,
+    gsl_vector *df) {
   int i, status;
   double result, abserr;
   gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
@@ -141,12 +145,14 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f, gsl_v
   memcpy(gsl_data->df_work, gsl_data->x, gsl_data->n*sizeof(double));
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
-    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H, &result, &abserr);
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H,
+        &result, &abserr);
     if (status) {
       gsl_vector_set(df, i, result);
     } 
     else {
-      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H, &result, &abserr);
+      status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i],
+          GSL_DERIV_H, &result, &abserr);
       gsl_vector_set(df, i, result);
     }
   }
@@ -173,7 +179,9 @@ inline double gsl_numerical_df_wrapper(double x, void *data) {
  *          + gsl_multimin_fminimizer_nmsimplex2
  *          + gsl_multimin_fminimizer_nmsimplex2rand
  */
-gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fminimizer_type *T) {
+gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
+      double *grad, void *data), size_t n, void *data, const
+    gsl_multimin_fminimizer_type *T) {
   gsl_multimin_f_work *w;
   double *x;
   gsl_multimin_data *gsl_data;
@@ -271,7 +279,9 @@ void gsl_multimin_f_free(void *work) {
  *          + gsl_multimin_fdfminimizer_vector_bfgs2
  *          + gsl_multimin_fdfminimizer_steepest_descent
  */
-gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T) {
+gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x,
+      double *grad, void *data), size_t n, void *data, const
+    gsl_multimin_fdfminimizer_type *T) {
   gsl_multimin_fdf_work *w;
   double *x;
   double *grad;
@@ -309,7 +319,7 @@ gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x, d
   gsl_data->grad = grad;
   gsl_data->data = data;
 
-  gsl_f = (gsl_multimin_function_fdf *) malloc(sizeof(gsl_multimin_function_fdf));
+  gsl_f = (gsl_multimin_function_fdf *)malloc(sizeof(gsl_multimin_function_fdf));
   if (gsl_f == 0) {
     free(w);
     free(gsl_data);
@@ -371,7 +381,9 @@ void gsl_multimin_fdf_free(void *work) {
  *          + gsl_multimin_fdfminimizer_vector_bfgs2
  *          + gsl_multimin_fdfminimizer_steepest_descent
  */
-gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, const gsl_multimin_fdfminimizer_type *T) {
+gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
+      double *grad, void *data), size_t n, void *data, const
+    gsl_multimin_fdfminimizer_type *T) {
   int i;
   gsl_multimin_fndf_work *w;
   double *x;
@@ -431,7 +443,7 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
   gsl_data->df_work = df_work;
   gsl_data->data = data;
 
-  gsl_f = (gsl_multimin_function_fdf *) malloc(sizeof(gsl_multimin_function_fdf));
+  gsl_f = (gsl_multimin_function_fdf *)malloc(sizeof(gsl_multimin_function_fdf));
   if (gsl_f == 0) {
     free(w);
     free(gsl_data);
@@ -638,7 +650,8 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
 }
 
 /* Wrapper for nlopt minimization. */
-inline int nlopt_min_f(double *x, double *min, void *data) {
+int nlopt_min_f(double *x, double *min, void *data) {
+
   return nlopt_optimize((nlopt_opt )data, x, min);
 }
 
@@ -655,22 +668,39 @@ void nlopt_free(void *data) {
  *  obj_f       Pointer to the objective function.
  *  n           The number of parameters to be varied.
  *  data        Generic data to be passed to the objective function.
- *  algorithm   The minimization algorithm.
- *  xtol
- *  bounds
+ *  algorithm   The minimization algorithm.  Implemented options are:
+ *                + nlopt_cobyla
+ *                + nlopt_bobyqa
+ *                + nlopt_sbplx
+ *  xtol        Stopping criteria for relative tolerance in parameters x.
+ *  bounds      Linear bounds on the parameters.
  */
 cfl_min_obj *nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
     cfl_min_bounds *bounds) {
   cfl_min_obj *obj;
-  double default_lb[2] = {-HUGE_VAL, 0};
   nlopt_opt opt;
 
   obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
   if (obj == 0) {
     CFL_ERROR_NULL("malloc failed for obj");
   }
-  opt = nlopt_create(algorithm, n);
+  switch (algorithm) {
+    case nlopt_cobyla:
+      opt = nlopt_create(NLOPT_LN_COBYLA, n);
+      break;
+    case nlopt_bobyqa:
+      opt = nlopt_create(NLOPT_LN_BOBYQA, n);
+      break;
+    case nlopt_sbplx:
+      opt = nlopt_create(NLOPT_LN_SBPLX, n);
+      break;
+    case nlopt_crs2_lm:
+      opt = nlopt_create(NLOPT_GN_CRS2_LM, n);
+      break;
+    case nlopt_esch:
+      opt = nlopt_create(NLOPT_GN_ESCH, n);
+  }
   if (opt == 0) {
     free(obj);
     CFL_ERROR_NULL("nlopt_create failed for opt");
@@ -679,9 +709,6 @@ cfl_min_obj *nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
   if (bounds != NULL) {
     nlopt_set_lower_bounds(opt, bounds->l);
     nlopt_set_upper_bounds(opt, bounds->u);
-  }
-  else {
-    nlopt_set_lower_bounds(opt, default_lb);
   }
 
   nlopt_set_min_objective(opt, (nlopt_func) f, data);
@@ -703,7 +730,7 @@ cfl_min_obj *nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
  *  obj_f       Pointer to the objective function.
  *  n           The number of parameters to be varied.
  *  data        Generic data to be passed to the objective function.
- *  algorithm   The local minimization type; implemented options are:
+ *  algorithm   The minimization algorithm; implemented options are:
  *              + gsl_nmsimplex2rand
  *              + gsl_nmsimplex2 
  *              + gsl_conjugate_fr 

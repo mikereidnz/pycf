@@ -112,6 +112,8 @@ int main (void)
   double gsl_x3[2] = {10.0, -5.0};
   double fmin;
 
+
+#if 0
   /* Derivative free Nelder-Mead simplex. */
   gsl_multimin_f_work *gsl_w1;
   gsl_w1 = gsl_multimin_f_alloc(&gsl_test_f1, 2, gsl_par, gsl_multimin_fminimizer_nmsimplex2);
@@ -155,6 +157,18 @@ int main (void)
   dequ_chk(gsl_result, gsl_x3, 2);
   gsl_multimin_fndf_free(gsl_w3);
 
+  /*=========================================================================*/
+  /* nlopt test.                                                             */
+  /*=========================================================================*/
+  double nlopt_x1[2] = {10.0, -5.0};
+  cfl_min_obj *nlopt_min_obj;
+
+  nlopt_min_obj = nlopt_min_setup(&gsl_test_f1, 2, gsl_par, nlopt_cobyla, 1e-6, NULL);
+  status = cfl_min(nlopt_x1, &fmin, nlopt_min_obj);
+
+  printf("nlopt cobyla:\n");
+  dequ_chk(gsl_result, nlopt_x1, 2);
+  cfl_min_free(nlopt_min_obj);
 
   /*=========================================================================*/
   /* basinhopping test.                                                      */
@@ -198,7 +212,7 @@ int main (void)
   cfl_min_free(bhmin_obj2);
   cfl_min_free(lmin_obj2);
 
-
+#endif
 
   /*=========================================================================*/
   /* h_fit test.                                                             */
@@ -463,6 +477,7 @@ int main (void)
   p[5] = &efit_p5;
 
   /* Set up the experimental data struct. */
+  double ce_x0[7] = {2000, 900, 200, -1000, -1000, -100};
   ex_data ce_ex_data;
   int ex_index[6] = {1, 2, 7, 8, 11, 13};
   ce_ex_data.n = 6;
@@ -470,7 +485,7 @@ int main (void)
   ce_ex_data.li = ex_index;
 
   /* Run energy level fit. */
-  double ce_x0[7] = {2000, 900, 200, -1000, -1000, -100};
+
   efit_data *efit_d;
   cfl_min_obj *efit_lmin_obj, *efit_min_obj;
   
@@ -485,10 +500,11 @@ int main (void)
   efit_data_free(efit_d);
 
   printf("Energy level only fit:\n");
+  printf("fmin = %.6f\n", fmin);
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
-
+  
   /* Spin Hamiltonian and energy level fit. */
   zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
   ce_x_sh = zsh_alloc(2, "magx");
@@ -519,7 +535,7 @@ int main (void)
       shx, 6, p);
 
   eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_h_obj, 6, eshfit_d, gsl_vector_bfgs2);
-  eshfit_min_obj = cfl_bh_min_setup(2, NULL, eshfit_lmin_obj);
+  eshfit_min_obj = cfl_bh_min_setup(5, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 
@@ -528,6 +544,7 @@ int main (void)
   eshfit_data_free(eshfit_d);
 
   printf("Energy level and spin Hamiltonian fit (eshfit_h_obj):\n");
+  printf("fmin = %.6f\n", fmin);
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
@@ -536,8 +553,8 @@ int main (void)
   eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, &ce_ex_data,
       shx, 6, p);
 
-  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, 6, eshfit_d, gsl_vector_bfgs2);
-  eshfit_min_obj = cfl_bh_min_setup(2, NULL, eshfit_lmin_obj);
+  eshfit_lmin_obj = nlopt_min_setup(&eshfit_obj, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
+  eshfit_min_obj = cfl_bh_min_setup(20, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 
@@ -546,6 +563,7 @@ int main (void)
   eshfit_data_free(eshfit_d);
 
   printf("Energy level and spin Hamiltonian fit (eshfit_obj):\n");
+  printf("fmin = %.6f\n", fmin);
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
@@ -573,5 +591,6 @@ int main (void)
   zt_free(magy);
   zt_free(magz);
   sl_free(states);
+  
   return 0;
 }  
