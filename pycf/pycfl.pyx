@@ -119,7 +119,7 @@ cdef class Tensor:
     
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __cinit__(self, char *name, np.ndarray[complex double, ndim=2, mode='c']a, states,
+    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='c']a, states,
             object data_tuple=None):
         cdef cfl.zt *t
         cdef cfl.zt *t1
@@ -144,7 +144,7 @@ cdef class Tensor:
             # Scaling of a tensor.
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
-            t = cfl.zt_s(<char *>self.name, t1, <complex double> data_tuple[1])
+            t = cfl.zt_s(<char *>self.name, t1, <double complex> data_tuple[1])
 
         if t is NULL:
             self.t_cap = None
@@ -272,10 +272,10 @@ cdef class Hamiltonian:
             dtype should be np.complex128.
 
         """
-        cdef np.ndarray[complex double, ndim=1, mode='c'] co
+        cdef np.ndarray[double complex, ndim=1, mode='c'] co
 
         self.coeff = coeff
-        co = <np.ndarray[complex double, ndim=1, mode='c']> self.coeff
+        co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
         self.coeff_set = 1
         return None
@@ -294,7 +294,7 @@ cdef class Hamiltonian:
         cdef cfl.zh *h = self.cfl_zh
         cdef cfl.zhd_w *hd_w
         cdef np.ndarray[double, ndim=1, mode="c"] w
-        cdef np.ndarray[complex double, ndim=2, mode="c"] z
+        cdef np.ndarray[double complex, ndim=2, mode="c"] z
         
         if not self.coeff_set:
             raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
@@ -307,7 +307,7 @@ cdef class Hamiltonian:
         self.w = np.ascontiguousarray(np.zeros(self.n), dtype=np.float64)
         self.z = np.ascontiguousarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
-        z = <np.ndarray[complex double, ndim=2, mode="c"]> self.z
+        z = <np.ndarray[double complex, ndim=2, mode="c"]> self.z
 
         with nogil:
             cfl.zhd(&w[0], &z[0,0], h, hd_w)
@@ -513,7 +513,7 @@ cdef class SHTermData(object):
     cdef public object inv_data_cap
 
     def __init__(self, d, inter, coeff):
-        cdef np.ndarray[complex double, ndim=2, mode="fortran"] a
+        cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
         self.type = inter
         self.pro_data = 0
         if inter == 'zeeman':
@@ -521,10 +521,10 @@ cdef class SHTermData(object):
         else:
             self.term = SHTerm(d, inter)
         
-        # Assign coeff to self, to ensure there exists a reference to the coeff
+        # Assign coeff to self to ensure there exists a reference to the coeff
         # memory for as long as this object exists. 
         self.coeff = np.asfortranarray(coeff, dtype=np.complex128)
-        a = <np.ndarray[complex double, ndim=2, mode='fortran']> self.coeff
+        a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.coeff
         self.cfl_inv_data = zsh_inv_data_alloc(&a[0,0], coeff.shape[0], coeff.shape[1])
         if self.cfl_inv_data == NULL:
             raise MemoryError("Failed to alloc inv_data memory")
@@ -620,7 +620,7 @@ cdef class SpinHamiltonian:
             # Calculate the matrix elements of nuclear spin operator.
             I_matel = [None]*3
             for i in range(3):
-                I_matel[i] = matel(j_l[i], I)
+                I_matel[i] = matel(j_l[i], I_spin)
 
             self.I_spin = I_spin
             self.I_matel = I_matel
@@ -718,8 +718,8 @@ cdef class SpinHamiltonian:
         cdef list shp_work_list = []
         cdef list shi_work_list = []
         cdef list result_list = []
-        cdef np.ndarray[complex double, ndim=1, mode="c"] a
-        cdef np.ndarray[complex double, ndim=2, mode="c"] cz
+        cdef np.ndarray[double complex, ndim=1, mode="c"] a
+        cdef np.ndarray[double complex, ndim=2, mode="c"] cz
         cdef int cj
         cdef int z_num
         
@@ -763,20 +763,20 @@ cdef class SpinHamiltonian:
         # Diagonalize the complete Hamiltonian, then determine the sh terms and
         # finally do the inversion for each interaction of sh.
         (w, z) = h.diag()
-        cz = <np.ndarray[complex double, ndim=2, mode="c"]> z
+        cz = <np.ndarray[double complex, ndim=2, mode="c"]> z
         for i,inter in enumerate(self.inter_data):
             if inter.type == 'zeeman':
                 # Since Zeeman interactions require three sh terms for inversion
                 # we create a results array (a) big enough to hold the matrix
                 # elements of three sh terms; then we fill a in three blocks.
                 z_num = inter.terms[0].n**2
-                a = <np.ndarray[complex double, ndim=1, mode="c"]> np.zeros(z_num*3, dtype=np.complex128)
+                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(z_num*3, dtype=np.complex128)
                 for j,t in enumerate(inter.terms):
                     cj = j
                     cfl.zshp(&a[cj*z_num], &cz[0,0], <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm"),
                             <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
             else:
-                a = <np.ndarray[complex double, ndim=1, mode="c"]> np.zeros(inter.term.n**2, dtype=np.complex128)
+                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.term.n**2, dtype=np.complex128)
                 cfl.zshp(&a[0], &cz[0,0], <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm"), 
                         <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
             # Do the inversion; we can directly pass on 'a' even in the Zeeman
@@ -834,7 +834,7 @@ cdef class EFitRunner(object):
 
     def __init__(self, parameters, h, coeff_list, ex):
         cdef cfl.param_type *param_type_ptr
-        cdef np.ndarray[complex double, ndim=1, mode="c"] coeff
+        cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         
@@ -1033,10 +1033,10 @@ cdef class ESHFitRunner(object):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.zsh *zsh_array_ptr
         cdef cfl.shx_data *shx_data_ptr
-        cdef np.ndarray[complex double, ndim=1, mode="c"] coeff
+        cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
-        cdef np.ndarray[complex double, ndim=1, mode="c"] shx_pa
+        cdef np.ndarray[double complex, ndim=1, mode="c"] shx_pa
         
         self.sh = sh
         self.h = h
@@ -1235,7 +1235,7 @@ cdef class ESHFitRunner(object):
                 free(sh_array)
                 free(shx_array)
                 raise MemoryError("shx_array[{}] alloc failed".format(i))
-            shx_pa = <np.ndarray[complex double, ndim=1, mode="c"]> self.shx_list[i]
+            shx_pa = <np.ndarray[double complex, ndim=1, mode="c"]> self.shx_list[i]
             shx_array[i].pa = &shx_pa[0]
             shx_array[i].chisq_weight = self.weights[inter.type]
             shx_array[i].inv_data = <cfl.zsh_inv_data *>PyCapsule_GetPointer(inter.inv_data_cap, "pycfl.InvData")
@@ -1325,18 +1325,27 @@ cdef class CFLMin:
               respectively, the lower and upper bounds.
         Basinhopping specific arguments are:
             - ``niter``, the number of basinhopping iterations to complete;
-            - ``lmin_type``, the local minimization routine to be used;
-              implemented options are 'gsl_nmsimplex2', 'gsl_conjugate_fr',
-              'gsl_conjugate_pr', and 'gsl_vector_bfgs2'.
+            - ``lmin``, the local minimization routine to be used; implemented
+              options fall in two categories, routines from gsl, and routines
+              from nlopt.  For the former, available algorithms are
+              'gsl_nmsimplex2', 'gsl_conjugate_fr', 'gsl_conjugate_pr', and
+              'gsl_vector_bfgs2', whereas for the latter, available options are
+              'nlopt_cobyla', 'nlopt_bobyqa', and 'nlopt_sbplx'.
+        If either the local or global optimization routine is from nlopt, there
+        the ``xtol`` argument can be used to set the relative tolerance in
+        parameters x to be used as a stopping criteria.
 
     """
     cpdef public str method
     cpdef public dict kwargs
     cdef int niter
+    cdef size_t nx
+    cdef double xtol
     cdef np.ndarray lbounds
     cdef np.ndarray ubounds
     cdef cfl.cfl_min_bounds *bounds
-    cdef cfl.cfl_lmin cfl_lmintype
+    cdef cfl.cfl_min_obj *min_obj
+    cdef cfl.cfl_min_obj *bh_lmin_obj
     def __cinit__(self, method, **kwargs):
         cdef np.ndarray[double, ndim=1, mode="c"] clb
         cdef np.ndarray[double, ndim=1, mode="c"] cub
@@ -1363,14 +1372,6 @@ cdef class CFLMin:
                 self.niter = kwargs['niter']
             else:
                 self.niter = 100
-            if 'lmin_type' in kwargs:
-                self.cfl_lmintype = {'gsl_nmsimplex2rand' : gsl_nmsimplex2rand,
-                        'gsl_nmsimplex2' : gsl_nmsimplex2,
-                        'gsl_conjugate_fr' : gsl_conjugate_fr,
-                        'gsl_conjugate_pr' : gsl_conjugate_pr,
-                        'gsl_vector_bfgs2' : gsl_vector_bfgs2}[kwargs['lmin_type']]
-            else:
-                self.cfl_lmintype = gsl_vector_bfgs2
         else:
             raise NotImplementedError("Minimization method '%s' is not an existing option." % method)
 
@@ -1398,8 +1399,12 @@ cdef class CFLMin:
         """
         cdef np.ndarray[double, ndim=1, mode="c"] cx0
         cdef size_t cnx
+        cdef double cxtol
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
         cdef void *data_ptr
+        cdef cfl.cfl_min_obj *min_obj
+        cdef cfl.cfl_min_obj *lmin_obj
+        cdef double fmin = 0
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         cnx = <size_t> len(x0)
@@ -1407,8 +1412,48 @@ cdef class CFLMin:
         obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(objective_f, "pycfl.MinObjF")
         data_ptr = <void *>PyCapsule_GetPointer(data, "pycfl.MinData")
         if self.method == 'basinhopping':
-            with nogil:
-                cfl.bh_fit(obj_f_ptr, &cx0[0], cnx, data_ptr, self.niter, self.bounds, self.cfl_lmintype)
+            # Set xtol to default if not provided. 
+            if 'xtol' in self.kwargs:
+                cxtol = self.kwargs['xtol']
+            else:
+                cxtol = 1e-6
+            if 'lmin' in self.kwargs:
+                lmin = self.kwargs['lmin']
+                if lmin == 'gsl_nmsimplex2rand':
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
+                elif lmin == 'gsl_nmsimplex2':
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
+                elif lmin == 'gsl_conjugate_fr':
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
+                elif lmin == 'gsl_conjugate_pr':
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
+                elif lmin == 'gsl_vector_bfgs2':
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
+                elif lmin == 'nlopt_cobyla':
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, self.bounds)
+                elif lmin == 'nlopt_bobyqa':
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.bounds)
+                elif lmin == 'nlopt_sbplx':
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, self.bounds)
+                else:
+                    raise ValueError("Unknown lmin argument: %s" % lmin)
+            else:
+                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, 1e-6, self.bounds)
+           
+            min_obj = cfl_bh_min_setup(self.niter, self.bounds, lmin_obj)
+
+            # Assign to self to guarantee there exists a reference to these
+            # objects until the CFLMin destructor is called.
+            self.nx = cnx
+            self.xtol = cxtol
+            self.bh_lmin_obj = lmin_obj
+            self.min_obj = min_obj
+
+
+        with nogil:
+            cfl.cfl_min(&cx0[0], &fmin, min_obj)
+
+        return fmin
 
 
 
