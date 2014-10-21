@@ -45,6 +45,12 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       data dict (change zeeman to something else). 
 #       + Also, add check to ensure weighting is present for all sh terms. IF
 #       not, either fail, or set to 1.
+#       + Bounds checking... to ensure initial parameters are within bounds. 
+#       + Estimate final sigma as per Chapter 15 (page 780) of Numerical
+#       Recipes 3rd edition.
+#       + In parameter summary printing, use own name for defined tensors (as
+#       in, symbol name), then define symbol names below parameter table.
+
 
 cdef class StateLabels:
     r"""
@@ -791,6 +797,83 @@ cdef class SpinHamiltonian:
         return result_list
 
 
+def parse_param_helper(parameters, h, coeff_list, bounds):
+    """Create lists that keep track of: the initial parameters, the indicies of
+    elements in coeff_array for which we have parameters to be varied
+    (param_indices), and the type of the parameter (real or complex).
+    Furthermore, the bounds dictionary with complex tuples corresponding to
+    upper and lower bounds is parsed into two double valued arrays."""
+
+    param_initial = []
+    param_indices = []
+    param_types = []
+    n_p_real = 0
+    if (bounds != None):
+        if len(parameters) != len(bounds):
+            raise ValueError("The number of provided bounds does not match the "
+                    "number of provided parameters.")
+
+    # Since coeff_list has tensor coefficients in the same order as the
+    # order in which tensors were passed to the Hamiltonian constructor we
+    # determine which coeff_list element a provided parameter corresponds to by
+    # looking up the corresponding tensor coefficient index of the total
+    # Hamiltonian. 
+    for i,p in enumerate(parameters):
+        # Hamiltonian/coeff_list index of current param. 
+        try:
+            pi = h.index(p)
+        except ValueError:
+            raise ValueError("Tensor {} in parameters not found in h".format(p.name))
+        if not isinstance(coeff_list[pi], Number):
+            raise ValueError("Element {} in coefficients is not a number.".format(coeff_list[pi]))
+        # The parameter type is recorded such that any complex parameters
+        # can be split into two real parameters.
+        if isinstance(coeff_list[pi], complex):
+            param_types.append('c')
+            n_p_real += 2
+        else:
+            param_types.append('r')
+            n_p_real += 1
+
+        param_indices.append(pi)
+
+        # Create a list of tuples with initial values of coefficients and
+        # the corresponding tensor name; used for printing a fitting
+        # summary.
+        param_initial += [(coeff_list[pi], p.name)]
+    
+    # Generate double valued bounds lists.  The caller is expect to disregard
+    # any bounds returned in case bounds != None, so we just return zeros.
+    lb = np.zeros(n_p_real)
+    ub = np.zeros(n_p_real)
+
+    if bounds != None:
+        tname = param_initial[i][1]
+        for i in range(n_p_real):
+            if param_types[i] == 'c':
+                try:
+                    if not isinstance(bounds[tname][0], complex) or \
+                            not isinstance(bounds[tname][1], complex):
+                        raise ValueError("%s bounds are not complex, yet the "
+                                "corresponding coefficient is." % tname)
+                except KeyError:
+                    raise KeyError("Missing bounds key %s." % tname)
+                lb[i] = np.real(bounds[tname][0])
+                lb[i+1] = np.imag(bounds[tname][0])
+                ub[i] = np.real(bounds[tname][1])
+                ub[i+1] = np.imag(bounds[tname][1])
+                i += 1
+            else:
+                try:
+                    lb[i] = np.real(bounds[tname][0])
+                    ub[i] = np.real(bounds[tname][1])
+                except KeyError:
+                    raise KeyError("Missing bounds key %s." % tname)
+
+    return {'n_p_real': n_p_real, 'param_initial': param_initial,
+            'param_indices': param_indices, 'param_types': param_types, 'lb':
+            lb, 'ub': ub}
+
 
 cdef class EFitRunner(object):
     """
@@ -814,6 +897,13 @@ cdef class EFitRunner(object):
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
         second column contains corresponding experimental energy level values. 
+    bounds : dict
+        Parameter bounds.  Keys specify the tensor name (note that tensors
+        created by tensor arithmetic should have their name attribute set
+        explicitly) while values correspond to tuples, the first entry of which
+        is the lower bound and the second entry the upper bound.  The number of
+        elements in bounds must match the length of the parameters list. 
+
     """
     cdef Hamiltonian h
     cdef int n_p
@@ -830,8 +920,9 @@ cdef class EFitRunner(object):
     cdef cfl.efit_data *efit_data
     cdef object obj_f_cap
     cdef object efit_data_cap
+    cdef tuple bounds
 
-    def __init__(self, parameters, h, coeff_list, ex):
+    def __init__(self, parameters, h, coeff_list, ex, bounds):
         cdef cfl.param_type *param_type_ptr
         cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
@@ -839,42 +930,18 @@ cdef class EFitRunner(object):
         
         self.h = h
         self.n_p = len(parameters)
-       
-        self.param_initial = []
-        param_indices = []
-        param_types = []
-        n_p_real = 0
-        # Since coeff_list has tensor coefficients in the same order as the
-        # order in which tensors were passed to the Hamiltonian constructor we
-        # determine the index of each parameter to be varied of the Hamiltonian,
-        # which will coincide with the corresponding coeff_list index.
-        for i,p in enumerate(parameters):
-            # Hamiltonian/coeff_list index of current param. 
-            try:
-                pi = h.index(p)
-            except ValueError:
-                raise ValueError("Tensor {} in parameters not found in h".format(p.name))
-            if not isinstance(coeff_list[pi], Number):
-                raise ValueError("Element {} in coefficients is not a number.".format(coeff_list[pi]))
-            # The parameter type is recorded such that any complex parameters
-            # can be split into two real parameters.
-            if isinstance(coeff_list[pi], complex):
-                param_types.append('c')
-                n_p_real += 2
-            else:
-                param_types.append('r')
-                n_p_real += 1
-            param_indices.append(pi)
 
-            # Create a list of tuples with initial values of coefficients and
-            # the corresponding tensor name; used for printing a fitting
-            # summary.
-            self.param_initial += [(coeff_list[pi], p.name)]
-        
-        self.n_p_real = n_p_real
-        self.param_indices = param_indices
-        self.param_types = param_types
-        if n_p_real > len(ex):
+        pp = parse_param_helper(parameters, h, coeff_list, bounds)
+        self.n_p_real = pp['n_p_real']
+        self.param_initial = pp['param_initial']
+        self.param_indices = pp['param_indices']
+        self.param_types = pp['param_types']
+        if (bounds != None):
+            self.bounds = (pp['lb'], pp['ub'])
+        else: 
+            self.bounds = None
+
+        if self.n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds "
                     "the number of observables. Don't do that.")
         elif ex.shape[1] != 2:
@@ -900,7 +967,7 @@ cdef class EFitRunner(object):
         self.ex_data.li = &ex_li[0]
 
         # Prepare array of pointers to parameter data structs.
-        self.p0_real = np.ascontiguousarray(np.zeros(n_p_real), dtype=np.float64)
+        self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         param_array = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
         if param_array == NULL:
             free(self.ex_data)
@@ -916,11 +983,11 @@ cdef class EFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
-            pi = param_indices[i]
-            param_array[i].type = cfl.atoi(param_types[i])
+            pi = self.param_indices[i]
+            param_array[i].type = cfl.atoi(self.param_types[i])
             param_array[i].index = pi
 
-            if param_types[i] == 'c':
+            if self.param_types[i] == 'c':
                 self.p0_real[ip_real] = np.real(coeff_list[pi])
                 self.p0_real[ip_real+1] = np.imag(coeff_list[pi])
                 ip_real += 2
@@ -956,11 +1023,19 @@ cdef class EFitRunner(object):
             The minimization object to be used, which sets the optimization
             algorithm, bounds and other settings as applicable to the selected
             algorithm.
+
+        Returns
+        -------
+        result : tuple
+            The first element is a np.ndarray containing complex coefficients
+            while the second entry contains the final value of the objective
+            function.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        min_object.minimize(self.obj_f_cap, x, self.efit_data_cap)
+
+        fmin = min_object.minimize(self.obj_f_cap, x, self.efit_data_cap, self.bounds)
 
         coeff = self.coeff 
         ri = 0
@@ -972,7 +1047,7 @@ cdef class EFitRunner(object):
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
 
-        return(coeff)
+        return(coeff, fmin)
 
 
 
@@ -1004,6 +1079,12 @@ cdef class ESHFitRunner(object):
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
         np.ndarrays corresponding to the experimental spin Hamiltonian tensor.
+    bounds : dict
+        Parameter bounds.  Keys specify the tensor name (note that tensors
+        created by tensor arithmethic should have their name attribute set
+        explicitly) while values correspond to tuples, the first entry of which
+        is the lower bound and the second entry the upper bound.  The number of
+        elements in bounds must match the length of the parameters list. 
     """
     cdef SpinHamiltonian sh
     cdef Hamiltonian h
@@ -1027,8 +1108,9 @@ cdef class ESHFitRunner(object):
     cdef cfl.eshfit_data *eshfit_data
     cdef object obj_f_cap
     cdef object eshfit_data_cap
+    cdef tuple bounds
 
-    def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights):
+    def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights, bounds):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.zsh *zsh_array_ptr
         cdef cfl.shx_data *shx_data_ptr
@@ -1042,42 +1124,21 @@ cdef class ESHFitRunner(object):
         self.sh = sh
         self.h = h
         self.n_p = len(parameters)
+        if (bounds != None): 
+            self.bounds = True
+        else:
+            self.bounds = False
 
-        self.param_initial = []
-        param_indices = []
-        param_types = []
-        n_p_real = 0
-        # Since coeff_list has tensor coefficients in the same order as the
-        # order in which tensors were passed to the Hamiltonian constructor we
-        # determine the index of each parameter to be varied of the Hamiltonian,
-        # which will coincide with the corresponding coeff_list index.
-        for i,p in enumerate(parameters):
-            # Hamiltonian/coeff_list index of current param. 
-            try:
-                pi = h.index(p)
-            except ValueError:
-                raise ValueError("Tensor {} in parameters not found in h".format(p.name))
-            if not isinstance(coeff_list[pi], Number):
-                raise ValueError("Element {} in coefficients is not a number.".format(coeff_list[pi]))
-            # The parameter type is recorded such that any complex parameters
-            # can be split into two real parameters.
-            if isinstance(coeff_list[pi], complex):
-                param_types.append('c')
-                n_p_real += 2
-            else:
-                param_types.append('r')
-                n_p_real += 1
-            param_indices.append(pi)
+        pp = parse_param_helper(parameters, h, coeff_list, bounds)
+        self.n_p_real = pp['n_p_real']
+        self.param_initial = pp['param_initial']
+        self.param_indices = pp['param_indices']
+        self.param_types = pp['param_types']
+        if (bounds != None):
+            self.bounds = (pp['lb'], pp['ub'])
+        else: 
+            self.bounds = None
 
-            # Create a list of tuples with initial values of coefficients and
-            # the corresponding tensor name; used for printing a fitting
-            # summary.
-            self.param_initial += [(coeff_list[pi], p.name)]
-       
-        self.n_p_real = n_p_real
-        self.param_indices = param_indices
-        self.param_types = param_types
-        
         # Determine whether the complete Hamiltonian contains any interactions
         # that are also part of the spin Hamiltonian.  Furthermore, we record
         # the location of the Zeeman tensor. 
@@ -1107,7 +1168,7 @@ cdef class ESHFitRunner(object):
         else:
             self.hfo = None
 
-        if n_p_real > len(ex) + sh.nsh:
+        if self.n_p_real > len(ex) + sh.nsh:
             raise ValueError("The total (real and imaginary) number of parameters "
                 "exceeds the number of observables. Don't do that.")
         elif ex.shape[1] != 2:
@@ -1133,7 +1194,7 @@ cdef class ESHFitRunner(object):
         self.ex_data.li = &ex_li[0]
 
         # Prepare array of pointers to parameter data structs.
-        self.p0_real = np.ascontiguousarray(np.zeros(n_p_real), dtype=np.float64)
+        self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         param_array = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
         if param_array == NULL:
             free(self.ex_data)
@@ -1150,11 +1211,11 @@ cdef class ESHFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
 
-            pi = param_indices[i]
-            param_array[i].type = cfl.atoi(param_types[i])
+            pi = self.param_indices[i]
+            param_array[i].type = cfl.atoi(self.param_types[i])
             param_array[i].index = pi
 
-            if param_types[i] == 'c':
+            if self.param_types[i] == 'c':
                 self.p0_real[ip_real] = np.real(coeff_list[pi])
                 self.p0_real[ip_real+1] = np.imag(coeff_list[pi])
                 ip_real += 2
@@ -1253,7 +1314,7 @@ cdef class ESHFitRunner(object):
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
 
             # Unweighted initial chi^2 estimation.
-            cfl.eshfit_chi2(n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+            cfl.eshfit_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
 
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
@@ -1262,7 +1323,7 @@ cdef class ESHFitRunner(object):
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_h_obj, "pycfl.MinObjF", NULL)
 
             # Unweighted initial chi^2 estimation.
-            cfl.eshfit_h_chi2(n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+            cfl.eshfit_h_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
 
         self.eshfit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
 
@@ -1309,14 +1370,16 @@ cdef class ESHFitRunner(object):
 
         Returns
         -------
-        coeff : np.ndarray
-            Coefficient array with complex entries.
+        result : tuple
+            The first element is a np.ndarray containing complex coefficients
+            while the second entry contains the final value of the objective
+            function.
             
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        fmin = min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap)
+        fmin = min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap, self.bounds)
 
         coeff = self.coeff 
         ri = 0
@@ -1327,8 +1390,7 @@ cdef class ESHFitRunner(object):
             else:
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
-        print("fmin = %f" % fmin)
-        return(coeff)
+        return(coeff, fmin)
 
 cdef class CFLMin:
     r"""
@@ -1340,12 +1402,8 @@ cdef class CFLMin:
     method : string
         The minimization routine to employ.
     kwargs : string
-        Dictionary of arguments for the minimization routine.  Arguments defined
-        for all minimization routines are:
-            - ``bounds``, a tuple containing two npndarray vectors of a length
-              equivalent to the number of parameters to be varied, specifying,
-              respectively, the lower and upper bounds.
-        Basinhopping specific arguments are:
+        Dictionary of arguments for the minimization routine. Basinhopping
+        specific arguments are:
             - ``niter``, the number of basinhopping iterations to complete;
             - ``lmin``, the local minimization routine to be used; implemented
               options fall in two categories, routines from gsl, and routines
@@ -1363,31 +1421,14 @@ cdef class CFLMin:
     cdef int niter
     cdef size_t nx
     cdef double xtol
-    cdef np.ndarray lbounds
-    cdef np.ndarray ubounds
-    cdef cfl.cfl_min_bounds *bounds
+    cdef cfl.cfl_min_bounds *cfl_bounds
     cdef cfl.cfl_min_obj *min_obj
-    cdef cfl.cfl_min_obj *bh_lmin_obj
+    cdef cfl.cfl_min_obj *bh_lmin_obj 
+
     def __cinit__(self, method, **kwargs):
-        cdef np.ndarray[double, ndim=1, mode="c"] clb
-        cdef np.ndarray[double, ndim=1, mode="c"] cub
-        cdef cfl.cfl_min_bounds *bounds
 
         self.method = method
         self.kwargs = kwargs
-
-        if 'bounds' in kwargs:
-            #FIXME: currently complex parameters need two real bounds specified in bounds.
-            self.lbounds = kwargs['bounds'][0]
-            self.ubounds = kwargs['bounds'][1]
-            clb = <np.ndarray[double, ndim=1, mode="c"]> self.lbounds
-            cub = <np.ndarray[double, ndim=1, mode="c"]> self.ubounds
-            bounds = <cfl.cfl_min_bounds *>malloc(cython.sizeof(cfl.cfl_min_bounds))
-            bounds.l = &clb[0]
-            bounds.u = &cub[0]
-            self.bounds = bounds
-        else:
-            self.bounds = NULL
 
         if method == 'basinhopping':
             if 'niter' in kwargs:
@@ -1398,10 +1439,10 @@ cdef class CFLMin:
             raise NotImplementedError("Minimization method '%s' is not an existing option." % method)
 
     def __dealloc__(self):
-        if self.bounds != NULL:
-            free(self.bounds)
+        if self.cfl_bounds != NULL:
+            free(self.cfl_bounds)
 
-    cpdef minimize(self, objective_f, x0, data):
+    cpdef minimize(self, objective_f, x0, data, bounds):
         r"""
         Run the minimization. 
 
@@ -1418,6 +1459,10 @@ cdef class CFLMin:
         data : PyCapsule
             Capsule for any data to be passed to the objective function, of type
             void *.  The PyCapsule name is "pycfl.MinData". 
+        bounds : tuple
+            Double valued bounds for parameters to be fit, in the same order as
+            x0.  The first element of the tuple corresponds to the lower bounds,
+            while the second entry corresponds to the upper bounds.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] cx0
         cdef size_t cnx
@@ -1427,10 +1472,20 @@ cdef class CFLMin:
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
         cdef double fmin = 0
+        cdef np.ndarray[double, ndim=1, mode="c"] clb 
+        cdef np.ndarray[double, ndim=1, mode="c"] cub
 
-        cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
+        if (bounds != None):
+            clb = <np.ndarray[double, ndim=1, mode="c"]> bounds[0]
+            cub = <np.ndarray[double, ndim=1, mode="c"]> bounds[1]
+            cfl_bounds = <cfl.cfl_min_bounds *>malloc(cython.sizeof(cfl.cfl_min_bounds))
+            cfl_bounds.l = &clb[0]
+            cfl_bounds.u = &cub[0]
+            self.cfl_bounds = cfl_bounds
+        else:
+            self.cfl_bounds = NULL
+
         cnx = <size_t> len(x0)
-
         obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(objective_f, "pycfl.MinObjF")
         data_ptr = <void *>PyCapsule_GetPointer(data, "pycfl.MinData")
         if self.method == 'basinhopping':
@@ -1452,17 +1507,17 @@ cdef class CFLMin:
                 elif lmin == 'gsl_vector_bfgs2':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
                 elif lmin == 'nlopt_cobyla':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, self.bounds)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, self.cfl_bounds)
                 elif lmin == 'nlopt_bobyqa':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.bounds)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.cfl_bounds)
                 elif lmin == 'nlopt_sbplx':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, self.bounds)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, self.cfl_bounds)
                 else:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
-                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, 1e-6, self.bounds)
+                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, 1e-6, self.cfl_bounds)
            
-            min_obj = cfl_bh_min_setup(self.niter, self.bounds, lmin_obj)
+            min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
 
             # Assign to self to guarantee there exists a reference to these
             # objects until the CFLMin destructor is called.
@@ -1471,15 +1526,14 @@ cdef class CFLMin:
             self.bh_lmin_obj = lmin_obj
             self.min_obj = min_obj
 
-
+        cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         with nogil:
             cfl.cfl_min(&cx0[0], &fmin, min_obj)
 
         return fmin
 
 
-
-def e_fit(parameters, h, coeff, ex, cfl_min):
+def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
     r"""
     Fit parameters to energy level data. 
 
@@ -1503,9 +1557,15 @@ def e_fit(parameters, h, coeff, ex, cfl_min):
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    bounds : dict
+        Parameter bounds.  Keys specify the tensor name (note that tensors
+        created by tensor arithmethic should have their name attribute set
+        explicitly) while values correspond to tuples, the first entry of which
+        is the lower bound and the second entry the upper bound.  The number of
+        elements in bounds must match the length of the parameters list. 
     """
-    efit = EFitRunner(parameters, h, coeff, ex)
-    x = efit.fit(cfl_min)
+    efit = EFitRunner(parameters, h, coeff, ex, bounds)
+    (x, fmin) = efit.fit(cfl_min)
     
     h.set_coeff(x)
     (w, z) = h.diag()
@@ -1522,12 +1582,12 @@ def e_fit(parameters, h, coeff, ex, cfl_min):
     summary+= "=============\n\n"
     summary += gen_e_summary(w, z, labels, ex)
     summary += "\n"
-    summary += gen_fit_summary(np.real(x), efit.param_indices, efit.param_initial, cfl_min.method, **cfl_min.kwargs)
+    summary += gen_fit_summary(np.real(x), efit.param_indices, efit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
 
-def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
+def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
     r"""
     Fit parameters to energy level data. 
  
@@ -1561,12 +1621,15 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
     cfl_min : CFLMin 
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    bounds : dict
+        Parameter bounds.  Keys specify the tensor name (note that tensors
+        created by tensor arithmethic should have their name attribute set
+        explicitly) while values correspond to tuples, the first entry of which
+        is the lower bound and the second entry the upper bound.  The number of
+        elements in bounds must match the length of the parameters list. 
     """
-    eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights)
-    x = eshfit.fit(cfl_min)
-    print("Coeff:")
-    print(x) 
-    print("\n")
+    eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights, bounds)
+    (x, fmin) = eshfit.fit(cfl_min)
     h.set_coeff(x)
     (w, z) = h.diag()
 
@@ -1584,7 +1647,7 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
     summary += "\n"
     summary += gen_sh_summary(sh.calc_param(h), sh.interactions, shx)
     summary += "\n"
-    summary += gen_fit_summary(np.real(x), eshfit.param_indices, eshfit.param_initial, cfl_min.method, **cfl_min.kwargs)
+    summary += gen_fit_summary(np.real(x), eshfit.param_indices, eshfit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
