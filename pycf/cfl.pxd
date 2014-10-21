@@ -174,3 +174,5 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_h_obj(size_t n, double *x, double *grad, void *data) nogil 
+    void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2)
+    void eshfit_h_chi2(size_t n, double *x, double *grad, void *data, double *chi2)

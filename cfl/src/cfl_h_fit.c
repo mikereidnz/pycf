@@ -549,3 +549,77 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
 
   return chisq;
 }
+
+/* Function used to get an initial estimate of chi^2 values. */
+void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
+  int i, j, sh_index;
+  eshfit_data *d = data;
+
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
+
+  /* Calculate the energy level chi^2. */
+  zh_set_coeff(d->h, d->coeff);
+  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  chi2[0] = echisq(d->h_eval, d->ex);
+
+  /* Diagonalize the first order Hamiltonian, project out the spin Hamiltonian,
+   * and invert the result to obtain the spin Hamiltonian parameters. */
+  zh_set_coeff(d->hfo, d->coeff);
+  zhd(d->hfo_eval, d->hfo_evect, d->hfo, d->hfod_w);
+
+  sh_index = 0;
+  for (i=0; i<d->ninv; i++) {
+    if (i == d->nzeeman) {
+      /* The dimension of a single Zeeman term. */
+      size_t dz = d->shx[i]->inv_data->m/3;
+      for (j=0; j<3; j++) {
+        zshp(&(d->sh_pa[i][j*dz]), d->hfo_evect, d->sh_a[sh_index],
+            d->shp_w_array[sh_index]);
+        sh_index++;
+      }
+    }
+    else {
+      zshp(d->sh_pa[i], d->hfo_evect, d->sh_a[sh_index],
+          d->shp_w_array[sh_index]);
+      sh_index++;
+    }
+    zshi(d->sh_pa[i], d->shi_w_array[i]);
+    chi2[i+1] = d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
+  }
+}
+
+/*  Function used to get an initial estimate of chi^2 values, in scenario where
+ *  the complete Hamiltonian is the same as the projection Hamiltonian. */
+void eshfit_h_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
+  int i, j, sh_index;
+  eshfit_data *d = data;
+
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
+
+  /* Calculate the energy level chi^2. */
+  zh_set_coeff(d->h, d->coeff);
+  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  chi2[0] = echisq(d->h_eval, d->ex);
+
+  /* Project out the spin Hamiltonian, and invert the result to obtain the spin
+   * Hamiltonian parameters. */
+  sh_index = 0;
+  for (i=0; i<d->ninv; i++) {
+    if (i == d->nzeeman) {
+      /* The dimension of a single Zeeman term. */
+      size_t dz = d->shx[i]->inv_data->m/3;
+      for (j=0; j<3; j++) {
+        zshp(&(d->sh_pa[i][j*dz]), d->h_evect, d->sh_a[sh_index],
+            d->shp_w_array[sh_index]);
+        sh_index++;
+      }
+    }
+    else {
+      zshp(d->sh_pa[i], d->h_evect, d->sh_a[sh_index],
+          d->shp_w_array[sh_index]);
+      sh_index++;
+    }
+    zshi(d->sh_pa[i], d->shi_w_array[i]);
+    chi2[i+1] += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
+  }
+}

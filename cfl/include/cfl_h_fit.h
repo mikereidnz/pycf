@@ -145,6 +145,8 @@ int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
 double efit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_h_obj(size_t n, double *x, double *grad, void *data);
+void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2);
+void eshfit_h_chi2(size_t n, double *x, double *grad, void *data, double *chi2); 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

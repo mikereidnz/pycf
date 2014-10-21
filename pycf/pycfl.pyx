@@ -43,9 +43,8 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       + There is a double free bug in cython interface for some frees during
 #       an exception.  Specifically, if one does not provide the correct shx
 #       data dict (change zeeman to something else). 
-#       + Add energy level weighting support to eshfit.  If e key is present,
-#       divide all dict elements by e weighting.  Also, add check to ensure
-#       weighting is present for all sh terms. IF not, either fail, or set to 1.
+#       + Also, add check to ensure weighting is present for all sh terms. IF
+#       not, either fail, or set to 1.
 
 cdef class StateLabels:
     r"""
@@ -1037,7 +1036,9 @@ cdef class ESHFitRunner(object):
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double complex, ndim=1, mode="c"] shx_pa
-        
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+
         self.sh = sh
         self.h = h
         self.n_p = len(parameters)
@@ -1237,9 +1238,13 @@ cdef class ESHFitRunner(object):
                 raise MemoryError("shx_array[{}] alloc failed".format(i))
             shx_pa = <np.ndarray[double complex, ndim=1, mode="c"]> self.shx_list[i]
             shx_array[i].pa = &shx_pa[0]
-            shx_array[i].chisq_weight = self.weights[inter.type]
             shx_array[i].inv_data = <cfl.zsh_inv_data *>PyCapsule_GetPointer(inter.inv_data_cap, "pycfl.InvData")
-        
+            shx_array[i].chisq_weight = 1
+
+        # Alloc data for objective functions and estimate initial chi^2 values. 
+        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(len(sh.interactions)+1)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+
         if (self.hfo != None):
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
@@ -1247,13 +1252,30 @@ cdef class ESHFitRunner(object):
                     self.ex_data, shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
 
+            # Unweighted initial chi^2 estimation.
+            cfl.eshfit_chi2(n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
                     self.ex_data, shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_h_obj, "pycfl.MinObjF", NULL)
 
+            # Unweighted initial chi^2 estimation.
+            cfl.eshfit_h_chi2(n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+
         self.eshfit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
+
+        self.weights[inter.type]
+
+        if 'e' in self.weights:
+            ew_scale = chi2[0]/self.weights['e']
+        else:
+            ew_scale = chi2[0]
+
+        for i,inter in enumerate(sh.inter_data):
+            shx_array[i].chisq_weight = self.weights[inter.type]/chi2[i+1] * ew_scale 
+
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1294,7 +1316,7 @@ cdef class ESHFitRunner(object):
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap)
+        fmin = min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap)
 
         coeff = self.coeff 
         ri = 0
@@ -1305,7 +1327,7 @@ cdef class ESHFitRunner(object):
             else:
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
-
+        print("fmin = %f" % fmin)
         return(coeff)
 
 cdef class CFLMin:
