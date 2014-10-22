@@ -4,16 +4,20 @@ CPPFLAGS=-I include
 CFLAGS=-g -O3 -fPIC 
 #CFLAGS=-g -O3 -fPIC -mkl
 #CFLAGS=-O3 -fprofile-generate -fPIC -mtune=native
-#CFLAGS=-O3 -fprofile-use -fPIC -mtune=native
 LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
 #LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 LDFLAGS=
 ARFLAGS=rcs
-TESTS=opt_test h_test crs_test
+
+TESTS=$(patsubst tests/%.c,%,$(wildcard tests/*test.c))
 
 all: libcfl.a test
 
-test: $(TESTS)
+test: $(TESTS) 
+	sh ./cfl_testing.sh
+
+debug: CFLAGS=-g -O1 -fPIC 
+debug: all
 
 libcfl.a: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o cfl_error.h -lm
 	$(AR) $(ARFLAGS) $@ $^

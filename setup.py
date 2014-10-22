@@ -3,6 +3,8 @@
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
+from subprocess import call
+import os
 import numpy as np
 
 # extra_objects may require updating.  The extra_compile_args and
@@ -22,7 +24,10 @@ pycfl_ext = Extension('pycf.cfl',
             '/usr/lib/x86_64-linux-gnu/libnlopt.so', '/usr/lib/libgsl.so',
             '/usr/lib/gcc/x86_64-linux-gnu/4.7/libgfortran.so'],
         include_dirs=['cfl/include', np.get_include()])
-        
+
+os.chdir('cfl')
+call(['make'])
+os.chdir('../')
 
 setup(name='pycf',
       version='1.1',
