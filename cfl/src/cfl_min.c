@@ -190,7 +190,7 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f,
 
 /* Wrapper function for numerically calculating the derivative of an objective
  * function using gsl numerical derivative facilities. */
-inline double gsl_numerical_df_wrapper(double x, void *data) {
+double gsl_numerical_df_wrapper(double x, void *data) {
   gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
   
   gsl_data->df_work[gsl_data->dfi] = x;

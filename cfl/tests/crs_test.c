@@ -6,7 +6,7 @@
 #include <cfl_crs.h>
 #include <cfl_h.h>
 
-equ_chk(complex double *a, complex double *b, size_t n) {
+void equ_chk(complex double *a, complex double *b, size_t n) {
   int i;
   int p = 0;
 

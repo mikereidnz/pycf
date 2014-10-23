@@ -1,11 +1,12 @@
-CC=icc
+CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
-#CFLAGS=-g -O3 -fPIC 
-CFLAGS=-g -O3 -fPIC -mkl
-#CFLAGS=-O3 -fprofile-generate -fPIC -mtune=native
-#LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
-LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
+
+CFLAGS=-g -O3 -fPIC -std=c99
+#CFLAGS=-g -O3 -fPIC -ffast-math -fno-cx-limited-range -funroll-loops --param max-unroll-times=2 -std=c99 
+LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
+MKL_CFLAGS=-g -O3 -fPIC -mkl -unroll2 -ansi-alias -std=c99
+MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 LDFLAGS=
 ARFLAGS=rcs
 
@@ -15,6 +16,11 @@ all: libcfl.a test
 
 test: $(TESTS) 
 	sh ./cfl_testing.sh
+
+mkl: CC=icc
+mkl: CFLAGS=$(MKL_CFLAGS)
+mkl: LDLIBS=$(MKL_LDLIBS)
+mkl: all
 
 debug: CFLAGS=-g -O1 -fPIC 
 debug: all
