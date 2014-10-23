@@ -3,9 +3,13 @@
 *.o
 *.swp
 *.pyc
+*.gcda
+*.optrpt
 
 callgrind.*
 perf.*
+
+*.directory
 work
 build 
 doc/_build

@@ -1,11 +1,9 @@
 CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
-
-CFLAGS=-g -O3 -fPIC -std=c99
-#CFLAGS=-g -O3 -fPIC -ffast-math -fno-cx-limited-range -funroll-loops --param max-unroll-times=2 -std=c99 
+CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -fprofile-use
 LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
-MKL_CFLAGS=-g -O3 -fPIC -mkl -unroll2 -ansi-alias -std=c99
+MKL_CFLAGS=-g -O3 -fPIC -std=c99 -mkl -ansi-alias -xhost -parallel -prof-use 
 MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 LDFLAGS=
 ARFLAGS=rcs
@@ -49,7 +47,7 @@ cfl_tensor.o: cfl_crs.o cfl_tensor.h cfl_error.h
 cfl_crs.o: cfl_crs.h cfl_error.h
 
 clean:
-	rm -f *.o *.gcda
+	rm -f *.o
 	rm -f $(TESTS)
 
 

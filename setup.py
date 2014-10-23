@@ -30,10 +30,6 @@ pycfl_ext = Extension('pycf.cfl',
             '/home/sph/local/intel/lib/intel64/libirc.so'],
         include_dirs=['cfl/include', np.get_include()])
 
-os.chdir('cfl')
-call(['make'])
-os.chdir('../')
-
 setup(name='pycf',
       version='1.1',
       description='Python crystal field theory modules',
