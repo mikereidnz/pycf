@@ -1,11 +1,11 @@
-CC=gcc
+CC=icc
 VPATH=src tests include
 CPPFLAGS=-I include
-CFLAGS=-g -O3 -fPIC 
-#CFLAGS=-g -O3 -fPIC -mkl
+#CFLAGS=-g -O3 -fPIC 
+CFLAGS=-g -O3 -fPIC -mkl
 #CFLAGS=-O3 -fprofile-generate -fPIC -mtune=native
-LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
-#LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
+#LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
+LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 LDFLAGS=
 ARFLAGS=rcs
 

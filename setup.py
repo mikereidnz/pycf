@@ -18,11 +18,16 @@ spinh_ext = Extension('pycf.spinh_c',
         include_dirs=['pycf', np.get_include()])
 
 pycfl_ext = Extension('pycf.cfl', 
-        sources=['pycf/pycfl.pyx'],
+        sources=['pycf/cfl.pyx'],
         extra_objects=['cfl/libcfl.a', '/usr/lib/liblapacke.a',
             '/usr/lib/liblapack.a', '/usr/lib/libblas.so',
             '/usr/lib/x86_64-linux-gnu/libnlopt.so', '/usr/lib/libgsl.so',
-            '/usr/lib/gcc/x86_64-linux-gnu/4.7/libgfortran.so'],
+            '/usr/lib/gcc/x86_64-linux-gnu/4.7/libgfortran.so',
+            '/home/sph/local/intel/mkl/lib/intel64/libmkl_intel_lp64.so', 
+            '/home/sph/local/intel/mkl/lib/intel64/libmkl_intel_thread.so',
+            '/home/sph/local/intel/mkl/lib/intel64/libmkl_core.so',
+            '/home/sph/local/intel/lib/intel64/libiomp5.so',
+            '/home/sph/local/intel/lib/intel64/libirc.so'],
         include_dirs=['cfl/include', np.get_include()])
 
 os.chdir('cfl')
