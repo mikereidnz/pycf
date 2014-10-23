@@ -8,6 +8,16 @@ pycf reference
 .. automodule:: pyemp
   :members:
 
+:mod:`cfl` -- python wrapper for cfl
+======================================
+.. autoclass:: clf.Tensor
+  :members:
+
+.. automodule:: cfl
+  :members:
+  :undoc-members:
+  :show-inheritance:
+
 :mod:`spinh` -- spin Hamiltonian module
 =======================================
   

@@ -15,8 +15,6 @@ CFL
   * Think about a complex tensor-prefactor... since a standard multiplication by
     a complex number will not preserve the hermiticity of a matrix. Presumably,
     we multiply by the complex conjugate on the lower-diagonal?
-  * Move GSL tolerances to macros. 
-  * use memcpy instead of dacpy.
   * When passing a void * type argument, does the function call have to cast to
     void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
   * In explaination section, discuss the fortran vs c array mess. Everything is

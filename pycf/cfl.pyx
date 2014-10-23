@@ -1,5 +1,6 @@
 # filename = pycfl.pyx
 #cython: c_string_encoding=ascii
+#cython: embedsignature=True
 
 # Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
 # 
@@ -48,9 +49,6 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       + Bounds checking... to ensure initial parameters are within bounds. 
 #       + Estimate final sigma as per Chapter 15 (page 780) of Numerical
 #       Recipes 3rd edition.
-#       + In parameter summary printing, use own name for defined tensors (as
-#       in, symbol name), then define symbol names below parameter table.
-
 
 cdef class StateLabels:
     r"""
@@ -337,7 +335,7 @@ cdef class Hamiltonian:
 
 cpdef zeeman_sh_coeff(v, t):
     r"""
-    Generate the Zeeman interaction spin Hamiltonian `coefficient array`.  This
+    Generate the Zeeman interaction spin Hamiltonian 'coefficient array'.  This
     consists of a `2j+1 \times 2j+1` by `3 \times 3` array containing the matrix
     elements of the terms `B_a S_b`, with `a,b \in \{x, y, z\}` and `j` the
     angular momentum of the rank one tensor `S`.  Here the rows enumerate the
@@ -372,7 +370,7 @@ cpdef zeeman_sh_coeff(v, t):
 
 cpdef hyperfine_sh_coeff(t1, t2):
     r"""
-    Generate the hyperfine interaction spin Hamiltonian `coefficient array`.
+    Generate the hyperfine interaction spin Hamiltonian 'coefficient array'.
     This consists of a `2j_1+1 \times 2j_2+1` by `3 \times 3` array containing
     the matrix elements of the operators `I_a S_b`, with `a,b \in \{x, y, z\}`
     and `j_1` and `j_2` the angular momentum of the rank one tensors `I` and
@@ -412,7 +410,7 @@ cpdef hyperfine_sh_coeff(t1, t2):
 
 cpdef quadrupole_sh_coeff(t):
     r""" 
-    Generate the quadrupole interaction spin Hamiltonian `coefficient array`.
+    Generate the quadrupole interaction spin Hamiltonian 'coefficient array'.
     This consists of a `2j+1 \times 2j+1` by `3 \times 3` array containing the
     matrix elements of the operators `I_a I_b`, with `a,b \in \{x, y, z\}` and
     `j` the angular momentum of the rank one tensor `I`.  Here the rows
