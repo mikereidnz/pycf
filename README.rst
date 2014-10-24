@@ -26,15 +26,15 @@ original pycf scripts.  To get an up-to-date copy::
   git clone https://bitbucket.org/sebastianhorvath/pycf/ -b cfl
 
 The c library for now uses a separate build system from the python modules.  To
-compile, ensure all of the listed `Dependencies`_ are satisfied, then a simple
-``make`` in the ``cfl`` directory should suffice.  To compile using i++ and mkl,
-use the target ``make mkl`` instead.  If i++ and mkl are installed in a
+compile it, ensure all of the listed `Dependencies`_ are satisfied, then a
+simple ``make`` in the ``cfl`` directory should suffice.  To compile using i++
+and mkl, use the target ``make mkl`` instead.  If i++ and mkl are installed in a
 non-standard location, you must edit the ``INTEL_PATH`` variable in the
 makefile. 
 
-The python modules use the standard python distribution utilities (distutils).
-
-To compile change to the root directory and run::
+The python modules use the standard python distribution utilities (distutils)
+for installation. To compile and install them, navigate to the root directory
+and run::
 
   $ python setup.py install
 
@@ -50,7 +50,6 @@ To manually specify the installation prefix for pycf use::
 
 If you install to a non-standard location you need to ensure that the python
 ``dist-packages`` directory is part of the ``PYTHONPATH`` environment variable.
-
 
 
 Dependencies

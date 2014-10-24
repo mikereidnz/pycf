@@ -10,19 +10,43 @@ pycf reference
 
 :mod:`cfl` -- python wrapper for cfl
 ======================================
-.. autoclass:: clf.Tensor
+.. autoclass:: cfl.StateLabels
   :members:
 
-.. automodule:: cfl
+.. autoclass:: cfl.Tensor
   :members:
-  :undoc-members:
-  :show-inheritance:
 
-:mod:`spinh` -- spin Hamiltonian module
-=======================================
-  
-.. automodule:: spinh
+.. autoclass:: cfl.Hamiltonian
   :members:
+
+.. autoclass:: cfl.SHTerm
+  :members:
+
+.. autoclass:: cfl.SHTermData
+  :members:
+
+.. autoclass:: cfl.SpinHamiltonian
+  :members:
+
+.. autofunction:: cfl.zeeman_sh_coeff
+
+.. autofunction:: cfl.hyperfine_sh_coeff
+
+.. autofunction:: cfl.quadrupole_sh_coeff
+
+.. autoclass:: cfl.EFitRunner
+  :members:
+
+.. autoclass:: cfl.ESHFitRunner
+  :members:
+
+.. autoclass:: cfl.CFLMin
+  :members:
+
+.. autofunction:: cfl.e_fit
+
+.. autofunction:: cfl.esh_fit
+
 
 :mod:`matel` -- Matrix element function
 =======================================

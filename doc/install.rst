@@ -1,50 +1,68 @@
 Installation
 ============
 
-This package uses the standard python distribution utilities (distutils).
-Before installation, ensure that all the listed `Dependencies`_ are satisfied.
-Then fetch the archive from  `downloads
-<https://bitbucket.org/sebastianhorvath/pycf/downloads/>`_, extract it, and
-run::
+The cfl library is presently on a separate development branch from some of the
+original pycf scripts.  To get an up-to-date copy::
+
+  git clone https://bitbucket.org/sebastianhorvath/pycf/ -b cfl
+
+The c library for now uses a separate build system from the python modules.  To
+compile it, ensure all of the listed `Dependencies`_ are satisfied, then a
+simple ``make`` in the ``cfl`` directory should suffice.  To compile using i++
+and mkl, use the target ``make mkl`` instead.  If i++ and mkl are installed in a
+non-standard location, you must edit the ``INTEL_PATH`` variable in the
+makefile. 
+
+The python modules use the standard python distribution utilities (distutils)
+for installation. To compile and install them, navigate to the root directory
+and run::
 
   $ python setup.py install
 
 This will automatically build all cython modules and install pycf in your
-``dist-packages`` directory.  The provided ``setup.py`` file should work without
-modification on Debian testing, but may require adaptation for different
-distributions. 
+``dist-packages`` (or ``site_packages`` on some distributions) directory.  
 
-To manually specify the installation prefix use::
+The provided ``setup.py`` file should work without modification provided the
+dependency libraries are installed in standard system locations. 
+
+To manually specify the installation prefix for pycf use::
 
   $ python setup.py install --prefix=/path/to/dir
 
 If you install to a non-standard location you need to ensure that the python
 ``dist-packages`` directory is part of the ``PYTHONPATH`` environment variable.
 
-For further installation options see::
-
-  $ python setup.py --help
-
 
 Dependencies
 ------------
 
-pycf has the following dependencies:
-
-  * numpy
-  * scipy (>= 0.12.0)
-  * matplotlib (for plotting in example calculations)
-  * `cython <http://cython.org/>`_ - C extensions for Python
+To build cfl you will need to satisfy the following dependencies:
+ 
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
     LAPACK
+  * `gsl <https://www.gnu.org/software/gsl/>`_ - the GNU scientific library
+  * `nlopt <http://ab-initio.mit.edu/wiki/index.php/NLopt>`_ - nonlinear
+    optimization library
   * gcc 
+  * build-essential package or your distributions equivalent
 
-These should be available via the package manager on most linux distributions.
-If you compile LAPACKE from source you must ensure that liblapack, libblas, and
-libgfortran are available to the linker when pycf is installed.  The location of
-these can be specified manually by editing the ``setup.py`` file.  Additionally,
+cfl also builds with Intel's icc and mkl, but you will still require gcc to
+build the python extension. 
+
+To build the cfl python extension and pyemp the following dependencies have to
+be satisfied:
+
+  * numpy 
+  * scipy 
+  * matplotlib
+  * `cython <http://cython.org/>`_ - C extensions for Python
+
+All of the above should be available via the package manager on most linux
+distributions.  If you compile any of the cfl dependencies from source you
+either have to specify the runtime libraries to the linker (gcc option
+``-Wl,-rpath``) or add them as ``extra_objects`` in ``setup.py``.  Additionally,
 since cython compiles c modules as shared objects, all linked objects must be
-compiled as position independent code. 
+compiled as position independent code (``-fPIC``). 
 
 
 Development
@@ -62,4 +80,6 @@ is useful to build in-place using::
 
 This places the extension module files into the package source directory such
 that it can be directly imported by other modules.
+
+
 

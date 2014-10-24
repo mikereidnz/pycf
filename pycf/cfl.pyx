@@ -40,7 +40,6 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #         something to directly implement in the cfl projection interface.
 #       + Add checks whether efit/eshfit data alloc functions return NULL and
 #       corresponding frees.
-#       + Add final objective function value to summary.
 #       + There is a double free bug in cython interface for some frees during
 #       an exception.  Specifically, if one does not provide the correct shx
 #       data dict (change zeeman to something else). 
@@ -62,8 +61,10 @@ cdef class StateLabels:
         Elements are strings corresponding to labels; all labels must be of
         equal length.
     """
-    cdef cfl.sl *cfl_sl
-    cdef public object sl_cap
+    cdef:
+        cfl.sl *cfl_sl
+        public object sl_cap
+
     def __cinit__(self, labels):
         cdef char *char_ptr
         cdef char **state_labels
@@ -322,6 +323,14 @@ cdef class Hamiltonian:
         return (w, z)
 
     cpdef public gen_summary(self):
+        r"""
+        Generate an energy level summary resulting from a diagonalization. 
+
+        Returns
+        -------
+        s : string
+            The summary string.
+        """
         cdef cfl.zh *h = self.cfl_zh
 
         if self.diag_run:
@@ -482,6 +491,16 @@ cdef class SHTerm:
             cfl.zsh_free(self.cfl_sh)
 
     def set_pro_data(self, tensor, l):
+        r""" 
+        Set projection data. 
+
+        Parameters
+        ----------
+        tensor : Tensor
+            The projection tensor. 
+        int : l 
+            The starting level that the spin Hamiltonian corresponds to. 
+        """
         cfl.zsh_set_pro(self.cfl_sh, <cfl.zt *>PyCapsule_GetPointer(tensor.t_cap, "pycfl.Tensor"), l)
         self.tensor = tensor
 
@@ -1407,8 +1426,8 @@ cdef class CFLMin:
               'gsl_nmsimplex2', 'gsl_conjugate_fr', 'gsl_conjugate_pr', and
               'gsl_vector_bfgs2', whereas for the latter, available options are
               'nlopt_cobyla', 'nlopt_bobyqa', and 'nlopt_sbplx'.
-        If either the local or global optimization routine is from nlopt, there
-        the ``xtol`` argument can be used to set the relative tolerance in
+        If either the local or global optimization routine is from nlopt, the
+        ``xtol`` argument can be used to set the relative tolerance in
         parameters x to be used as a stopping criteria.
 
     """

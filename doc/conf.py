@@ -13,6 +13,19 @@
 
 import sys, os
 
+# Autodoc seems to interpret cdef statements as attributes (at least as far as
+# obj goes... what seems to think they are classes).  We manually skip all such
+# attributes.  Could probably have a conditonal that it throws out anything
+# where what does not show up in obj?
+def skip(app, what, name, obj, skip, options):
+    if 'attribute' in str(obj) and 'pycf.cfl' in str(obj):
+        return True
+
+    return skip
+
+def setup(app):
+    app.connect("autodoc-skip-member", skip)
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
