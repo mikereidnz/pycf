@@ -7,9 +7,9 @@ from subprocess import call
 import os
 import numpy as np
 
-# extra_objects may require updating.  The extra_compile_args and
-# extra_link_args options to the Extension builder can be used to set compiler
-# and linker arguments explicitly. 
+# extra_compile_args and extra_link_args options to the Extension builder can be
+# used to set compiler and linker arguments explicitly.
+
 spinh_ext = Extension('pycf.spinh_c', 
         ['pycf/spinh_c.pyx', 'pycf/spinh_c.pxd'],
         extra_objects=['/usr/lib/liblapacke.a', '/usr/lib/liblapack.a',
@@ -19,15 +19,8 @@ spinh_ext = Extension('pycf.spinh_c',
 
 pycfl_ext = Extension('pycf.cfl', 
         sources=['pycf/cfl.pyx'],
-        extra_objects=['cfl/libcfl.a', '/usr/lib/liblapacke.a',
-            '/usr/lib/liblapack.a', '/usr/lib/libblas.so',
-            '/usr/lib/x86_64-linux-gnu/libnlopt.so', '/usr/lib/libgsl.so',
-            '/usr/lib/gcc/x86_64-linux-gnu/4.7/libgfortran.so',
-            '/home/sph/local/intel/mkl/lib/intel64/libmkl_intel_lp64.so', 
-            '/home/sph/local/intel/mkl/lib/intel64/libmkl_intel_thread.so',
-            '/home/sph/local/intel/mkl/lib/intel64/libmkl_core.so',
-            '/home/sph/local/intel/lib/intel64/libiomp5.so',
-            '/home/sph/local/intel/lib/intel64/libirc.so'],
+        extra_link_args=['-llapacke', '-llapack', '-lblas', '-lgsl', '-lnlopt',
+            '-lgfortran', 'cfl/libcfl.a'],
         include_dirs=['cfl/include', np.get_include()])
 
 setup(name='pycf',

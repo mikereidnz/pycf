@@ -29,3 +29,4 @@ CFL
     function, do not modify the coeff array... if this were the case, there
     would be other undesired side-effects, such as the inability to reuse the
     same coefficient array from iteration to iteration. 
+  * sigmas, covariance matrix

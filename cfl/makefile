@@ -1,11 +1,15 @@
+# Path to the intel directory (containing icc and mkl)
+INTEL_PATH=/home/sph/local/intel
+
 CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
-CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -fprofile-use
+CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native
 LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
-MKL_CFLAGS=-g -O3 -fPIC -std=c99 -mkl -ansi-alias -xhost -parallel -prof-use 
-MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 LDFLAGS=
+MKL_CFLAGS=-g -O3 -fPIC -std=c99 -mkl -ansi-alias -xhost -parallel
+MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
+MKL_LDFLAGS=-Wl,-rpath,$(INTEL_PATH)/lib/intel64/ -Wl,-rpath,$(INTEL_PATH)/mkl/lib/intel64/
 ARFLAGS=rcs
 
 TESTS=$(patsubst tests/%.c,%,$(wildcard tests/*test.c))
@@ -18,7 +22,11 @@ test: $(TESTS)
 mkl: CC=icc
 mkl: CFLAGS=$(MKL_CFLAGS)
 mkl: LDLIBS=$(MKL_LDLIBS)
+mkl: LDFLAGS=$(MKL_LDFLAGS)
 mkl: all
+
+mkl_pgo: mkl
+	rm -f *.o
 
 debug: CFLAGS=-g -O1 -fPIC 
 debug: all
