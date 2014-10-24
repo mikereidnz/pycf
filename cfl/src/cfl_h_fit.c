@@ -37,12 +37,12 @@
  *
  * cfl_h_fit.c provides three objective functions for fitting crystal field
  * parameters to energy levels and spin Hamiltonian data.  These are: efit_obj,
- * eshfit_obj, and eshfit_h_obj, which are, respectively, used for fitting to
- * energy levels, energy levels in addition to spin Hamiltonian data for cases
- * where the complete Hamiltonian contains terms that also occur in the spin
+ * eshfit_obj, and eshfit_hpro_obj, which are, respectively, used for fitting to
+ * energy levels, in addition to spin Hamiltonian data for cases where the
+ * complete Hamiltonian does not contain any terms that also occur in the spin
  * Hamiltonian, and energy levels in addition to spin Hamiltonian data for cases
- * where the complete Hamiltonian does not contain any terms that also occur in
- * the spin Hamiltonian.
+ * where the complete Hamiltonian contains terms that also occur in the spin
+ * Hamiltonian.
  *
  * The objective functions can be directly passed to all cfl_min algorithms (see
  * cfl_min.c).  In order to facilitate this, objective functions parse the real
@@ -57,7 +57,6 @@
  * minimization, the workspace must be freed again.
  *
  */
-
 
 /* TODO:
  *  + Add sigma to chi^2, static at first, then adaptive with annealing. 
@@ -121,9 +120,13 @@ void efit_data_free(efit_data *data) {
   free(data);
 }
 
-
 /*
- * Alloc data for fitting to both energy levels and spin Hamiltonians.
+ * Alloc data for fitting to both energy levels and spin Hamiltonians.  
+ *
+ * We can get away with providing a single coefficient array even if a separate
+ * hpro is specified, since both h and hpro are aware of the number of tensors
+ * they are composed of, and they will not read beyond that number of
+ * coefficients.  Furthermore, set_coeff does not modify the coefficient array.
  *
  * Parameters
  * ----------
@@ -134,7 +137,7 @@ void efit_data_free(efit_data *data) {
  *  nzeeman The index of the first Zeeman term; for cases without Zeeman
  *          interaction, set to -1.
  *  h       Pointer to the complete Hamiltonian.  
- *  hfo     Pointer to the first order Hamiltonian; can be NULL if identical to
+ *  hpro    Pointer to the projection Hamiltonian; can be NULL if identical to
  *          h.
  *  coeff   Tensor coefficient array.
  *  ex      Experimental energy level data.  
@@ -147,7 +150,7 @@ void efit_data_free(efit_data *data) {
  *  p       Array of pointers to parameters to be fit.
  */
 eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
-    *hfo, complex double *coeff, ex_data *ex, shx_data
+    *hpro, complex double *coeff, ex_data *ex, shx_data
     **shx, size_t n_zx, param_type **p) {
   int i,j;
   size_t ninv;
@@ -184,10 +187,7 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
     CFL_ERROR_NULL("malloc failed for data->shp_w_array *");
   }
 
-  /* nfo is the number of tensors of h corresponding to first order
-   * interactions.  We allocate spin Hamiltonian projection space for the
-   * remainder. */
-  int nfo = h->n - nsh;
+  /* Allocate spin Hamiltonian projection space. */
   for (i=0; i<nsh; i++) {
     data->shp_w_array[i] = zshp_w_alloc(sh_a[i]);
     if (data->shp_w_array == 0) {
@@ -281,10 +281,10 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
     }
   }
 
-  if (hfo != NULL) {
-    /* Only alloc data if we require a separate first order Hamiltonian. */
-    data->hfod_w = zhd_w_alloc(hfo);
-    if (data->hfod_w == 0) {
+  if (hpro != NULL) {
+    /* Only alloc data if we require a separate projection Hamiltonian. */
+    data->hprod_w = zhd_w_alloc(hpro);
+    if (data->hprod_w == 0) {
       zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
@@ -301,11 +301,11 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       }
       free(data->sh_pa);
       free(data);
-      CFL_ERROR_NULL("zhd_w_alloc failed for data->hfod_w");
+      CFL_ERROR_NULL("zhd_w_alloc failed for data->hprod_w");
     }
-    data->hfo_evect = (complex double *) calloc(hfo->n*hfo->n,sizeof(complex
+    data->hpro_evect = (complex double *) calloc(hpro->n*hpro->n,sizeof(complex
           double));
-    if (data->hfo_evect == 0) {
+    if (data->hpro_evect == 0) {
       zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
@@ -321,12 +321,12 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
         free(data->sh_pa[j]);
       }
       free(data->sh_pa);
-      free(data->hfod_w);
+      free(data->hprod_w);
       free(data);
-      CFL_ERROR_NULL("calloc failed for data->hfo_evect");
+      CFL_ERROR_NULL("calloc failed for data->hpro_evect");
     }
-    data->hfo_eval = (double *) calloc(hfo->n,sizeof(double));
-    if (data->hfo_eval == 0) {
+    data->hpro_eval = (double *) calloc(hpro->n,sizeof(double));
+    if (data->hpro_eval == 0) {
       zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
@@ -342,16 +342,16 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
         free(data->sh_pa[j]);
       }
       free(data->sh_pa);
-      free(data->hfod_w);
-      free(data->hfo_evect);
+      free(data->hprod_w);
+      free(data->hpro_evect);
       free(data);
-      CFL_ERROR_NULL("calloc failed for data->hfo_eval");
+      CFL_ERROR_NULL("calloc failed for data->hpro_eval");
     }
   }
 
   data->sh_a = sh_a;
   data->h = h;
-  data->hfo = hfo;
+  data->hpro = hpro;
   data->coeff = coeff;
   data->ex = ex;
   data->nsh = nsh;
@@ -370,10 +370,10 @@ void eshfit_data_free(eshfit_data *data) {
   zhd_w_free(data->hd_w);
   free(data->h_evect);
   free(data->h_eval);
-  if (data->hfo != NULL) {
-    zhd_w_free(data->hfod_w);
-    free(data->hfo_evect);
-    free(data->hfo_eval);
+  if (data->hpro != NULL) {
+    zhd_w_free(data->hprod_w);
+    free(data->hpro_evect);
+    free(data->hpro_eval);
   }
   for (i=0; i<data->nsh; i++) {
     zshp_w_free(data->shp_w_array[i]);
@@ -471,49 +471,9 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
   return echisq(d->eval, d->ex);
 }
 
-/*  Objective function for fit to both energy levels and spin Hamiltonians. */
-double eshfit_obj(size_t n, double *x, double *grad, void *data) {
-  int i, j, sh_index;
-  eshfit_data *d = data;
-  double chisq;
-
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
-
-  /* Calculate the energy level chi^2. */
-  zh_set_coeff(d->h, d->coeff);
-  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
-  chisq = echisq(d->h_eval, d->ex);
-
-  /* Diagonalize the first order Hamiltonian, project out the spin Hamiltonian,
-   * and invert the result to obtain the spin Hamiltonian parameters. */
-  zh_set_coeff(d->hfo, d->coeff);
-  zhd(d->hfo_eval, d->hfo_evect, d->hfo, d->hfod_w);
-
-  sh_index = 0;
-  for (i=0; i<d->ninv; i++) {
-    if (i == d->nzeeman) {
-      /* The dimension of a single Zeeman term. */
-      size_t dz = d->shx[i]->inv_data->m/3;
-      for (j=0; j<3; j++) {
-        zshp(&(d->sh_pa[i][j*dz]), d->hfo_evect, d->sh_a[sh_index],
-            d->shp_w_array[sh_index]);
-        sh_index++;
-      }
-    }
-    else {
-      zshp(d->sh_pa[i], d->hfo_evect, d->sh_a[sh_index],
-          d->shp_w_array[sh_index]);
-      sh_index++;
-    }
-    zshi(d->sh_pa[i], d->shi_w_array[i]);
-    chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
-  }
-  return chisq;
-}
-
 /*  Objective function for fit to both energy levels and spin Hamiltonians in
  *  case the complete Hamiltonian is the same as the projection Hamiltonian. */
-double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
+double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   int i, j, sh_index;
   eshfit_data *d = data;
   double chisq;
@@ -550,22 +510,23 @@ double eshfit_h_obj(size_t n, double *x, double *grad, void *data) {
   return chisq;
 }
 
-/* Function used to get an initial estimate of chi^2 values. */
-void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
+/*  Objective function for fit to both energy levels and spin Hamiltonians. */
+double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   int i, j, sh_index;
   eshfit_data *d = data;
+  double chisq;
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
 
   /* Calculate the energy level chi^2. */
   zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
-  chi2[0] = echisq(d->h_eval, d->ex);
+  chisq = echisq(d->h_eval, d->ex);
 
-  /* Diagonalize the first order Hamiltonian, project out the spin Hamiltonian,
+  /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
-  zh_set_coeff(d->hfo, d->coeff);
-  zhd(d->hfo_eval, d->hfo_evect, d->hfo, d->hfod_w);
+  zh_set_coeff(d->hpro, d->coeff);
+  zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   sh_index = 0;
   for (i=0; i<d->ninv; i++) {
@@ -573,24 +534,25 @@ void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
       /* The dimension of a single Zeeman term. */
       size_t dz = d->shx[i]->inv_data->m/3;
       for (j=0; j<3; j++) {
-        zshp(&(d->sh_pa[i][j*dz]), d->hfo_evect, d->sh_a[sh_index],
+        zshp(&(d->sh_pa[i][j*dz]), d->hpro_evect, d->sh_a[sh_index],
             d->shp_w_array[sh_index]);
         sh_index++;
       }
     }
     else {
-      zshp(d->sh_pa[i], d->hfo_evect, d->sh_a[sh_index],
+      zshp(d->sh_pa[i], d->hpro_evect, d->sh_a[sh_index],
           d->shp_w_array[sh_index]);
       sh_index++;
     }
     zshi(d->sh_pa[i], d->shi_w_array[i]);
-    chi2[i+1] = d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
+    chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
+  return chisq;
 }
 
 /*  Function used to get an initial estimate of chi^2 values, in scenario where
  *  the complete Hamiltonian is the same as the projection Hamiltonian. */
-void eshfit_h_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
+void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
   int i, j, sh_index;
   eshfit_data *d = data;
 
@@ -621,5 +583,43 @@ void eshfit_h_chi2(size_t n, double *x, double *grad, void *data, double *chi2) 
     }
     zshi(d->sh_pa[i], d->shi_w_array[i]);
     chi2[i+1] += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
+  }
+}
+
+/* Function used to get an initial estimate of chi^2 values. */
+void eshfit_hpro_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
+  int i, j, sh_index;
+  eshfit_data *d = data;
+
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
+
+  /* Calculate the energy level chi^2. */
+  zh_set_coeff(d->h, d->coeff);
+  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  chi2[0] = echisq(d->h_eval, d->ex);
+
+  /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
+   * and invert the result to obtain the spin Hamiltonian parameters. */
+  zh_set_coeff(d->hpro, d->coeff);
+  zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
+
+  sh_index = 0;
+  for (i=0; i<d->ninv; i++) {
+    if (i == d->nzeeman) {
+      /* The dimension of a single Zeeman term. */
+      size_t dz = d->shx[i]->inv_data->m/3;
+      for (j=0; j<3; j++) {
+        zshp(&(d->sh_pa[i][j*dz]), d->hpro_evect, d->sh_a[sh_index],
+            d->shp_w_array[sh_index]);
+        sh_index++;
+      }
+    }
+    else {
+      zshp(d->sh_pa[i], d->hpro_evect, d->sh_a[sh_index],
+          d->shp_w_array[sh_index]);
+      sh_index++;
+    }
+    zshi(d->sh_pa[i], d->shi_w_array[i]);
+    chi2[i+1] = d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
 }

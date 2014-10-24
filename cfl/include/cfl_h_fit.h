@@ -89,18 +89,18 @@ typedef struct {
   zh *h;
   /* Pointer to workspace for Hamiltonian diagonalization. */
   zhd_w *hd_w;
-  /* Pointer to workspace for first order Hamiltonian diagonalization. */
-  zhd_w *hfod_w;
+  /* Pointer to workspace for projection Hamiltonian diagonalization. */
+  zhd_w *hprod_w;
   /* Complete Hamiltonian eigenvector array. */
   complex double *h_evect;
   /* Complete Hamiltonian eigenvalue array. */
   double *h_eval;
-  /* Pointer to the first order Hamiltonian. */
-  zh *hfo;
-  /* First order Hamiltonian eigenvector array. */
-  complex double *hfo_evect;
-  /* First order Hamiltonian eigenvalue array. */
-  double *hfo_eval;
+  /* Pointer to the projection Hamiltonian. */
+  zh *hpro;
+  /* Projection Hamiltonian eigenvector array. */
+  complex double *hpro_evect;
+  /* Projection Hamiltonian eigenvalue array. */
+  double *hpro_eval;
   /* Array of pointers to spin Hamiltonians. */
   zsh **sh_a;
   /* Number of spin Hamiltonians. */
@@ -135,7 +135,7 @@ efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t
     n_zx, param_type **p);
 void efit_data_free(efit_data *data);
 eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh
-    *hfo, complex double *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
+    *hpro, complex double *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
     param_type **p);
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
@@ -144,9 +144,9 @@ int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
     *bounds, cfl_min_obj *min_obj); 
 double efit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
-double eshfit_h_obj(size_t n, double *x, double *grad, void *data);
+double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
 void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2);
-void eshfit_h_chi2(size_t n, double *x, double *grad, void *data, double *chi2); 
+void eshfit_hpro_chi2(size_t n, double *x, double *grad, void *data, double *chi2);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -173,6 +173,6 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil
-    double eshfit_h_obj(size_t n, double *x, double *grad, void *data) nogil 
-    void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2)
-    void eshfit_h_chi2(size_t n, double *x, double *grad, void *data, double *chi2)
+    double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil
+    void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) nogil
+    void eshfit_hpro_chi2(size_t n, double *x, double *grad, void *data, double *chi2) nogil

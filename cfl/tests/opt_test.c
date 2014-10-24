@@ -534,7 +534,7 @@ int main (void)
   eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, NULL, celiyf4_coeff, &ce_ex_data,
       shx, 6, p);
 
-  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_h_obj, 6, eshfit_d, gsl_vector_bfgs2);
+  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, 6, eshfit_d, gsl_vector_bfgs2);
   eshfit_min_obj = cfl_bh_min_setup(5, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
@@ -543,7 +543,7 @@ int main (void)
   cfl_min_free(eshfit_lmin_obj);
   eshfit_data_free(eshfit_d);
 
-  printf("Energy level and spin Hamiltonian fit (eshfit_h_obj):\n");
+  printf("Energy level and spin Hamiltonian fit (eshfit_obj):\n");
   printf("fmin = %.6f\n", fmin);
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
@@ -554,7 +554,7 @@ int main (void)
   eshfit_d = eshfit_data_alloc(sh_a, 3, 0, h, h, celiyf4_coeff, &ce_ex_data,
       shx, 6, p);
 
-  eshfit_lmin_obj = cfl_nlopt_min_setup(&eshfit_obj, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
+  eshfit_lmin_obj = cfl_nlopt_min_setup(&eshfit_hpro_obj, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
   eshfit_min_obj = cfl_bh_min_setup(20, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
@@ -563,7 +563,7 @@ int main (void)
   cfl_min_free(eshfit_lmin_obj);
   eshfit_data_free(eshfit_d);
 
-  printf("Energy level and spin Hamiltonian fit (eshfit_obj):\n");
+  printf("Energy level and spin Hamiltonian fit (eshfit_hpro_obj):\n");
   printf("fmin = %.6f\n", fmin);
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);

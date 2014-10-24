@@ -726,7 +726,7 @@ cdef class SpinHamiltonian:
         cdef int cj
         cdef int z_num
         
-        so_tensors = []
+        c_sh_tensors = []
         self.nzeeman = -1
         for i,inter in enumerate(self.inter_data):
             # Alloc projection and inversion workspace.
@@ -740,28 +740,28 @@ cdef class SpinHamiltonian:
             shi_work_list += [PyCapsule_New(<void *>cfl.zshi_w_alloc(<cfl.zsh_inv_data *>PyCapsule_GetPointer(
                 inter.inv_data_cap, "pycfl.InvData")), "pycfl.SHCalcParamInvWork", NULL)]
 
-            # Determine whether there are any second order tensors; that is,
-            # whether the complete Hamiltonian contains any interactions that
-            # are also part of the spin Hamiltonian.  Furthermore, we record the
-            # location of the Zeeman tensor, if it exists. 
+            # Determine whether the complete Hamiltonian contains any
+            # interactions that are also part of the spin Hamiltonian.
+            # Furthermore, we record the location of the Zeeman tensor, if it
+            # exists. 
             if not inter.pro_data:
                 raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
             if inter.type == 'zeeman':
                 for t in inter.terms:
                     if t.tensor in h:
-                        so_tensors += [t.tensor]
+                        c_sh_tensors += [t.tensor]
                 self.nzeeman = i
             else:
                 if inter.term.tensor in h:
-                    so_tensors += [inter.term.tensor]
+                    c_sh_tensors += [inter.term.tensor]
            
-        # If required, replace h with the first order Hamiltonian
-        fo_tensors = []
-        if len(so_tensors) != 0:
+        # If required, replace h with a dedicated projection Hamiltonian
+        pro_tensors = []
+        if len(c_sh_tensors) != 0:
             for i,t in enumerate(h):
-                if t not in so_tensors:
-                    fo_tensors += [t]
-            h = Hamiltonian(fo_tensors)
+                if t not in c_sh_tensors:
+                    pro_tensors += [t]
+            h = Hamiltonian(pro_tensors)
 
         # Diagonalize the complete Hamiltonian, then determine the sh terms and
         # finally do the inversion for each interaction of sh.
@@ -1086,7 +1086,7 @@ cdef class ESHFitRunner(object):
     """
     cdef SpinHamiltonian sh
     cdef Hamiltonian h
-    cdef Hamiltonian hfo
+    cdef Hamiltonian hpro
     cdef int n_p
     cdef int n_p_real
     cpdef public list param_initial
@@ -1139,10 +1139,8 @@ cdef class ESHFitRunner(object):
 
         # Determine whether the complete Hamiltonian contains any interactions
         # that are also part of the spin Hamiltonian.  Furthermore, we record
-        # the location of the Zeeman tensor. 
-        # FIXME: change so_tensors to sh_tensors, provided there is no
-        # nomenclature conflict elsewhere.
-        so_tensors = []
+        # the location of the Zeeman tensor, if it exists. 
+        c_sh_tensors = []
         self.nzeeman = -1
         for i,inter in enumerate(sh.inter_data):
             if not inter.pro_data:
@@ -1150,21 +1148,21 @@ cdef class ESHFitRunner(object):
             if inter.type == 'zeeman':
                 for t in inter.terms:
                     if t.tensor in h:
-                        so_tensors += [t.tensor]
+                        c_sh_tensors += [t.tensor]
                 self.nzeeman = i
             else:
                 if inter.term.tensor in h:
-                    so_tensors += [inter.term.tensor]
+                    c_sh_tensors += [inter.term.tensor]
            
         # If required, generate the first order Hamiltonian. 
-        fo_tensors = []
-        if len(so_tensors) != 0:
+        pro_tensors = []
+        if len(c_sh_tensors) != 0:
             for i,t in enumerate(h):
-                if t not in so_tensors:
-                    fo_tensors += [t]
-            self.hfo = Hamiltonian(fo_tensors)
+                if t not in c_sh_tensors:
+                    pro_tensors += [t]
+            self.hpro = Hamiltonian(pro_tensors)
         else:
-            self.hfo = None
+            self.hpro = None
 
         if self.n_p_real > len(ex) + sh.nsh:
             raise ValueError("The total (real and imaginary) number of parameters "
@@ -1304,24 +1302,24 @@ cdef class ESHFitRunner(object):
         chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(len(sh.interactions)+1)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
 
-        if (self.hfo != None):
+        if (self.hpro != None):
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
-                    <cfl.zh *>PyCapsule_GetPointer(self.hfo.h_cap, "pycfl.Hamiltonian"), &coeff[0],
+                    <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"), &coeff[0],
                     self.ex_data, shx_array, self.n_p, self.param_array)
-            self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
+            self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
 
             # Unweighted initial chi^2 estimation.
-            cfl.eshfit_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+            cfl.eshfit_hpro_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
 
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
                     self.ex_data, shx_array, self.n_p, self.param_array)
-            self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_h_obj, "pycfl.MinObjF", NULL)
+            self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
 
             # Unweighted initial chi^2 estimation.
-            cfl.eshfit_h_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+            cfl.eshfit_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
 
         self.eshfit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
 

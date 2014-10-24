@@ -3,19 +3,15 @@ About pycf
 ==========
 
 pycf is a collection of python modules for crystal field theory and spin
-Hamiltonian calculations.  
-
-The two primary modules are, pyemp and cfl. 
+Hamiltonian calculations.  The two primary modules are, pyemp and cfl. 
 
 pyemp
------
 
 A python wrapper for Michael F. Reid's F-shell empirical crystal field theory
 routines.  Supports easy scripting of emp routines and plotting of intensity
 spectra. 
 
 cfl
----
 
 A reimplementation of 'cfit' in c99, with python bindings.  Primarily intended
 for fitting crystal field parameters to spin Hamiltonians.
@@ -36,7 +32,7 @@ use the target ``make mkl`` instead.  If i++ and mkl are installed in a
 non-standard location, you must edit the ``INTEL_PATH`` variable in the
 makefile. 
 
-The python modules use the standard python distribution utilities (distutils)
+The python modules use the standard python distribution utilities (distutils).
 
 To compile change to the root directory and run::
 
@@ -64,7 +60,7 @@ To build cfl you will need to satisfy the following dependencies:
  
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
     LAPACK
-  * `gsl <https://www.gnu.org>`_ - the GNU scientific library
+  * `gsl <https://www.gnu.org/software/gsl/>`_ - the GNU scientific library
   * `nlopt <http://ab-initio.mit.edu/wiki/index.php/NLopt>`_ - nonlinear
     optimization library
   * gcc 
