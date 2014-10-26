@@ -4,10 +4,10 @@ INTEL_PATH=/home/sph/local/intel
 CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
-CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native
+CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -I/usr/include/lapacke
 LDLIBS=-llapacke -lblas -lm -lgsl -lnlopt
 LDFLAGS=
-MKL_CFLAGS=-g -O3 -fPIC -std=c99 -mkl -ansi-alias -xhost -parallel
+MKL_CFLAGS=-g -O3 -fPIC -std=c99 -mkl -ansi-alias -xhost -parallel -prof-use
 MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 MKL_LDFLAGS=-Wl,-rpath,$(INTEL_PATH)/lib/intel64/ -Wl,-rpath,$(INTEL_PATH)/mkl/lib/intel64/
 ARFLAGS=rcs
