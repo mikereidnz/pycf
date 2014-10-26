@@ -15,7 +15,7 @@ spinh_ext = Extension('pycf.spinh_c',
         extra_objects=['/usr/lib/liblapacke.a', '/usr/lib/liblapack.a',
             '/usr/lib/libblas.so',
             '/usr/lib/gcc/x86_64-linux-gnu/4.7/libgfortran.so'],
-        include_dirs=['pycf', np.get_include()], '/usr/include/lapacke')
+        include_dirs=['pycf', np.get_include(), '/usr/include/lapacke'])
 
 pycfl_ext = Extension('pycf.cfl', 
         sources=['pycf/cfl.pyx'],
