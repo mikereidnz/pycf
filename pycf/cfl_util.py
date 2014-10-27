@@ -21,7 +21,7 @@ def uline_char(s):
         return s + ul
 
 
-def gen_e_summary(w, z, labels, ex=None, nstates=2):
+def gen_e_summary(w, z, labels, ex=None, nstates=2, ndof=None):
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
 
@@ -33,11 +33,18 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2):
         The eigenvectors in an n by n matrix.
     labels : list
         A list of labels of state labels.
-    ex : np.ndarray
-        A 2 by m array, specifing the experimental energy levels, with m the
+    ex : np.ndarray, optional
+        A 2 by m array, specifying the experimental energy levels, with m the
         number of available experimental levels.  The first column specifies the
-        corresponding index of the complete eigenvalue vector, and the second
-        column contains the actual energy level values.
+        index of the corresponding entry in the complete eigenvalue vector, and
+        the second column contains the energy level values.
+    nstates : int, optional
+        The number of constituent states to display for mixed states.
+    ndof : int, optional
+        The number of degrees of freedom of the chi-squared distribution, that
+        is, the number of experimental data points minus the number of
+        parameters.  If specified, in addition to ex, then the standard
+        deviation will be added to the summary.
     """
     
     s = "Energy level summary\n"
@@ -68,24 +75,55 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2):
                 s += "         --             --\n"
         else:
             s += "\n"
+
+    if ex != None and ndof != None:
+        s += "sigma = {: .4f}\n".format(e_fit_sigma(w, ex, ndof))
+
     return s
 
-def gen_sh_summary(param, inter, shx=None):
+def gen_sh_summary(param, sh, shx=None, ndof=None):
+    r"""
+    Generate a spin Hamiltonian summary displaying calculated and experimental
+    spin Hamiltonian data. 
+
+    Parameters
+    ----------
+    param : list
+        Elements must be `3 \times 3` np.ndarrays corresponding to the spin
+        Hamiltonian parameters.  Output from
+        :func:`cfl.SpinHamiltonian.calc_param` is appropriately formated to be
+        passed as param.
+    sh : SpinHamiltonian
+        Generally the spin Hamiltonian object used to generate the param list. 
+    shx : dict, optional
+        Specifies the experimental spin Hamiltonian data for comparison.  Valid
+        keys are 'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3
+        \times 3` np.ndarrays corresponding to the experimental spin Hamiltonian
+        tensor.
+    ndof : int, optional
+        The number of degrees of freedom of the chi-squared distribution, that
+        is, the number of experimental data points minus the number of
+        parameters.  If specified, in addition to shx, then the standard
+        deviation will be added to the summary.
+    """
     np.set_printoptions(formatter={'float': lambda x: '{:8.5f}'.format(x)})
     s = "Spin Hamiltonian summary\n"
     s+= "========================\n\n"
-    for i in inter:
-        s += uline_char("%s interaction\n" % i)
+    for i,inter in enumerate(sh.interactions):
+        s += uline_char("%s interaction\n" % inter)
         if shx != None:
             s += uline_char("Theory                        Experiment                    Difference\n")
         else:
             s += uline("Theory\n")
         for j in range(3):
-            s += str(np.real(param[0]).reshape(3,3)[j,:])
+            s += str(np.real(param[i]).reshape(3,3)[j,:])
             if shx != None:
-                s += "  " + str(shx[i].reshape(3,3)[j,:]) + "  " + str((shx[i] - np.real(param[0])).reshape(3,3)[j,:]) + "\n"
+                s += "  " + str(shx[inter].reshape(3,3)[j,:]) + "  " + str((shx[inter] - np.real(param[i])).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
+    
+        if shx != None and ndof != None:
+            s += "sigma = {: .4f}\n".format(sh_fit_sigma(param, sh, shx, ndof))
 
     return s
 
@@ -133,3 +171,65 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, bounds, *
         s += "{0:<20} {1: <}\n".format(k+":", kwargs[k])
 
     return s
+
+def e_fit_sigma(e, ex, ndof):
+    r"""
+    Calculate the standard deviation of an energy level fit assuming a model
+    fit.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
+
+    Parameters
+    ----------
+    e : np.ndarray
+        The energies of fitted levels.
+    ex : np.ndarray
+        A 2 by m array, specifying the experimental energy levels, with m the
+        number of available experimental levels.  The first column specifies the
+        index of the corresponding entry in the complete eigenvalue vector, and
+        the second column contains the energy level values.
+    ndof : int
+        The number of degrees of freedom of the chi-squared distribution, that
+        is, the number of experimental data points minus the number of
+        parameters.
+    """
+    # Experimental level index.
+    ex_li = np.array(ex[:,0], dtype=int)
+    sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
+    
+    return sigma
+
+def sh_fit_sigma(param, sh, shx, ndof):
+    r"""
+    Calculate the standard deviation of a spin Hamiltonian fit assuming a model
+    fit.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
+
+    Parameters
+    ----------
+    param : list
+        Elements must be `3 \times 3` np.ndarrays corresponding to the spin
+        Hamiltonian parameters.  Output from
+        :func:`cfl.SpinHamiltonian.calc_param` is appropriately formated to be
+        passed as param.
+    sh : SpinHamiltonian
+        Generally the spin Hamiltonian object used to generate the param list. 
+    shx : dict
+        Specifies the experimental spin Hamiltonian data.  Valid keys are
+        'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
+        np.ndarrays corresponding to the experimental spin Hamiltonian tensor.
+    ndof : int
+        The number of degrees of freedom of the chi-squared distribution, that
+        is, the number of experimental data points minus the number of
+        parameters.
+    """
+
+    chi2 = 0
+    for i,inter in enumerate(sh.interactions):
+        chi2 += np.sum((shx[inter] - np.real(param[i]))**2)
+
+    sigma = np.sqrt(chi2/ndof)
+
+    return sigma
+
+
+
+
+

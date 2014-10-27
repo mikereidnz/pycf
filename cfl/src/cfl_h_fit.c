@@ -59,7 +59,7 @@
  */
 
 /* TODO:
- *  + Add sigma to chi^2, static at first, then adaptive with annealing. 
+ *  + Try adaptive chi^2 sigma using annealing.
  *  + Note: it should be written in the overview that weighting should be
  *  adjusted via sh parameters only. 
  */

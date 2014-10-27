@@ -30,7 +30,7 @@ cimport numpy as np
 import numpy as np
 from numbers import Number
 from cpython.pycapsule cimport *
-from python_ref cimport Py_INCREF, Py_DECREF
+from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from matel import matel
 from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
@@ -51,7 +51,10 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 
 cdef class StateLabels:
     r"""
-    State label type for tensors and spin Hamiltonians.
+    State label type for tensors and spin Hamiltonians.  State labels are
+    generally not entered manually but should be generated with
+    :class:`import_sljm.ImportSLJM`.
+
 
     Paramters
     ---------
@@ -102,6 +105,9 @@ cdef class Tensor:
     projection of spin Hamiltonian interactions from complete Hamiltonians.
     Objects of type Tensor support standard arithmetic operations and can be
     added, subtracted, and scaled to yield new Tensor objects.
+
+    Tensors should typically not be created manually but imported from emp sljm
+    output files using :class:`import_sljm.ImportSLJM`.
 
     Parameters
     ----------
@@ -192,7 +198,16 @@ cdef class Tensor:
 cdef class Hamiltonian:
     r"""
     The crystal field Hamiltonian class.  Creates a cfl zh object and provides
-    an interface for diagonalizing zh.
+    an interface for diagonalizing zh.  Can be used to calculate:
+
+        * energy levels given a list of :class:`Tensor`s and corresponding coefficients;
+        * spin Hamiltoian parameters from crystal field parameters;
+        * crystal field parameters by fitting to either energy levels or both
+        energy levels and spin Hamiltonian parameters.
+
+    A summary of calculated energy levels can be generated with
+    :func:`cfl_util.gen_e_summary`.
+
 
     Parameters
     ----------
@@ -568,7 +583,10 @@ cdef class SHTermData(object):
 
 cdef class SpinHamiltonian:
     r""" 
-    Container for holding data about the spin Hamiltonian. 
+    Objects of type spin Hamiltonian can be used for calculating spin
+    Hamiltonian paremeters from crystal field parameters in conjunction with
+    :class:`Hamiltonian` objects.  This is used by the function :func:`esh_fit`
+    to fit crystal field parameters to spin Hamiltonian data.
 
     Parameters
     ----------
@@ -591,16 +609,17 @@ cdef class SpinHamiltonian:
     -------
     object : SpinHamiltonian
     """
+    cdef public list interactions 
+    cdef public list inter_data
+    cdef public int nsh
+    cdef public int dsh
+    cdef public int nobs
+    cdef int nzeeman
     cpdef public np.ndarray B
     cpdef public float S_spin
     cpdef public list S_matel
     cpdef public float I_spin
     cpdef public list I_matel
-    cdef public list interactions 
-    cdef public list inter_data
-    cdef public int nsh
-    cdef public int dsh
-    cdef int nzeeman
     def __init__(self, interactions, **kwargs):
         if not isinstance(interactions, list):
             interactions = [interactions]
@@ -669,6 +688,7 @@ cdef class SpinHamiltonian:
         # interactions.
         self.inter_data = []
         self.nsh = 0
+        self.nobs = 0
         if 'zeeman' in interactions:
             # Coefficient arrays are calculated for three B fields; the user
             # specified B-direction is ignored for inversion. 
@@ -679,18 +699,24 @@ cdef class SpinHamiltonian:
             zeeman = SHTermData(dz, 'zeeman', np.reshape(B_a, (3 * dz**2, 9)))
             self.inter_data += [zeeman]
             self.nsh += 3
+            # Three g-values plus three Euler rotation parameters.
+            self.nobs += 6
 
         if 'hyperfine' in interactions:
             dh = 2*S_spin+1 + 2*I_spin+1
             hyperfine = SHTermData(dh, 'hyperfine', hyperfine_sh_coeff(I_matel, S_matel))
             self.inter_data += [hyperfine]
             self.nsh += 1
+            # Three hyperfine values plus three Euler rotation parameters.
+            self.nobs += 6
 
         if 'quadrupole' in interactions: 
             dq = 2*I_spin+1
             quadrupole = SHTermData(dq, 'quadrupole', quadrupole_sh_coeff(I_matel))
             self.inter_data += [quadrupole]
             self.nsh += 1
+            # Two quadrupole values plus three Euler rotation parameters.
+            self.nobs += 5
 
     
     def set_pro_data(self, interaction, tensor, level):
@@ -893,7 +919,7 @@ def parse_param_helper(parameters, h, coeff_list, bounds):
 
 
 cdef class EFitRunner(object):
-    """
+    r"""
     Class used to store data required by, and to run, a crystal field fit using
     energy level data. 
 
@@ -1049,6 +1075,7 @@ cdef class EFitRunner(object):
             function.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef sigma = 0
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
 
@@ -1063,13 +1090,13 @@ cdef class EFitRunner(object):
             else:
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
-
-        return(coeff, fmin)
+        
+        return(coeff, fmin, sigma)
 
 
 
 cdef class ESHFitRunner(object):
-    """
+    r"""
     Class used to store data required by, and to run, a crystal field fit using
     energy level and spin Hamiltonian data. 
 
@@ -1392,6 +1419,7 @@ cdef class ESHFitRunner(object):
             
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef sigma = 0
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
         fmin = min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap, self.bounds)
@@ -1405,7 +1433,7 @@ cdef class ESHFitRunner(object):
             else:
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
-        return(coeff, fmin)
+        return(coeff, fmin, sigma)
 
 cdef class CFLMin:
     r"""
@@ -1554,7 +1582,7 @@ def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
 
     Parameters
     ----------
-    param_list : list
+    parameters : list
         A list of tensor objects for which to vary the prefactor. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
@@ -1580,10 +1608,13 @@ def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
         elements in bounds must match the length of the parameters list. 
     """
     efit = EFitRunner(parameters, h, coeff, ex, bounds)
-    (x, fmin) = efit.fit(cfl_min)
+    (x, fmin, sigma) = efit.fit(cfl_min)
     
     h.set_coeff(x)
     (w, z) = h.diag()
+
+    # The number of degrees of freedom of the chi-squared distribution
+    ndof = len(ex)-len(parameters)
 
     # Generate labels and run gen_e_summary directly.  We do this rather than
     # call h.gen_summary, since public methods can't have optional arguments in
@@ -1595,7 +1626,7 @@ def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n\n"
-    summary += gen_e_summary(w, z, labels, ex)
+    summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
     summary += "\n"
     summary += gen_fit_summary(np.real(x), efit.param_indices, efit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
 
@@ -1608,7 +1639,7 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
  
     Parameters
     ----------
-    param_list : list
+    parameters : list
         A list of tensor objects for which to vary the prefactor. 
     sh : SpinHamiltonian
         The spin Hamiltonian object to be fit. 
@@ -1644,9 +1675,12 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
         elements in bounds must match the length of the parameters list. 
     """
     eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights, bounds)
-    (x, fmin) = eshfit.fit(cfl_min)
+    (x, fmin, sigma) = eshfit.fit(cfl_min)
     h.set_coeff(x)
     (w, z) = h.diag()
+    
+    # The number of degrees of freedom of the chi-squared distribution
+    ndof = len(ex) + sh.nobs - len(parameters)
 
     # Generate labels and run gen_e_summary directly.  We do this rather than
     # call h.gen_summary, since public methods can't have optional arguments in
@@ -1658,9 +1692,9 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n\n"
-    summary += gen_e_summary(w, z, labels, ex)
+    summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
     summary += "\n"
-    summary += gen_sh_summary(sh.calc_param(h), sh.interactions, shx)
+    summary += gen_sh_summary(sh.calc_param(h), sh, shx, ndof=ndof)
     summary += "\n"
     summary += gen_fit_summary(np.real(x), eshfit.param_indices, eshfit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
 
