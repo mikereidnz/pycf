@@ -5,15 +5,15 @@ pyemp tutorial
 
 pyemp is a python wrapper for Michael F. Reid's emperical crystal field theory
 routines, henceforth abbreviated as emp.  It is primarily intended to ease
-automated calling of emp processes in python scripts.  That being said, it can
-also be useful for interactive plotting sessions using IPython. 
+automated calling of emp processes in python scripts.  It can also be useful for
+interactive plotting sessions using IPython. 
 
 The examples provided for pyemp are all an adaptation of crystal field
 calculations of |Ho3KY3F10|.  Initially, we will fit the crystal field levels,
-calculate the transition intensities, and plot the resulting spectrum.  This
-example will then be adapted to vary the magnetic dipole interaction parameter
-to produce a 3D plot showing transition intensities with respect to energy and
-the magnetic dipole parameter. 
+calculate the transition intensities, and plot the resulting spectrum.  The
+example is then adapted to vary the magnetic dipole interaction parameter to
+produce a 3D plot showing transition intensities with respect to energy and the
+magnetic dipole parameter. 
 
 Energy level fitting for Ho3+:KY3F10
 ------------------------------------

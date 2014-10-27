@@ -27,19 +27,20 @@ original pycf scripts.  To get an up-to-date copy::
 
 The c library for now uses a separate build system from the python modules.  To
 compile it, ensure all of the listed `Dependencies`_ are satisfied, then a
-simple ``make`` in the ``cfl`` directory should suffice.  To compile using i++
-and mkl, use the target ``make mkl`` instead.  If i++ and mkl are installed in a
+simple ``make`` in the ``cfl`` directory should suffice.  To compile using icc
+and mkl, use the target ``make mkl`` instead.  If icc and mkl are installed in a
 non-standard location, you must edit the ``INTEL_PATH`` variable in the
 makefile. 
 
 The python modules use the standard python distribution utilities (distutils)
 for installation. To compile and install them, navigate to the root directory
-and run::
+``pycf`` and run::
 
   $ python setup.py install
 
 This will automatically build all cython modules and install pycf in your
-``dist-packages`` (or ``site_packages`` on some distributions) directory.  
+``dist-packages`` (also called ``site_packages`` on some operating systems)
+directory.  
 
 The provided ``setup.py`` file should work without modification provided the
 dependency libraries are installed in standard system locations. 
@@ -70,7 +71,8 @@ build the python extension.
 
 To build the cfl python extension and pyemp the following dependencies have to
 be satisfied:
-
+  
+  * python
   * numpy 
   * scipy 
   * matplotlib
@@ -99,6 +101,5 @@ is useful to build in-place using::
 
 This places the extension module files into the package source directory such
 that it can be directly imported by other modules.
-
 
 

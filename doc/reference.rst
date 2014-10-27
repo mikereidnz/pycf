@@ -48,6 +48,20 @@ pycf reference
 .. autofunction:: cfl.esh_fit
 
 
+:mod:`import_sljm` -- parse emp sljm matrix elements
+====================================================
+
+.. automodule:: import_sljm
+  :members:
+
+
+
+:mod:`cfl_util` -- utility functions for :mod:`cfl`
+==================================================
+.. automodule:: cfl_util
+  :members:
+
+
 :mod:`matel` -- Matrix element function
 =======================================
 

@@ -46,8 +46,6 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       + Also, add check to ensure weighting is present for all sh terms. IF
 #       not, either fail, or set to 1.
 #       + Bounds checking... to ensure initial parameters are within bounds. 
-#       + Estimate final sigma as per Chapter 15 (page 780) of Numerical
-#       Recipes 3rd edition.
 
 cdef class StateLabels:
     r"""
