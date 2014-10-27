@@ -1,23 +1,15 @@
 License
 =======
 
-Copyright (C) 2012-2013 Sebastian Horvath (sebastian.horvath@gmail.com)
+The cfl and the cfl python extension are licensed under the GNU General Public
+License, while pyemp and related components are licensed under the X11/MIT
+license.  
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The use of GPLv3 is mandated by the linking of cfl against GSL, which by the
+FSF's interpretation of copyright law makes cfl a derivative work of GSL.  Since
+GSL is only used for random number generation and some optional minimization
+routines, it would be easy to find more permissively licensed replacements (such
+as the Mersenne Twister), and I'm happy to relicense all non-GSL components
+under the X11 or the modified BSD license.  The choice to use GSL is primarily
+convenience; it is widely available on most linux distributions and reduces the
+number of obscure dependencies.
