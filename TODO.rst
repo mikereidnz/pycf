@@ -13,7 +13,8 @@ CFL
     we multiply by the complex conjugate on the lower-diagonal?
   * When passing a void * type argument, does the function call have to cast to
     void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
-  * In explaination section, discuss the fortran vs c array mess. Everything is
+  * In explanation section, discuss the fortran vs c array mess. Everything is
     expected to be a fortran array at the moment? At least the inversion matrix
     for the inversion tests needs to be... the rest don't. 
   * covariance matrix
+  * Fit to multiple spin Hamiltonians
