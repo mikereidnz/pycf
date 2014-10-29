@@ -85,7 +85,8 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, ndof=None):
         if ex != None:
             if ex[ex_i,0] == i:
                 s += "   {: >12.4f}   {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
-                ex_i += 1
+                if ex_i != len(ex)-1:
+                    ex_i += 1
             else:
                 s += "         --             --\n"
         else:
