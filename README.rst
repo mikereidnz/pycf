@@ -24,7 +24,7 @@ for fitting crystal field parameters to spin Hamiltonians.
 Installation
 ============
 
-To build cfl and it's python bindings, get a copy of the source by running::
+To install pyemp, get a copy of the source by running::
 
   git clone https://bitbucket.org/sebastianhorvath/pycf/ -b cfl
 
@@ -32,42 +32,17 @@ Then, in the package root directory::
 
   python setup.py install --prefix=/path/to/dir
 
-Provided you have all of the dependencies satisfied, this should build both the
-c library and the python bindings.  Typically you will want to specify the
-installation prefix to somewhere other than the system default.  In this case,
-you need to explicitly add the location (``--prefix``) of the python
-``dist-packages`` (called ``site_packages`` on some linux distributions)
-directory to the ``PYTHONPATH`` environment variable.
+Provided you have all of the dependencies satisfied, this first builds both the
+c library and the python bindings, and then installs both the cfl python
+bindings and pyemp in the python ``dist-packages`` (called ``site-packages`` on
+some linux distributions) directory.  Typically it is a good idea to specify
+prefix to something other than the default (``/usr/lib``), in which case you
+need to add the location of the resulting ``dist-packages`` (``site-packages``)
+to the ``PYTHONPATH`` environment variable.
 
-
-
-
-The c library for now uses a separate build system from the python modules.  To
-compile it, ensure all of the listed `Dependencies`_ are satisfied, then a
-simple ``make`` in the ``cfl`` directory should suffice.  To compile using icc
-and mkl, use the target ``make mkl`` instead.  If icc and mkl are installed in a
-non-standard location, you must edit the ``INTEL_PATH`` variable in the
-makefile. 
-
-The python modules use the standard python distribution utilities (distutils)
-for installation. To compile and install them, navigate to the root directory
-``pycf`` and run::
-
-  $ python setup.py install
-
-This will automatically build all cython modules and install pycf in your
-``dist-packages`` (also called ``site_packages`` on some operating systems)
-directory.  
-
-The provided ``setup.py`` file should work without modification provided the
-dependency libraries are installed in standard system locations. 
-
-To manually specify the installation prefix for pycf use::
-
-  $ python setup.py install --prefix=/path/to/dir
-
-If you install to a non-standard location you need to ensure that the python
-``dist-packages`` directory is part of the ``PYTHONPATH`` environment variable.
+The c library uses GNU make, so for development of cfl it is easiest to directly
+execute make.  Running ``make`` in the ``cfl`` directory should suffice.  It may
+also be useful to ``make debug`` to compile with ``-O1``.  
 
 
 Dependencies
@@ -141,15 +116,15 @@ License
 =======
 
 The cfl and the cfl python extension are licensed under the GNU General Public
-License, while pyemp and related components are licensed under the X11/MIT
-license.  
+License version three, while pyemp and related components are licensed under the
+X11/MIT license.  
 
-The use of GPLv3 is mandated by the linking of cfl against GSL, which by the
-FSF's interpretation of copyright law makes cfl a derivative work of GSL.  Since
-GSL is only used for random number generation and some optional minimization
-routines, it would be easy to find more permissively licensed replacements (such
-as the Mersenne Twister), and I'm happy to relicense all non-GSL components
-under the X11 or the modified BSD license.  The choice to use GSL is primarily
-convenience; it is widely available on most linux distributions and reduces the
-number of obscure dependencies.
+The use of GPLv3 is mandated by cfl dynamically linking against GSL, which by
+the FSF's interpretation of copyright law makes cfl a derivative work of GSL.
+Since GSL is only used for random number generation and some optional
+minimization routines, it would be easy to find more permissively licensed
+replacements (such as the Mersenne Twister), and I'm happy to relicense all
+non-GSL components under the X11 or the modified BSD license.  The choice to use
+GSL is primarily due to convenience; it is widely available on most linux
+distributions and reduces the number of obscure dependencies.
 
