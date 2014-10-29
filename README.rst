@@ -87,7 +87,7 @@ LAPACK and ATLAS/BLAS).  Note that you will still require gcc to build the
 python extension, unless you also rebuild your python distribution and
 supporting libraries with icc.
 
-To build with cfl with icc set the following environment variable::
+To build cfl with icc set the following environment variables::
 
   export CFL_CC=icc
   export INTEL_PATH=/path/to/inteldir
@@ -123,8 +123,5 @@ The use of GPLv3 is mandated by cfl dynamically linking against GSL, which by
 the FSF's interpretation of copyright law makes cfl a derivative work of GSL.
 Since GSL is only used for random number generation and some optional
 minimization routines, it would be easy to find more permissively licensed
-replacements (such as the Mersenne Twister), and I'm happy to relicense all
-non-GSL components under the X11 or the modified BSD license.  The choice to use
-GSL is primarily due to convenience; it is widely available on most linux
-distributions and reduces the number of obscure dependencies.
-
+replacements (such as the Mersenne Twister), and I'm happy to relicense all GSL
+independent components under the X11 or the modified BSD license.  
