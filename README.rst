@@ -83,11 +83,15 @@ Intel mkl
 ---------
 
 cfl also builds with Intel's icc compiler and math kernel library (instead of
-LAPACK and ATLAS/BLAS).  Note that you will still require gcc to build the
-python extension, unless you also rebuild your python distribution and
-supporting libraries with icc.
+LAPACK and ATLAS/BLAS).  Provided the bin directory containing icc is part of
+your system ``$PATH``, building with icc and linking against mkl is done by::
+  
+  python setup.py install --compiler=intel
 
-To build cfl with icc set the following environment variables::
+where any additional arguments, such as prefix or inplace can also be added.
+  
+To build only cfl with icc set the following environment variables prior to
+running make::
 
   export CFL_CC=icc
   export INTEL_PATH=/path/to/inteldir
