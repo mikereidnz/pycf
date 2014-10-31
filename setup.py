@@ -25,17 +25,20 @@ if '--compiler=intel' in sys.argv:
     if find_executable('icc') == None:
         raise RuntimeError("Cannot locate the icc compiler.")
     else:
-        intel_path = find_executable('icc')[:-len('/bin/icc')]
+        mklroot = find_executable('icc')[:-len('/bin/icc')]
     
     os.environ['CFL_CC'] = 'icc'
-    os.environ['INTEL_PATH'] = intel_path
-    compile_args += ['-mkl']
-    link_args += ['-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core',
-            '-liomp5', '-lgsl', '-lnlopt', '-lm', 'cfl/libcfl.a',
-            '-L%s/mkl/lib/intel64/' % intel_path, 
-            '-L%s/lib/intel64/' % intel_path, 
-            '-Wl,-rpath,%s/lib/intel64/' % intel_path,
-            '-Wl,-rpath,%s/mkl/lib/intel64/' % intel_path]
+    os.environ['INTEL_PATH'] = mklroot
+    #compile_args += ['-mkl']
+    compile_args += ['-openmp -I%s/include' % mklroot]
+    link_args += ['-mkl']
+    #link_args += ['-L%s/lib/mic -lmkl_intel_ilp64 -lmkl_core -lmkl_intel_thread -lpthread' % mklroot]
+    #link_args += ['-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core',
+    #        '-liomp5', '-lgsl', '-lnlopt', '-lm', 'cfl/libcfl.a',
+    #        '-L%s/mkl/lib/intel64/' % mklroot, 
+    #        '-L%s/lib/intel64/' % mklroot, 
+    #        '-Wl,-rpath,%s/lib/intel64/' % mklroot,
+    #        '-Wl,-rpath,%s/mkl/lib/intel64/' % mklroot]
 else:
     link_args += ['-llapacke', '-llapack', '-lblas', '-lgfortran', '-lgslcblas']
 

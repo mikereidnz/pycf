@@ -879,10 +879,10 @@ def parse_param_helper(parameters, h, coeff_list, bounds):
     # any bounds returned in case bounds != None, so we just return zeros.
     lb = np.zeros(n_p_real)
     ub = np.zeros(n_p_real)
-
+    rpi = 0
     if bounds != None:
-        tname = param_initial[i][1]
-        for i in range(n_p_real):
+        for i in range(len(parameters)):
+            tname = param_initial[i][1]
             if param_types[i] == 'c':
                 try:
                     if not isinstance(bounds[tname][0], complex) or \
@@ -891,18 +891,37 @@ def parse_param_helper(parameters, h, coeff_list, bounds):
                                 "corresponding coefficient is." % tname)
                 except KeyError:
                     raise KeyError("Missing bounds key %s." % tname)
-                lb[i] = np.real(bounds[tname][0])
-                lb[i+1] = np.imag(bounds[tname][0])
-                ub[i] = np.real(bounds[tname][1])
-                ub[i+1] = np.imag(bounds[tname][1])
-                i += 1
+                lb[rpi] = np.real(bounds[tname][0])
+                lb[rpi+1] = np.imag(bounds[tname][0])
+                ub[rpi] = np.real(bounds[tname][1])
+                ub[rpi+1] = np.imag(bounds[tname][1])
+                if np.real(param_initial[i][0]) < lb[rpi]:
+                    raise ValueError("The real part of initial value of the %s coefficient is "
+                            "less than the specified lower bound." % tname)
+                elif np.imag(param_initial[i][0]) < lb[rpi+1]:
+                    raise ValueError("The imaginary part of initial value of the %s coefficient is "
+                            "less than the specified lower bound." % tname)
+                elif np.real(param_initial[i][0]) > ub[rpi]:
+                    raise ValueError("The real part of initial value of the %s coefficient is "
+                            "greater than the specified upper bound." % tname)
+                elif np.imag(param_initial[i][0]) > ub[rpi+1]:
+                    raise ValueError("The imaginary part of initial value of the %s coefficient is "
+                            "greater than the specified upper bound." % tname)
+                rpi += 2
             else:
                 try:
-                    lb[i] = np.real(bounds[tname][0])
-                    ub[i] = np.real(bounds[tname][1])
+                    lb[rpi] = np.real(bounds[tname][0])
+                    ub[rpi] = np.real(bounds[tname][1])
                 except KeyError:
                     raise KeyError("Missing bounds key %s." % tname)
-
+                if param_initial[i][0] < lb[rpi]:
+                    raise ValueError("The initial value of the %s coefficient is "
+                            "less than the specified lower bound." % tname)
+                elif param_initial[i][0] > ub[rpi]:
+                    raise ValueError("The initial value of the %s coefficient is "
+                            "greater than the specified upper bound." % tname)
+                rpi += 1
+    
     return {'n_p_real': n_p_real, 'param_initial': param_initial,
             'param_indices': param_indices, 'param_types': param_types, 'lb':
             lb, 'ub': ub}
@@ -1423,6 +1442,7 @@ cdef class ESHFitRunner(object):
             else:
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
+
         return(coeff, fmin, sigma)
 
 cdef class CFLMin:
@@ -1549,7 +1569,7 @@ cdef class CFLMin:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
                 lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, 1e-6, self.cfl_bounds)
-           
+            
             min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
 
             # Assign to self to guarantee there exists a reference to these
@@ -1618,7 +1638,7 @@ def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
     summary+= "=============\n\n"
     summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
     summary += "\n"
-    summary += gen_fit_summary(np.real(x), efit.param_indices, efit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit.param_indices, efit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
@@ -1686,7 +1706,7 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
     summary += "\n"
     summary += gen_sh_summary(sh.calc_param(h), sh, shx, ndof=ndof)
     summary += "\n"
-    summary += gen_fit_summary(np.real(x), eshfit.param_indices, eshfit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit.param_indices, eshfit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
