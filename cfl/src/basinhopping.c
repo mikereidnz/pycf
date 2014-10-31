@@ -151,26 +151,22 @@ inline int metropolis(double T, double e_new, double e_old, gsl_rng *r) {
   u = gsl_rng_uniform(r);
 
   if (p>=u) 
-    return 1;
-  else 
     return 0;
+  else 
+    return 1;
 }
 
 /* Check that the boundary constraints have been satisfied. */
 inline int bh_bounds_check(double *x, bh_work *w) {
   int i;
-  int check = 0;
   
   for (i=0; i<w->n; i++) {
     if (x[i] > w->bounds->u[i] || x[i] < w->bounds->l[i]) {
-      check++;
+      return 1;
     }
   }
 
-  if (check == 0)
-    return 0;
-  else
-    return 1;
+  return 0;
 }
 
 /* Set the stepsize manually.  To disable adaptive stepsize adjustment, set
@@ -267,7 +263,7 @@ int bh_min(double *x, double *fmin, void *work) {
     if (w->bounds != NULL) {
       test += bh_bounds_check(x, w);
     }
-    if (test) {
+    if (test == 0) {
       w->e = e;
       memcpy(w->x, x, n*sizeof(double));
       w->step_data->naccept++;

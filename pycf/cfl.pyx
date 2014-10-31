@@ -1551,27 +1551,34 @@ cdef class CFLMin:
                 lmin = self.kwargs['lmin']
                 if lmin == 'gsl_nmsimplex2rand':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
+                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_nmsimplex2':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
+                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_conjugate_fr':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
+                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_conjugate_pr':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
+                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_vector_bfgs2':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
+                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'nlopt_cobyla':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, self.cfl_bounds)
+                    min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
                 elif lmin == 'nlopt_bobyqa':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.cfl_bounds)
+                    min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
                 elif lmin == 'nlopt_sbplx':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, self.cfl_bounds)
+                    min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
                 else:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
                 lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, 1e-6, self.cfl_bounds)
+                min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
             
-            min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
-
             # Assign to self to guarantee there exists a reference to these
             # objects until the CFLMin destructor is called.
             self.nx = cnx
