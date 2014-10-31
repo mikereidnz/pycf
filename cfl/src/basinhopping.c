@@ -165,7 +165,6 @@ inline int bh_bounds_check(double *x, bh_work *w) {
       return 1;
     }
   }
-
   return 0;
 }
 
@@ -280,7 +279,7 @@ int bh_min(double *x, double *fmin, void *work) {
   }
   *fmin = w->emin->e;
 
-  return lmin_fail;
+  return w->step_data->naccept++;
 }
 
 /* Generate cfl_min_obj settings object for the basinhopping minimization

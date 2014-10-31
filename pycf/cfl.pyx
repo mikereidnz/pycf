@@ -1100,7 +1100,7 @@ cdef class EFitRunner(object):
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
         
-        return(coeff, fmin, sigma)
+        return(coeff, fmin)
 
 
 
@@ -1443,7 +1443,7 @@ cdef class ESHFitRunner(object):
                 coeff[self.param_indices[i]] = x[ri]
                 ri += 1
 
-        return(coeff, fmin, sigma)
+        return(coeff, fmin)
 
 cdef class CFLMin:
     r"""
@@ -1525,6 +1525,7 @@ cdef class CFLMin:
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
         cdef double fmin = 0
+        cdef int naccept
         cdef np.ndarray[double, ndim=1, mode="c"] clb 
         cdef np.ndarray[double, ndim=1, mode="c"] cub
 
@@ -1588,8 +1589,9 @@ cdef class CFLMin:
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         with nogil:
-            cfl.cfl_min(&cx0[0], &fmin, min_obj)
-
+            naccept = cfl.cfl_min(&cx0[0], &fmin, min_obj)
+        
+        self.kwargs['naccept'] = naccept
         return fmin
 
 
@@ -1625,7 +1627,7 @@ def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
         elements in bounds must match the length of the parameters list. 
     """
     efit = EFitRunner(parameters, h, coeff, ex, bounds)
-    (x, fmin, sigma) = efit.fit(cfl_min)
+    (x, fmin) = efit.fit(cfl_min)
     
     h.set_coeff(x)
     (w, z) = h.diag()
@@ -1692,7 +1694,7 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
         elements in bounds must match the length of the parameters list. 
     """
     eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights, bounds)
-    (x, fmin, sigma) = eshfit.fit(cfl_min)
+    (x, fmin) = eshfit.fit(cfl_min)
     h.set_coeff(x)
     (w, z) = h.diag()
     
