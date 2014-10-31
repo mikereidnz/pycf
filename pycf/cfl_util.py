@@ -123,6 +123,7 @@ def gen_sh_summary(param, sh, shx=None, ndof=None):
         deviation will be added to the summary.
     """
     np.set_printoptions(formatter={'float': lambda x: '{:8.5f}'.format(x)})
+
     s = "Spin Hamiltonian summary\n"
     s+= "========================\n\n"
     for i,inter in enumerate(sh.interactions):
@@ -162,24 +163,27 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, bounds, *
         Additional, optimization algorithm specific, settings to print.
 
     """
+    
     s = "Fitting summary\n"
     s+= "===============\n\n"
 
-    heading = "Tensor name             Fitted coeff         Initial coeff            Difference"
+    heading = "Tensor name              Fitted coeff         Initial coeff            Difference"
     if bounds != None:
-        heading += "   Lower bounds   Upper bounds\n"
+        heading += "         Lower bounds          Upper bounds\n"
     else:
         heading += "\n"
 
     s += uline_char(heading)
     for i in range(len(param_initial)):
-        s += "{0:<15} {1: >20.4f} {2: >21.4f} {3: >21.4f}".format(param_initial[i][1]+":", coeff[param_indices[i]], param_initial[i][0], coeff[param_indices[i]]-param_initial[i][0])
+        co = coeff[param_indices[i]]
+        if co.imag == 0:
+            co = co.real
+        s += "{0:<15} {1: >21.4f} {2: >21.4f} {3: >21.4f}".format(param_initial[i][1]+":", co, param_initial[i][0], co-param_initial[i][0])
         if bounds != None:
-            s += "{0: >15.0f} {1: >14.0f}\n".format(bounds[param_initial[i][1]][0], bounds[param_initial[i][1]][1])
+            s += "{0: >21.0f} {1: >21.0f}\n".format(bounds[param_initial[i][1]][0], bounds[param_initial[i][1]][1])
         else:
             s += "\n"
 
-    
     s += "\n" + uline_char("Optimization routine details:\n")
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
     s += "{0:<20} {1: <}\n".format("method:", method)
