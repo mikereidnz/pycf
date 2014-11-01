@@ -193,7 +193,7 @@ int main (void)
   cfl_min_obj *lmin_obj1, *bhmin_obj1;
 
   lmin_obj1 = cfl_gsl_min_setup(&bh_test_f1, 2, bh_par, gsl_nmsimplex2);
-  bhmin_obj1 = cfl_bh_min_setup(5, &bounds, lmin_obj1);
+  bhmin_obj1 = cfl_bh_min_setup(5, NULL, 0.5, 10, &bounds, lmin_obj1);
   status = cfl_min(bh_x1, &fmin, bhmin_obj1);
   printf("bh with gsl_nmsimplex2 local minimization:\n");
   dequ_chk(bh_result1, bh_x1, 2);
@@ -206,7 +206,7 @@ int main (void)
   cfl_min_obj *lmin_obj2, *bhmin_obj2;
 
   lmin_obj2 = cfl_gsl_min_setup(&bh_test_f2, 2, bh_par, gsl_vector_bfgs2);
-  bhmin_obj2 = cfl_bh_min_setup(5, &bounds, lmin_obj2);
+  bhmin_obj2 = cfl_bh_min_setup(5, NULL, 0.5, 10, &bounds, lmin_obj2);
   status = cfl_min(bh_x2, &fmin, bhmin_obj2);
   printf("bh with gsl_vector_bfgs2 local minimization:\n");
   dequ_chk(bh_result2, bh_x2, 2);
@@ -491,7 +491,7 @@ int main (void)
   
   efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
   efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, 6, efit_d, gsl_vector_bfgs2);
-  efit_min_obj = cfl_bh_min_setup(2, NULL, efit_lmin_obj);
+  efit_min_obj = cfl_bh_min_setup(2, NULL, 0.5, 10, NULL, efit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, efit_min_obj);
 
@@ -535,7 +535,7 @@ int main (void)
       shx, 6, p);
 
   eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, 6, eshfit_d, gsl_vector_bfgs2);
-  eshfit_min_obj = cfl_bh_min_setup(5, NULL, eshfit_lmin_obj);
+  eshfit_min_obj = cfl_bh_min_setup(5, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 
@@ -555,7 +555,7 @@ int main (void)
       shx, 6, p);
 
   eshfit_lmin_obj = cfl_nlopt_min_setup(&eshfit_hpro_obj, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
-  eshfit_min_obj = cfl_bh_min_setup(20, NULL, eshfit_lmin_obj);
+  eshfit_min_obj = cfl_bh_min_setup(20, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 

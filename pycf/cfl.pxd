@@ -138,7 +138,7 @@ cdef extern from "../../cfl/include/cfl_min.h":
 
 
 cdef extern from "../../cfl/include/basinhopping.h":
-    cfl_min_obj *cfl_bh_min_setup(size_t niter, cfl_min_bounds *bounds, cfl_min_obj *lmin)
+    cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accept_rate, int step_adapt_int, cfl_min_bounds *bounds, cfl_min_obj *lmin)
 
 
 cdef extern from "../../cfl/include/cfl_h_fit.h":

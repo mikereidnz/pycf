@@ -37,14 +37,11 @@ typedef struct {
   /* Number of steps taken. */
   size_t nstep;
   /* Number of accepted steps. */
-  size_t naccept;
+  float naccept;
   /* Target acceptance rate. */
   float target_accept_rate;
   /* Interval for how often to update stepsize. */
   size_t interval;
-  /* Multiplicative factor whereby the stepsize is updated if the target rate is
-   * not being met. */
-  float factor;
 } bh_step_data;
 
 /* Workspace allocation for basinhopping procedure. */
@@ -63,8 +60,6 @@ typedef struct {
   cfl_min_bounds *bounds;
   /* The current energy. */
   double e;
-  /* The current temperature. */
-  double T;
   /* Lowest energy state found. */
   emin_t *emin;
   /* Random number generator. */
@@ -75,12 +70,12 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-bh_work *bh_work_alloc(size_t niter, cfl_min_obj *lmin_obj, cfl_min_bounds *bounds);
+bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
+    int step_adapt_int, cfl_min_obj *lmin_obj, cfl_min_bounds *bounds);
 void bh_work_free(void *work);
-void bh_set_step(bh_work *w, double *stepsize, float target_accept_rate,
-    size_t interval, float factor);
 int bh_min(double *x, double *fmin, void *work);
-cfl_min_obj *cfl_bh_min_setup(size_t niter, cfl_min_bounds *bounds, cfl_min_obj *lmin);
+cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accept_rate,
+    int step_adapt_int, cfl_min_bounds *bounds, cfl_min_obj *lmin);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

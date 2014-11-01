@@ -36,6 +36,7 @@
 #include <gsl/gsl_rng.h>
 
 #include <gsl/gsl_multimin.h>
+#include "cfl_config.h"
 #include "cfl_error.h"
 #include "cfl_min.h"
 #include "basinhopping.h"
@@ -46,14 +47,23 @@
  * Parameters
  * ----------
  *
- *  n           The number of parameters to be varied.
- *  niter       The number of basinhopping iterations to complete.
- *  lmin_f      Pointer to the local minimization routine. 
- *  lmin_data   Pointer to the workspace for the local minimization routine.
- *  bounds      Pointer to a bounds object; in case of no bounds, pass a NULL
- *              pointer.
+ *  n                   The number of parameters to be varied.
+ *  niter               The number of basinhopping iterations to complete.
+ *  stepsize            Array of length n.  If adaptive stepsize is enabled
+ *                      (non-zero target_accept_rate), this will be the initial
+ *                      stepsize for each parameter; if target_accept_rate is
+ *                      zero, the stepsize will be fixed.
+ *  target_accept_rate  The accept target accept rate for adaptive stepsize; set
+ *                      to zero to disable adaptive stepsize.
+ *  step_adapt_int      The number of iterations between adaptive step checks.
+ *  lmin_f              Pointer to the local minimization routine. 
+ *  lmin_data           Pointer to the workspace for the local minimization
+ *                      routine.
+ *  bounds              Pointer to a bounds object; in case of no bounds, pass a
+ *                      NULL pointer.
  */
-bh_work *bh_work_alloc(size_t niter, cfl_min_obj *lmin_obj, cfl_min_bounds *bounds) {
+bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
+    int step_adapt_int, cfl_min_obj *lmin_obj, cfl_min_bounds *bounds) {
   int i;
   size_t n = lmin_obj->n;
   bh_work *w;
@@ -113,15 +123,29 @@ bh_work *bh_work_alloc(size_t niter, cfl_min_obj *lmin_obj, cfl_min_bounds *boun
   }
 
   /* Initialize parameters to defaults. */
-  for (i=0; i<n; i++) {
-    w->step_data->stepsize[i] = 0.5;
+  if (stepsize == NULL) {
+    for (i=0; i<n; i++) {
+      w->step_data->stepsize[i] = 0.5;
+    }
+  } 
+  else {
+    memcpy(w->step_data->stepsize, stepsize, n*sizeof(double));
   }
-  w->T = 1.0;
+  
   w->step_data->nstep = 0;
   w->step_data->naccept = 0;
-  w->step_data->target_accept_rate = 0.5;
-  w->step_data->interval = 20;
-  w->step_data->factor = 0.9;
+  if (target_accept_rate) {
+    w->step_data->target_accept_rate = target_accept_rate;
+  } 
+  else {
+    w->step_data->target_accept_rate = 0.5;
+  }
+  if (step_adapt_int) {
+    w->step_data->interval = step_adapt_int;
+  }
+  else {
+    w->step_data->interval = 20;
+  } 
 
   w->x = x;
   w->n = n;
@@ -145,9 +169,9 @@ void bh_work_free(void *work) {
 
 
 /* The Metropolis criterion. */ 
-inline int metropolis(double T, double e_new, double e_old, gsl_rng *r) {
+inline int metropolis(double e_new, double e_old, gsl_rng *r) {
   double p, u;
-  p = fmin(1, exp(-(e_new - e_old)/T));
+  p = fmin(1, exp(-(e_new - e_old)/BH_T));
   u = gsl_rng_uniform(r);
 
   if (p>=u) 
@@ -168,16 +192,6 @@ inline int bh_bounds_check(double *x, bh_work *w) {
   return 0;
 }
 
-/* Set the stepsize manually.  To disable adaptive stepsize adjustment, set
- * accept_rate, interval and factor to 0. 
- */
-void bh_set_step(bh_work *w, double *stepsize, float target_accept_rate,
-    size_t interval, float factor) {
-  w->step_data->stepsize;
-  w->step_data->target_accept_rate;
-  w->step_data->interval;
-  w->step_data->factor;
-}
 
 /* Add a random number in range [0, stepsize) to w->x and assign to x. */
 inline void bh_rnd_disp(double *x, bh_work *w) {
@@ -195,11 +209,7 @@ inline void bh_takestep(double *x, bh_work *w) {
   int i;
   float accept_rate;
 
-  if (w->step_data->target_accept_rate == 0) {
-    /* We're not using adaptive stepsize. */
-    bh_rnd_disp(x, w);
-  }
-  else {
+  if (w->step_data->target_accept_rate != 0) {
     w->step_data->nstep++;
     if (w->step_data->nstep % w->step_data->interval == 0) {
       accept_rate = w->step_data->naccept/w->step_data->nstep;
@@ -207,18 +217,18 @@ inline void bh_takestep(double *x, bh_work *w) {
         /* We're accepting too many steps; increase the stepsize to escape
          * the basin. */
         for (i=0; i<w->n; i++) {
-          w->step_data->stepsize[i] /= w->step_data->factor;
+          w->step_data->stepsize[i] /= BH_STEP_FACTOR;
         }
       } 
       else {
         /* We're accepting too few steps; decrease the stepsize. */
         for (i=0; i<w->n; i++) {
-          w->step_data->stepsize[i] *= w->step_data->factor;
+          w->step_data->stepsize[i] *= BH_STEP_FACTOR;
         }
       }
     }
-    bh_rnd_disp(x, w);
   }
+  bh_rnd_disp(x, w);
 }
 
 
@@ -244,7 +254,7 @@ int bh_min(double *x, double *fmin, void *work) {
 
   /* Perform initial minimization. */
   status = w->lmin_obj->min_f(x, &e, w->lmin_obj->min_data);
-  if (status) {
+  if (status<0) {
     lmin_fail++;
   }
   w->e = e;
@@ -255,10 +265,10 @@ int bh_min(double *x, double *fmin, void *work) {
   for (i=0; i<w->niter; i++) {
     bh_takestep(x, w);
     status = w->lmin_obj->min_f(x, &e, w->lmin_obj->min_data);
-    if (status) {
+    if (status<0) {
       lmin_fail++;
     }
-    test = metropolis(w->T, e, w->e, w->rng);
+    test = metropolis(e, w->e, w->rng);
     if (w->bounds != NULL) {
       test += bh_bounds_check(x, w);
     }
@@ -287,16 +297,24 @@ int bh_min(double *x, double *fmin, void *work) {
  *
  * Parameters
  * ----------
- *  niter     The number of basinhopping iterations to complete. 
- *  bounds    Pointer to a bounds object; in case of no bounds, pass a NULL
- *            pointer.
- *  lmin      cfl_min_obj to be used for the local minimization.
+ *  niter               The number of basinhopping iterations to complete. 
+ *  stepsize            Array of length n.  If adaptive stepsize is enabled
+ *                      (non-zero target_accept_rate), this will be the initial
+ *                      stepsize for each parameter; if target_accept_rate is
+ *                      zero, the stepsize will be fixed.
+ *  target_accept_rate  The accept target accept rate for adaptive stepsize; set
+ *                      to zero to disable adaptive stepsize.
+ *  step_adapt_int      The number of iterations between adaptive step checks.
+ *  bounds              Pointer to a bounds object; in case of no bounds, pass a
+ *                      NULL pointer.
+ *  lmin                cfl_min_obj to be used for the local minimization.
  */
-cfl_min_obj *cfl_bh_min_setup(size_t niter, cfl_min_bounds *bounds, cfl_min_obj *lmin) {
+cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accept_rate,
+    int step_adapt_int, cfl_min_bounds *bounds, cfl_min_obj *lmin) {
 
   bh_work *bh_w;
   cfl_min_obj *obj;
-  bh_w = bh_work_alloc(niter, lmin, bounds);
+  bh_w = bh_work_alloc(niter, stepsize, target_accept_rate, step_adapt_int, lmin, bounds);
   if (bh_w == 0) {
     CFL_ERROR_NULL("bh_work_alloc failed for bh_w");
   }

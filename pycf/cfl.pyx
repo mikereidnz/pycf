@@ -1526,6 +1526,8 @@ cdef class CFLMin:
         cdef cfl.cfl_min_obj *lmin_obj
         cdef double fmin = 0
         cdef int naccept
+        cdef float target_accept_rate
+        cdef int step_adapt_int = 0
         cdef np.ndarray[double, ndim=1, mode="c"] clb 
         cdef np.ndarray[double, ndim=1, mode="c"] cub
 
@@ -1538,6 +1540,14 @@ cdef class CFLMin:
             self.cfl_bounds = cfl_bounds
         else:
             self.cfl_bounds = NULL
+
+        if 'target_accept_rate' in self.kwargs:
+            target_accept_rate = self.kwargs['target_accept_rate']
+        else:
+            target_accept_rate = 0.5
+
+        if 'step_adapt_int' in self.kwargs:
+            step_adapt_int = self.kwargs['step_adapt_int']
 
         cnx = <size_t> len(x0)
         obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(objective_f, "pycfl.MinObjF")
@@ -1552,34 +1562,26 @@ cdef class CFLMin:
                 lmin = self.kwargs['lmin']
                 if lmin == 'gsl_nmsimplex2rand':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
-                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_nmsimplex2':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
-                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_conjugate_fr':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
-                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_conjugate_pr':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
-                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'gsl_vector_bfgs2':
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
-                    min_obj = cfl_bh_min_setup(self.niter, self.cfl_bounds, lmin_obj)
                 elif lmin == 'nlopt_cobyla':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, self.cfl_bounds)
-                    min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, NULL)
                 elif lmin == 'nlopt_bobyqa':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.cfl_bounds)
-                    min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, NULL)
                 elif lmin == 'nlopt_sbplx':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, self.cfl_bounds)
-                    min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, NULL)
                 else:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
                 lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, 1e-6, self.cfl_bounds)
-                min_obj = cfl_bh_min_setup(self.niter, NULL, lmin_obj)
             
+            min_obj = cfl_bh_min_setup(self.niter, NULL, target_accept_rate, step_adapt_int, self.cfl_bounds, lmin_obj)
             # Assign to self to guarantee there exists a reference to these
             # objects until the CFLMin destructor is called.
             self.nx = cnx

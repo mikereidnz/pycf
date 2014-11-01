@@ -9,7 +9,7 @@
 
 /* set MKL_NUM_THREADS -- see mkl user guide. */
 
-/* gsl multimin settings. */
+/* gsl multimin defaults. */
 /* Absolute tolerance used for stopping criteria. */
 #define GSL_EPSABS            1e-2
 /* Absolute tolerance used for stopping criteria in derivative algorithms. */
@@ -21,5 +21,11 @@
 /* Numerical derivative step-size. */
 #define GSL_DERIV_H           1e-9
 
+/* basinhopping defaults. */
+/* Static temperature for the Metropolis criterion. */
+#define BH_T                  1
+/* Multiplicative factor whereby the stepsize is updated if the target rate is
+ * not being met. */
+#define BH_STEP_FACTOR        0.9
 
 #endif /* _TEST_DATA_H_ */
