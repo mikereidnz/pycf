@@ -830,7 +830,7 @@ cdef class SpinHamiltonian:
         return result_list
 
 
-def parse_param_helper(parameters, h, coeff_list, bounds):
+def parse_param_helper(parameters, h, coeff_list, **kwargs):
     """Create lists that keep track of: the initial parameters, the indicies of
     elements in coeff_array for which we have parameters to be varied
     (param_indices), and the type of the parameter (real or complex).
@@ -841,10 +841,6 @@ def parse_param_helper(parameters, h, coeff_list, bounds):
     param_indices = []
     param_types = []
     n_p_real = 0
-    if (bounds != None):
-        if len(parameters) != len(bounds):
-            raise ValueError("The number of provided bounds does not match the "
-                    "number of provided parameters.")
 
     # Since coeff_list has tensor coefficients in the same order as the
     # order in which tensors were passed to the Hamiltonian constructor we
@@ -875,12 +871,16 @@ def parse_param_helper(parameters, h, coeff_list, bounds):
         # summary.
         param_initial += [(coeff_list[pi], p.name)]
     
-    # Generate double valued bounds lists.  The caller is expect to disregard
-    # any bounds returned in case bounds != None, so we just return zeros.
-    lb = np.zeros(n_p_real)
-    ub = np.zeros(n_p_real)
-    rpi = 0
-    if bounds != None:
+    # If bounds are specified, convert them to real valued lists the order of
+    # which matches the real valued parameter lists. 
+    if 'bounds' in kwargs:
+        lb = np.zeros(n_p_real)
+        ub = np.zeros(n_p_real)
+        rpi = 0
+        if len(parameters) != len(kwargs['bounds']):
+            raise ValueError("The number of provided bounds does not match the "
+                    "number of provided parameters.")
+        bounds = kwargs['bounds']
         for i in range(len(parameters)):
             tname = param_initial[i][1]
             if param_types[i] == 'c':
@@ -921,10 +921,42 @@ def parse_param_helper(parameters, h, coeff_list, bounds):
                     raise ValueError("The initial value of the %s coefficient is "
                             "greater than the specified upper bound." % tname)
                 rpi += 1
+        parsed_bounds = (lb, ub)
+    else:
+        parsed_bounds = None
+    
+    # Create real valued stepsize list, if necessary.
+    if 'stepsize' in kwargs:
+        ss = np.zeros(n_p_real)
+        rpi = 0
+        if len(parameters) != len(kwargs['stepsize']):
+            raise ValueError("The of elements of stepsize does not match the "
+                    "number of provided parameters.")
+        stepsize = kwargs['stepsize']
+        for i in range(len(parameters)):
+            tname = param_initial[i][1]
+            if param_types[i] == 'c':
+                try:
+                    if not isinstance(stepsize[tname], complex):
+                        raise ValueError("%s stepsize is not complex, yet the "
+                                "corresponding coefficient is." % tname)
+                except KeyError:
+                    raise KeyError("Missing stepsize key %s." % tname)
+                ss[rpi] = np.real(stepsize[tname])
+                ss[rpi+1] = np.imag(stepsize[tname])
+                rpi += 2
+            else:
+                try:
+                    ss[rpi] = np.real(stepsize[tname])
+                except KeyError:
+                    raise KeyError("Missing stepsize key %s." % tname)
+                rpi += 1
+    else:
+        ss = None
     
     return {'n_p_real': n_p_real, 'param_initial': param_initial,
-            'param_indices': param_indices, 'param_types': param_types, 'lb':
-            lb, 'ub': ub}
+            'param_indices': param_indices, 'param_types': param_types,
+            'bounds': parsed_bounds, 'stepsize' : ss}
 
 
 cdef class EFitRunner(object):
@@ -949,13 +981,16 @@ cdef class EFitRunner(object):
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
         second column contains corresponding experimental energy level values. 
-    bounds : dict
+    bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
         created by tensor arithmetic should have their name attribute set
-        explicitly) while values correspond to tuples, the first entry of which
+        explicitly), while values correspond to tuples, the first entry of which
         is the lower bound and the second entry the upper bound.  The number of
         elements in bounds must match the length of the parameters list. 
-
+    stepsize : dict, optional
+        The stepsize for parameter variation; presently only supported for the
+        basinhopping algorithm.  Keys specify the tensor name, while values
+        correspond to the stepsize.
     """
     cdef Hamiltonian h
     cdef int n_p
@@ -973,8 +1008,9 @@ cdef class EFitRunner(object):
     cdef object obj_f_cap
     cdef object efit_data_cap
     cdef tuple bounds
+    cdef np.ndarray stepsize
 
-    def __init__(self, parameters, h, coeff_list, ex, bounds):
+    def __init__(self, parameters, h, coeff_list, ex, **kwargs):
         cdef cfl.param_type *param_type_ptr
         cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
@@ -983,15 +1019,13 @@ cdef class EFitRunner(object):
         self.h = h
         self.n_p = len(parameters)
 
-        pp = parse_param_helper(parameters, h, coeff_list, bounds)
+        pp = parse_param_helper(parameters, h, coeff_list, **kwargs)
         self.n_p_real = pp['n_p_real']
         self.param_initial = pp['param_initial']
         self.param_indices = pp['param_indices']
         self.param_types = pp['param_types']
-        if (bounds != None):
-            self.bounds = (pp['lb'], pp['ub'])
-        else: 
-            self.bounds = None
+        self.bounds = pp['bounds']
+        self.stepsize = pp['stepsize']
 
         if self.n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds "
@@ -1088,7 +1122,7 @@ cdef class EFitRunner(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
 
-        fmin = min_object.minimize(self.obj_f_cap, x, self.efit_data_cap, self.bounds)
+        fmin = min_object.minimize(self.obj_f_cap, x, self.efit_data_cap, self.bounds, self.stepsize)
 
         coeff = self.coeff 
         ri = 0
@@ -1132,12 +1166,16 @@ cdef class ESHFitRunner(object):
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
         np.ndarrays corresponding to the experimental spin Hamiltonian tensor.
-    bounds : dict
+    bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
         created by tensor arithmethic should have their name attribute set
-        explicitly) while values correspond to tuples, the first entry of which
+        explicitly), while values correspond to tuples, the first entry of which
         is the lower bound and the second entry the upper bound.  The number of
-        elements in bounds must match the length of the parameters list. 
+        elements in bounds must match the length of the parameters list.
+    stepsize : dict, optional
+        The stepsize for parameter variation; presently only supported for the
+        basinhopping algorithm.  Keys specify the tensor name, while values
+        correspond to the stepsize.
     """
     cdef SpinHamiltonian sh
     cdef Hamiltonian h
@@ -1162,8 +1200,9 @@ cdef class ESHFitRunner(object):
     cdef object obj_f_cap
     cdef object eshfit_data_cap
     cdef tuple bounds
+    cdef np.ndarray stepsize
 
-    def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights, bounds):
+    def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights, **kwargs):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.zsh *zsh_array_ptr
         cdef cfl.shx_data *shx_data_ptr
@@ -1177,20 +1216,14 @@ cdef class ESHFitRunner(object):
         self.sh = sh
         self.h = h
         self.n_p = len(parameters)
-        if (bounds != None): 
-            self.bounds = True
-        else:
-            self.bounds = False
 
-        pp = parse_param_helper(parameters, h, coeff_list, bounds)
+        pp = parse_param_helper(parameters, h, coeff_list, **kwargs)
         self.n_p_real = pp['n_p_real']
         self.param_initial = pp['param_initial']
         self.param_indices = pp['param_indices']
         self.param_types = pp['param_types']
-        if (bounds != None):
-            self.bounds = (pp['lb'], pp['ub'])
-        else: 
-            self.bounds = None
+        self.bounds = pp['bounds']
+        self.stepsize = pp['stepsize']
 
         # Determine whether the complete Hamiltonian contains any interactions
         # that are also part of the spin Hamiltonian.  Furthermore, we record
@@ -1431,7 +1464,7 @@ cdef class ESHFitRunner(object):
         cdef sigma = 0
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        fmin = min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap, self.bounds)
+        fmin = min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap, self.bounds, self.stepsize)
 
         coeff = self.coeff 
         ri = 0
@@ -1495,7 +1528,7 @@ cdef class CFLMin:
         if self.cfl_bounds != NULL:
             free(self.cfl_bounds)
 
-    cpdef minimize(self, objective_f, x0, data, bounds):
+    cpdef minimize(self, objective_f, x0, data, bounds, stepsize):
         r"""
         Run the minimization. 
 
@@ -1513,9 +1546,13 @@ cdef class CFLMin:
             Capsule for any data to be passed to the objective function, of type
             void *.  The PyCapsule name is "pycfl.MinData". 
         bounds : tuple
-            Double valued bounds for parameters to be fit, in the same order as
+            Real valued bounds for parameters to be fit, in the same order as
             x0.  The first element of the tuple corresponds to the lower bounds,
-            while the second entry corresponds to the upper bounds.
+            while the second entry corresponds to the upper bounds.  Set to None
+            if unbounded.
+        stepsize : np.ndarray
+            Real valued stepsize array for algorithms that allow for this option
+            (e.g., basinhopping); set to None for default step size.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] cx0
         cdef size_t cnx
@@ -1530,6 +1567,8 @@ cdef class CFLMin:
         cdef int step_adapt_int = 0
         cdef np.ndarray[double, ndim=1, mode="c"] clb 
         cdef np.ndarray[double, ndim=1, mode="c"] cub
+        cdef np.ndarray[double, ndim=1, mode="c"] cstepsize
+        cdef double *stepsize_ptr
 
         if (bounds != None):
             clb = <np.ndarray[double, ndim=1, mode="c"]> bounds[0]
@@ -1540,14 +1579,6 @@ cdef class CFLMin:
             self.cfl_bounds = cfl_bounds
         else:
             self.cfl_bounds = NULL
-
-        if 'target_accept_rate' in self.kwargs:
-            target_accept_rate = self.kwargs['target_accept_rate']
-        else:
-            target_accept_rate = 0.5
-
-        if 'step_adapt_int' in self.kwargs:
-            step_adapt_int = self.kwargs['step_adapt_int']
 
         cnx = <size_t> len(x0)
         obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(objective_f, "pycfl.MinObjF")
@@ -1579,9 +1610,23 @@ cdef class CFLMin:
                 else:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
-                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, 1e-6, self.cfl_bounds)
-            
-            min_obj = cfl_bh_min_setup(self.niter, NULL, target_accept_rate, step_adapt_int, self.cfl_bounds, lmin_obj)
+                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, NULL)
+           
+            if stepsize != None:
+                cstepsize = <np.ndarray[double, ndim=1, mode="c"]> stepsize
+                stepsize_ptr = &cstepsize[0]
+            else: 
+                stepsize_ptr = NULL
+
+            if 'target_accept_rate' in self.kwargs:
+                target_accept_rate = self.kwargs['target_accept_rate']
+            else:
+                target_accept_rate = 0.5
+
+            if 'step_adapt_int' in self.kwargs:
+                step_adapt_int = self.kwargs['step_adapt_int']
+
+            min_obj = cfl_bh_min_setup(self.niter, stepsize_ptr, target_accept_rate, step_adapt_int, self.cfl_bounds, lmin_obj)
             # Assign to self to guarantee there exists a reference to these
             # objects until the CFLMin destructor is called.
             self.nx = cnx
@@ -1597,7 +1642,7 @@ cdef class CFLMin:
         return fmin
 
 
-def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
+def e_fit(parameters, h, coeff, ex, cfl_min, **kwargs):
     r"""
     Fit parameters to energy level data. 
 
@@ -1621,14 +1666,22 @@ def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
-    bounds : dict
+    bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
         created by tensor arithmethic should have their name attribute set
-        explicitly) while values correspond to tuples, the first entry of which
+        explicitly), while values correspond to tuples, the first entry of which
         is the lower bound and the second entry the upper bound.  The number of
         elements in bounds must match the length of the parameters list. 
+    stepsize : dict, optional
+        The stepsize for parameter variation; presently only supported for the
+        basinhopping algorithm.  Keys specify the tensor name, while values
+        correspond to the stepsize.  If adaptive stepsize is enabled (default,
+        see CFLMin doc for details), then this dictionary is used as the
+        starting stepsize, and all step sizes are scaled by the same factor in
+        order to achieve the target acceptance rate.  In other words, this kwarg
+        is then used to set the relative proportion between the step sizes. 
     """
-    efit = EFitRunner(parameters, h, coeff, ex, bounds)
+    efit = EFitRunner(parameters, h, coeff, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
     
     h.set_coeff(x)
@@ -1644,17 +1697,28 @@ def e_fit(parameters, h, coeff, cfl_min, ex, bounds=None):
     labels = [] 
     for i in range(h.n):
         labels += [cflh.states.states[i]]
+
+    if 'bounds' in kwargs:
+        bounds = kwargs['bounds']
+    else:
+        bounds = None
+    if 'stepsize' in kwargs:
+        stepsize = kwargs['stepsize']
+    else:
+        stepsize = None
+
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n\n"
     summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
     summary += "\n"
-    summary += gen_fit_summary(x, efit.param_indices, efit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit.param_indices, efit.param_initial, cfl_min.method, 
+            fmin, bounds, stepsize, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
 
-def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
+def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min, **kwargs):
     r"""
     Fit parameters to energy level data. 
  
@@ -1688,14 +1752,22 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
     cfl_min : CFLMin 
         The minimization object which sets the optimization algorithm and
         corresponding options.
-    bounds : dict
+    bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
         created by tensor arithmethic should have their name attribute set
-        explicitly) while values correspond to tuples, the first entry of which
+        explicitly), while values correspond to tuples, the first entry of which
         is the lower bound and the second entry the upper bound.  The number of
-        elements in bounds must match the length of the parameters list. 
+        elements in bounds must match the length of the parameters list.
+    stepsize : dict, optional
+        The stepsize for parameter variation; presently only supported for the
+        basinhopping algorithm.  Keys specify the tensor name, while values
+        correspond to the stepsize.  If adaptive stepsize is enabled (default,
+        see CFLMin doc for details), then this dictionary is used as the
+        starting stepsize, and all step sizes are scaled by the same factor in
+        order to achieve the target acceptance rate.  In other words, this kwarg
+        is then used to set the relative proportion between the step sizes.
     """
-    eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights, bounds)
+    eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
     h.set_coeff(x)
     (w, z) = h.diag()
@@ -1710,6 +1782,16 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
     labels = [] 
     for i in range(h.n):
         labels += [cflh.states.states[i]]
+
+    if 'bounds' in kwargs:
+        bounds = kwargs['bounds']
+    else:
+        bounds = None
+    if 'stepsize' in kwargs:
+        stepsize = kwargs['stepsize']
+    else:
+        stepsize = None
+
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n\n"
@@ -1717,7 +1799,8 @@ def esh_fit(parameters, sh, h, coeff, cfl_min, ex, shx, weights, bounds=None):
     summary += "\n"
     summary += gen_sh_summary(sh.calc_param(h), sh, shx, ndof=ndof)
     summary += "\n"
-    summary += gen_fit_summary(x, eshfit.param_indices, eshfit.param_initial, cfl_min.method, fmin, bounds, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit.param_indices, eshfit.param_initial, cfl_min.method, 
+            fmin, bounds, stepsize, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 

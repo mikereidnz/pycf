@@ -125,7 +125,7 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
   /* Initialize parameters to defaults. */
   if (stepsize == NULL) {
     for (i=0; i<n; i++) {
-      w->step_data->stepsize[i] = 0.5;
+      w->step_data->stepsize[i] = BH_DEF_STEP;
     }
   } 
   else {
@@ -138,13 +138,13 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
     w->step_data->target_accept_rate = target_accept_rate;
   } 
   else {
-    w->step_data->target_accept_rate = 0.5;
+    w->step_data->target_accept_rate = BH_DEF_TARGET_ACCEPT;
   }
   if (step_adapt_int) {
     w->step_data->interval = step_adapt_int;
   }
   else {
-    w->step_data->interval = 20;
+    w->step_data->interval = BH_DEF_ADAPT_INT;
   } 
 
   w->x = x;

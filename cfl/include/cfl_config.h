@@ -27,5 +27,11 @@
 /* Multiplicative factor whereby the stepsize is updated if the target rate is
  * not being met. */
 #define BH_STEP_FACTOR        0.9
+/* The default stepsize. */
+#define BH_DEF_STEP           0.5
+/* The default target acceptance rate for adaptive stepsize. */
+#define BH_DEF_TARGET_ACCEPT  0.5
+/* The default number of interations between adaptive stepsize updates. */
+#define BH_DEF_ADAPT_INT      20
 
 #endif /* _TEST_DATA_H_ */

@@ -144,7 +144,7 @@ def gen_sh_summary(param, sh, shx=None, ndof=None):
 
     return s
 
-def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, bounds, **kwargs):
+def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, bounds, stepsize, **kwargs):
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
 
@@ -167,22 +167,26 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, bounds, *
     s = "Fitting summary\n"
     s+= "===============\n\n"
 
-    heading = "Tensor name              Fitted coeff         Initial coeff            Difference"
+    heading = "Tensor name          Fitted coeff        Initial coeff           Difference"
     if bounds != None:
-        heading += "         Lower bounds          Upper bounds\n"
-    else:
-        heading += "\n"
+        heading += "        Lower bounds         Upper bounds"
+    if stepsize != None:
+        heading += "  Specified stepsize"
+    heading += "\n"
 
     s += uline_char(heading)
     for i in range(len(param_initial)):
         co = coeff[param_indices[i]]
         if co.imag == 0:
             co = co.real
-        s += "{0:<15} {1: >21.4f} {2: >21.4f} {3: >21.4f}".format(param_initial[i][1]+":", co, param_initial[i][0], co-param_initial[i][0])
+        s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(param_initial[i][1]+":", co, 
+                param_initial[i][0], co-param_initial[i][0])
         if bounds != None:
-            s += "{0: >21.0f} {1: >21.0f}\n".format(bounds[param_initial[i][1]][0], bounds[param_initial[i][1]][1])
-        else:
-            s += "\n"
+            s += "{0: >20.0f} {1: >20.0f}".format(bounds[param_initial[i][1]][0],
+                    bounds[param_initial[i][1]][1])
+        if stepsize != None:
+            s += "{0: >20.0f}".format(stepsize[param_initial[i][1]])
+        s += "\n"
 
     s += "\n" + uline_char("Optimization routine details:\n")
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
