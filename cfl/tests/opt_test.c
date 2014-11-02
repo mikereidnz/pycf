@@ -491,7 +491,7 @@ int main (void)
   
   efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
   efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, 6, efit_d, gsl_vector_bfgs2);
-  efit_min_obj = cfl_bh_min_setup(2, NULL, 0.5, 10, NULL, efit_lmin_obj);
+  efit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, efit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, efit_min_obj);
 
@@ -535,7 +535,7 @@ int main (void)
       shx, 6, p);
 
   eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, 6, eshfit_d, gsl_vector_bfgs2);
-  eshfit_min_obj = cfl_bh_min_setup(5, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
+  eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 
@@ -555,7 +555,7 @@ int main (void)
       shx, 6, p);
 
   eshfit_lmin_obj = cfl_nlopt_min_setup(&eshfit_hpro_obj, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
-  eshfit_min_obj = cfl_bh_min_setup(20, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
+  eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 

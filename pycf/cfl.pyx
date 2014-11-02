@@ -1604,7 +1604,7 @@ cdef class CFLMin:
                 elif lmin == 'nlopt_cobyla':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, NULL)
                 elif lmin == 'nlopt_bobyqa':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, NULL)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.cfl_bounds)
                 elif lmin == 'nlopt_sbplx':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, NULL)
                 else:

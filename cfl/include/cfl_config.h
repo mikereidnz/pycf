@@ -28,7 +28,7 @@
  * not being met. */
 #define BH_STEP_FACTOR        0.9
 /* The default stepsize. */
-#define BH_DEF_STEP           0.5
+#define BH_DEF_STEP           2
 /* The default target acceptance rate for adaptive stepsize. */
 #define BH_DEF_TARGET_ACCEPT  0.5
 /* The default number of interations between adaptive stepsize updates. */

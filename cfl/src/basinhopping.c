@@ -87,6 +87,9 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
     free(x);
     CFL_ERROR_NULL("gsl_rng_alloc failed for rng");
   }
+  /* Determine maximum for rng.  Then, given result r from gsl_rng_get,
+   * r/rng_half_max-1 yields a random number between (-1, 0] + [0, 1). */
+  w->rng_half_max = gsl_rng_max(w->rng)/2;
   w->emin = (emin_t *) malloc(sizeof(emin_t));
   if (w->emin == 0) {
     gsl_rng_free(w->rng);
@@ -173,7 +176,7 @@ inline int metropolis(double e_new, double e_old, gsl_rng *r) {
   double p, u;
   p = fmin(1, exp(-(e_new - e_old)/BH_T));
   u = gsl_rng_uniform(r);
-
+  
   if (p>=u) 
     return 0;
   else 
@@ -192,15 +195,6 @@ inline int bh_bounds_check(double *x, bh_work *w) {
   return 0;
 }
 
-
-/* Add a random number in range [0, stepsize) to w->x and assign to x. */
-inline void bh_rnd_disp(double *x, bh_work *w) {
-  int i;
-
-  for (i=0; i<w->n; i++) {
-    x[i] = w->x[i] * gsl_rng_uniform(w->rng)*w->step_data->stepsize[i];
-  }
-}
 
 /* Take a basinhopping step; checks whether adaptive stepsize is enabled, and,
  * if so, adjust the stepsize to meet the set target_accept_rate every interval
@@ -228,7 +222,11 @@ inline void bh_takestep(double *x, bh_work *w) {
       }
     }
   }
-  bh_rnd_disp(x, w);
+  /* Add a random number (-stepsize, 0] + [0, stepsize) to current x and assign
+   * to temporary x. */
+  for (i=0; i<w->n; i++) {
+    x[i] = w->x[i]+(gsl_rng_get(w->rng)/w->rng_half_max-1)*w->step_data->stepsize[i];
+  }
 }
 
 
