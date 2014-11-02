@@ -1381,11 +1381,11 @@ cdef class CFLMin:
     ----------
     method : string
         The minimization routine to employ.
-    lmin : CFLMin
+    lmin : CFLMin, optional
         The local minimization routine to be used by the basinhopping algorithm;
-        must be specified if method='basinhopping'.  Implemented options fall in
-        two categories, routines from gsl, and routines from nlopt.  For the
-        former, available algorithms are:
+        defaults to nlopt_bobyqa.  Implemented options fall into two categories,
+        routines from gsl, and routines from nlopt.  For the former, available
+        algorithms are:
             -'gsl_nmsimplex2'
             -'gsl_conjugate_fr'
             -'gsl_conjugate_pr'
@@ -1436,6 +1436,10 @@ cdef class CFLMin:
                 self.niter = kwargs['niter']
             else:
                 self.niter = 100
+        elif method == 'nlopt_crs2_lm':
+            pass
+        elif method == 'nlopt_esch':
+            pass
         else:
             raise NotImplementedError("Minimization method '%s' is not an existing option." % method)
 
@@ -1580,12 +1584,13 @@ cdef class CFLMin:
         if 'step_adapt_int' in self.kwargs:
                 step_adapt_int = self.kwargs['step_adapt_int']
 
+        # Set xtol to default if not provided. 
+        if 'xtol' in self.kwargs:
+            cxtol = self.kwargs['xtol']
+        else:
+            cxtol = 1e-5
+
         if self.method == 'basinhopping':
-            # Set xtol to default if not provided. 
-            if 'xtol' in self.kwargs:
-                cxtol = self.kwargs['xtol']
-            else:
-                cxtol = 1e-5
             if 'lmin' in self.kwargs:
                 lmin = self.kwargs['lmin']
                 if lmin == 'gsl_nmsimplex2rand':
@@ -1617,6 +1622,10 @@ cdef class CFLMin:
             self.xtol = cxtol
             self.bh_lmin_obj = lmin_obj
             self.min_obj = min_obj
+        elif self.method == 'nlopt_crs2_lm':
+            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_crs2_lm, cxtol, self.cfl_bounds)
+        elif self.method == 'nlopt_esch':
+            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_esch, cxtol, self.cfl_bounds)
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         with nogil:
