@@ -115,5 +115,9 @@ class ImportSLJM(object):
         self.__dict__.update(tensors)
 
     def print_names(self):
+        r"""
+        Print the names of all available the available tensors that have been loaded.
+
+        """
         for t in self.tensors:
             print(t)

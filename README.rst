@@ -76,6 +76,24 @@ getting ``undefined symbol`` errors at runtime, even though ldd claims
 ``cfl.so`` is fully linked, this suggests that perhaps one of the statically
 linked libraries was not position independent.
 
+Redhat based systems
+--------------------
+
+Redhat based systems provide the c++ version of ``nlopt`` via the package
+manager.  This means the application has to be linked with g++, which
+unfortunately fails for the cython extension.  
+
+The easiest solution to this on a Redhat based system is to compile the library
+from source.  The nlopt installation page has detailed `instructions
+<http://ab-initio.mit.edu/wiki/index.php/NLopt_Installation>`_ on how to do
+this. Then, by setting ``CFL_CFLAGS`` and ``CFL_LDLIBS`` variables to wherever
+you installed nlopt,  you should be able to compile pyemp.  Note that since your
+object files need to be position independent code (or cython will not be able to
+create a shared object), you need to compile nlopt as a shared object (or set
+the ``-fPIC`` compiler option). See the nlopt `page
+<http://ab-initio.mit.edu/wiki/index.php/NLopt_Installation#Shared_libraries>`_
+for details on how to do this.
+
 Intel mkl
 ---------
 
