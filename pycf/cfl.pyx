@@ -1386,14 +1386,18 @@ cdef class CFLMin:
         defaults to nlopt_bobyqa.  Implemented options fall into two categories,
         routines from gsl, and routines from nlopt.  For the former, available
         algorithms are:
-            -'gsl_nmsimplex2'
-            -'gsl_conjugate_fr'
-            -'gsl_conjugate_pr'
-            -gsl_vector_bfgs2'
+        
+            - 'gsl_nmsimplex2'
+            - 'gsl_conjugate_fr'
+            - 'gsl_conjugate_pr'
+            - 'gsl_vector_bfgs2'
+
         For the latter, available algorithms are:
-            -'nlopt_cobyla'
-            -'nlopt_bobyqa'
-            -'nlopt_sbplx'.
+
+            - 'nlopt_cobyla'
+            - 'nlopt_bobyqa'
+            - 'nlopt_sbplx'.
+
     bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
         created by tensor arithmethic should have their name attribute set

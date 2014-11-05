@@ -21,10 +21,10 @@ from __future__ import division
 import numpy as np
 import re
 
-import pycf.cfl as cfl
+import cfl
 
 def get_tensor_dim(source):
-    "Generator for extracting tensor dimensions from '*.mi_' files."
+    "Generator for extracting tensor dimensions from ``*.mi_`` files."
     parse = False
     for line in source:
         if line.startswith("CREATED"):
@@ -36,7 +36,7 @@ def get_tensor_dim(source):
             yield ''
 
 def get_state_number(source):
-    "Generator for extracting the number of states from a '.*st' file."
+    "Generator for extracting the number of states from a ``.*st`` file."
     parse = False
     done = False
     for line in source:
@@ -59,8 +59,8 @@ class ImportSLJM(object):
     ----------
     name : string
         The path/name of the SLJM calc output files, specifically, the files
-        'name.txt' containing the matrix elements in plain text, and 'name.mi_'
-        containing the tensor dimensions.
+        ``name.txt`` containing the matrix elements in plain text, and
+        ``name.mi_`` containing the tensor dimensions.
     dim : int
         The dimension of the tensors.
     """

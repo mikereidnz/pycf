@@ -21,7 +21,8 @@ Energy level fitting for Ho3+:KY3F10
 Since :mod:`pyemp` presently only supports the cfit, vtrans, inten and spectrum
 programs the below code has to be executed in a directory that contains states
 and tensors previously generated with jmcalc and sljcalc.  The directory
-``ho_ky3f10`` contains all the required matrix element and state input files.
+``pycf/examples/ho_ky3f10`` contains all the required matrix element and state
+input files.
 
 
 The first step is to create a :class:`Spectrum` object.  The :class:`Spectrum`

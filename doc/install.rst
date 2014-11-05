@@ -1,43 +1,31 @@
 Installation
 ============
 
-The cfl library is presently on a separate development branch from some of the
-original pycf scripts.  To get an up-to-date copy::
+To install pyemp, get a copy of the source by running::
 
   git clone https://bitbucket.org/sebastianhorvath/pycf/ -b cfl
 
-The c library for now uses a separate build system from the python modules.  To
-compile it, ensure all of the listed `Dependencies`_ are satisfied, then a
-simple ``make`` in the ``cfl`` directory should suffice.  To compile using icc
-and mkl, use the target ``make mkl`` instead.  If icc and mkl are installed in a
-non-standard location, you must edit the ``INTEL_PATH`` variable in the
-makefile. 
+Then, in the package root directory::
 
-The python modules use the standard python distribution utilities (distutils)
-for installation. To compile and install them, navigate to the root directory
-``pycf`` and run::
+  python setup.py install --prefix=/path/to/dir
 
-  $ python setup.py install
+Provided you have all of the dependencies satisfied, this first builds both the
+c library and the python bindings, and then installs both the cfl python
+bindings and pyemp in the python ``dist-packages`` (called ``site-packages`` on
+some linux distributions) directory.  Typically it is a good idea to specify
+prefix to something other than the default (``/usr/lib``), in which case you
+need to add the location of the resulting ``dist-packages`` (``site-packages``)
+to the ``PYTHONPATH`` environment variable.
 
-This will automatically build all cython modules and install pycf in your
-``dist-packages`` (also called ``site_packages`` on some operating systems)
-directory.  
-
-The provided ``setup.py`` file should work without modification provided the
-dependency libraries are installed in standard system locations. 
-
-To manually specify the installation prefix for pycf use::
-
-  $ python setup.py install --prefix=/path/to/dir
-
-If you install to a non-standard location you need to ensure that the python
-``dist-packages`` directory is part of the ``PYTHONPATH`` environment variable.
+The c library uses GNU make, so for development of cfl it is easiest to directly
+execute make.  Running ``make`` in the ``cfl`` directory should suffice.  It may
+also be useful to ``make debug`` to compile with ``-O1``.  
 
 
 Dependencies
 ------------
 
-To build cfl you will need to satisfy the following dependencies:
+Before building you will need to satisfy the following dependencies:
  
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
     LAPACK
@@ -46,13 +34,6 @@ To build cfl you will need to satisfy the following dependencies:
     optimization library
   * gcc 
   * build-essential package or your distributions equivalent
-
-cfl also builds with Intel's icc and mkl, but you will still require gcc to
-build the python extension. 
-
-To build the cfl python extension and pyemp the following dependencies have to
-be satisfied:
-  
   * python
   * numpy 
   * scipy 
@@ -60,11 +41,39 @@ be satisfied:
   * `cython <http://cython.org/>`_ - C extensions for Python
 
 All of the above should be available via the package manager on most linux
-distributions.  If you compile any of the cfl dependencies from source you
-either have to specify the runtime libraries to the linker (gcc option
-``-Wl,-rpath``) or add them as ``extra_objects`` in ``setup.py``.  Additionally,
-since cython compiles c modules as shared objects, all linked objects must be
-compiled as position independent code (``-fPIC``). 
+distributions.
+
+Note that if any of the dependencies are installed in a non-standard location
+(not listed in ``/etc/ld.so.conf``) you need to specify any include and lib
+directories using the following environment variables::
+
+  export CFL_CFLAGS='-I/path/to/include1 -I/path/to/include2'
+  export CFL_LDLIBS='-L/path/to/lib1 -L/path/to/lib2'
+
+Additionally, since cython compiles c extensions as shared objects, all linked
+objects must be compiled as position independent code (``-fPIC``).  If you are
+getting ``undefined symbol`` errors at runtime, even though ldd claims
+``cfl.so`` is fully linked, this suggests that perhaps one of the statically
+linked libraries was not position independent.
+
+Intel mkl
+---------
+
+cfl also builds with Intel's icc compiler and math kernel library (instead of
+LAPACK and ATLAS/BLAS).  Provided the bin directory containing icc is part of
+your system ``$PATH``, building with icc and linking against mkl is done by::
+  
+  python setup.py install --compiler=intel
+
+where any additional arguments, such as prefix or inplace can also be added.
+  
+To build only cfl with icc set the following environment variables prior to
+running make::
+
+  export CFL_CC=icc
+  export INTEL_PATH=/path/to/inteldir
+
+where ``inteldir`` should contain both icc and mkl. 
 
 
 Development
@@ -82,6 +91,3 @@ is useful to build in-place using::
 
 This places the extension module files into the package source directory such
 that it can be directly imported by other modules.
-
-
-
