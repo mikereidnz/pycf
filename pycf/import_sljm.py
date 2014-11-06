@@ -36,7 +36,7 @@ def get_tensor_dim(source):
             yield ''
 
 def get_state_number(source):
-    "Generator for extracting the number of states from a ``.*st`` file."
+    "Generator for extracting the number of states from a ``*.st_`` file."
     parse = False
     done = False
     for line in source:
@@ -59,8 +59,8 @@ class ImportSLJM(object):
     ----------
     name : string
         The path/name of the SLJM calc output files, specifically, the files
-        ``name.txt`` containing the matrix elements in plain text, and
-        ``name.mi_`` containing the tensor dimensions.
+        ``name.txt`` containing the matrix elements in plain text, ``name.mi_``
+        containing the tensor dimensions, and the states file ``name.st_``.
     dim : int
         The dimension of the tensors.
     """

@@ -1,6 +1,9 @@
 Installation
 ============
 
+Getting started
+---------------
+
 To install pyemp, get a copy of the source by running::
 
   git clone https://bitbucket.org/sebastianhorvath/pycf/ -b cfl
@@ -44,8 +47,9 @@ All of the above should be available via the package manager on most linux
 distributions.
 
 Note that if any of the dependencies are installed in a non-standard location
-(not listed in ``/etc/ld.so.conf``) you need to specify any include and lib
-directories using the following environment variables::
+(not listed in ``/etc/ld.so.conf``) you need to specify the path to any include
+and lib directories prior to running ``python setup.py install``.  This is done
+by setting the following environment variables::
 
   export CFL_CFLAGS='-I/path/to/include1 -I/path/to/include2'
   export CFL_LDLIBS='-L/path/to/lib1 -L/path/to/lib2'
@@ -60,7 +64,7 @@ Redhat based systems
 --------------------
 
 Redhat based systems provide the c++ version of ``nlopt`` via the package
-manager.  This means the application has to be linked with g++, which
+manager.  This means the application has to be linked with the g++ linker, which
 unfortunately fails for the cython extension.  
 
 The easiest solution to this on a Redhat based system is to compile the library
@@ -69,7 +73,7 @@ from source.  The nlopt installation page has detailed `instructions
 this. Then, by setting ``CFL_CFLAGS`` and ``CFL_LDLIBS`` variables to wherever
 you installed nlopt,  you should be able to compile pyemp.  Note that since your
 object files need to be position independent code (or cython will not be able to
-create a shared object), you need to compile nlopt as a shared object (or set
+create a shared object), you need to compile nlopt as a shared library (or set
 the ``-fPIC`` compiler option). See the nlopt `page
 <http://ab-initio.mit.edu/wiki/index.php/NLopt_Installation#Shared_libraries>`_
 for details on how to do this.
@@ -89,7 +93,7 @@ To build only cfl with icc set the following environment variables prior to
 running make::
 
   export CFL_CC=icc
-  export INTEL_PATH=/path/to/inteldir
+  export MKLROOT=/path/to/inteldir
 
 where ``inteldir`` should contain both icc and mkl. 
 
