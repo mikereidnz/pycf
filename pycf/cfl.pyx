@@ -831,11 +831,11 @@ cdef class SpinHamiltonian:
 
 
 def parse_param_helper(parameters, h, coeff_list):
-    """Create lists that keep track of: the initial parameters, the indicies of
+    r"""
+    Create lists that keep track of: the initial parameters, the indicies of
     elements in coeff_array for which we have parameters to be varied
     (param_indices), and the type of the parameter (real or complex).
-    Furthermore, the bounds dictionary with complex tuples corresponding to
-    upper and lower bounds is parsed into two double valued arrays."""
+    """
 
     param_initial = []
     param_indices = []
