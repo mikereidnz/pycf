@@ -17,13 +17,17 @@
 */
 
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <complex.h>
+
+#include <gsl/gsl_deriv.h>
 
 #include "cfl_h.h"
 #include "cfl_sh.h"
 #include "cfl_error.h"
-#include "basinhopping.h"
+#include "cfl_config.h"
+#include "cfl_min.h"
 #include "cfl_h_fit.h"
 
 /*
@@ -42,21 +46,29 @@
  * The objective functions can be directly passed to all cfl_min algorithms (see
  * cfl_min.c).  In order to facilitate this, objective functions parse the real
  * double valued parameter array employed by the minimization routines to obtain
- * complex valued tensor coefficients.  This then allows for the crystal field
- * Hamiltonian to be diagonalized, and any necessary projections to the spin
- * Hamiltonian space performed, to complete the optimization.  
+ * complex valued tensor coefficients.  These complex coefficients can then be
+ * used as prefactors for tensor matrix elements to form the Hamiltonian. 
+ *
+ * Fitting is performed by a weighted chi^2 method.  The weighting can be setup
+ * by calling the appropriate *fit_chi2 function prior to fitting, which will
+ * return both the energy level and the spin Hamiltonian chi^2 contrbutions.
+ * Additionally, such a call sets the weighting of the energy level chi^2 such
+ * that it is ~1 to ensure we stay within machine precision.  Any weighting
+ * between the energy level chi^2 and spin Hamiltonian chi^2 contributions can
+ * then be set using shx_data->chisq_weight variable, which must be specified
+ * relative to the energy level weighting.
+ *
+ * The covariance matrix is calculated following Press et al, Numerical recipes,
+ * 3rd edition, section 15.2.  Sigmas are evaluated by assuming a model fit
+ * (Press et al, page 780).  All weighting factors are set to unity, since while
+ * the weighting is useful to force certain solutions, it cannot affect the
+ * quality of the final fit. 
  *
  * The basic work flow consists of workspace allocation using the function
- * appropriate to the problem being solved, which is then passed to the
- * objective function via the additional data argument.  Upon completion of the
- * minimization, the workspace must be freed again.
- *
- */
-
-/* TODO:
- *  + Try adaptive chi^2 sigma using annealing.
- *  + Note: it should be written in the overview that weighting should be
- *  adjusted via sh parameters only. 
+ * appropriate to the problem being solved, running the corresponding *fit_chi2
+ * function, and minimizing the objective function by passing the workspace via
+ * the additional void *data argument.  Upon completion of the minimization, the
+ * workspace must be freed.
  */
 
 /*
@@ -104,6 +116,7 @@ efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t n_z
   data->ex = ex;
   data->n_zx = n_zx;
   data->p = p;
+  data->echisq_weight = 1;
 
   return data;
 }
@@ -355,6 +368,7 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
   data->shx = shx;
   data->n_zx = n_zx;
   data->p = p;
+  data->echisq_weight = 1;
 
   return data;
 }
@@ -463,7 +477,7 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
   zh_set_coeff(d->h, d->coeff);
   zhd(d->eval, d->evect, d->h, d->hd_w);
 
-  return echisq(d->eval, d->ex);
+  return d->echisq_weight * echisq(d->eval, d->ex);
 }
 
 /*  Objective function for fit to both energy levels and spin Hamiltonians in
@@ -478,7 +492,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   /* Calculate the energy level chi^2. */
   zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
-  chisq = echisq(d->h_eval, d->ex);
+  chisq = d->echisq_weight * echisq(d->h_eval, d->ex);
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
@@ -516,7 +530,7 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   /* Calculate the energy level chi^2. */
   zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
-  chisq = echisq(d->h_eval, d->ex);
+  chisq = d->echisq_weight * echisq(d->h_eval, d->ex);
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
@@ -545,18 +559,29 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   return chisq;
 }
 
+/*  Function used to get an initial estimate of chi^2 values, for energy level
+ *  fit only. */
+void efit_chi2( double *x, void *data, double *chi2) {
+  efit_data *d = data;
+
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
+  zh_set_coeff(d->h, d->coeff);
+  zhd(d->eval, d->evect, d->h, d->hd_w);
+  chi2[0] = echisq(d->eval, d->ex);
+  d->echisq_weight = 1/chi2[0];
+}
+
 /*  Function used to get an initial estimate of chi^2 values, in scenario where
  *  the complete Hamiltonian is the same as the projection Hamiltonian. */
-void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
+void eshfit_chi2(double *x, void *data, double *chi2) {
   int i, j, sh_index;
   eshfit_data *d = data;
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
-
-  /* Calculate the energy level chi^2. */
   zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
   chi2[0] = echisq(d->h_eval, d->ex);
+  d->echisq_weight = 1/chi2[0];
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
@@ -577,21 +602,20 @@ void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
       sh_index++;
     }
     zshi(d->sh_pa[i], d->shi_w_array[i]);
-    chi2[i+1] += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
+    chi2[i+1] += shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
 }
 
 /* Function used to get an initial estimate of chi^2 values. */
-void eshfit_hpro_chi2(size_t n, double *x, double *grad, void *data, double *chi2) {
+void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   int i, j, sh_index;
   eshfit_data *d = data;
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
-
-  /* Calculate the energy level chi^2. */
   zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
   chi2[0] = echisq(d->h_eval, d->ex);
+  d->echisq_weight = 1/chi2[0];
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
@@ -615,6 +639,308 @@ void eshfit_hpro_chi2(size_t n, double *x, double *grad, void *data, double *chi
       sh_index++;
     }
     zshi(d->sh_pa[i], d->shi_w_array[i]);
-    chi2[i+1] = d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
+    chi2[i+1] = shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
+}
+
+/* Returns the value of a single, specified, observable w.r.t. a given
+ * parameter; used for covariance matrix evaluation of energy level fits. */
+double efit_cov_df(double x, void *data) {
+  cov_data *cov_d = (cov_data *)data;
+  efit_data *d = cov_d->obj_f_data;
+
+  cov_d->df_x[cov_d->par_index] = x;
+  parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
+  zh_set_coeff(d->h, d->coeff);
+  zhd(d->eval, d->evect, d->h, d->hd_w);
+
+  /* Return the value of the specified energy level. */
+  return d->eval[d->ex->li[cov_d->obs_index]];
+}
+
+/* Returns the value of a single, specified, observable w.r.t. a given
+ * parameter; used for covariance matrix evaluation of energy level and sh fits.
+ */
+double eshfit_cov_df(double x, void *data) {
+  int i, j, sh_element;
+  cov_data *cov_d = (cov_data *)data;
+  eshfit_data *d = cov_d->obj_f_data;
+
+  cov_d->df_x[cov_d->par_index] = x;
+  parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
+  zh_set_coeff(d->h, d->coeff);
+  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  
+  if (cov_d->obs_index > d->ex->n) {
+    /* i, the SH term index (sh_index increments three times per i for Zeeman),
+     * increments once every 6 observables for spin Hamiltonian observables. */
+    /* FIXME: should increment only by 5 for quadrupole terms, since quadrupole
+     * param matrices must be traceless once diagonal... */
+    i = (cov_d->obs_index - d->ex->n)/6;
+    /* The current element of the spin Hamiltonian upper diagonal; ranges from 0
+     * to 5. */
+    sh_element = (cov_d->obs_index - d->ex->n) - i*6;
+    
+    if (i == d->nzeeman) {
+      /* The dimension of a single Zeeman term. */
+      size_t dz = d->shx[i]->inv_data->m/3;
+      for (j=0; j<3; j++) {
+        zshp(&(d->sh_pa[i][j*dz]), d->h_evect, d->sh_a[cov_d->sh_index],
+            d->shp_w_array[cov_d->sh_index]);
+        cov_d->sh_index++;
+      }
+      if (sh_element < 6) {
+        /* We have more elements to return with the current sh_index. */
+        cov_d->sh_index -= 3;
+      }
+    }
+    else {
+      zshp(d->sh_pa[i], d->h_evect, d->sh_a[cov_d->sh_index],
+          d->shp_w_array[cov_d->sh_index]);
+      if (sh_element == 5) {
+        /* We are returning the last element of the current sh_index. */
+        cov_d->sh_index++;
+      }
+    }
+    zshi(d->sh_pa[i], d->shi_w_array[i]);
+    /* Return the upper diagonal entries of the spin Hamiltonian parameter
+     * matrix. */
+    if (sh_element < 3) {
+      return d->sh_pa[i][sh_element];
+    }
+    else if (sh_element < 5) {
+      return d->sh_pa[i][sh_element+1];
+    }
+    else {
+      return d->sh_pa[i][8];
+    }
+  }
+  else {
+    /* Energy level case; return the value of the specified level.*/
+    return d->h_eval[d->ex->li[cov_d->obs_index]];
+  }
+}
+
+/* Returns the value of a single, specified, observable w.r.t. a given
+ * parameter; used for covariance matrix evaluation of energy level and sh fits
+ * when the projection Hamiltonian is different to the complete Hamiltonian.
+ */
+double eshfit_hpro_cov_df(double x, void *data) {
+  int i, j, sh_element;
+  cov_data *cov_d = (cov_data *)data;
+  eshfit_data *d = cov_d->obj_f_data;
+
+  cov_d->df_x[cov_d->par_index] = x;
+  parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
+  zh_set_coeff(d->h, d->coeff);
+  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+
+  /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
+   * and invert the result to obtain the spin Hamiltonian parameters. */
+  zh_set_coeff(d->hpro, d->coeff);
+  zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
+
+  if (cov_d->obs_index > d->ex->n) {
+    /* i, the SH term index (sh_index increments three times per i for Zeeman),
+     * increments once every 6 observables for spin Hamiltonian observables. */
+    /* FIXME: should increment only by 5 for quadrupole terms, since quadrupole
+     * param matrices must be traceless once diagonal... */
+    i = (cov_d->obs_index - d->ex->n)/6;
+    /* The current element of the spin Hamiltonian upper diagonal; ranges from 0
+     * to 5. */
+    sh_element = (cov_d->obs_index - d->ex->n) - i*6;
+    
+    if (i == d->nzeeman) {
+      /* The dimension of a single Zeeman term. */
+      size_t dz = d->shx[i]->inv_data->m/3;
+      for (j=0; j<3; j++) {
+        zshp(&(d->sh_pa[i][j*dz]), d->hpro_evect, d->sh_a[cov_d->sh_index],
+            d->shp_w_array[cov_d->sh_index]);
+        cov_d->sh_index++;
+      }
+      if (sh_element < 6) {
+        /* We have more elements to return with the current sh_index. */
+        cov_d->sh_index -= 3;
+      }
+    }
+    else {
+      zshp(d->sh_pa[i], d->hpro_evect, d->sh_a[cov_d->sh_index],
+          d->shp_w_array[cov_d->sh_index]);
+      if (sh_element == 5) {
+        /* We are returning the last element of the current sh_index. */
+        cov_d->sh_index++;
+      }
+    }
+    zshi(d->sh_pa[i], d->shi_w_array[i]);
+    /* Return the upper diagonal entries of the spin Hamiltonian parameter
+     * matrix. */
+    if (sh_element < 3) {
+      return d->sh_pa[i][sh_element];
+    }
+    else if (sh_element < 5) {
+      return d->sh_pa[i][sh_element+1];
+    }
+    else {
+      return d->sh_pa[i][8];
+    }
+  }
+  else {
+    /* Energy level case; return the value of the specified level.*/
+    return d->h_eval[d->ex->li[cov_d->obs_index]];
+  }
+}
+
+/* Common steps for covariance matrix estimation for *fit_cov functions. */
+inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
+    void *data, double sigma, double *cov) {
+
+  int i, j, k;
+  double result, abserr;
+  double *a;
+  cov_data *cov_d;
+
+  a = (double *) calloc(m*n, sizeof(double));
+  if (a == 0) {
+    CFL_ERROR_VOID("calloc failed for a");
+  }
+  cov_d = (cov_data *) malloc(sizeof(cov_data));
+  if (cov_d == 0) {
+    free(a);
+    CFL_ERROR_VOID("malloc failed for cov_data");
+  }
+  cov_d->df_x = (double *) malloc(n*sizeof(double));
+  if (cov_d->df_x == 0) {
+    free(a);
+    free(cov_d);
+    CFL_ERROR_VOID("malloc failed for cov_d->df_x");
+  }
+  cov_d->obj_f_data = data;
+  cov_d->sh_index = 0;
+
+  /* Create copy of x0, since the derivative function modifies the parameter
+   * value w.r.t. which we're differentiating. */
+  memcpy(cov_d->df_x, x0, n*sizeof(double));
+  F.params = cov_d;
+
+  for (i=0; i<n; i++) {
+    cov_d->par_index = i;
+    for (j=0; j<m; j++) {
+      cov_d->obs_index = j;
+      gsl_deriv_central(&F, x0[i], GSL_DERIV_H, &result, &abserr);
+      a[i*n+j] = result/sigma;
+      /* Restore original value of the modified df_x element. */
+      cov_d->df_x[i] = x0[i];
+    }
+  }
+  /* Calculate a^T a. */
+  for (k=0; k<n; k++) {
+    for (i=0; i<n; i++) {
+      cov[i*n+k] = 0;
+      for (j=0; j<m; j++) {
+        cov[i*n+k] += a[j*n+k] * a[j*n+i];
+      }
+    }
+  }
+  free(a);
+  free(cov_d->df_x);
+  free(cov_d);
+}
+
+/* Estimate the covariance matrix for an energy level fit. 
+ *
+ * Parameters
+ * ----------
+ *  x0      The parameters found by the minimization.
+ *  cov     Pointer to space that will be overwritten with the covariance
+ *          matrix. 
+ *  obj     The cfl_min_obj for which the minimization was run.
+ */
+void efit_cov(double *x0, double *cov, cfl_min_obj *obj) {
+  size_t m, n;
+  double sigma, chisq;
+  gsl_function F;
+  efit_data *d = obj->obj_f_data;
+
+  /* The number of parameters. */
+  n = obj->n;
+  /* The number of observables. */
+  m = d->ex->n;
+
+  F.function = &efit_cov_df;
+
+  /* Estimate the uncertainty, assuming model fit and the same sigma for all
+   * energy levels (pg.  780, Press et al. 3rd edition). */
+  efit_chi2(x0, d, &chisq);
+  sigma = sqrt(chisq/(m-n));
+
+  covariance_helper(m, n, F, x0, d, sigma, cov);
+}
+
+/* Estimate the covariance matrix for an energy level and spin Hamiltonian fit
+ * for which the projection Hamiltonian is the same as the complete Hamiltonian. 
+ *
+ * Parameters
+ * ----------
+ *  x0      The parameters found by the minimization.
+ *  cov     Pointer to space that will be overwritten with the covariance
+ *          matrix. 
+ *  obj     The cfl_min_obj for which the minimization was run.
+ */
+void eshfit_cov(double *x0, double *cov, cfl_min_obj *obj) {
+  size_t m, n;
+  double sigma;
+  double chisq[2] = {0, 0};
+  gsl_function F;
+  eshfit_data *d = obj->obj_f_data;
+
+  /* The number of parameters. */
+  n = obj->n;
+  /* The number of observables; we count 6 observables per spin Hamiltonian
+   * term.  This is not quite correct for quadrupole terms, since they are
+   * tracless after diagonalization. */
+  m = d->ex->n + d->ninv*6;
+  
+  F.function = &eshfit_cov_df;
+
+  /* Estimate the uncertainty, assuming model fit and the same sigma for all
+   * observables (energy and sh) (pg.  780, Press et al. 3rd edition). */
+  eshfit_chi2(x0, d, chisq);
+  sigma = sqrt((chisq[0] + chisq[1])/(m-n));
+
+  covariance_helper(m, n, F, x0, d, sigma, cov);
+}
+
+/* Estimate the covariance matrix for an energy level and spin Hamiltonian fit
+ * for which the projection Hamiltonian is different from the complete
+ * Hamiltonian. 
+ *
+ * Parameters
+ * ----------
+ *  x0      The parameters found by the minimization.
+ *  cov     Pointer to space that will be overwritten with the covariance
+ *          matrix. 
+ *  obj     The cfl_min_obj for which the minimization was run.
+ */
+void eshfit_hpro_cov(double *x0, double *cov, cfl_min_obj *obj) {
+  size_t m, n;
+  double sigma;
+  double chisq[2] = {0, 0};
+  gsl_function F;
+  eshfit_data *d = obj->obj_f_data;
+
+  /* The number of parameters. */
+  n = obj->n;
+  /* The number of observables; we count 6 observables per spin Hamiltonian
+   * term.  This is not quite correct for quadrupole terms, since they are
+   * tracless after diagonalization. */
+  m = d->ex->n + d->ninv*6;
+  
+  F.function = &eshfit_hpro_cov_df;
+
+  /* Estimate the uncertainty, assuming model fit and the same sigma for all
+   * observables (energy and sh) (pg.  780, Press et al. 3rd edition). */
+  eshfit_chi2(x0, d, chisq);
+  sigma = sqrt((chisq[0] + chisq[1])/(m-n));
+
+  covariance_helper(m, n, F, x0, d, sigma, cov);
 }

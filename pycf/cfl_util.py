@@ -192,6 +192,13 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, **kwargs)
         del kwargs['bounds']
     if 'stepsize' in kwargs:
         del kwargs['stepsize']
+  
+    print(coeff)
+    print(np.cov(np.real(coeff), np.real(coeff)))
+    if 'cov' in kwargs:
+        if kwargs['cov'] == True:
+            print(np.cov(co))
+        del kwargs['cov']
 
     s += "\n" + uline_char("Optimization routine details:\n")
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)

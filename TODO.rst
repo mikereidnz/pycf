@@ -6,8 +6,6 @@ CFL
   * ImportSLJM should parse and create crs tensors one at a time (at least the
     step that populate the dense matrix), to avoid unreasonable memory use for
     large matrices. 
-  * Change appropriate struct attributes and function arguments from int to
-    size_t
   * Think about a complex tensor-prefactor... since a standard multiplication by
     a complex number will not preserve the hermiticity of a matrix. Presumably,
     we multiply by the complex conjugate on the lower-diagonal?
@@ -16,5 +14,5 @@ CFL
   * In explanation section, discuss the fortran vs c array mess. Everything is
     expected to be a fortran array at the moment? At least the inversion matrix
     for the inversion tests needs to be... the rest don't. 
-  * covariance matrix
   * Fit to multiple spin Hamiltonians
+  * Try adaptive chi^2 weighting using annealing.

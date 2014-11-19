@@ -1305,11 +1305,13 @@ cdef class ESHFitRunner(object):
         self.fit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
 
         self.weights[inter.type]
-
+        
+        # Energy levels are always weighted to unity provided a call to
+        # eshfit_hpro_chi2 or eshfit_chi2 has been made. 
         if 'e' in self.weights:
-            ew_scale = chi2[0]/self.weights['e']
+            ew_scale = 1/self.weights['e']
         else:
-            ew_scale = chi2[0]
+            ew_scale = 1
 
         for i,inter in enumerate(sh.inter_data):
             shx_array[i].chisq_weight = self.weights[inter.type]/chi2[i+1] * ew_scale 

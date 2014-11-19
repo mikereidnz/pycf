@@ -41,15 +41,21 @@ typedef enum {
 
 
 /* Local minimization object. */
-typedef struct {
-  /* Pointer to the minimization function. */
+typedef struct cfl_min_obj {
+  /* Pointer to the cfl minimization function.  Note: this is not the objective
+   * function. */
   int (*min_f)(double *x, double *fmin, void *d);
   /* Number of parameters. */
   size_t n;
-  /* Pointer to data required by minimization. */
+  /* Pointer to data required by min_f */
   void *min_data;
   /* Pointer to the cfl_min_obj object freeing function. */
   void (*min_obj_free)(void *obj);
+  /* Pointer to data for minimization objective function; duplicated here since
+   * nlopt hides it using an opaque pointer. */
+  void *obj_f_data;
+  /* Pointer to function that calculates the covariance matrix. */
+  void (*cov_f)(double *x0, double *cov, struct cfl_min_obj *obj);
 } cfl_min_obj;
 
 /* Storage for optimization bounds. */
@@ -125,6 +131,7 @@ typedef struct {
   gsl_multimin_data *gsl_data;
 } gsl_multimin_fndf_work;
 
+
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
@@ -145,11 +152,13 @@ int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
 cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
-      void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
+      void *data), void (*cov_f)(double *x0, double *cov, struct cfl_min_obj
+        *obj), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
     cfl_min_bounds *bounds);
 cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
-      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm);
-int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
+      *grad, void *data), void (*cov_f)(double *x0, double *cov, struct
+    cfl_min_obj *obj), size_t n, void *data, gsl_min_alg algorithm);
+int cfl_min(double *x0, double *fmin, double *cov, cfl_min_obj *obj);
 void cfl_min_free(cfl_min_obj *obj);
 #ifdef __cplusplus
 }

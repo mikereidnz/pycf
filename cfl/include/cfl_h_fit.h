@@ -22,7 +22,7 @@
 
 #include "cfl_h.h"
 #include "cfl_sh.h"
-#include "basinhopping.h"
+#include "cfl_min.h"
 
 #ifndef _CFL_H_FIT_H_ 
 #define _CFL_H_FIT_H_
@@ -51,12 +51,27 @@ typedef struct {
 typedef struct {
   /* Array of nine experimental spin Hamiltonian parameter values. */
   complex double *pa;
-  /* Chi^2 weighting. */
-  float chisq_weight;
+  /* chi^2 weighting. */
+  double chisq_weight;
   /* Pointer to spin Hamiltonian inversion data. */
   zsh_inv_data *inv_data; 
 } shx_data;
 
+/* Data for covariance matrix estimation. */
+typedef struct {
+  /* Index of parameter with repsect to differentiate. */
+  size_t par_index;
+  /* Index of current observable being differentiated w.r.t. parameters. */
+  size_t obs_index;
+  /* Storage for real-valued parameter list.  Note: par_index element will be
+   * modified upon exit. */
+  double *df_x;
+  /* Pointer to data for minimization objective function. */
+  void *obj_f_data;
+  /* The index for the current spin Hamiltonian; required for cases containing
+   * Zeeman terms, which require three spin Hamiltonians per inversion. */
+  size_t sh_index;
+} cov_data;
 
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {
@@ -70,12 +85,14 @@ typedef struct {
   double *eval;
   /* Experimental energy level data */
   ex_data *ex;
-  /* The number of parameters once converted to complex type. */
+  /* The number of parameters after conversion to complex type. */
   size_t n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* Complete cofficient array to be passed to the diagonalization. */
   complex double *coeff;
+  /* chi^2 weighting for energy levels. */
+  double echisq_weight;
 } efit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -114,13 +131,16 @@ typedef struct {
   ex_data *ex;
   /* Array of pointers to spin Hamiltonian experimental data. */
   shx_data **shx;
-  /* The number of parameters once converted to complex type. */
+  /* The number of parameters after conversion to complex type. */
   size_t n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* Complete cofficient array to be passed to the diagonalization. */
   complex double *coeff;
+  /* chi^2 weighting for energy levels. */
+  double echisq_weight;
 } eshfit_data;
+
 
 /* Function prototypes. */
 #ifdef __cplusplus
@@ -140,8 +160,12 @@ int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
 double efit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
-void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2);
-void eshfit_hpro_chi2(size_t n, double *x, double *grad, void *data, double *chi2);
+void efit_chi2( double *x, void *data, double *chi2);
+void eshfit_chi2(double *x, void *data, double *chi2);
+void eshfit_hpro_chi2(double *x, void *data, double *chi2);
+void efit_cov(double *x0, double *cov, cfl_min_obj *obj);
+void eshfit_cov(double *x0, double *cov, cfl_min_obj *obj);
+void eshfit_hpro_cov(double *x0, double *cov, cfl_min_obj *obj); 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
