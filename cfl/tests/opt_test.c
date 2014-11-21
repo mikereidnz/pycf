@@ -496,7 +496,7 @@ int main (void)
   double *cov;
   cov = malloc(36*sizeof(double));
 
-  status = cfl_min(ce_x0, &fmin, NULL, efit_min_obj);
+  status = cfl_min(ce_x0, &fmin, cov, efit_min_obj);
 
   cfl_min_free(efit_min_obj);
   cfl_min_free(efit_lmin_obj);

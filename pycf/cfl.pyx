@@ -912,6 +912,7 @@ cdef class EFitRunner(object):
     cdef np.ndarray coeff
     cdef cfl.efit_data *efit_data
     cpdef public object obj_f_cap
+    cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     
     def __init__(self, parameters, h, coeff_list, ex):
@@ -919,6 +920,8 @@ cdef class EFitRunner(object):
         cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        cdef np.ndarray[double, ndim=1, mode="c"] x
         
         self.h = h
         self.n_p = len(parameters)
@@ -931,7 +934,7 @@ cdef class EFitRunner(object):
 
         if self.n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds "
-                    "the number of observables. Don't do that.")
+                    "the number of observables.  Don't do that.")
         elif ex.shape[1] != 2:
             raise ValueError("Incorrect ex shape; expected a two column array.")
 
@@ -989,6 +992,12 @@ cdef class EFitRunner(object):
                 &coeff[0], self.ex_data, self.n_p, self.param_array);
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
+        self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
+        
+        # Run eshfit_chi2 so that the initial chi^2 weighting is set.
+        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1095,6 +1104,7 @@ cdef class ESHFitRunner(object):
     cdef np.ndarray coeff
     cdef cfl.eshfit_data *eshfit_data
     cpdef public object obj_f_cap
+    cpdef public object cov_f_cap
     cpdef public object fit_data_cap
 
     def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights):
@@ -1289,18 +1299,20 @@ cdef class ESHFitRunner(object):
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"), &coeff[0],
                     self.ex_data, shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
-
+            self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_cov, "pycfl.MinCovF", NULL)
+            
             # Unweighted initial chi^2 estimation.
-            cfl.eshfit_hpro_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+            cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
 
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
                     <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
                     self.ex_data, shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
-
+            self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
+            
             # Unweighted initial chi^2 estimation.
-            cfl.eshfit_chi2(self.n_p_real, &x[0], NULL, self.eshfit_data, &chi2[0])
+            cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
 
         self.fit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
 
@@ -1400,6 +1412,8 @@ cdef class CFLMin:
             - 'nlopt_bobyqa'
             - 'nlopt_sbplx'.
 
+    cov : bool, optional
+        Evaluate the covariance matrix for the fit; defaults to True.
     bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
         created by tensor arithmethic should have their name attribute set
@@ -1433,9 +1447,8 @@ cdef class CFLMin:
     cdef cfl.cfl_min_obj *bh_lmin_obj 
 
     def __cinit__(self, method, **kwargs):
-
-        self.method = method
-        self.kwargs = kwargs
+        if 'cov' not in kwargs:
+            kwargs['cov'] = True
 
         if method == 'basinhopping':
             if 'niter' in kwargs:
@@ -1448,6 +1461,9 @@ cdef class CFLMin:
             pass
         else:
             raise NotImplementedError("Minimization method '%s' is not an existing option." % method)
+
+        self.method = method
+        self.kwargs = kwargs
 
     def __dealloc__(self):
         if self.cfl_bounds != NULL:
@@ -1477,6 +1493,7 @@ cdef class CFLMin:
         cdef size_t cnx
         cdef double cxtol
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
+        cdef void (*cov_f_ptr)(double *, double *, cfl_min_obj *)
         cdef void *data_ptr
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
@@ -1488,9 +1505,12 @@ cdef class CFLMin:
         cdef double *stepsize_ptr
         cdef float target_accept_rate
         cdef int step_adapt_int = 0
+        cdef np.ndarray[double, ndim=2, mode="c"] cov_inv
+        cdef double *cov_ptr
         
         cnx = <size_t> len(x0)
         obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(fit_obj.obj_f_cap, "pycfl.MinObjF")
+        cov_f_ptr = <void (*)(double *, double *, cfl_min_obj *)>PyCapsule_GetPointer(fit_obj.cov_f_cap, "pycfl.MinCovF")
         data_ptr = <void *>PyCapsule_GetPointer(fit_obj.fit_data_cap, "pycfl.MinData")
 
         # If bounds are specified, convert them to real valued lists the order of
@@ -1550,45 +1570,13 @@ cdef class CFLMin:
             self.cfl_bounds = cfl_bounds
         else:
             self.cfl_bounds = NULL
-        
-        # Create real valued stepsize list, if stepsize is provided.
-        if 'stepsize' in self.kwargs:
-            cstepsize = np.zeros(fit_obj.n_p_real)
-            rpi = 0
-            if len(fit_obj.param_initial) != len(self.kwargs['stepsize']):
-                raise ValueError("The of elements of stepsize does not match the "
-                        "number of provided parameters.")
-            stepsize = self.kwargs['stepsize']
-            for i in range(len(fit_obj.param_initial)):
-                tname = fit_obj.param_initial[i][1]
-                if fit_obj.param_types[i] == 'c':
-                    try:
-                        if not isinstance(stepsize[tname], complex):
-                            raise ValueError("%s stepsize is not complex, yet the "
-                                    "corresponding coefficient is." % tname)
-                    except KeyError:
-                        raise KeyError("Missing stepsize key %s." % tname)
-                    cstepsize[rpi] = np.real(stepsize[tname])
-                    cstepsize[rpi+1] = np.imag(stepsize[tname])
-                    rpi += 2
-                else:
-                    try:
-                        cstepsize[rpi] = np.real(stepsize[tname])
-                    except KeyError:
-                        raise KeyError("Missing stepsize key %s." % tname)
-                    rpi += 1
 
-            stepsize_ptr = &cstepsize[0]
+        if self.kwargs['cov']:
+            self.kwargs['cov_inv'] = np.zeros([fit_obj.n_p_real, fit_obj.n_p_real])
+            cov_inv = <np.ndarray[double, ndim=2, mode="c"]> self.kwargs['cov_inv']
+            cov_ptr = &cov_inv[0,0]
         else:
-            stepsize_ptr = NULL
-
-        if 'target_accept_rate' in self.kwargs:
-            target_accept_rate = self.kwargs['target_accept_rate']
-        else:
-            target_accept_rate = 0.5
-
-        if 'step_adapt_int' in self.kwargs:
-                step_adapt_int = self.kwargs['step_adapt_int']
+            cov_ptr = NULL
 
         # Set xtol to default if not provided. 
         if 'xtol' in self.kwargs:
@@ -1597,30 +1585,74 @@ cdef class CFLMin:
             cxtol = 1e-5
 
         if self.method == 'basinhopping':
+            # Create real valued stepsize list, if stepsize is provided.
+            if 'stepsize' in self.kwargs:
+                cstepsize = np.zeros(fit_obj.n_p_real)
+                rpi = 0
+                if len(fit_obj.param_initial) != len(self.kwargs['stepsize']):
+                    raise ValueError("The of elements of stepsize does not match the "
+                            "number of provided parameters.")
+                stepsize = self.kwargs['stepsize']
+                for i in range(len(fit_obj.param_initial)):
+                    tname = fit_obj.param_initial[i][1]
+                    if fit_obj.param_types[i] == 'c':
+                        try:
+                            if not isinstance(stepsize[tname], complex):
+                                raise ValueError("%s stepsize is not complex, yet the "
+                                        "corresponding coefficient is." % tname)
+                        except KeyError:
+                            raise KeyError("Missing stepsize key %s." % tname)
+                        cstepsize[rpi] = np.real(stepsize[tname])
+                        cstepsize[rpi+1] = np.imag(stepsize[tname])
+                        rpi += 2
+                    else:
+                        try:
+                            cstepsize[rpi] = np.real(stepsize[tname])
+                        except KeyError:
+                            raise KeyError("Missing stepsize key %s." % tname)
+                        rpi += 1
+    
+                stepsize_ptr = &cstepsize[0]
+            else:
+                stepsize_ptr = NULL
+
+            if 'target_accept_rate' in self.kwargs:
+                target_accept_rate = self.kwargs['target_accept_rate']
+            else:
+                target_accept_rate = 0.5
+    
+            if 'step_adapt_int' in self.kwargs:
+                    step_adapt_int = self.kwargs['step_adapt_int']
+
             if 'lmin' in self.kwargs:
                 lmin = self.kwargs['lmin']
                 if lmin == 'gsl_nmsimplex2rand':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
                 elif lmin == 'gsl_nmsimplex2':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
                 elif lmin == 'gsl_conjugate_fr':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
                 elif lmin == 'gsl_conjugate_pr':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
                 elif lmin == 'gsl_vector_bfgs2':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
                 elif lmin == 'nlopt_cobyla':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla, cxtol, self.cfl_bounds)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_cobyla,
+                            cxtol, self.cfl_bounds)
                 elif lmin == 'nlopt_bobyqa':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.cfl_bounds)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
+                            cxtol, self.cfl_bounds)
                 elif lmin == 'nlopt_sbplx':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx, cxtol, self.cfl_bounds)
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_sbplx,
+                            cxtol, self.cfl_bounds)
                 else:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
-                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa, cxtol, self.cfl_bounds)
+                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
+                        cxtol, self.cfl_bounds)
            
-            min_obj = cfl_bh_min_setup(self.niter, stepsize_ptr, target_accept_rate, step_adapt_int, self.cfl_bounds, lmin_obj)
+            min_obj = cfl_bh_min_setup(self.niter, stepsize_ptr, target_accept_rate, step_adapt_int,
+                    self.cfl_bounds, lmin_obj)
             
             # Assign to self to guarantee there exists a reference to these
             # objects until the CFLMin destructor is called.
@@ -1629,15 +1661,19 @@ cdef class CFLMin:
             self.bh_lmin_obj = lmin_obj
             self.min_obj = min_obj
         elif self.method == 'nlopt_crs2_lm':
-            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_crs2_lm, cxtol, self.cfl_bounds)
+            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_crs2_lm,
+                    cxtol, self.cfl_bounds)
         elif self.method == 'nlopt_esch':
-            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_esch, cxtol, self.cfl_bounds)
+            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_esch,
+                    cxtol, self.cfl_bounds)
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
+
         with nogil:
-            naccept = cfl.cfl_min(&cx0[0], &fmin, min_obj)
+            naccept = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
         
         self.kwargs['naccept'] = naccept
+
         return fmin
 
 

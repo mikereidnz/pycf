@@ -160,12 +160,12 @@ int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
 double efit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
-void efit_chi2( double *x, void *data, double *chi2);
+void efit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
-void efit_cov(double *x0, double *cov, cfl_min_obj *obj);
-void eshfit_cov(double *x0, double *cov, cfl_min_obj *obj);
-void eshfit_hpro_cov(double *x0, double *cov, cfl_min_obj *obj); 
+void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
+void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
+void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj); 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

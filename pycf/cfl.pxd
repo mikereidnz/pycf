@@ -124,9 +124,9 @@ cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_obj:
         pass
 
-    cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol, cfl_min_bounds *bounds)
-    cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data), size_t n, void *data, gsl_min_alg algorithm)
-    int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) nogil
+    cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), size_t n, void *data, nlopt_min_alg algorithm, double xtol, cfl_min_bounds *bounds)
+    cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data), void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), size_t n, void *data, gsl_min_alg algorithm)
+    int cfl_min(double *x0, double *fmin, double *cov_inv, cfl_min_obj *obj) nogil
     void cfl_min_free(cfl_min_obj *obj)
 
 
@@ -167,5 +167,10 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil
-    void eshfit_chi2(size_t n, double *x, double *grad, void *data, double *chi2) nogil
-    void eshfit_hpro_chi2(size_t n, double *x, double *grad, void *data, double *chi2) nogil
+    void efit_chi2( double *x, void *data, double *chi2) nogil
+    void eshfit_chi2(double *x, void *data, double *chi2) nogil
+    void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil
+    void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
+    void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
+    void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
+

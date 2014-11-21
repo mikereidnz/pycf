@@ -561,7 +561,7 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
 
 /*  Function used to get an initial estimate of chi^2 values, for energy level
  *  fit only. */
-void efit_chi2( double *x, void *data, double *chi2) {
+void efit_chi2(double *x, void *data, double *chi2) {
   efit_data *d = data;
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
@@ -792,7 +792,7 @@ double eshfit_hpro_cov_df(double x, void *data) {
 
 /* Common steps for covariance matrix estimation for *fit_cov functions. */
 inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
-    void *data, double sigma, double *cov) {
+    void *data, double sigma, double *cov_inv) {
 
   int i, j, k;
   double result, abserr;
@@ -832,12 +832,13 @@ inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
       cov_d->df_x[i] = x0[i];
     }
   }
+
   /* Calculate a^T a. */
   for (k=0; k<n; k++) {
     for (i=0; i<n; i++) {
-      cov[i*n+k] = 0;
+      cov_inv[i*n+k] = 0;
       for (j=0; j<m; j++) {
-        cov[i*n+k] += a[j*n+k] * a[j*n+i];
+        cov_inv[i*n+k] += a[j*n+k] * a[j*n+i];
       }
     }
   }
@@ -851,11 +852,11 @@ inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
  * Parameters
  * ----------
  *  x0      The parameters found by the minimization.
- *  cov     Pointer to space that will be overwritten with the covariance
- *          matrix. 
+ *  cov_inv Pointer to space that will be overwritten with the inverse
+ *          covariance matrix. 
  *  obj     The cfl_min_obj for which the minimization was run.
  */
-void efit_cov(double *x0, double *cov, cfl_min_obj *obj) {
+void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   size_t m, n;
   double sigma, chisq;
   gsl_function F;
@@ -873,7 +874,7 @@ void efit_cov(double *x0, double *cov, cfl_min_obj *obj) {
   efit_chi2(x0, d, &chisq);
   sigma = sqrt(chisq/(m-n));
 
-  covariance_helper(m, n, F, x0, d, sigma, cov);
+  covariance_helper(m, n, F, x0, d, sigma, cov_inv);
 }
 
 /* Estimate the covariance matrix for an energy level and spin Hamiltonian fit
@@ -882,17 +883,17 @@ void efit_cov(double *x0, double *cov, cfl_min_obj *obj) {
  * Parameters
  * ----------
  *  x0      The parameters found by the minimization.
- *  cov     Pointer to space that will be overwritten with the covariance
- *          matrix. 
+ *  cov_inv Pointer to space that will be overwritten with the inverse
+ *          covariance matrix. 
  *  obj     The cfl_min_obj for which the minimization was run.
  */
-void eshfit_cov(double *x0, double *cov, cfl_min_obj *obj) {
+void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   size_t m, n;
   double sigma;
   double chisq[2] = {0, 0};
   gsl_function F;
   eshfit_data *d = obj->obj_f_data;
-
+  
   /* The number of parameters. */
   n = obj->n;
   /* The number of observables; we count 6 observables per spin Hamiltonian
@@ -907,7 +908,7 @@ void eshfit_cov(double *x0, double *cov, cfl_min_obj *obj) {
   eshfit_chi2(x0, d, chisq);
   sigma = sqrt((chisq[0] + chisq[1])/(m-n));
 
-  covariance_helper(m, n, F, x0, d, sigma, cov);
+  covariance_helper(m, n, F, x0, d, sigma, cov_inv);
 }
 
 /* Estimate the covariance matrix for an energy level and spin Hamiltonian fit
@@ -917,11 +918,11 @@ void eshfit_cov(double *x0, double *cov, cfl_min_obj *obj) {
  * Parameters
  * ----------
  *  x0      The parameters found by the minimization.
- *  cov     Pointer to space that will be overwritten with the covariance
- *          matrix. 
+ *  cov_inv Pointer to space that will be overwritten with the inverse
+ *          covariance matrix.  
  *  obj     The cfl_min_obj for which the minimization was run.
  */
-void eshfit_hpro_cov(double *x0, double *cov, cfl_min_obj *obj) {
+void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   size_t m, n;
   double sigma;
   double chisq[2] = {0, 0};
@@ -942,5 +943,5 @@ void eshfit_hpro_cov(double *x0, double *cov, cfl_min_obj *obj) {
   eshfit_chi2(x0, d, chisq);
   sigma = sqrt((chisq[0] + chisq[1])/(m-n));
 
-  covariance_helper(m, n, F, x0, d, sigma, cov);
+  covariance_helper(m, n, F, x0, d, sigma, cov_inv);
 }

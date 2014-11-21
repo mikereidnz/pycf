@@ -163,7 +163,8 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, **kwargs)
         Additional, optimization algorithm specific, settings to print.
 
     """
-    
+    np.set_printoptions(formatter={'float': lambda x: '{:.3f}'.format(x)})
+
     s = "Fitting summary\n"
     s+= "===============\n\n"
 
@@ -193,12 +194,17 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, **kwargs)
     if 'stepsize' in kwargs:
         del kwargs['stepsize']
   
-    print(coeff)
-    print(np.cov(np.real(coeff), np.real(coeff)))
-    if 'cov' in kwargs:
-        if kwargs['cov'] == True:
-            print(np.cov(co))
-        del kwargs['cov']
+    if kwargs['cov']:
+        s += "\n" + uline_char("Covariance matrix:\n")
+        try:
+            cov = np.linalg.inv(kwargs['cov_inv'])
+            s += str(cov) + "\n"
+        except:
+            s += "Singular covariance matrix; cannot invert\n"
+
+        del kwargs['cov_inv']
+    
+    del kwargs['cov']
 
     s += "\n" + uline_char("Optimization routine details:\n")
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
