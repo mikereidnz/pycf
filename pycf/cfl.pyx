@@ -32,11 +32,12 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #         something to directly implement in the cfl projection interface.
 #       + Add checks whether efit/eshfit data alloc functions return NULL and
 #       corresponding frees.
-#       + There is a double free bug in cython interface for some frees during
-#       an exception.  Specifically, if one does not provide the correct shx
-#       data dict (change zeeman to something else). 
+#       + Python free bug if one does not provide the correct shx data dict
+#       (change zeeman to something else). 
 #       + Also, add check to ensure weighting is present for all sh terms. IF
 #       not, either fail, or set to 1.
+#       + set default self.coeff_dict=None, add check to parse_param, and change
+#       other coeff_set checks to also use coeff_dict!=None.
 
 cdef class StateLabels:
     r"""
@@ -554,12 +555,14 @@ cdef class SHInteractionData(object):
     cdef public list terms
     cdef public SHTerm term
     cdef np.ndarray coeff
+    cdef int level
     cdef cfl.zsh_inv_data *cfl_inv_data
     cdef public object inv_data_cap
 
-    def __init__(self, d, inter, coeff):
+    def __init__(self, d, inter, coeff, level):
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
         self.type = inter
+        self.level = level
         self.pro_data = 0
         if inter == 'zeeman':
             self.terms = [SHTerm(d, 'zeeman_x'), SHTerm(d, 'zeeman_y'), SHTerm(d, 'zeeman_z')]
@@ -580,12 +583,12 @@ cdef class SHInteractionData(object):
         if self.cfl_inv_data != NULL:
             cfl.zsh_inv_data_free(self.cfl_inv_data)
 
-    def set_pro_data(self, tensor, l):
+    def set_pro_data(self, tensor):
         if self.type == 'zeeman':
             for i,t in enumerate(self.terms):
-                t.set_pro_data(tensor[i], l)
+                t.set_pro_data(tensor[i], self.level)
         else:
-            self.term.set_pro_data(tensor, l)
+            self.term.set_pro_data(tensor, self.level)
         self.pro_data = 1
 
 
@@ -595,11 +598,12 @@ cdef class SpinHamiltonian:
     used for calculating spin Hamiltonian paremeters from crystal field
     parameters in conjunction with :class:`Hamiltonian` objects.  
     
-    The type of data a SpinHamiltonian object represents depends on the
+    The type of data that a SpinHamiltonian object represents depends on the
     specified interactions, but can be loosly thought of as the matrix elements
-    of interactions; for Zeeman interactions, this will be three sets of matrix
-    elements.  Objects of this type are used by the function :func:`esh_fit` to
-    fit crystal field parameters to spin Hamiltonian data.
+    of for all specified interactions; for Zeeman interactions, this will be
+    three sets of matrix elements.  Objects of this type are used by the
+    function :func:`esh_fit` to fit crystal field parameters to spin Hamiltonian
+    data.
 
     Parameters
     ----------
@@ -607,10 +611,9 @@ cdef class SpinHamiltonian:
         Elements are strings which specify the interactions of the spin
         Hamiltonian.  Possible values are: 'zeeman', 'hyperfine', and
         'quadrupole'.  
-    B : numpy.ndarray 
-        A `3` by `1` vector containing values for the magnetic field strengths
-        `B_x`, `B_y` and `B_z`; if ``terms`` contains 'zeeman' this keyword
-        argument must be specified.  
+    level : int
+        The level of the complete Hamiltonian for which to project the spin
+        Hamiltonian.
     S : float
         The spin projection `S_z`; if ``interactions`` contains 'zeeman' or
         'hyperfine' this keyword argument must be specified.
@@ -624,11 +627,11 @@ cdef class SpinHamiltonian:
     """
     cdef public list interactions 
     cdef public list inter_data
+    cpdef public int level
     cdef public int nsh
     cdef public int dsh
     cdef public int nobs
     cdef int nzeeman
-    cpdef public np.ndarray B
     cpdef public float S_spin
     cpdef public list S_matel
     cpdef public float I_spin
@@ -641,14 +644,9 @@ cdef class SpinHamiltonian:
                 raise ValueError("Invalid element in interactions list: '{}'.".format(i))
         self.interactions = interactions
 
-        if 'zeeman' in interactions:
-            try:
-                B = kwargs['B']
-                self.B = B
-            except KeyError:
-                raise ValueError("Missing keyword argument B.")
-        else:
-            B = None
+        if 'level' not in kwargs:
+            raise KeyError("Missing keyword argument 'level'.")
+        self.level = kwargs['level']
            
         # Calculate matrix elements for the specified interactions.
         j_l = ['jx', 'jy', 'jz']
@@ -656,7 +654,7 @@ cdef class SpinHamiltonian:
             try: 
                 S_spin = kwargs['S']
             except KeyError:
-                raise ValueError("Missing keyword argument S.")
+                raise KeyError("Missing keyword argument S.")
             # Calculate the matrix elements of spin operator.
             S_matel = [None]*3
             for i in range(3):
@@ -670,7 +668,7 @@ cdef class SpinHamiltonian:
             try:
                 I_spin = kwargs['I']
             except KeyError:
-                raise ValueError("Missing keyword argument I.")
+                raise KeyError("Missing keyword argument I.")
             # Calculate the matrix elements of nuclear spin operator.
             I_matel = [None]*3
             for i in range(3):
@@ -682,7 +680,7 @@ cdef class SpinHamiltonian:
             I_matel = None
 
         # Determine spin Hamiltonian dimension.
-        if B != None:
+        if 'zeeman' in interactions:
             if I_matel == None:
                 # Only the zeeman interaction.
                 dsh = 2*S_spin+1
@@ -697,19 +695,19 @@ cdef class SpinHamiltonian:
             dsh = (2*S_spin+1) * (2*I_spin+1)
         
         self.dsh = dsh
-        # Calculate the cofficient arrays and alloc spin Hamiltonian
+        # Calculate the coefficient arrays and alloc spin Hamiltonian
         # interactions.
         self.inter_data = []
         self.nsh = 0
         self.nobs = 0
         if 'zeeman' in interactions:
-            # Coefficient arrays are calculated for three B fields; the user
-            # specified B-direction is ignored for inversion. 
+            # Coefficient arrays are calculated for three B fields in \hat{x},
+            # \hat{y}, and \hat{z} directions, respectively. 
             dz = 2*S_spin+1
             B_a = np.zeros([3, dz**2, 9], dtype = np.complex)
             for i in range(3):
                 B_a[i, :, :] = zeeman_sh_coeff(np.eye(3,3)[i,:], S_matel)
-            zeeman = SHInteractionData(dz, 'zeeman', np.reshape(B_a, (3 * dz**2, 9)))
+            zeeman = SHInteractionData(dz, 'zeeman', np.reshape(B_a, (3 * dz**2, 9)), self.level)
             self.inter_data += [zeeman]
             self.nsh += 3
             # Three g-values plus three Euler rotation parameters.
@@ -717,7 +715,7 @@ cdef class SpinHamiltonian:
 
         if 'hyperfine' in interactions:
             dh = 2*S_spin+1 + 2*I_spin+1
-            hyperfine = SHInteractionData(dh, 'hyperfine', hyperfine_sh_coeff(I_matel, S_matel))
+            hyperfine = SHInteractionData(dh, 'hyperfine', hyperfine_sh_coeff(I_matel, S_matel), self.level)
             self.inter_data += [hyperfine]
             self.nsh += 1
             # Three hyperfine values plus three Euler rotation parameters.
@@ -725,14 +723,14 @@ cdef class SpinHamiltonian:
 
         if 'quadrupole' in interactions: 
             dq = 2*I_spin+1
-            quadrupole = SHInteractionData(dq, 'quadrupole', quadrupole_sh_coeff(I_matel))
+            quadrupole = SHInteractionData(dq, 'quadrupole', quadrupole_sh_coeff(I_matel), self.level)
             self.inter_data += [quadrupole]
             self.nsh += 1
             # Two quadrupole values plus three Euler rotation parameters.
             self.nobs += 5
 
     
-    def set_pro_data(self, interaction, tensor, level):
+    def set_pro_data(self, interaction, tensor):
         r"""
         Set the projection data for a specific spin Hamiltonian interaction. 
 
@@ -743,16 +741,14 @@ cdef class SpinHamiltonian:
         tensor : list or Tensor
             For Zeeman interactions a list of three tensors corresponding to
             `\hat{x}`, `\hat{y}`, and `\hat{z}` interactions must be specified. 
-        level : int
-            The level of the complete Hamiltonian for which to project the spin
-            Hamiltonian.
+
         """
         for i in self.inter_data:
             if i.type == interaction:
                 if interaction == 'zeeman':
                     if not isinstance(tensor, list):
                         raise ValueError("For Zeeman interactions tensor must be a list.")
-                i.set_pro_data(tensor, level)
+                i.set_pro_data(tensor)
                 return
 
         raise ValueError("This spin Hamiltonian object was not instantiated with {} "
@@ -1121,8 +1117,12 @@ cdef class ESHFitRunner(object):
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
-
-    def __init__(self, parameters, sh, h, ex, shx, weights):
+    # Set level when SH is instantiated. Tensors can either be set manually with
+    # current set_pro interface, or, will also be set automatically by eshfit.
+    # This means one only has to specify them once for multiple spin
+    # Hamiltonians, and also provides a convenient place to specify MAGZ under
+    # all circumstances. 
+    def __init__(self, parameters, sh_tensors, h, sh, ex, shx, weights):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.zsh *zsh_array_ptr
         cdef cfl.shx_data *shx_data_ptr
@@ -1142,25 +1142,49 @@ cdef class ESHFitRunner(object):
         self.n_p_real = pp['n_p_real']
         self.param_list = pp['param_list']
         self.param_types = pp['param_types']
+       
+        sh_tensor_dict = {}
+        for t in sh_tensors:
+            sh_tensor_dict[t.name] = t
+
+        if 'MAGZ' not in sh_tensor_dict:
+            raise ValueError("Missing 'MAGZ' from the sh_tensors list; 'MAGZ' is always "
+                    "required, since it is used to distinguish S=pm 1/2 states.")
 
         # Determine whether the complete Hamiltonian contains any interactions
-        # that are also part of the spin Hamiltonian.  Furthermore, we record
-        # the location of the Zeeman tensor, if it exists. 
+        # that are also part of the spin Hamiltonian.  Furthermore, we set the
+        # spin Hamiltonian projection tensors and we record the index of the
+        # Zeeman tensor, if it exists. 
         c_sh_tensors = []
+        pro_data_tensors = []
         self.nzeeman = -1
         for i,inter in enumerate(sh.inter_data):
-            if not inter.pro_data:
-                raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
             if inter.type == 'zeeman':
+                try:
+                    inter.set_pro_data([sh_tensor_dict['MAGX'], sh_tensor_dict['MAGY'], sh_tensor_dict['MAGZ']])
+                except KeyError:
+                    raise ValueError("Missing a Zeeman tensor from th sh_tensors_list.")
                 for t in inter.terms:
                     if t.tensor in h:
                         c_sh_tensors += [t.tensor]
                 self.nzeeman = i
             else:
+                if inter.type == 'hyperfine':
+                    try:
+                        inter.set_pro_data(sh_tensor_dict['AHYP'])
+                    except KeyError:
+                        raise ValueError("Missing hyperfine tensor from the sh_tensors_list.")
+                elif inter.type == 'quadrupole':
+                    try:
+                        inter.set_pro_data(sh_tensor_dict['EQHYP'])
+                    except KeyError:
+                        raise ValueError("Missing quadrupole tensor from the sh_tensors_list.")
                 if inter.term.tensor in h:
                     c_sh_tensors += [inter.term.tensor]
         
-        # If required, generate the first order Hamiltonian. 
+        # If the complete Hamiltonian also contains spin Hamiltonian
+        # interactions, generate a projection Hamiltonian which excludes those
+        # tensors. 
         pro_tensors = []
         if len(c_sh_tensors) != 0:
             for i,t in enumerate(h):
@@ -1737,7 +1761,7 @@ def e_fit(parameters, h, ex, cfl_min):
     return {'coeff': x, 'summary': summary}
 
 
-def esh_fit(parameters, sh, h, ex, shx, weights, cfl_min):
+def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     r"""
     Fit parameters to energy level data. 
 
@@ -1750,11 +1774,13 @@ def esh_fit(parameters, sh, h, ex, shx, weights, cfl_min):
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
-    sh : SpinHamiltonian
-        The spin Hamiltonian object to be fit. 
+        A list of tensor objects for which to vary the prefactor.
+    sh_tensors : list
+        A list of tensor objects for which to project spin Hamiltonian terms. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
+    sh : SpinHamiltonian
+        The spin Hamiltonian object to be fit. 
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
@@ -1771,7 +1797,7 @@ def esh_fit(parameters, sh, h, ex, shx, weights, cfl_min):
         The minimization object which sets the optimization algorithm and
         corresponding options.
     """
-    eshfit = ESHFitRunner(parameters, sh, h, ex, shx, weights)
+    eshfit = ESHFitRunner(parameters, sh_tensors, h, sh, ex, shx, weights)
     (x, fmin) = eshfit.fit(cfl_min)
     h.coeff = x
     (w, z) = h.diag()
