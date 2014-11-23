@@ -144,7 +144,7 @@ def gen_sh_summary(param, sh, shx=None, ndof=None):
 
     return s
 
-def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, **kwargs):
+def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
 
@@ -152,11 +152,9 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, **kwargs)
     ----------
     coeff : np.ndarray
         Contains the fitted interaction coefficients.
-    param_indices : dict
-        Initial values of coefficients for tensors to be fit.
-    param_initial : tuple
-        The first element corresponds to the initial coefficient value and the
-        second element corresponds to the tensor name.
+    fit_obj : EFitRunner or ESHFitRunner
+        Must have __iter__ method that iterates over tensors corresponding to
+        parameters and have h attribute corresponding to the Hamiltonian.
     method : str
         The optimization algorithm used for the fit.
     kwargs: dict
@@ -176,17 +174,17 @@ def gen_fit_summary(coeff, param_indices, param_initial, method, fmin, **kwargs)
     heading += "\n"
 
     s += uline_char(heading)
-    for i in range(len(param_initial)):
-        co = coeff[param_indices[i]]
+    for i,p in enumerate(fit_obj):
+        co = coeff[fit_obj.h.index(p)]
         if co.imag == 0:
             co = co.real
-        s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(param_initial[i][1]+":", co, 
-                param_initial[i][0], co-param_initial[i][0])
+        s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(p.name+":",
+                co, fit_obj.param_list[i], co-fit_obj.param_list[i])
         if 'bounds' in kwargs:
-            s += "{0: >20.0f} {1: >20.0f}".format(kwargs['bounds'][param_initial[i][1]][0],
-                    kwargs['bounds'][param_initial[i][1]][1])
+            s += "{0: >20.0f} {1: >20.0f}".format(kwargs['bounds'][p.name][0],
+                    kwargs['bounds'][p.name][1])
         if 'stepsize' in kwargs:
-            s += "{0: >20.0f}".format(kwargs['stepsize'][param_initial[i][1]])
+            s += "{0: >20.0f}".format(kwargs['stepsize'][p.name])
         s += "\n"
 
     if 'bounds' in kwargs:

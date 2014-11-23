@@ -37,7 +37,6 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       data dict (change zeeman to something else). 
 #       + Also, add check to ensure weighting is present for all sh terms. IF
 #       not, either fail, or set to 1.
-#       + Bounds checking... to ensure initial parameters are within bounds. 
 
 cdef class StateLabels:
     r"""
@@ -81,7 +80,6 @@ cdef class StateLabels:
             raise MemoryError("cfl_sl alloc failed")
         else:
             self.sl_cap = PyCapsule_New(<void *>self.cfl_sl, "pycfl.StateLabels", NULL)
-
 
     def __dealloc__(self):
         if self.cfl_sl != NULL:
@@ -198,6 +196,8 @@ cdef class Hamiltonian:
     A summary of calculated energy levels can be generated with
     :func:`cfl_util.gen_e_summary`.
 
+    Hamiltonians are iterable over the tensors used to instantiate it.
+
 
     Parameters
     ----------
@@ -215,6 +215,7 @@ cdef class Hamiltonian:
     cdef public int n
     cdef int nt
     cdef list tensors
+    cdef public dict coeff_dict
     cdef public np.ndarray coeff
     cdef public np.ndarray w
     cdef public np.ndarray z
@@ -275,15 +276,28 @@ cdef class Hamiltonian:
 
         Parameters
         ----------
-        coeff : np.ndarray
-            The order of elements in the array must match the order in which
-            tensors were specfied when the Hamiltonian object was instantiated.
-            dtype should be np.complex128.
-
+        coeff : dict
+            Must contain an element for each tensor specified when the
+            Hamiltonian object was instantiated.  Keys have to be the same as
+            tensor names. 
         """
         cdef np.ndarray[double complex, ndim=1, mode='c'] co
 
-        self.coeff = coeff
+        if not isinstance(coeff, dict):
+            raise TypeError("coeff is not a dictionary.")
+
+        # Keep copy of dict, since fitting routines need to know the original
+        # type of coeff elements to determine whether a param is real or
+        # complex.
+        self.coeff_dict = coeff
+
+        self.coeff = np.array([], dtype=np.complex128)
+        for t in self.tensors:
+            try:
+                self.coeff = np.append(self.coeff, coeff[t.name])
+            except KeyError:
+                raise KeyError("Missing coefficient for tensor: %s" % t.name)
+        
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
         self.coeff_set = 1
@@ -460,7 +474,9 @@ cpdef quadrupole_sh_coeff(t):
 
 cdef class SHTerm:
     r"""
-    Data storage for a single spin Hamiltonian term. 
+    Data storage for a single spin Hamiltonian term; it is a wrapper for cfl sh
+    objects.  As such, it is a representation for the matrix elements of a given
+    interaction type. 
 
     Parameters
     ----------
@@ -510,9 +526,11 @@ cdef class SHTerm:
         self.tensor = tensor
 
         
-cdef class SHTermData(object):
+cdef class SHInteractionData(object):
     r"""
-    Class used to store spin Hamiltonian data for a single interaction. 
+    Class used to store spin Hamiltonian data for a specific interaction.  For
+    'hyperfine' and 'quadrupole' interactions, this corresponds to a single
+    SHTerm, whereas for 'zeeman' interactions, it corresponds to three SHTerms. 
 
     Parameters
     ----------
@@ -528,7 +546,7 @@ cdef class SHTermData(object):
     
     Returns
     -------
-    term_data : SHTermData
+    data : SHInteractionData
 
     """
     cpdef public str type
@@ -573,10 +591,15 @@ cdef class SHTermData(object):
 
 cdef class SpinHamiltonian:
     r""" 
-    Objects of type spin Hamiltonian can be used for calculating spin
-    Hamiltonian paremeters from crystal field parameters in conjunction with
-    :class:`Hamiltonian` objects.  This is used by the function :func:`esh_fit`
-    to fit crystal field parameters to spin Hamiltonian data.
+    Abstraction for spin Hamiltonian data.  Objects of type SpinHamiltonian are
+    used for calculating spin Hamiltonian paremeters from crystal field
+    parameters in conjunction with :class:`Hamiltonian` objects.  
+    
+    The type of data a SpinHamiltonian object represents depends on the
+    specified interactions, but can be loosly thought of as the matrix elements
+    of interactions; for Zeeman interactions, this will be three sets of matrix
+    elements.  Objects of this type are used by the function :func:`esh_fit` to
+    fit crystal field parameters to spin Hamiltonian data.
 
     Parameters
     ----------
@@ -686,7 +709,7 @@ cdef class SpinHamiltonian:
             B_a = np.zeros([3, dz**2, 9], dtype = np.complex)
             for i in range(3):
                 B_a[i, :, :] = zeeman_sh_coeff(np.eye(3,3)[i,:], S_matel)
-            zeeman = SHTermData(dz, 'zeeman', np.reshape(B_a, (3 * dz**2, 9)))
+            zeeman = SHInteractionData(dz, 'zeeman', np.reshape(B_a, (3 * dz**2, 9)))
             self.inter_data += [zeeman]
             self.nsh += 3
             # Three g-values plus three Euler rotation parameters.
@@ -694,7 +717,7 @@ cdef class SpinHamiltonian:
 
         if 'hyperfine' in interactions:
             dh = 2*S_spin+1 + 2*I_spin+1
-            hyperfine = SHTermData(dh, 'hyperfine', hyperfine_sh_coeff(I_matel, S_matel))
+            hyperfine = SHInteractionData(dh, 'hyperfine', hyperfine_sh_coeff(I_matel, S_matel))
             self.inter_data += [hyperfine]
             self.nsh += 1
             # Three hyperfine values plus three Euler rotation parameters.
@@ -702,7 +725,7 @@ cdef class SpinHamiltonian:
 
         if 'quadrupole' in interactions: 
             dq = 2*I_spin+1
-            quadrupole = SHTermData(dq, 'quadrupole', quadrupole_sh_coeff(I_matel))
+            quadrupole = SHInteractionData(dq, 'quadrupole', quadrupole_sh_coeff(I_matel))
             self.inter_data += [quadrupole]
             self.nsh += 1
             # Two quadrupole values plus three Euler rotation parameters.
@@ -796,7 +819,9 @@ cdef class SpinHamiltonian:
             for i,t in enumerate(h):
                 if t not in c_sh_tensors:
                     pro_tensors += [t]
+            tmp_coeff = h.coeff_dict
             h = Hamiltonian(pro_tensors)
+            h.set_coeff(tmp_coeff)
 
         # Diagonalize the complete Hamiltonian, then determine the sh terms and
         # finally do the inversion for each interaction of sh.
@@ -830,49 +855,40 @@ cdef class SpinHamiltonian:
         return result_list
 
 
-def parse_param_helper(parameters, h, coeff_list):
+def parse_param_helper(parameters, h):
     r"""
-    Create lists that keep track of: the initial parameters, the indicies of
-    elements in coeff_array for which we have parameters to be varied
-    (param_indices), and the type of the parameter (real or complex).
+    In the following, the word parameters in only used to refer to tensor
+    coefficients which are varied during the fitting routine.  
+    
+    Additionally, reate an array of initial parameter values using the
+    coefficients of the provided Hamiltonian, and record their type.  The type
+    determines whether we fit a real or complex parameter. 
     """
-
-    param_initial = []
-    param_indices = []
+    param_list = []
     param_types = []
     n_p_real = 0
 
-    # Since coeff_list has tensor coefficients in the same order as the
-    # order in which tensors were passed to the Hamiltonian constructor we
-    # determine which coeff_list element a provided parameter corresponds to by
-    # looking up the corresponding tensor coefficient index of the total
-    # Hamiltonian. 
     for i,p in enumerate(parameters):
-        # Hamiltonian/coeff_list index of current param. 
         try:
             pi = h.index(p)
         except ValueError:
             raise ValueError("Tensor {} in parameters not found in h".format(p.name))
-        if not isinstance(coeff_list[pi], Number):
-            raise ValueError("Element {} in coefficients is not a number.".format(coeff_list[pi]))
+
+        if not isinstance(h.coeff_dict[p.name], Number):
+            raise ValueError("Element {} in coefficients is not a number." % p.name)
         # The parameter type is recorded such that any complex parameters
         # can be split into two real parameters.
-        if isinstance(coeff_list[pi], complex):
+        if isinstance(h.coeff_dict[p.name], complex):
             param_types.append('c')
             n_p_real += 2
         else:
             param_types.append('r')
             n_p_real += 1
-
-        param_indices.append(pi)
-
-        # Create a list of tuples with initial values of coefficients and
-        # the corresponding tensor name; used for printing a fitting
-        # summary.
-        param_initial += [(coeff_list[pi], p.name)]
         
-    return {'n_p_real': n_p_real, 'param_initial': param_initial,
-            'param_indices': param_indices, 'param_types': param_types}
+        param_list += [h.coeff_dict[p.name]]
+
+    return {'n_p_real': n_p_real, 'param_list' : param_list, 
+            'param_types': param_types}
 
 
 cdef class EFitRunner(object):
@@ -880,29 +896,27 @@ cdef class EFitRunner(object):
     Class used to store data required by, and to run, a crystal field fit using
     energy level data. 
 
+    The Hamiltonian must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when the are set also determines whether they are fit as real
+    or complex parameters. 
+
     Parameters
     ----------
     parameters : list
         A list of tensor objects for which to vary the prefactor. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
-    coeff_list : list
-        Coefficients for tensors.  Values in ``coeff_list`` that correspond to
-        parameters to be fit, that is, that are specified in ``parameters``, are
-        used as initial values in the fitting process.  Furthermore, the type of
-        elements in ``coeff_list`` determines whether only the real, or both the
-        real and the imaginary, components of the corresponding prefactors are
-        varied by the fitting routine.
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
         second column contains corresponding experimental energy level values. 
     """
-    cdef Hamiltonian h
+    cdef public Hamiltonian h
     cdef int n_p
+    cdef list parameters
     cpdef public int n_p_real
-    cpdef public list param_initial
-    cpdef public list param_indices
+    cpdef public list param_list
     cpdef public list param_types
     cdef cfl.ex_data *ex_data
     cdef cfl.param_type **param_array
@@ -915,7 +929,7 @@ cdef class EFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     
-    def __init__(self, parameters, h, coeff_list, ex):
+    def __init__(self, parameters, h, ex):
         cdef cfl.param_type *param_type_ptr
         cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
@@ -925,23 +939,23 @@ cdef class EFitRunner(object):
         
         self.h = h
         self.n_p = len(parameters)
+        self.parameters = parameters
 
-        pp = parse_param_helper(parameters, h, coeff_list)
+        pp = parse_param_helper(parameters, h)
         self.n_p_real = pp['n_p_real']
-        self.param_initial = pp['param_initial']
-        self.param_indices = pp['param_indices']
+        self.param_list = pp['param_list']
         self.param_types = pp['param_types']
 
         if self.n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds "
-                    "the number of observables.  Don't do that.")
+                    "the number of observables.")
         elif ex.shape[1] != 2:
             raise ValueError("Incorrect ex shape; expected a two column array.")
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.coeff = np.ascontiguousarray(np.array(coeff_list), dtype=np.complex128)
+        self.coeff = np.ascontiguousarray(h.coeff, dtype=np.complex128)
         coeff = <np.ndarray[double, ndim=1, mode="c"]> self.coeff     
 
         # Prepare experimental energy level data
@@ -974,16 +988,15 @@ cdef class EFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
-            pi = self.param_indices[i]
             param_array[i].type = cfl.atoi(self.param_types[i])
-            param_array[i].index = pi
+            param_array[i].index = h.index(parameters[i])
 
             if self.param_types[i] == 'c':
-                self.p0_real[ip_real] = np.real(coeff_list[pi])
-                self.p0_real[ip_real+1] = np.imag(coeff_list[pi])
+                self.p0_real[ip_real] = np.real(self.param_list[i])
+                self.p0_real[ip_real+1] = np.imag(self.param_list[i])
                 ip_real += 2
             else:
-                self.p0_real[ip_real] = coeff_list[pi]
+                self.p0_real[ip_real] = self.param_list[i]
                 ip_real += 1
 
         self.param_array = param_array 
@@ -1009,6 +1022,10 @@ cdef class EFitRunner(object):
             free(self.param_array)
         if self.efit_data != NULL:
             cfl.efit_data_free(self.efit_data)
+
+    def __iter__(self):
+        for p in self.parameters:
+            yield p
     
     def fit(self, min_object):
         r"""
@@ -1033,17 +1050,17 @@ cdef class EFitRunner(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
 
-        #fmin = min_object.minimize(self.obj_f_cap, x, self.fit_data_cap, self.bounds, self.stepsize)
         fmin = min_object.minimize(self, x)
         
         coeff = self.coeff 
         ri = 0
-        for i in range(self.n_p):
+        
+        for i,p in enumerate(self):
             if (self.param_types[i] == 'c'): 
-                coeff[self.param_indices[i]] = np.complex(x[ri], x[ri+1])
+                coeff[self.h.index(p)] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[self.param_indices[i]] = x[ri]
+                coeff[self.h.index(p)] = x[ri]
                 ri += 1
         
         return(coeff, fmin)
@@ -1053,7 +1070,12 @@ cdef class EFitRunner(object):
 cdef class ESHFitRunner(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
-    energy level and spin Hamiltonian data. 
+    energy level and spin Hamiltonian data.
+
+    The Hamiltonian must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when the are set also determines whether they are fit as real
+    or complex parameters. 
 
     Parameters
     ----------
@@ -1063,13 +1085,6 @@ cdef class ESHFitRunner(object):
         The spin Hamiltonian object to be fit. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
-    coeff_list : list
-        Coefficients for tensors.  Values in ``coeff_list`` that correspond to
-        parameters to be fit, that is, that are specified in ``parameters``, are
-        used as initial values in the fitting process.  Furthermore, the type of
-        elements in ``coeff_list`` determines whether only the real, or both the
-        real and the imaginary, components of the corresponding prefactors are
-        varied by the fitting routine.
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
@@ -1084,12 +1099,12 @@ cdef class ESHFitRunner(object):
         corresponding values should be floats.
     """
     cdef SpinHamiltonian sh
-    cdef Hamiltonian h
+    cdef public Hamiltonian h
     cdef Hamiltonian hpro
     cdef int n_p
+    cdef list parameters
     cpdef public int n_p_real
-    cpdef public list param_initial
-    cpdef public list param_indices
+    cpdef public list param_list
     cpdef public list param_types
     cdef int nzeeman
     cdef cfl.ex_data *ex_data
@@ -1107,7 +1122,7 @@ cdef class ESHFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
 
-    def __init__(self, parameters, sh, h, coeff_list, ex, shx, weights):
+    def __init__(self, parameters, sh, h, ex, shx, weights):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.zsh *zsh_array_ptr
         cdef cfl.shx_data *shx_data_ptr
@@ -1121,11 +1136,11 @@ cdef class ESHFitRunner(object):
         self.sh = sh
         self.h = h
         self.n_p = len(parameters)
+        self.parameters = parameters
 
-        pp = parse_param_helper(parameters, h, coeff_list)
+        pp = parse_param_helper(parameters, h)
         self.n_p_real = pp['n_p_real']
-        self.param_initial = pp['param_initial']
-        self.param_indices = pp['param_indices']
+        self.param_list = pp['param_list']
         self.param_types = pp['param_types']
 
         # Determine whether the complete Hamiltonian contains any interactions
@@ -1144,7 +1159,7 @@ cdef class ESHFitRunner(object):
             else:
                 if inter.term.tensor in h:
                     c_sh_tensors += [inter.term.tensor]
-           
+        
         # If required, generate the first order Hamiltonian. 
         pro_tensors = []
         if len(c_sh_tensors) != 0:
@@ -1152,19 +1167,20 @@ cdef class ESHFitRunner(object):
                 if t not in c_sh_tensors:
                     pro_tensors += [t]
             self.hpro = Hamiltonian(pro_tensors)
+            self.hpro.set_coeff(h.coeff_dict)
         else:
             self.hpro = None
 
         if self.n_p_real > len(ex) + sh.nsh:
             raise ValueError("The total (real and imaginary) number of parameters "
-                "exceeds the number of observables. Don't do that.")
+                "exceeds the number of observables.")
         elif ex.shape[1] != 2:
             raise ValueError("Incorrect ex shape; expected a two column array.")
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.coeff = np.ascontiguousarray(np.array(coeff_list), dtype=np.complex128)
+        self.coeff = np.ascontiguousarray(h.coeff, dtype=np.complex128)
         coeff = <np.ndarray[double, ndim=1, mode="c"]> self.coeff
        
         # Prepare experimental energy level data
@@ -1187,7 +1203,7 @@ cdef class ESHFitRunner(object):
             free(self.ex_data)
             raise MemoryError("param_array alloc failed")
         self.param_array = param_array 
-        
+       
         ip_real = 0
         for i in range(self.n_p):
             param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
@@ -1198,18 +1214,17 @@ cdef class ESHFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
 
-            pi = self.param_indices[i]
             param_array[i].type = cfl.atoi(self.param_types[i])
-            param_array[i].index = pi
+            param_array[i].index = h.index(parameters[i])
 
             if self.param_types[i] == 'c':
-                self.p0_real[ip_real] = np.real(coeff_list[pi])
-                self.p0_real[ip_real+1] = np.imag(coeff_list[pi])
+                self.p0_real[ip_real] = np.real(self.param_list[i])
+                self.p0_real[ip_real+1] = np.imag(self.param_list[i])
                 ip_real += 2
             else:
-                self.p0_real[ip_real] = coeff_list[pi]
+                self.p0_real[ip_real] =  self.param_list[i]
                 ip_real += 1
-        
+
         # Array of spin Hamiltonians and experimental spin Hamiltonian data.
         sh_array = <cfl.zsh **>malloc(sh.nsh*cython.sizeof(zsh_array_ptr))
         if (sh_array == NULL):
@@ -1346,7 +1361,10 @@ cdef class ESHFitRunner(object):
             free(self.shx_array)
         if self.eshfit_data != NULL:
             cfl.eshfit_data_free(self.eshfit_data)
-     
+    
+    def __iter__(self):
+        for p in self.parameters:
+            yield p
 
     def fit(self, min_object):
         r"""
@@ -1371,18 +1389,18 @@ cdef class ESHFitRunner(object):
         cdef sigma = 0
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        #fmin = min_object.minimize(self.obj_f_cap, x, self.eshfit_data_cap, self.bounds, self.stepsize)
         fmin = min_object.minimize(self, x)
         
         coeff = self.coeff 
         ri = 0
-        for i in range(self.n_p):
+        for i,p in enumerate(self):
             if (self.param_types[i] == 'c'): 
-                coeff[self.param_indices[i]] = np.complex(x[ri], x[ri+1])
+                coeff[self.h.index(p)] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[self.param_indices[i]] = x[ri]
+                coeff[self.h.index(p)] = x[ri]
                 ri += 1
+
 
         return(coeff, fmin)
 
@@ -1476,14 +1494,7 @@ cdef class CFLMin:
         Parameters
         ----------
         fit_obj : EFitRunner or ESHFitRunner
-            The object for which to perform the fit.  Must have the following
-            public attributes:
-                - obj_f_cap
-                - fit_data_cap
-                - n_p_real
-                - param_initial
-                - param_types
-            EFitRunner and ESHFitRunner objects satisfy these requirements. 
+            The object for which to perform the fit. 
         x0 : np.ndarray
             Real valued vector.  Upon entry, these are the initial guesses for
             the parameters; if minimization is successful, x0 will be
@@ -1519,49 +1530,48 @@ cdef class CFLMin:
             lb = np.zeros(fit_obj.n_p_real)
             ub = np.zeros(fit_obj.n_p_real)
             rpi = 0
-            if len(fit_obj.param_initial) != len(self.kwargs['bounds']):
+            if len(fit_obj.param_list) != len(self.kwargs['bounds']):
                 raise ValueError("The number of provided bounds does not match the "
                         "number of provided parameters.")
             bounds = self.kwargs['bounds']
-            for i in range(len(fit_obj.param_initial)):
-                tname = fit_obj.param_initial[i][1]
+            for i,p in enumerate(fit_obj):
                 if fit_obj.param_types[i] == 'c':
                     try:
-                        if not isinstance(bounds[tname][0], complex) or \
-                                not isinstance(bounds[tname][1], complex):
+                        if not isinstance(bounds[p.name][0], complex) or \
+                                not isinstance(bounds[p.name][1], complex):
                             raise ValueError("%s bounds are not complex, yet the "
-                                    "corresponding coefficient is." % tname)
+                                    "corresponding coefficient in the Hamiltonian is." % p.name)
                     except KeyError:
-                        raise KeyError("Missing bounds key %s." % tname)
-                    lb[rpi] = np.real(bounds[tname][0])
-                    lb[rpi+1] = np.imag(bounds[tname][0])
-                    ub[rpi] = np.real(bounds[tname][1])
-                    ub[rpi+1] = np.imag(bounds[tname][1])
-                    if np.real(fit_obj.param_initial[i][0]) < lb[rpi]:
-                        raise ValueError("The real part of initial value of the %s coefficient is "
-                                "less than the specified lower bound." % tname)
-                    elif np.imag(fit_obj.param_initial[i][0]) < lb[rpi+1]:
-                        raise ValueError("The imaginary part of initial value of the %s coefficient is "
-                                "less than the specified lower bound." % tname)
-                    elif np.real(fit_obj.param_initial[i][0]) > ub[rpi]:
-                        raise ValueError("The real part of initial value of the %s coefficient is "
-                                "greater than the specified upper bound." % tname)
-                    elif np.imag(fit_obj.param_initial[i][0]) > ub[rpi+1]:
-                        raise ValueError("The imaginary part of initial value of the %s coefficient is "
-                                "greater than the specified upper bound." % tname)
+                        raise KeyError("Missing bounds key %s." % p.name)
+                    lb[rpi] = np.real(bounds[p.name][0])
+                    lb[rpi+1] = np.imag(bounds[p.name][0])
+                    ub[rpi] = np.real(bounds[p.name][1])
+                    ub[rpi+1] = np.imag(bounds[p.name][1])
+                    if np.real(fit_obj.h.coeff_dict[p.name]) < lb[rpi]:
+                        raise ValueError("The real part of the %s coefficient in the Hamiltonian is"
+                                "less than the specified lower bound." % p.name)
+                    elif np.imag(fit_obj.h.coeff_dict[p.name]) < lb[rpi+1]:
+                        raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is"
+                                "less than the specified lower bound." % p.name)
+                    elif np.real(fit_obj.h.coeff_dict[p.name]) > ub[rpi]:
+                        raise ValueError("The real part of the %s coefficient in the Hamiltonian is"
+                                "greater than the specified lower bound." % p.name)
+                    elif np.imag(fit_obj.h.coeff_dict[p.name]) > ub[rpi+1]:
+                        raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is"
+                                "greater than the specified lower bound." % p.name)
                     rpi += 2
                 else:
                     try:
-                        lb[rpi] = np.real(bounds[tname][0])
-                        ub[rpi] = np.real(bounds[tname][1])
+                        lb[rpi] = np.real(bounds[p.name][0])
+                        ub[rpi] = np.real(bounds[p.name][1])
                     except KeyError:
-                        raise KeyError("Missing bounds key %s." % tname)
-                    if fit_obj.param_initial[i][0] < lb[rpi]:
-                        raise ValueError("The initial value of the %s coefficient is "
-                                "less than the specified lower bound." % tname)
-                    elif fit_obj.param_initial[i][0] > ub[rpi]:
-                        raise ValueError("The initial value of the %s coefficient is "
-                                "greater than the specified upper bound." % tname)
+                        raise KeyError("Missing bounds key %s." % p.name)
+                    if fit_obj.h.coeff_dict[p.name] < lb[rpi]:
+                        raise ValueError("The %s coefficient in the Hamiltonian is"
+                                "less than the specified lower bound." % p.name)
+                    elif fit_obj.h.coeff_dict[p.name] > ub[rpi]:
+                        raise ValueError("The %s coefficient in the Hamiltonian is"
+                                "greater than the specified lower bound." % p.name)
                     rpi += 1
 
             cfl_bounds = <cfl.cfl_min_bounds *>malloc(cython.sizeof(cfl.cfl_min_bounds))
@@ -1589,27 +1599,28 @@ cdef class CFLMin:
             if 'stepsize' in self.kwargs:
                 cstepsize = np.zeros(fit_obj.n_p_real)
                 rpi = 0
-                if len(fit_obj.param_initial) != len(self.kwargs['stepsize']):
+                if len(fit_obj.param_list) != len(self.kwargs['stepsize']):
                     raise ValueError("The of elements of stepsize does not match the "
                             "number of provided parameters.")
                 stepsize = self.kwargs['stepsize']
-                for i in range(len(fit_obj.param_initial)):
-                    tname = fit_obj.param_initial[i][1]
+
+                for i,p in enumerate(fit_obj.parameters):
+                    print('bla')
                     if fit_obj.param_types[i] == 'c':
                         try:
-                            if not isinstance(stepsize[tname], complex):
+                            if not isinstance(stepsize[p.name], complex):
                                 raise ValueError("%s stepsize is not complex, yet the "
-                                        "corresponding coefficient is." % tname)
+                                        "corresponding Hamiltonian coefficient is." % p.name)
                         except KeyError:
-                            raise KeyError("Missing stepsize key %s." % tname)
-                        cstepsize[rpi] = np.real(stepsize[tname])
-                        cstepsize[rpi+1] = np.imag(stepsize[tname])
+                            raise KeyError("Missing stepsize key %s." % p.name)
+                        cstepsize[rpi] = np.real(stepsize[p.name])
+                        cstepsize[rpi+1] = np.imag(stepsize[p.name])
                         rpi += 2
                     else:
                         try:
-                            cstepsize[rpi] = np.real(stepsize[tname])
+                            cstepsize[rpi] = np.real(stepsize[p.name])
                         except KeyError:
-                            raise KeyError("Missing stepsize key %s." % tname)
+                            raise KeyError("Missing stepsize key %s." % p.name)
                         rpi += 1
     
                 stepsize_ptr = &cstepsize[0]
@@ -1668,7 +1679,7 @@ cdef class CFLMin:
                     cxtol, self.cfl_bounds)
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
-
+        
         with nogil:
             naccept = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
         
@@ -1677,23 +1688,21 @@ cdef class CFLMin:
         return fmin
 
 
-def e_fit(parameters, h, coeff, ex, cfl_min):
+def e_fit(parameters, h, ex, cfl_min):
     r"""
     Fit parameters to energy level data. 
 
+    The Hamiltonian must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when the are set also determines whether they are fit as real
+    or complex parameters. 
+    
     Parameters
     ----------
     parameters : list
         A list of tensor objects for which to vary the prefactor. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
-    coeff : list
-        Coefficients for tensors.  Values in coeff which correspond to
-        parameters to be fit, that is, they are specified in param_list, are
-        used as initial values in the fitting process.  Furthermore, the type of
-        elements in coeff determines whether only the real, or both the real and
-        the imaginary, components of the corresponding prefactors are varied by
-        the fitting routine. 
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
@@ -1702,10 +1711,9 @@ def e_fit(parameters, h, coeff, ex, cfl_min):
         The minimization object which sets the optimization algorithm and
         corresponding options.
     """
-    efit = EFitRunner(parameters, h, coeff, ex)
+    efit = EFitRunner(parameters, h, ex)
     (x, fmin) = efit.fit(cfl_min)
-    
-    h.set_coeff(x)
+    h.coeff = x
     (w, z) = h.diag()
 
     # The number of degrees of freedom of the chi-squared distribution
@@ -1724,16 +1732,21 @@ def e_fit(parameters, h, coeff, ex, cfl_min):
     summary+= "=============\n\n"
     summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
     summary += "\n"
-    summary += gen_fit_summary(x, efit.param_indices, efit.param_initial, cfl_min.method, 
-            fmin, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
 
-def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
+def esh_fit(parameters, sh, h, ex, shx, weights, cfl_min):
     r"""
     Fit parameters to energy level data. 
- 
+
+    The Hamiltonian must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when the are set also determines whether they are fit as real
+    or complex parameters. 
+
+
     Parameters
     ----------
     parameters : list
@@ -1742,13 +1755,6 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
         The spin Hamiltonian object to be fit. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
-    coeff : list
-        Coefficients for tensors.  Values in coeff which correspond to
-        parameters to be fit, that is, that are specified in param_list, are
-        used as initial values in the fitting process.  Furthermore, the type of
-        elements in coeff determines whether only the real, or both the real and
-        the imaginary, components of the corresponding prefactors are varied by
-        the fitting routine.
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices and the
@@ -1765,9 +1771,9 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
         The minimization object which sets the optimization algorithm and
         corresponding options.
     """
-    eshfit = ESHFitRunner(parameters, sh, h, coeff, ex, shx, weights)
+    eshfit = ESHFitRunner(parameters, sh, h, ex, shx, weights)
     (x, fmin) = eshfit.fit(cfl_min)
-    h.set_coeff(x)
+    h.coeff = x
     (w, z) = h.diag()
     
     # The number of degrees of freedom of the chi-squared distribution
@@ -1788,8 +1794,7 @@ def esh_fit(parameters, sh, h, coeff, ex, shx, weights, cfl_min):
     summary += "\n"
     summary += gen_sh_summary(sh.calc_param(h), sh, shx, ndof=ndof)
     summary += "\n"
-    summary += gen_fit_summary(x, eshfit.param_indices, eshfit.param_initial, cfl_min.method, 
-            fmin, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
