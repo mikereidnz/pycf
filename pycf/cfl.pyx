@@ -1191,8 +1191,8 @@ cdef class ESHFitRunner(object):
         # in sh), the small MAGZ term will always be added to hpro even if the
         # zeeman term is present.
         try:
-            MAGZ_small = 0.0001 * sh_tensor_dict['MAGZ']
-            MAGZ_small.name = 'MAGZ_small'
+            magz_small = 0.0001 * sh_tensor_dict['MAGZ']
+            magz_small.name = 'MAGZ_small'
         except KeyError:
             raise ValueError("Missing 'MAGZ' from the sh_tensors list; 'MAGZ' is always "
                     "required, since it is used to distinguish S=+1/2 and S=-1/2 states.")
@@ -1200,7 +1200,7 @@ cdef class ESHFitRunner(object):
         if 'MAGZ_small' not in h.coeff_dict:
             tmp_coeff = h.coeff_dict
             tmp_coeff['MAGZ_small'] = 1
-            self.h = Hamiltonian([MAGZ_small] + h.tensors)
+            self.h = Hamiltonian([magz_small] + h.tensors)
             self.h.set_coeff(tmp_coeff)
         else:
             self.h = h
@@ -1481,7 +1481,7 @@ cdef class CFLMin:
             - 'nlopt_sbplx'.
 
     cov : bool, optional
-        Evaluate the covariance matrix for the fit; defaults to True.
+        Evaluate the covariance matrix for the fit; defaults to False.
     bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
         created by tensor arithmethic should have their name attribute set
@@ -1516,7 +1516,7 @@ cdef class CFLMin:
 
     def __cinit__(self, method, **kwargs):
         if 'cov' not in kwargs:
-            kwargs['cov'] = True
+            kwargs['cov'] = False
 
         if method == 'basinhopping':
             if 'niter' in kwargs:

@@ -133,9 +133,9 @@ def gen_sh_summary(param, sh, shx=None, ndof=None):
         else:
             s += uline("Theory\n")
         for j in range(3):
-            s += str(np.real(param[i]).reshape(3,3)[j,:])
+            s += str(np.real(np.abs(param[i])).reshape(3,3)[j,:])
             if shx != None:
-                s += "  " + str(shx[inter].reshape(3,3)[j,:]) + "  " + str((shx[inter] - np.real(param[i])).reshape(3,3)[j,:]) + "\n"
+                s += "  " + str(np.abs(shx[inter].reshape(3,3)[j,:])) + "  " + str((np.abs(shx[inter]) - np.abs(np.real(param[i]))).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
     
@@ -263,7 +263,7 @@ def sh_fit_sigma(param, sh, shx, ndof):
 
     chi2 = 0
     for i,inter in enumerate(sh.interactions):
-        chi2 += np.sum((shx[inter] - np.real(param[i]))**2)
+        chi2 += np.sum((np.abs(shx[inter]) - np.abs(np.real(param[i])))**2)
 
     sigma = np.sqrt(chi2/ndof)
 

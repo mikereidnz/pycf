@@ -412,7 +412,7 @@ inline double echisq(double *e, ex_data *d) {
   for (i=0; i<d->n; i++) {
     chisq += pow(e[d->li[i]] - d->e[i], 2);
   }
-  //printf("chisq = %.10f\n", chisq);
+  
   return chisq;
 }
 
@@ -429,7 +429,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
   double chisq=0;
 
   for (i=0; i<9; i++) {
-    chisq += pow(cabs(pa[i] - xpa[i]), 2);
+    chisq += pow(cabs(pa[i]) - cabs(xpa[i]), 2);
   }
   
   return chisq;
@@ -569,7 +569,6 @@ void efit_chi2(double *x, void *data, double *chi2) {
   zhd(d->eval, d->evect, d->h, d->hd_w);
   chi2[0] = echisq(d->eval, d->ex);
   d->echisq_weight = 1/chi2[0];
-  printf("echisq_weight=%.10f\n", d->echisq_weight);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, in scenario where
@@ -584,7 +583,6 @@ void eshfit_chi2(double *x, void *data, double *chi2) {
   chi2[0] = echisq(d->h_eval, d->ex);
   d->echisq_weight = 1/chi2[0];
 
-  printf("sh echisq_weight=%.10f\n", d->echisq_weight);
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
   sh_index = 0;
