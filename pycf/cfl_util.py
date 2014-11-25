@@ -191,7 +191,9 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
         del kwargs['bounds']
     if 'stepsize' in kwargs:
         del kwargs['stepsize']
-  
+ 
+
+    np.set_printoptions(formatter={'float': lambda x: '{:10.4f}'.format(x)}, linewidth=140)
     if kwargs['cov']:
         s += "\n" + uline_char("Covariance matrix:\n")
         try:

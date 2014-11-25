@@ -1580,9 +1580,7 @@ cdef class CFLMin:
             lb = np.zeros(fit_obj.n_p_real)
             ub = np.zeros(fit_obj.n_p_real)
             rpi = 0
-            if len(fit_obj.param_list) != len(self.kwargs['bounds']):
-                raise ValueError("The number of provided bounds does not match the "
-                        "number of provided parameters.")
+
             bounds = self.kwargs['bounds']
             for i,p in enumerate(fit_obj):
                 if fit_obj.param_types[i] == 'c':
