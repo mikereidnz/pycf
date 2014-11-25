@@ -224,6 +224,7 @@ void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
       hz, n, shp_w->a, n, &zero, shp_w->b, n);
   size_t l = sh->pro_data->l;
+
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
       a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];

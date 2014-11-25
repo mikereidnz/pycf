@@ -38,6 +38,9 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       not, either fail, or set to 1.
 #       + set default self.coeff_dict=None, add check to parse_param, and change
 #       other coeff_set checks to also use coeff_dict!=None.
+#       + Add magz to SpinHamiltonian calc_coeff method.
+#       + Change SpinHamiltonian set_pro_data to be a dict/list of all tensors,
+#       s.t. one can consistently supply magz even in hyp or quad only cases.
 
 cdef class StateLabels:
     r"""
@@ -215,7 +218,7 @@ cdef class Hamiltonian:
     cdef cfl.zt **tensor_array
     cdef public int n
     cdef int nt
-    cdef list tensors
+    cdef public list tensors
     cdef public dict coeff_dict
     cdef public np.ndarray coeff
     cdef public np.ndarray w
@@ -776,10 +779,10 @@ cdef class SpinHamiltonian:
         cdef list shi_work_list = []
         cdef list result_list = []
         cdef np.ndarray[double complex, ndim=1, mode="c"] a
-        cdef np.ndarray[double complex, ndim=2, mode="c"] cz
+        cdef np.ndarray[double complex, ndim=1, mode="c"] cz
         cdef int cj
         cdef int z_num
-        
+        #FIXME: add check to make sure proj data has been added. 
         c_sh_tensors = []
         self.nzeeman = -1
         for i,inter in enumerate(self.inter_data):
@@ -808,8 +811,19 @@ cdef class SpinHamiltonian:
             else:
                 if inter.term.tensor in h:
                     c_sh_tensors += [inter.term.tensor]
-           
-        # If required, replace h with a dedicated projection Hamiltonian
+
+        # Get Zeeman tensor.
+        for i in self.inter_data:
+            if i.type == 'zeeman':
+                small_magz =  0.0001 * i.terms[2].tensor
+                small_magz.name = 'MAGZ_small'
+        
+        tmp_h_coeff = h.coeff_dict
+        tmp_h_coeff['MAGZ_small'] = 1
+        h = Hamiltonian([small_magz] + h.tensors)
+        h.set_coeff(tmp_h_coeff)
+        
+        # If required, replace h with a dedicated projection Hamiltonian.
         pro_tensors = []
         if len(c_sh_tensors) != 0:
             for i,t in enumerate(h):
@@ -822,7 +836,8 @@ cdef class SpinHamiltonian:
         # Diagonalize the complete Hamiltonian, then determine the sh terms and
         # finally do the inversion for each interaction of sh.
         (w, z) = h.diag()
-        cz = <np.ndarray[double complex, ndim=2, mode="c"]> z
+
+        cz = <np.ndarray[double complex, ndim=1, mode="c"]> z.flatten()
         for i,inter in enumerate(self.inter_data):
             if inter.type == 'zeeman':
                 # Since Zeeman interactions require three sh terms for inversion
@@ -832,11 +847,11 @@ cdef class SpinHamiltonian:
                 a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(z_num*3, dtype=np.complex128)
                 for j,t in enumerate(inter.terms):
                     cj = j
-                    cfl.zshp(&a[cj*z_num], &cz[0,0], <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm"),
+                    cfl.zshp(&a[cj*z_num], &cz[0], <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm"),
                             <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
             else:
                 a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.term.n**2, dtype=np.complex128)
-                cfl.zshp(&a[0], &cz[0,0], <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm"), 
+                cfl.zshp(&a[0], &cz[0], <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm"), 
                         <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
             # Do the inversion; we can directly pass on 'a' even in the Zeeman
             # case.
@@ -856,22 +871,20 @@ def parse_param_helper(parameters, h):
     In the following, the word parameters in only used to refer to tensor
     coefficients which are varied during the fitting routine.  
     
-    Additionally, reate an array of initial parameter values using the
-    coefficients of the provided Hamiltonian, and record their type.  The type
-    determines whether we fit a real or complex parameter. 
+    Ceate a list of initial parameter values using the coefficients of the
+    provided Hamiltonian, and record their type.  The type determines whether we
+    fit a real or complex parameter. 
     """
     param_list = []
     param_types = []
     n_p_real = 0
 
     for i,p in enumerate(parameters):
-        try:
-            pi = h.index(p)
-        except ValueError:
-            raise ValueError("Tensor {} in parameters not found in h".format(p.name))
+        if p not in h:
+            raise ValueError("Tensor %s in parameters not found in h." % p.name)
 
         if not isinstance(h.coeff_dict[p.name], Number):
-            raise ValueError("Element {} in coefficients is not a number." % p.name)
+            raise ValueError("Element %s in coefficients is not a number." % p.name)
         # The parameter type is recorded such that any complex parameters
         # can be split into two real parameters.
         if isinstance(h.coeff_dict[p.name], complex):
@@ -910,7 +923,7 @@ cdef class EFitRunner(object):
     """
     cdef public Hamiltonian h
     cdef int n_p
-    cdef list parameters
+    cdef public list parameters
     cpdef public int n_p_real
     cpdef public list param_list
     cpdef public list param_types
@@ -1098,7 +1111,7 @@ cdef class ESHFitRunner(object):
     cdef public Hamiltonian h
     cdef Hamiltonian hpro
     cdef int n_p
-    cdef list parameters
+    cdef public list parameters
     cpdef public int n_p_real
     cpdef public list param_list
     cpdef public list param_types
@@ -1132,25 +1145,15 @@ cdef class ESHFitRunner(object):
         cdef np.ndarray[double complex, ndim=1, mode="c"] shx_pa
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
-
-        self.sh = sh
-        self.h = h
+        
         self.n_p = len(parameters)
         self.parameters = parameters
+        self.sh = sh
 
-        pp = parse_param_helper(parameters, h)
-        self.n_p_real = pp['n_p_real']
-        self.param_list = pp['param_list']
-        self.param_types = pp['param_types']
-       
         sh_tensor_dict = {}
         for t in sh_tensors:
             sh_tensor_dict[t.name] = t
-
-        if 'MAGZ' not in sh_tensor_dict:
-            raise ValueError("Missing 'MAGZ' from the sh_tensors list; 'MAGZ' is always "
-                    "required, since it is used to distinguish S=pm 1/2 states.")
-
+        
         # Determine whether the complete Hamiltonian contains any interactions
         # that are also part of the spin Hamiltonian.  Furthermore, we set the
         # spin Hamiltonian projection tensors and we record the index of the
@@ -1163,7 +1166,7 @@ cdef class ESHFitRunner(object):
                 try:
                     inter.set_pro_data([sh_tensor_dict['MAGX'], sh_tensor_dict['MAGY'], sh_tensor_dict['MAGZ']])
                 except KeyError:
-                    raise ValueError("Missing a Zeeman tensor from th sh_tensors_list.")
+                    raise ValueError("Missing a Zeeman tensor from the sh_tensors_list.")
                 for t in inter.terms:
                     if t.tensor in h:
                         c_sh_tensors += [t.tensor]
@@ -1181,17 +1184,35 @@ cdef class ESHFitRunner(object):
                         raise ValueError("Missing quadrupole tensor from the sh_tensors_list.")
                 if inter.term.tensor in h:
                     c_sh_tensors += [inter.term.tensor]
+       
+        # Add small magnetic field along the \hat{z} direction to corretly order
+        # S=1/2 and S=-1/2 states.  Since we have already determined
+        # c_sh_tensors (list of tensors in the complete h that are also present
+        # in sh), the small MAGZ term will always be added to hpro even if the
+        # zeeman term is present.
+        try:
+            MAGZ_small = 0.0001 * sh_tensor_dict['MAGZ']
+            MAGZ_small.name = 'MAGZ_small'
+        except KeyError:
+            raise ValueError("Missing 'MAGZ' from the sh_tensors list; 'MAGZ' is always "
+                    "required, since it is used to distinguish S=+1/2 and S=-1/2 states.")
         
-        # If the complete Hamiltonian also contains spin Hamiltonian
-        # interactions, generate a projection Hamiltonian which excludes those
-        # tensors. 
+        if 'MAGZ_small' not in h.coeff_dict:
+            tmp_coeff = h.coeff_dict
+            tmp_coeff['MAGZ_small'] = 1
+            self.h = Hamiltonian([MAGZ_small] + h.tensors)
+            self.h.set_coeff(tmp_coeff)
+        else:
+            self.h = h
+
+        # Generate a dedicated projection Hamiltonian, if required. 
         pro_tensors = []
         if len(c_sh_tensors) != 0:
-            for i,t in enumerate(h):
+            for i,t in enumerate(self.h):
                 if t not in c_sh_tensors:
                     pro_tensors += [t]
             self.hpro = Hamiltonian(pro_tensors)
-            self.hpro.set_coeff(h.coeff_dict)
+            self.hpro.set_coeff(self.h.coeff_dict)
         else:
             self.hpro = None
 
@@ -1201,10 +1222,15 @@ cdef class ESHFitRunner(object):
         elif ex.shape[1] != 2:
             raise ValueError("Incorrect ex shape; expected a two column array.")
 
+        pp = parse_param_helper(parameters, self.h)
+        self.n_p_real = pp['n_p_real']
+        self.param_list = pp['param_list']
+        self.param_types = pp['param_types']
+
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.coeff = np.ascontiguousarray(h.coeff, dtype=np.complex128)
+        self.coeff = np.ascontiguousarray(self.h.coeff, dtype=np.complex128)
         coeff = <np.ndarray[double, ndim=1, mode="c"]> self.coeff
        
         # Prepare experimental energy level data
@@ -1239,7 +1265,7 @@ cdef class ESHFitRunner(object):
                 raise MemoryError("param_array[{}] alloc failed".format(i))
 
             param_array[i].type = cfl.atoi(self.param_types[i])
-            param_array[i].index = h.index(parameters[i])
+            param_array[i].index = self.h.index(parameters[i])
 
             if self.param_types[i] == 'c':
                 self.p0_real[ip_real] = np.real(self.param_list[i])
@@ -1332,9 +1358,10 @@ cdef class ESHFitRunner(object):
         chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(len(sh.interactions)+1)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
 
+
         if (self.hpro != None):
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
-                    <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
+                    <cfl.zh*>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"),
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"), &coeff[0],
                     self.ex_data, shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
@@ -1345,7 +1372,7 @@ cdef class ESHFitRunner(object):
 
         else:
             self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
-                    <cfl.zh*>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
+                    <cfl.zh*>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
                     self.ex_data, shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
@@ -1356,7 +1383,7 @@ cdef class ESHFitRunner(object):
         self.fit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
 
         self.weights[inter.type]
-        
+
         # Energy levels are always weighted to unity provided a call to
         # eshfit_hpro_chi2 or eshfit_chi2 has been made. 
         if 'e' in self.weights:
@@ -1366,7 +1393,6 @@ cdef class ESHFitRunner(object):
 
         for i,inter in enumerate(sh.inter_data):
             shx_array[i].chisq_weight = self.weights[inter.type]/chi2[i+1] * ew_scale 
-
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1572,16 +1598,16 @@ cdef class CFLMin:
                     ub[rpi] = np.real(bounds[p.name][1])
                     ub[rpi+1] = np.imag(bounds[p.name][1])
                     if np.real(fit_obj.h.coeff_dict[p.name]) < lb[rpi]:
-                        raise ValueError("The real part of the %s coefficient in the Hamiltonian is"
+                        raise ValueError("The real part of the %s coefficient in the Hamiltonian is "
                                 "less than the specified lower bound." % p.name)
                     elif np.imag(fit_obj.h.coeff_dict[p.name]) < lb[rpi+1]:
-                        raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is"
+                        raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is "
                                 "less than the specified lower bound." % p.name)
                     elif np.real(fit_obj.h.coeff_dict[p.name]) > ub[rpi]:
-                        raise ValueError("The real part of the %s coefficient in the Hamiltonian is"
+                        raise ValueError("The real part of the %s coefficient in the Hamiltonian is "
                                 "greater than the specified lower bound." % p.name)
                     elif np.imag(fit_obj.h.coeff_dict[p.name]) > ub[rpi+1]:
-                        raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is"
+                        raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is "
                                 "greater than the specified lower bound." % p.name)
                     rpi += 2
                 else:
@@ -1591,10 +1617,10 @@ cdef class CFLMin:
                     except KeyError:
                         raise KeyError("Missing bounds key %s." % p.name)
                     if fit_obj.h.coeff_dict[p.name] < lb[rpi]:
-                        raise ValueError("The %s coefficient in the Hamiltonian is"
+                        raise ValueError("The %s coefficient in the Hamiltonian is "
                                 "less than the specified lower bound." % p.name)
                     elif fit_obj.h.coeff_dict[p.name] > ub[rpi]:
-                        raise ValueError("The %s coefficient in the Hamiltonian is"
+                        raise ValueError("The %s coefficient in the Hamiltonian is "
                                 "greater than the specified lower bound." % p.name)
                     rpi += 1
 
@@ -1629,7 +1655,6 @@ cdef class CFLMin:
                 stepsize = self.kwargs['stepsize']
 
                 for i,p in enumerate(fit_obj.parameters):
-                    print('bla')
                     if fit_obj.param_types[i] == 'c':
                         try:
                             if not isinstance(stepsize[p.name], complex):
@@ -1799,8 +1824,8 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     """
     eshfit = ESHFitRunner(parameters, sh_tensors, h, sh, ex, shx, weights)
     (x, fmin) = eshfit.fit(cfl_min)
-    h.coeff = x
-    (w, z) = h.diag()
+    eshfit.h.coeff = x
+    (w, z) = eshfit.h.diag()
     
     # The number of degrees of freedom of the chi-squared distribution
     ndof = len(ex) + sh.nobs - len(parameters)
