@@ -28,19 +28,23 @@ from matel import matel
 from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 
 # TODO: 
-#       + Apply a small magnetic field along z, to obtain state labels. Maybe
-#         something to directly implement in the cfl projection interface.
 #       + Add checks whether efit/eshfit data alloc functions return NULL and
 #       corresponding frees.
 #       + Python free bug if one does not provide the correct shx data dict
 #       (change zeeman to something else). 
-#       + Also, add check to ensure weighting is present for all sh terms. IF
+#       + Add check to ensure weighting is present for all sh terms. IF
 #       not, either fail, or set to 1.
 #       + set default self.coeff_dict=None, add check to parse_param, and change
 #       other coeff_set checks to also use coeff_dict!=None.
-#       + Add magz to SpinHamiltonian calc_coeff method.
-#       + Change SpinHamiltonian set_pro_data to be a dict/list of all tensors,
-#       s.t. one can consistently supply magz even in hyp or quad only cases.
+
+
+# NOTES:
+#   API changes:
+#       + remove coeff from fit
+#       + level is moved from set_pro_data to sh instantiation
+#       + no longer need to set sh pro data for eshfit
+#       + no longer need to set_coeff for eshfit
+#       + require sh_tensor list in eshfit. 
 
 cdef class StateLabels:
     r"""
@@ -812,16 +816,18 @@ cdef class SpinHamiltonian:
                 if inter.term.tensor in h:
                     c_sh_tensors += [inter.term.tensor]
 
-        # Get Zeeman tensor.
-        for i in self.inter_data:
-            if i.type == 'zeeman':
-                small_magz =  0.0001 * i.terms[2].tensor
-                small_magz.name = 'MAGZ_small'
-        
-        tmp_h_coeff = h.coeff_dict
-        tmp_h_coeff['MAGZ_small'] = 1
-        h = Hamiltonian([small_magz] + h.tensors)
-        h.set_coeff(tmp_h_coeff)
+        # If not present, add small magnetic field to Hamiltonian to order
+        # states..
+        if 'MAGZ_small' not in h.coeff_dict:
+            for i in self.inter_data:
+                if i.type == 'zeeman':
+                    small_magz =  0.0001 * i.terms[2].tensor
+                    small_magz.name = 'MAGZ_small'
+            
+            tmp_h_coeff = h.coeff_dict
+            tmp_h_coeff['MAGZ_small'] = 1
+            h = Hamiltonian([small_magz] + h.tensors)
+            h.set_coeff(tmp_h_coeff)
         
         # If required, replace h with a dedicated projection Hamiltonian.
         pro_tensors = []
@@ -1393,7 +1399,7 @@ cdef class ESHFitRunner(object):
 
         for i,inter in enumerate(sh.inter_data):
             shx_array[i].chisq_weight = self.weights[inter.type]/chi2[i+1] * ew_scale 
-
+    
     def __dealloc__(self):
         if self.ex_data != NULL:
             free(self.ex_data)
@@ -1841,7 +1847,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     summary+= "===============\n\n"
     summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
     summary += "\n"
-    summary += gen_sh_summary(sh.calc_param(h), sh, shx, ndof=ndof)
+    summary += gen_sh_summary(sh.calc_param(eshfit.h), sh, shx, ndof=ndof)
     summary += "\n"
     summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 

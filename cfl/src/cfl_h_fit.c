@@ -422,7 +422,6 @@ inline double echisq(double *e, ex_data *d) {
  * ----------
  *  pa    The theoretical parameter array.
  *  xpa   The experimental parameter array. 
- *  n     The number of parameters.
  */
 inline double shchisq(complex double *pa, complex double *xpa) {
   int i;
@@ -515,7 +514,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
     zshi(d->sh_pa[i], d->shi_w_array[i]);
     chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
-
+  
   return chisq;
 }
 
