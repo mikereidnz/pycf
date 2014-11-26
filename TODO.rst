@@ -16,7 +16,5 @@ CFL
     for the inversion tests needs to be... the rest don't. 
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
-  * Currently bounds (and stepsize?) needs to have the same number of elements as parameters to
-    be fit. Since bounds are passed as a dictionary, it would presumably be fine
-    to just ensure all required bounds are provided, and ignore any superflous
-    ones, rather than complain?
+  * Bug in CFLMin causes segfault for any global min algorithms other than
+    basinhopping.

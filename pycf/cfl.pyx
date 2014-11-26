@@ -17,6 +17,7 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 cimport cfl, cython
 cimport numpy as np
 import numpy as np
@@ -32,11 +33,6 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       corresponding frees.
 #       + Python free bug if one does not provide the correct shx data dict
 #       (change zeeman to something else). 
-#       + Add check to ensure weighting is present for all sh terms. IF
-#       not, either fail, or set to 1.
-#       + set default self.coeff_dict=None, add check to parse_param, and change
-#       other coeff_set checks to also use coeff_dict!=None.
-
 
 # NOTES:
 #   API changes:
@@ -44,14 +40,14 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       + level is moved from set_pro_data to sh instantiation
 #       + no longer need to set sh pro data for eshfit
 #       + no longer need to set_coeff for eshfit
-#       + require sh_tensor list in eshfit. 
+#       + require sh_tensor list in eshfit
+#       + change order of sh and h arguments for eshfit
 
 cdef class StateLabels:
     r"""
     State label type for tensors and spin Hamiltonians.  State labels are
     generally not entered manually but should be generated with
     :class:`import_sljm.ImportSLJM`.
-
 
     Paramters
     ---------
@@ -204,8 +200,7 @@ cdef class Hamiltonian:
     A summary of calculated energy levels can be generated with
     :func:`cfl_util.gen_e_summary`.
 
-    Hamiltonians are iterable over the tensors used to instantiate it.
-
+    Hamiltonians are iterable, returning the Tensor objects from which it is composed.
 
     Parameters
     ----------
@@ -228,7 +223,6 @@ cdef class Hamiltonian:
     cdef public np.ndarray w
     cdef public np.ndarray z
     cdef public object h_cap
-    cdef int coeff_set
     cdef int diag_run
     def __cinit__(self, tensors):
         cdef cfl.zt *ten_array_ptr
@@ -237,7 +231,7 @@ cdef class Hamiltonian:
         self.n = n
         self.nt = len(tensors)
         self.tensors = tensors
-        self.coeff_set = 0
+        self.coeff_dict = None
         self.diag_run = 0
                 
         # Create array of tensors and array of character arrays to be passed to
@@ -294,9 +288,8 @@ cdef class Hamiltonian:
         if not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
 
-        # Keep copy of dict, since fitting routines need to know the original
-        # type of coeff elements to determine whether a param is real or
-        # complex.
+        # Keep copy of dict; fitting routines need to know the original type of
+        # coeff elements to determine whether a parameter is real or complex.
         self.coeff_dict = coeff
 
         self.coeff = np.array([], dtype=np.complex128)
@@ -308,7 +301,6 @@ cdef class Hamiltonian:
         
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
-        self.coeff_set = 1
         return None
 
     cpdef public diag(self):
@@ -327,7 +319,7 @@ cdef class Hamiltonian:
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="c"] z
         
-        if not self.coeff_set:
+        if self.coeff_dict == None:
             raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
         hd_w = cfl.zhd_w_alloc(self.cfl_zh)
         if hd_w is NULL:
@@ -786,10 +778,12 @@ cdef class SpinHamiltonian:
         cdef np.ndarray[double complex, ndim=1, mode="c"] cz
         cdef int cj
         cdef int z_num
-        #FIXME: add check to make sure proj data has been added. 
         c_sh_tensors = []
         self.nzeeman = -1
         for i,inter in enumerate(self.inter_data):
+            if not inter.pro_data:
+                raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
+
             # Alloc projection and inversion workspace.
             if inter.type == 'zeeman':
                 for t in inter.terms: 
@@ -805,8 +799,6 @@ cdef class SpinHamiltonian:
             # interactions that are also part of the spin Hamiltonian.
             # Furthermore, we record the location of the Zeeman tensor, if it
             # exists. 
-            if not inter.pro_data:
-                raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
             if inter.type == 'zeeman':
                 for t in inter.terms:
                     if t.tensor in h:
@@ -888,9 +880,12 @@ def parse_param_helper(parameters, h):
     for i,p in enumerate(parameters):
         if p not in h:
             raise ValueError("Tensor %s in parameters not found in h." % p.name)
+        try:
+            if not isinstance(h.coeff_dict[p.name], Number):
+                raise ValueError("Element %s in coefficients is not a number." % p.name)
+        except KeyError:
+            raise ValueError("Missing %s form Hamiltonian coefficients." % p.name)
 
-        if not isinstance(h.coeff_dict[p.name], Number):
-            raise ValueError("Element %s in coefficients is not a number." % p.name)
         # The parameter type is recorded such that any complex parameters
         # can be split into two real parameters.
         if isinstance(h.coeff_dict[p.name], complex):
@@ -955,6 +950,9 @@ cdef class EFitRunner(object):
         self.h = h
         self.n_p = len(parameters)
         self.parameters = parameters
+        
+        if h.coeff_dict == None:
+            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
 
         pp = parse_param_helper(parameters, h)
         self.n_p_real = pp['n_p_real']
@@ -1111,7 +1109,8 @@ cdef class ESHFitRunner(object):
     weights : dict
         Set the weighting for `\chi^2` contributions of terms to be fit.  Valid
         keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
-        corresponding values should be floats.
+        corresponding values should be floats.  Any ommited values will be set
+        to unity.
     """
     cdef SpinHamiltonian sh
     cdef public Hamiltonian h
@@ -1203,6 +1202,9 @@ cdef class ESHFitRunner(object):
             raise ValueError("Missing 'MAGZ' from the sh_tensors list; 'MAGZ' is always "
                     "required, since it is used to distinguish S=+1/2 and S=-1/2 states.")
         
+        if h.coeff_dict == None:
+            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
+
         if 'MAGZ_small' not in h.coeff_dict:
             tmp_coeff = h.coeff_dict
             tmp_coeff['MAGZ_small'] = 1
@@ -1388,17 +1390,19 @@ cdef class ESHFitRunner(object):
 
         self.fit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
 
-        self.weights[inter.type]
-
         # Energy levels are always weighted to unity provided a call to
         # eshfit_hpro_chi2 or eshfit_chi2 has been made. 
-        if 'e' in self.weights:
-            ew_scale = 1/self.weights['e']
+        if 'energy' in self.weights:
+            ew_scale = 1.0/self.weights['energy']
         else:
-            ew_scale = 1
+            ew_scale = 1.0
 
         for i,inter in enumerate(sh.inter_data):
-            shx_array[i].chisq_weight = self.weights[inter.type]/chi2[i+1] * ew_scale 
+            try:
+                shwi = self.weights[inter.type]
+            except KeyError:
+                shwi = 1.0
+            shx_array[i].chisq_weight = shwi/chi2[i+1] * ew_scale 
     
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1821,7 +1825,9 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     weights : dict
         Set the weighting for `\chi^2` contributions of terms to be fit.  Valid
         keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
-        corresponding values should be floats.
+        corresponding values should be floats.  Any ommited values will be set
+        to unity.
+
     cfl_min : CFLMin 
         The minimization object which sets the optimization algorithm and
         corresponding options.
