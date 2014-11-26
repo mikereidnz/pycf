@@ -27,19 +27,19 @@ part is a python wrapper written in cython, which is called
 ``/pycf/pycf/``, take care of any input data preparation, such as CF matrix
 element loading and spin Hamiltonian matrix element evaluations, as well as
 pretty-printing calculation results.  While direct calls to cfl without python
-are certainly possible, the manual input data entry quickly becomes intractable
-for realistic problems.  It would also be possible to create bindings for cfl in
-other languages, such as Matlab.   
+are certainly possible, the manual entry of input data would quickly become
+intractable for realistic problems.  It would also be possible to create
+bindings for cfl in other languages, such as Matlab.   
 
 
 Installation
 ============
 
-To install pyemp, get a copy of the source by running, execute::
+To install pycf, get a copy of the source by running::
 
   git clone https://bitbucket.org/sebastianhorvath/pycf/ 
 
-Then, in the package root directory::
+Then, in the package root directory, execute::
 
   python setup.py install --prefix=/path/to/dir
 
@@ -75,7 +75,7 @@ Note that Debian (and derivative distributions) install to a directory called
 find pycf (``import cfl`` fails in the interpreter), explicitly check the path
 to make sure you're specifying the correct directory.  For further details on
 this convention, have a look at the Debian Python `wiki
-<https://wiki.debian.org/Python>`_.
+<https://wiki.debian.org/Python#Deviations_from_upstream>`_.
 
 The cfl library uses GNU make and can be built independently from the python
 modules.  Running ``make`` in the ``cfl`` directory should suffice provided the
@@ -98,7 +98,7 @@ Before building you will need to satisfy the following dependencies:
   * python (tested with version 2.7)
   * numpy (version >= 1.7) 
   * scipy 
-  * matplotlib
+  * matplotlib (pyemp plotting only; can be omitted for pycfl)
   * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
 
 All of the above programs should be available via the package manager on most

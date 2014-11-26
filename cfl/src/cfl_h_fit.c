@@ -36,12 +36,19 @@
  *
  * cfl_h_fit.c provides three objective functions for fitting crystal field
  * parameters to energy levels and spin Hamiltonian data.  These are: efit_obj,
- * eshfit_obj, and eshfit_hpro_obj, which are, respectively, used for fitting to
- * energy levels, in addition to spin Hamiltonian data for cases where the
- * complete Hamiltonian does not contain any terms that also occur in the spin
- * Hamiltonian, and energy levels in addition to spin Hamiltonian data for cases
- * where the complete Hamiltonian contains terms that also occur in the spin
- * Hamiltonian.
+ * eshfit_obj, and eshfit_hpro_obj, which are, respectively, used for fitting
+ * to:
+ *    + energy levels; 
+ *    + energy levels in addition to spin Hamiltonian data for cases where the
+ *      complete Hamiltonian does not contain any terms that also occur in the
+ *      spin Hamiltonian;
+ *    + and energy levels in addition to spin Hamiltonian data for cases
+ *      where the complete Hamiltonian contains terms that also occur in the
+ *      spin Hamiltonian.
+ * Note that in order to correctly fit spin Hamiltonian data the (complete or
+ * dedicated projection) Hamiltonian must have a small magnetic field term in
+ * the z-direction, since the chi^2 algorithm assumes that the spin projection
+ * values are ordered.
  *
  * The objective functions can be directly passed to all cfl_min algorithms (see
  * cfl_min.c).  In order to facilitate this, objective functions parse the real
