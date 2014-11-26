@@ -8,38 +8,79 @@ Hamiltonian calculations.  The two primary modules are, pyemp and cfl.
 pyemp
 =====
 A python wrapper for Michael F. Reid's F-shell empirical crystal field theory
-routines.  Supports easy scripting of emp routines and plotting of intensity
-spectra. 
+routines.  Facilitates automatic generation of emp input files and parsing their
+output.  Currently wrapped erun applications are 'cfit', 'inten', 'vtrans', and
+'spectrum'.  This wrapper is written in pure python and is called
+``pycf/pycf/pyemp.py``.  
 
-cfl
-===
 
-A reimplementation of 'cfit' in c99, with python bindings.  Primarily intended
-for fitting crystal field parameters to spin Hamiltonians.
+pycfl
+=====
+
+A is a reimplementation of 'cfit' with support for spin Hamiltonian fitting.  It
+is divided into two parts, a small library called cfl which is written in c99
+and handles all core calculations.  It is located in ``/pycf/cfl`` and is
+intended to be an independent component that can easily be reused in other
+applications requiring crystal-field calculations.  The second part is a python
+wrapper written in cython, which is called ``/pycf/pycf/cfl.pxd``.  This
+wrapper, and supporting modules located in ``/pycf/pycf/``, take care of any
+input data preparation, such as CF matrix element loading and spin Hamiltonian
+matrix element evaluations, as well as pretty-printing calculation results.
+While direct calls to cfl without python are certainly possible, the manual
+input data entry quickly becomes intractable for realistic problems.  It would
+also be possible to create bindings for cfl in other languages, such as Matlab,
+etc.   
 
 
 Installation
 ============
 
-To install pyemp, get a copy of the source by running::
+To install pyemp, get a copy of the source by running, execute::
 
-  git clone https://bitbucket.org/sebastianhorvath/pycf/ -b cfl
+  git clone https://bitbucket.org/sebastianhorvath/pycf/ 
 
 Then, in the package root directory::
 
   python setup.py install --prefix=/path/to/dir
 
 Provided you have all of the dependencies satisfied, this first builds both the
-c library and the python bindings, and then installs both the cfl python
-bindings and pyemp in the python ``dist-packages`` (called ``site-packages`` on
-some linux distributions) directory.  Typically it is a good idea to specify
-prefix to something other than the default (``/usr/lib``), in which case you
-need to add the location of the resulting ``dist-packages`` (``site-packages``)
-to the ``PYTHONPATH`` environment variable.
+cfl library and the python bindings, and then installs them to the specified
+``prefix`` directory.  It is typically a good idea to specify ``prefix`` to
+something other than the default (``/usr/local``).  For a non-default ``prefix``
+you need to tell the python interpreter where the modules are installed.  This
+is achieved using the ``PYTHONPATH`` environment variable, which has to be set
+to include the path to the ``site-packages`` directory into which the module was
+installed. 
 
-The c library uses GNU make, so for development of cfl it is easiest to directly
-execute make.  Running ``make`` in the ``cfl`` directory should suffice.  It may
-also be useful to ``make debug`` to compile with ``-O1``.  
+Here is a quick example which installs pycf to ``opt`` in ones home directory.
+Assuming one is in the package root directory::
+
+  python setup.py install --prefix $HOME/opt
+
+which (for python 2.7) will install all the modules into::
+
+  $HOME/opt/lib/python2.7/site-packages 
+
+To add this directory to the ``PYTHONPATH`` environment variable, run::
+
+  export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages
+
+This environment variable change can be made to persistent for future terminal
+sessions by adding the above line to the ``~/.bashrc`` file::
+  
+  echo 'export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages' >> ~/.bashrc 
+
+Note that Debian (and derivative distributions) install to a directory called
+``dist-packages`` for system wide installations.  Consequently, if python can't
+find pycf (``import cfl`` fails in the interpreter), explicitly check the path
+to make sure you're specifying the correct directory.  For further details on
+this convention, have a look at the Debian Python `wiki
+<https://wiki.debian.org/Python>`_.
+
+The cfl library uses GNU make and can be built independently from the python
+modules.  Running ``make`` in the ``cfl`` directory should suffice provided the
+dependencies are satisfied.  There is also a ``debug`` target which builds with
+``-O1``. 
 
 
 Dependencies
@@ -54,14 +95,14 @@ Before building you will need to satisfy the following dependencies:
     optimization library
   * gcc 
   * build-essential package or your distributions equivalent
-  * python
-  * numpy 
+  * python (tested with version 2.7)
+  * numpy (version >= 1.7) 
   * scipy 
   * matplotlib
-  * `cython <http://cython.org/>`_ - C extensions for Python
+  * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
 
-All of the above should be available via the package manager on most linux
-distributions.
+All of the above programs should be available via the package manager on most
+linux distributions.
 
 Note that if any of the dependencies are installed in a non-standard location
 (not listed in ``/etc/ld.so.conf``) you need to specify the path to any include
@@ -87,11 +128,11 @@ unfortunately fails for the cython extension.
 The easiest solution to this on a Redhat based system is to compile the library
 from source.  The nlopt installation page has detailed `instructions
 <http://ab-initio.mit.edu/wiki/index.php/NLopt_Installation>`_ on how to do
-this. Then, by setting ``CFL_CFLAGS`` and ``CFL_LDLIBS`` variables to wherever
+this.  Then, by setting ``CFL_CFLAGS`` and ``CFL_LDLIBS`` variables to wherever
 you installed nlopt,  you should be able to compile pyemp.  Note that since your
 object files need to be position independent code (or cython will not be able to
-create a shared object), you need to compile nlopt as a shared library (or set
-the ``-fPIC`` compiler option). See the nlopt `page
+create a shared object), you need to compile nlopt as a shared library
+(alternatively, on could set the ``-fPIC`` compiler option).  See the nlopt `page
 <http://ab-initio.mit.edu/wiki/index.php/NLopt_Installation#Shared_libraries>`_
 for details on how to do this.
 
@@ -104,7 +145,7 @@ your system ``$PATH``, building with icc and linking against mkl is done by::
   
   python setup.py install --compiler=intel
 
-where any additional arguments, such as prefix or inplace can also be added.
+where any additional arguments, such as prefix or in-place can also be added.
   
 To build only cfl with icc set the following environment variables prior to
 running make::
