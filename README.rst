@@ -35,11 +35,11 @@ other languages, such as Matlab.
 Installation
 ============
 
-To install pyemp, get a copy of the source by running, execute::
+To install pyemp, get a copy of the source by running::
 
   git clone https://bitbucket.org/sebastianhorvath/pycf/ 
 
-Then, in the package root directory::
+Then, in the package root directory, execute::
 
   python setup.py install --prefix=/path/to/dir
 
