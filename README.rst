@@ -146,15 +146,19 @@ your system ``$PATH``, building with icc and linking against mkl is done by::
   python setup.py install --compiler=intel
 
 where any additional arguments, such as prefix or in-place can also be added.
+Note that this defaults to linking against the lp64 interface and parallel
+threading.  Furthermore, it assumes that core libraries are in
+``intel/lib/intel64`` and mkl libraries are in ``intel/mkl/lib/intel64/``, where
+the location of the ``intel`` directory is inferred from the location of icc.
   
 To build only cfl with icc set the following environment variables prior to
 running make::
 
   export CFL_CC=icc
-  export MKLROOT=/path/to/inteldir
+  export INTEL_PATH=/path/to/intelpath
 
-where ``inteldir`` should contain both icc and mkl. 
-
+where ``intelpath`` is again assumed to follow the standard intel installation
+directory layout. 
 
 Development
 -----------
