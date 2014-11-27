@@ -7,7 +7,6 @@ LDFLAGS=
 MKL_CFLAGS=-mkl -g -O2 -fPIC -std=c99 -ansi-alias -xhost -parallel
 MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 MKL_LDFLAGS=-Wl,-rpath,$(INTEL_PATH)/lib/intel64/ -Wl,-rpath,$(INTEL_PATH)/mkl/lib/intel64/
-
 ARFLAGS=rcs
 
 ifeq ($(CFL_CC), icc)
@@ -15,7 +14,7 @@ ifeq ($(CFL_CC), icc)
   CFLAGS=$(MKL_CFLAGS)
   LDLIBS=$(MKL_LDLIBS)
   LDFLAGS=$(MKL_LDFLAGS)
-endif
+endif  
 
 ifdef CFL_CFLAGS
   CFLAGS+=$(CFL_CFLAGS)
