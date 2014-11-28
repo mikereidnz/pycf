@@ -28,9 +28,15 @@
 #include <string.h>
 #include <math.h>
 #include <complex.h>
-#include <lapacke.h>
 
 #include "cfl_config.h"
+
+#if USE_MKL
+#include <mkl_lapacke.h>
+#else
+#include <lapacke.h>
+#endif /* USE_MKL */
+
 #include "cfl_error.h"
 #include "cfl_tensor.h"
 #include "cfl_h.h"

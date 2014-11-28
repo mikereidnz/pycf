@@ -31,8 +31,16 @@
 #include <stdlib.h>
 #include <math.h>
 #include <complex.h>
+
+#include "cfl_config.h"
+
+#if USE_MKL
+#include <mkl_cblas.h>
+#include <mkl_lapacke.h>
+#else
 #include <gsl/gsl_cblas.h>
 #include <lapacke.h>
+#endif /* USE_MKL */
 
 #include "cfl_error.h"
 #include "cfl_tensor.h"

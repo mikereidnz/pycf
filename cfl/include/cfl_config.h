@@ -3,7 +3,7 @@
 
 
 #if !defined(USE_MKL)
-#define USE_MKL       FALSE
+#define USE_MKL       0
 #define MKL_Complex16 double complex
 #endif
 
