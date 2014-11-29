@@ -30,7 +30,7 @@ if '--compiler=intel' in sys.argv:
     os.environ['CFL_CC'] = 'icc'
     os.environ['INTEL_PATH'] = intelpath
     compile_args += ['-openmp -I%s/include' % intelpath]
-    link_args += ['-mkl', '-lmkl_mc', 
+    link_args += ['-mkl', '-lmkl_def', 
             '-L%s/lib/intel64/' % intelpath, 
             '-L%s/mkl/lib/intel64/' % intelpath, 
             '-Wl,-rpath,%s/lib/intel64/' % intelpath, 

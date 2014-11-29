@@ -1,11 +1,13 @@
 #ifndef _CFL_CONFIG_H_ 
 #define _CFL_CONFIG_H_
 
+#define TRUE 1 
+#define FALSE 0
 
 #if !defined(USE_MKL)
-#define USE_MKL       0
-#define MKL_Complex16 double complex
+#define USE_MKL       FALSE
 #endif
+#define MKL_Complex16 double complex
 
 /* set MKL_NUM_THREADS -- see mkl user guide. */
 
