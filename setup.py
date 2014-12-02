@@ -42,11 +42,22 @@ else:
 if 'clean' in sys.argv:
     ret = subprocess.call(['make', 'clean'], cwd='./cfl')
     if ret != 0:
-        raise RuntimeError("Clean failed for cfl")
+        raise RuntimeError("Clean failed for cfl.")
 else:
-    ret = subprocess.call(['make'], cwd='./cfl')
-    if ret != 0:
-        raise RuntimeError("Building cfl failed")
+    popen = subprocess.Popen(['make'], cwd='./cfl', stdout=subprocess.PIPE)
+    lines = iter(popen.stdout.readline, "")
+    
+    output = ""
+    for line in lines:
+        sys.stdout.write(line)
+        output += line
+
+    popen.wait()
+    if popen.returncode != 0:
+        raise RuntimeError("Building cfl failed.")
+
+    if not "Nothing to be done for 'all'" in output:
+        subprocess.call(['touch', 'pycf/cfl.pyx'])
 
 
 pycfl_ext = Extension('pycf.cfl', 
