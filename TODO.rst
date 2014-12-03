@@ -1,8 +1,6 @@
-CFL
-===
+TODO
+====
 
-  * Consolidate #ifdef statements for mkl version, and add mkl linking to
-    setup.py. 
   * ImportSLJM should parse and create crs tensors one at a time (at least the
     step that populate the dense matrix), to avoid unreasonable memory use for
     large matrices. 
@@ -18,3 +16,13 @@ CFL
   * Try adaptive chi^2 weighting using annealing.
   * Bug in CFLMin causes segfault for any global min algorithms other than
     basinhopping.
+
+Distributed memory parallelization
+----------------------------------
+
+  * Parallel creation of dense matrix for diag.  Create zero matrices once, then
+    copy them and fill in non-zero entries (or some other fast means of creating
+    the matrices)
+  * Use methods pzgels and pzheevd from ScalaPACK and pzgemm and pzhemm from
+    PBLAS.  Link to ScalaPACK doc about matrix size per core guideline 
+    n_core = ~ (m by n)/10^6

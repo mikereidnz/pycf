@@ -144,14 +144,14 @@ void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
   memcpy(gsl_data->df_work, gsl_data->x, gsl_data->n*sizeof(double));
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
-    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H,
-        &result, &abserr);
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i],
+        GSL_MIN_DERIV_H, &result, &abserr);
     if (status) {
       gsl_vector_set(df, i, result);
     } 
     else {
       status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i],
-          GSL_DERIV_H, &result, &abserr);
+          GSL_MIN_DERIV_H, &result, &abserr);
       gsl_vector_set(df, i, result);
     }
   }
@@ -175,14 +175,14 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f,
   memcpy(gsl_data->df_work, gsl_data->x, gsl_data->n*sizeof(double));
   for (i=0; i<gsl_data->n; i++) {
     gsl_data->dfi = i;
-    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_DERIV_H,
+    status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_MIN_DERIV_H,
         &result, &abserr);
     if (status) {
       gsl_vector_set(df, i, result);
     } 
     else {
       status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i],
-          GSL_DERIV_H, &result, &abserr);
+          GSL_MIN_DERIV_H, &result, &abserr);
       gsl_vector_set(df, i, result);
     }
   }
@@ -565,7 +565,7 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
 
     /* Test for convergence. */
     size = gsl_multimin_fminimizer_size(w->s);
-    status = gsl_multimin_test_size(size, GSL_EPSABS);
+    status = gsl_multimin_test_size(size, GSL_MIN_EPSABS);
 
   } while (status == GSL_CONTINUE && iter < 100);
 
@@ -606,7 +606,7 @@ int gsl_multimin_fdf(double *x, double *fmin, void *work) {
   }
 
   /* Run the minimization. */
-  gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, GSL_SS, GSL_TOL);
+  gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, GSL_MIN_SS, GSL_MIN_TOL);
     do {
       iter++;
       status = gsl_multimin_fdfminimizer_iterate(w->s);
@@ -614,7 +614,7 @@ int gsl_multimin_fdf(double *x, double *fmin, void *work) {
       if (status)
         break;
 
-      status = gsl_multimin_test_gradient(w->s->gradient, GSL_DERIV_EPSABS);
+      status = gsl_multimin_test_gradient(w->s->gradient, GSL_MIN_DERIV_EPSABS);
     } while (status == GSL_CONTINUE && iter < 100);
 
   /* Set the solution to x and fmin. */
@@ -656,7 +656,7 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
   }
 
   /* Run the minimization. */
-  gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, GSL_SS, GSL_TOL);
+  gsl_multimin_fdfminimizer_set(w->s, w->f, w->v, GSL_MIN_SS, GSL_MIN_TOL);
     do {
       iter++;
       status = gsl_multimin_fdfminimizer_iterate(w->s);
@@ -664,7 +664,7 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
       if (status)
         break;
 
-      status = gsl_multimin_test_gradient(w->s->gradient, GSL_DERIV_EPSABS);
+      status = gsl_multimin_test_gradient(w->s->gradient, GSL_MIN_DERIV_EPSABS);
     } while (status == GSL_CONTINUE && iter < 100);
 
   /* Set the solution to x and fmin. */

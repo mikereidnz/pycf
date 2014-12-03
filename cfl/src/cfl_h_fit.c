@@ -827,12 +827,18 @@ inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
    * value w.r.t. which we're differentiating. */
   memcpy(cov_d->df_x, x0, n*sizeof(double));
   F.params = cov_d;
-
+  int status;
   for (i=0; i<n; i++) {
     cov_d->par_index = i;
     for (j=0; j<m; j++) {
       cov_d->obs_index = j;
-      gsl_deriv_central(&F, x0[i], GSL_DERIV_H, &result, &abserr);
+      status = gsl_deriv_central(&F, x0[i], COV_DERIV_H, &result, &abserr);
+      if (status) {
+        CFL_ERROR_VOID("Derivative failure during covariance matrix estimation.\
+            Disable covariance estimation matrix estimation, or attempt to \
+            change COV_DERIV_H in cfl_conf.h and recompiling.");
+        printf("deriv failure\n");
+      }
       a[i*n+j] = result/sigma;
       /* Restore original value of the modified df_x element. */
       cov_d->df_x[i] = x0[i];
@@ -844,10 +850,11 @@ inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
     for (i=0; i<n; i++) {
       cov_inv[i*n+k] = 0;
       for (j=0; j<m; j++) {
-        cov_inv[i*n+k] += a[j*n+k] * a[j*n+i];
+        cov_inv[i*n+k] += (a[j*n+k] * a[j*n+i]);
       }
     }
   }
+
   free(a);
   free(cov_d->df_x);
   free(cov_d);
@@ -876,7 +883,7 @@ void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   F.function = &efit_cov_df;
 
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
-   * energy levels (pg.  780, Press et al. 3rd edition). */
+   * energy levels (pg. 780, Press et al. 3rd edition). */
   efit_chi2(x0, d, &chisq);
   sigma = sqrt(chisq/(m-n));
 
@@ -910,10 +917,10 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   F.function = &eshfit_cov_df;
 
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
-   * observables (energy and sh) (pg.  780, Press et al. 3rd edition). */
+   * observables (energy and sh) (pg. 780, Press et al. 3rd edition). */
   eshfit_chi2(x0, d, chisq);
   sigma = sqrt((chisq[0] + chisq[1])/(m-n));
-
+  
   covariance_helper(m, n, F, x0, d, sigma, cov_inv);
 }
 
@@ -945,7 +952,7 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   F.function = &eshfit_hpro_cov_df;
 
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
-   * observables (energy and sh) (pg.  780, Press et al. 3rd edition). */
+   * observables (energy and sh) (pg. 780, Press et al. 3rd edition). */
   eshfit_chi2(x0, d, chisq);
   sigma = sqrt((chisq[0] + chisq[1])/(m-n));
 

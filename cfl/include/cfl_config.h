@@ -9,19 +9,17 @@
 #endif
 #define MKL_Complex16 double complex
 
-/* set MKL_NUM_THREADS -- see mkl user guide. */
-
 /* gsl multimin defaults. */
 /* Absolute tolerance used for stopping criteria. */
-#define GSL_EPSABS            1e-2
+#define GSL_MIN_EPSABS          1e-2
 /* Absolute tolerance used for stopping criteria in derivative algorithms. */
-#define GSL_DERIV_EPSABS      1e-3
+#define GSL_MIN_DERIV_EPSABS    1e-3
 /* Step size for derivative based algorithms. */
-#define GSL_SS                0.01
+#define GSL_MIN_SS              0.01
 /* Line minimization accuracy. */
-#define GSL_TOL               1e-4
-/* Numerical derivative step-size. */
-#define GSL_DERIV_H           1e-9
+#define GSL_MIN_TOL             1e-4
+/* Numerical derivative step-size for gradient based minimization. */
+#define GSL_MIN_DERIV_H         1e-9
 
 /* basinhopping defaults. */
 /* Static temperature for the Metropolis criterion. */
@@ -35,5 +33,8 @@
 #define BH_DEF_TARGET_ACCEPT  0.5
 /* The default number of interations between adaptive stepsize updates. */
 #define BH_DEF_ADAPT_INT      20
+
+/* Numerical derivative step-size for covariance matrix estimation. */
+#define COV_DERIV_H           1e-7
 
 #endif /* _TEST_DATA_H_ */

@@ -34,14 +34,6 @@ from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
 #       + Python free bug if one does not provide the correct shx data dict
 #       (change zeeman to something else). 
 
-# NOTES:
-#   API changes:
-#       + remove coeff from fit
-#       + level is moved from set_pro_data to sh instantiation
-#       + no longer need to set sh pro data for eshfit
-#       + no longer need to set_coeff for eshfit
-#       + require sh_tensor list in eshfit
-#       + change order of sh and h arguments for eshfit
 
 cdef class StateLabels:
     r"""
