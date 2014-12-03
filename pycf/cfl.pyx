@@ -26,7 +26,7 @@ from cpython.pycapsule cimport *
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from matel import matel
-from cfl_util import gen_e_summary, gen_sh_summary, gen_fit_summary
+from cfl_util import *
 
 # TODO: 
 #       + Add checks whether efit/eshfit data alloc functions return NULL and
@@ -1839,15 +1839,19 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     labels = [] 
     for i in range(h.n):
         labels += [cflh.states.states[i]]
+    
+    sh_param = sh.calc_param(eshfit.h)
+    e_sigma = e_fit_sigma(w, ex, ndof)
+    sh_sigma = sh_fit_sigma(sh_param, sh, shx, ndof)
 
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n\n"
-    summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
+    summary += gen_e_summary(w, z, labels, ex, sigma=e_sigma)
     summary += "\n"
-    summary += gen_sh_summary(sh.calc_param(eshfit.h), sh, shx, ndof=ndof)
+    summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 

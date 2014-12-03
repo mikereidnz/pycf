@@ -36,7 +36,7 @@ def uline_char(s):
         return s + ul
 
 
-def gen_e_summary(w, z, labels, ex=None, nstates=2, ndof=None):
+def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
 
@@ -55,11 +55,8 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, ndof=None):
         the second column contains the energy level values.
     nstates : int, optional
         The number of constituent states to display for mixed states.
-    ndof : int, optional
-        The number of degrees of freedom of the chi-squared distribution, that
-        is, the number of experimental data points minus the number of
-        parameters.  If specified, in addition to ex, then the standard
-        deviation will be added to the summary.
+    sigma : float, optional
+        The standard deviation for the energy level chi^2.
     """
     
     s = "Energy level summary\n"
@@ -92,12 +89,12 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, ndof=None):
         else:
             s += "\n"
 
-    if ex != None and ndof != None:
-        s += "sigma = {: .4f}\n".format(e_fit_sigma(w, ex, ndof))
+    if sigma != None:
+        s += "sigma = {: .4f}\n".format(sigma)
 
     return s
 
-def gen_sh_summary(param, sh, shx=None, ndof=None):
+def gen_sh_summary(param, sh, shx=None, sigma=None):
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
     spin Hamiltonian data. 
@@ -116,11 +113,8 @@ def gen_sh_summary(param, sh, shx=None, ndof=None):
         keys are 'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3
         \times 3` np.ndarrays corresponding to the experimental spin Hamiltonian
         tensor.
-    ndof : int, optional
-        The number of degrees of freedom of the chi-squared distribution, that
-        is, the number of experimental data points minus the number of
-        parameters.  If specified, in addition to shx, then the standard
-        deviation will be added to the summary.
+    sigma : float, optional
+        The standard deviation for the spin Hamiltonian chi^2.
     """
     np.set_printoptions(formatter={'float': lambda x: '{:8.5f}'.format(x)})
 
@@ -139,12 +133,12 @@ def gen_sh_summary(param, sh, shx=None, ndof=None):
             else:
                 s += "\n"
     
-        if shx != None and ndof != None:
-            s += "sigma = {: .4f}\n".format(sh_fit_sigma(param, sh, shx, ndof))
+    if sigma != None:
+        s += "sigma = {: .4f}\n".format(sigma)
 
     return s
 
-def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
+def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
 
@@ -157,16 +151,25 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
         parameters and have h attribute corresponding to the Hamiltonian.
     method : str
         The optimization algorithm used for the fit.
+    sigma : float, optional
+        The total uncertainty for both the energy level and spin Hamiltonian
+        fits; must be specified if 'cov'=True in kwargs.
     kwargs: dict
         Additional, optimization algorithm specific, settings to print.
 
     """
     np.set_printoptions(formatter={'float': lambda x: '{:.3f}'.format(x)})
+    cov = None
 
     s = "Fitting summary\n"
     s+= "===============\n\n"
-
+    
     heading = "Tensor name          Fitted coeff        Initial coeff           Difference"
+    if kwargs['cov']:
+        if sigma == None:
+            raise ValueError("'cov' kwarg is specified as True, but no sigma is not provided.")
+        cov = np.linalg.inv(kwargs['cov_inv'])
+        heading += "    Uncertainty"
     if 'bounds' in kwargs:
         heading += "        Lower bounds         Upper bounds"
     if 'stepsize' in kwargs:
@@ -180,6 +183,8 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
             co = co.real
         s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(p.name+":",
                 co, fit_obj.param_list[i], co-fit_obj.param_list[i])
+        if kwargs['cov']:
+            s += "{0: >15.0f}".format(np.sqrt(np.abs(cov[i,i]))*sigma)
         if 'bounds' in kwargs:
             s += "{0: >20.0f} {1: >20.0f}".format(kwargs['bounds'][p.name][0],
                     kwargs['bounds'][p.name][1])
@@ -200,7 +205,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
             cov = np.linalg.inv(kwargs['cov_inv'])
             s += str(cov) + "\n"
         except:
-            s += "Singular covariance matrix; cannot invert\n"
+            s += "Singular covariance matrix; cannot invert.\n"
 
         del kwargs['cov_inv']
     
