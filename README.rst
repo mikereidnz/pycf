@@ -52,8 +52,8 @@ is achieved using the ``PYTHONPATH`` environment variable, which has to be set
 to include the path to the ``site-packages`` directory into which the module was
 installed. 
 
-Here is a quick example which installs pycf to ``opt`` in ones home directory.
-Assuming one is in the package root directory::
+Here is a quick example which installs pycf to ``opt`` in the ``$HOME``
+directory.  Assuming one is in the package root directory::
 
   python setup.py install --prefix $HOME/opt
 
@@ -65,7 +65,7 @@ To add this directory to the ``PYTHONPATH`` environment variable, run::
 
   export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages
 
-This environment variable change can be made to persistent for future terminal
+This environment variable change can be made persistent for future terminal
 sessions by adding the above line to the ``~/.bashrc`` file::
   
   echo 'export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages' >> ~/.bashrc 
@@ -113,8 +113,8 @@ latter should be a space separated list of required link-time and run-time
 library paths.  For example, say some additional libraries are installed in
 ``$HOME/opt``, then one would set the include and link/run -time paths using::
 
-  export CFL_CFLAGS='-I$HOME/opt/include'
-  export CFL_LDLIBS='-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib'
+  export CFL_CFLAGS="-I$HOME/opt/include"
+  export CFL_LDLIBS="-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib"
 
 Additionally, since cython compiles c extensions as shared objects, all linked
 objects must be compiled as position independent code (``-fPIC``).  If you are
