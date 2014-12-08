@@ -1776,12 +1776,14 @@ def e_fit(parameters, h, ex, cfl_min):
     for i in range(h.n):
         labels += [cflh.states.states[i]]
 
+    e_sigma = e_fit_sigma(w, ex, ndof)
+
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n\n"
-    summary += gen_e_summary(w, z, labels, ex, ndof=ndof)
+    summary += gen_e_summary(w, z, labels, ex, sigma=e_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
     return {'coeff': x, 'summary': summary}
 
