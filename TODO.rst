@@ -16,6 +16,9 @@ TODO
   * Try adaptive chi^2 weighting using annealing.
   * Bug in CFLMin causes segfault for any global min algorithms other than
     basinhopping.
+  * Consolidate unit testing. 
+  * Check if in git repo, and, if so, add software revision to logfile output (or maybe
+    create version file somewhere?). 
 
 Distributed memory parallelization
 ----------------------------------

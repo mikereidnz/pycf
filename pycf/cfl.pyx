@@ -264,7 +264,7 @@ cdef class Hamiltonian:
         except ValueError:
             raise ValueError("Tensor {} not an element of the Hamiltonian".format(tensor.name))
             
-    cpdef public set_coeff(self, coeff):
+    cpdef set_coeff(self, coeff):
         r"""
         Set the tensor coefficients. 
 
@@ -295,7 +295,7 @@ cdef class Hamiltonian:
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
         return None
 
-    cpdef public diag(self):
+    cpdef diag(self):
         r"""
         Diagonalize the Hamiltonian. 
 
@@ -333,14 +333,21 @@ cdef class Hamiltonian:
         self.diag_run = 1
         return (w, z)
 
-    cpdef public gen_summary(self):
+    cpdef gen_summary(self, ex=None, nstates=2, sigma=None):
         r"""
         Generate an energy level summary resulting from a diagonalization. 
 
         Returns
         -------
-        s : string
-            The summary string.
+        ex : np.ndarray, optional
+            A 2 by m array, specifying the experimental energy levels, with m the
+            number of available experimental levels.  The first column specifies the
+            index of the corresponding entry in the complete eigenvalue vector, and
+            the second column contains the energy level values.
+        nstates : int, optional
+            The number of constituent states to display for mixed states.
+        sigma : float, optional
+            The standard deviation for the energy level chi^2.
         """
         cdef cfl.zh *h = self.cfl_zh
 
@@ -348,7 +355,7 @@ cdef class Hamiltonian:
             labels = [] 
             for i in range(self.n):
                 labels += [h.states.states[i]]
-            return gen_e_summary(self.w, self.z, labels)
+            return gen_e_summary(self.w, self.z, labels, ex, nstates, sigma)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
 
@@ -1768,20 +1775,12 @@ def e_fit(parameters, h, ex, cfl_min):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = len(ex)-len(parameters)
 
-    # Generate labels and run gen_e_summary directly.  We do this rather than
-    # call h.gen_summary, since public methods can't have optional arguments in
-    # cython, so one can't include experimental data there.
-    cdef cfl.zh *cflh = <cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian")
-    labels = [] 
-    for i in range(h.n):
-        labels += [cflh.states.states[i]]
-
     e_sigma = e_fit_sigma(w, ex, ndof)
 
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n\n"
-    summary += gen_e_summary(w, z, labels, ex, sigma=e_sigma)
+    summary += efit.h.gen_summary(ex=ex, sigma=e_sigma)
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
@@ -1834,14 +1833,6 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = len(ex) + sh.nobs - len(parameters)
 
-    # Generate labels and run gen_e_summary directly.  We do this rather than
-    # call h.gen_summary, since public methods can't have optional arguments in
-    # cython, so one can't include experimental data there.
-    cdef cfl.zh *cflh = <cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian")
-    labels = [] 
-    for i in range(h.n):
-        labels += [cflh.states.states[i]]
-    
     sh_param = sh.calc_param(eshfit.h)
     e_sigma = e_fit_sigma(w, ex, ndof)
     sh_sigma = sh_fit_sigma(sh_param, sh, shx, ndof)
@@ -1849,7 +1840,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n\n"
-    summary += gen_e_summary(w, z, labels, ex, sigma=e_sigma)
+    summary += eshfit.h.gen_summary(ex=ex, sigma=e_sigma)
     summary += "\n"
     summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
     summary += "\n"
