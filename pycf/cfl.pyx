@@ -918,8 +918,9 @@ cdef class EFitRunner(object):
         The Hamiltonian for which to fit the energy levels. 
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices and the
-        second column contains corresponding experimental energy level values. 
+        energy levels. The first column contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
     """
     cdef public Hamiltonian h
     cdef int n_p
@@ -972,7 +973,9 @@ cdef class EFitRunner(object):
 
         # Prepare experimental energy level data
         self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
-        self.ex_li = np.ascontiguousarray(ex[:,0], dtype=np.int32)
+        # Subtract one, since we need an index starting at zero, whereas ex
+        # levels start at 1. 
+        self.ex_li = np.ascontiguousarray(ex[:,0]-1, dtype=np.int32)
        
         ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
         ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
@@ -1099,8 +1102,9 @@ cdef class ESHFitRunner(object):
         The Hamiltonian for which to fit the energy levels. 
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices and the
-        second column contains corresponding experimental energy level values. 
+        energy levels. The first column contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -1242,7 +1246,9 @@ cdef class ESHFitRunner(object):
        
         # Prepare experimental energy level data
         self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
-        self.ex_li = np.ascontiguousarray(ex[:,0], dtype=np.int32)
+        # Subtract one, since we need an index starting at zero, whereas ex
+        # levels start at 1. 
+        self.ex_li = np.ascontiguousarray(ex[:,0]-1, dtype=np.int32)
        
         ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
         ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
@@ -1761,8 +1767,9 @@ def e_fit(parameters, h, ex, cfl_min):
         The Hamiltonian for which to fit the energy levels. 
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices and the
-        second column contains corresponding experimental energy level values. 
+        energy levels. The first column contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
@@ -1809,8 +1816,9 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
         The spin Hamiltonian object to be fit. 
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices and the
-        second column contains corresponding experimental energy level values. 
+        energy levels. The first column contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`

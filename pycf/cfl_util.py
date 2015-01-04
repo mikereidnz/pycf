@@ -49,10 +49,10 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
     labels : list
         A list of labels of state labels.
     ex : np.ndarray, optional
-        A 2 by m array, specifying the experimental energy levels, with m the
-        number of available experimental levels.  The first column specifies the
-        index of the corresponding entry in the complete eigenvalue vector, and
-        the second column contains the energy level values.
+        2 by n dimensional array, with n the number of available experimental
+        energy levels. The first column contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
     nstates : int, optional
         The number of constituent states to display for mixed states.
     sigma : float, optional
@@ -80,7 +80,7 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
             line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[i,si], np.abs(z[i,si])/N, si+1, labels[si])
         s += line + " {: >12.4f}".format(w[i])
         if ex != None:
-            if ex[ex_i,0] == i:
+            if ex[ex_i,0] == i+1:
                 s += "   {: >12.4f}   {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
                 if ex_i != len(ex)-1:
                     ex_i += 1
@@ -229,10 +229,10 @@ def e_fit_sigma(e, ex, ndof):
     e : np.ndarray
         The energies of fitted levels.
     ex : np.ndarray
-        A 2 by m array, specifying the experimental energy levels, with m the
-        number of available experimental levels.  The first column specifies the
-        index of the corresponding entry in the complete eigenvalue vector, and
-        the second column contains the energy level values.
+        2 by n dimensional array, with n the number of available experimental
+        energy levels. The first column contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
     ndof : int
         The number of degrees of freedom of the chi-squared distribution, that
         is, the number of experimental data points minus the number of
@@ -240,7 +240,7 @@ def e_fit_sigma(e, ex, ndof):
     """
     # Experimental level index.
     ex_li = np.array(ex[:,0], dtype=int)
-    sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
+    sigma = np.sqrt(np.sum((e[ex_li-1] - ex[:,1])**2))/ndof
     
     return sigma
 

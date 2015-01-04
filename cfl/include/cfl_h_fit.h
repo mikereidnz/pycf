@@ -43,7 +43,7 @@ typedef struct {
   size_t n;
   /* Array of experimental energy level data. */
   double *e;
-  /* Index array specifying for which levels we have data. */
+  /* Index array specifying for which levels we have data, starting at zero. */
   int *li;
 } ex_data;
 
