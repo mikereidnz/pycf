@@ -56,7 +56,7 @@ else:
     if popen.returncode != 0:
         raise RuntimeError("Building cfl failed.")
 
-    if not "Nothing to be done for 'all'" in output:
+    if not "make: Nothing to be done" in output:
         subprocess.call(['touch', 'pycf/cfl.pyx'])
 
 
