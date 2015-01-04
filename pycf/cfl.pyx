@@ -1786,7 +1786,8 @@ def e_fit(parameters, h, ex, cfl_min):
 
     summary = "=============\n"
     summary+= "e_fit summary\n"
-    summary+= "=============\n\n"
+    summary+= "=============\n"
+    summary += gen_pycf_summary()
     summary += efit.h.gen_summary(ex=ex, sigma=e_sigma)
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
@@ -1847,7 +1848,8 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
 
     summary = "===============\n"
     summary+= "esh_fit summary\n"
-    summary+= "===============\n\n"
+    summary+= "===============\n"
+    summary += gen_pycf_summary()
     summary += eshfit.h.gen_summary(ex=ex, sigma=e_sigma)
     summary += "\n"
     summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)

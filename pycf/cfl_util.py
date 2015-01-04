@@ -19,6 +19,9 @@
 from __future__ import division
 import numpy as np
 
+from datetime import datetime
+import __version__
+
 def uline_char(s):
     """Underline all non-whitespace characters in a string, except for single
     spaces between non-whitespace characters."""
@@ -35,6 +38,15 @@ def uline_char(s):
     else:
         return s + ul
 
+def gen_pycf_summary():
+    r"""
+    Print the pycf version and date/time.
+
+    """
+    s = "pycf revision: {}\n".format(__version__.__version__)
+    s += "Calculation completed on: {}\n\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    return s
 
 def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
     r"""
