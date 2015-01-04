@@ -239,8 +239,8 @@ def e_fit_sigma(e, ex, ndof):
         parameters.
     """
     # Experimental level index.
-    ex_li = np.array(ex[:,0], dtype=int)
-    sigma = np.sqrt(np.sum((e[ex_li-1] - ex[:,1])**2))/ndof
+    ex_li = np.array(ex[:,0], dtype=int)-1
+    sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
     
     return sigma
 
