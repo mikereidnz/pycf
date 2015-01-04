@@ -151,7 +151,7 @@ need to change the ``USE_MKL`` macro in ``pycf/cfl/include/cfl_config.h`` to
 ``TRUE``.  This is not strictly necessary if you also have lapacke, since the
 mkl_lapacke and standard lapacke headers seem to be interchangable, and the
 linker will use the mkl library even if ``USE_MKL`` is false. Then, provided the
-bin directory containing icc is part of your system ``$PATH`` building with icc
+bin directory containing icc is part of your system ``$PATH``, building with icc
 and linking against mkl is done by::
   
   python setup.py build_ext --compiler=intel
@@ -160,12 +160,11 @@ The module can then be installed the usual way::
 
   python setup.py install --prefix=/path/to/dir
 
-Note that this defaults to linking against the lp64 interface, parallel
-threading and OpenMPI support.  To adjust these settings, modify the
-``MKL_CFLAGS`` variable in ``pycf/cfl/makefile``.  Furthermore, it is assumed
-that core libraries are in ``intel/lib/intel64`` and mkl libraries are in
-``intel/mkl/lib/intel64/``, where the location of the ``intel`` directory is
-inferred from the location of icc.
+Note that this defaults to linking against the lp64 interface, and OpenMP
+support.  To adjust these settings, modify the ``MKL_CFLAGS`` variable in
+``pycf/cfl/makefile``.  Furthermore, it is assumed that core libraries are in
+``intel/lib/intel64`` and mkl libraries are in ``intel/mkl/lib/intel64/``, where
+the location of the ``intel`` directory is inferred from the location of icc.
   
 To build only cfl with icc set the following environment variables prior to
 running make::
