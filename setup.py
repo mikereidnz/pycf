@@ -66,8 +66,6 @@ if popen.returncode == 0:
     f.write('\n__version__ = "%s"\n\n' % version.rstrip())
     f.close()
 
-print(popen.returncode)
-
 pycfl_ext = Extension('pycf.cfl', 
         sources=['pycf/cfl.pyx'],
         extra_compile_args = compile_args,
