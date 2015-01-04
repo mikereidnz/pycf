@@ -907,7 +907,7 @@ cdef class EFitRunner(object):
 
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
-    coefficients when the are set also determines whether they are fit as real
+    coefficients when they are set also determines whether they are fit as real
     or complex parameters. 
 
     Parameters
@@ -1801,7 +1801,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
 
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
-    coefficients when the are set also determines whether they are fit as real
+    coefficients when they are set also determines whether they are fit as real
     or complex parameters. 
 
 
