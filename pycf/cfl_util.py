@@ -223,6 +223,10 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     
     del kwargs['cov']
 
+    if method == 'basinhopping':
+        kwargs['naccept'] = kwargs['retval']
+        del kwargs['retval']
+
     s += "\n" + uline_char("Optimization routine details:\n")
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
     s += "{0:<20} {1: <}\n".format("method:", method)

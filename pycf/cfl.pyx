@@ -1477,7 +1477,23 @@ cdef class CFLMin:
     Parameters
     ----------
     method : string
-        The minimization routine to employ.
+        The minimization routine to employ.  Available options are:
+
+            - 'basinhopping'
+            - 'nlopt_cobyla'
+            - 'nlopt_bobyqa'
+            - 'nlopt_sbplx'
+            - 'nlopt_crs2_lm'
+            - 'nlopt_esch'.
+
+    bounds : dict, optional
+        Parameter bounds.  Keys specify the tensor name (note that tensors
+        created by tensor arithmethic should have their name attribute set
+        explicitly), while values correspond to tuples, the first entry of which
+        is the lower bound and the second entry the upper bound.  The number of
+        elements in bounds must match the length of the parameters list. 
+    cov : bool, optional
+        Evaluate the covariance matrix for the fit; defaults to False.
     lmin : CFLMin, optional
         The local minimization routine to be used by the basinhopping algorithm;
         defaults to nlopt_bobyqa.  Implemented options fall into two categories,
@@ -1495,14 +1511,6 @@ cdef class CFLMin:
             - 'nlopt_bobyqa'
             - 'nlopt_sbplx'.
 
-    cov : bool, optional
-        Evaluate the covariance matrix for the fit; defaults to False.
-    bounds : dict, optional
-        Parameter bounds.  Keys specify the tensor name (note that tensors
-        created by tensor arithmethic should have their name attribute set
-        explicitly), while values correspond to tuples, the first entry of which
-        is the lower bound and the second entry the upper bound.  The number of
-        elements in bounds must match the length of the parameters list. 
     stepsize : dict, optional
         The stepsize for parameter variation; presently only supported for the
         basinhopping algorithm.  Keys specify the tensor name, while values
@@ -1538,6 +1546,12 @@ cdef class CFLMin:
                 self.niter = kwargs['niter']
             else:
                 self.niter = 100
+        elif method == 'nlopt_cobyla':
+            pass
+        elif method == 'nlopt_bobyqa':
+            pass
+        elif method == 'nlopt_sbplx':
+            pass
         elif method == 'nlopt_crs2_lm':
             pass
         elif method == 'nlopt_esch':
@@ -1574,7 +1588,6 @@ cdef class CFLMin:
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
         cdef double fmin = 0
-        cdef int naccept
         cdef np.ndarray[double, ndim=1, mode="c"] lb 
         cdef np.ndarray[double, ndim=1, mode="c"] ub
         cdef np.ndarray[double, ndim=1, mode="c"] cstepsize
@@ -1733,19 +1746,28 @@ cdef class CFLMin:
             self.xtol = cxtol
             self.bh_lmin_obj = lmin_obj
             self.min_obj = min_obj
+        elif self.method == 'nlopt_cobyla':
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_cobyla,
+                    cxtol, self.cfl_bounds)
+        elif self.method == 'nlopt_bobyqa':
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
+                    cxtol, self.cfl_bounds)
+        elif self.method == 'nlopt_sbplx':
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_sbplx,
+                    cxtol, self.cfl_bounds)
         elif self.method == 'nlopt_crs2_lm':
-            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_crs2_lm,
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_crs2_lm,
                     cxtol, self.cfl_bounds)
         elif self.method == 'nlopt_esch':
-            lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_esch,
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_esch,
                     cxtol, self.cfl_bounds)
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         
         with nogil:
-            naccept = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
+            retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
         
-        self.kwargs['naccept'] = naccept
+        self.kwargs['retval'] = retval
 
         return fmin
 

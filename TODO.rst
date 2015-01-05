@@ -14,8 +14,6 @@ TODO
     for the inversion tests needs to be... the rest don't. 
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
-  * Bug in CFLMin causes segfault for any global min algorithms other than
-    basinhopping.
   * Consolidate unit testing. 
 
 Distributed memory parallelization
