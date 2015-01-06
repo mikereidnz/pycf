@@ -191,18 +191,3 @@ is useful to build in-place using::
 
 This places the extension module files into the package source directory such
 that it can be directly imported by other modules.
-
-
-License
-=======
-
-The cfl and the cfl python extension are licensed under the GNU General Public
-License version three, while pyemp and related components are licensed under the
-X11/MIT license.  
-
-The use of GPLv3 is mandated by cfl dynamically linking against GSL, which by
-the FSF's interpretation of copyright law makes cfl a derivative work of GSL.
-Since GSL is only used for random number generation and some optional
-minimization routines, it would be easy to find more permissively licensed
-replacements (such as the Mersenne Twister), and I'm happy to relicense all GSL
-independent components under the X11 or the modified BSD license.  

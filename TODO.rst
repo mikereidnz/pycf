@@ -15,6 +15,8 @@ TODO
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
+  * Numerical derivatives for covariance matrix evaluation spontaneously
+    segfault.
 
 Distributed memory parallelization
 ----------------------------------

@@ -73,7 +73,7 @@ pycfl_ext = Extension('pycf.cfl',
         include_dirs=['cfl/include', np.get_include(), '/usr/include/lapacke'])
 
 setup(name='pycf',
-      version='1.1',
+      version=version,
       description='Python crystal field theory modules',
       author='Sebastian Horvath',
       author_email='sebastian.horvath@gmail.com',
