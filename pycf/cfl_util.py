@@ -20,6 +20,7 @@ from __future__ import division
 import numpy as np
 
 from datetime import datetime
+import os, inspect
 import __version__
 
 def uline_char(s):
@@ -44,8 +45,9 @@ def gen_pycf_summary():
 
     """
     s = "pycf revision: {}\n".format(__version__.__version__)
+    s += "File: {}\n".format(os.path.abspath(inspect.stack()[1][1]))
     s += "Calculation completed on: {}\n\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
+    
     return s
 
 def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
