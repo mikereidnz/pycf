@@ -135,6 +135,7 @@ def gen_sh_summary(param, sh, shx=None, sigma=None):
     s = "Spin Hamiltonian summary\n"
     s+= "========================\n\n"
     for i,inter in enumerate(sh.interactions):
+        print(inter)
         s += uline_char("%s interaction\n" % inter)
         if shx != None:
             s += uline_char("Theory                        Experiment                    Difference\n")

@@ -16,7 +16,14 @@ TODO
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
   * There is a disagreement between the state admixtures between my calculation
-    and Mikes for Ce:LiYF4. 
+    and Mikes for Ce:LiYF4. Most probably this is since Mike's program operates
+    on block diagonals and, consequently, in effect chooses a linear combination
+    of eigenvectors. Verify that there exists a linear combination of states 1
+    and 2 that reproduce Mike's state admixtures. 
+  * There is an issue with the number of observables of quadrupole terms in the
+    covariance matrix estimation in cfl_h_fit.c. Set the number of observables
+    in cfl.pyx, since the python SpinHamiltonian class knows the true number of
+    observables. 
 
 Distributed memory parallelization
 ----------------------------------

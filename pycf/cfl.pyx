@@ -643,7 +643,7 @@ cdef class SpinHamiltonian:
         self.interactions = interactions
 
         if 'level' not in kwargs:
-            raise KeyError("Missing keyword argument 'level'.")
+            raise KeyError("SpinHamiltonian: missing keyword argument 'level'.")
         self.level = kwargs['level']
            
         # Calculate matrix elements for the specified interactions.
@@ -652,7 +652,7 @@ cdef class SpinHamiltonian:
             try: 
                 S_spin = kwargs['S']
             except KeyError:
-                raise KeyError("Missing keyword argument S.")
+                raise KeyError("SpinHamiltonian: missing keyword argument S.")
             # Calculate the matrix elements of spin operator.
             S_matel = [None]*3
             for i in range(3):
@@ -666,7 +666,7 @@ cdef class SpinHamiltonian:
             try:
                 I_spin = kwargs['I']
             except KeyError:
-                raise KeyError("Missing keyword argument I.")
+                raise KeyError("SpinHamiltonian: missing keyword argument I.")
             # Calculate the matrix elements of nuclear spin operator.
             I_matel = [None]*3
             for i in range(3):
