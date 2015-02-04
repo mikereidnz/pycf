@@ -677,7 +677,7 @@ double eshfit_cov_df(double x, void *data) {
   zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
   
-  if (cov_d->obs_index > d->ex->n) {
+  if (cov_d->obs_index >= d->ex->n) {
     /* i, the SH term index (sh_index increments three times per i for Zeeman),
      * increments once every 6 observables for spin Hamiltonian observables. */
     /* FIXME: should increment only by 5 for quadrupole terms, since quadrupole
@@ -746,7 +746,7 @@ double eshfit_hpro_cov_df(double x, void *data) {
   zh_set_coeff(d->hpro, d->coeff);
   zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
-  if (cov_d->obs_index > d->ex->n) {
+  if (cov_d->obs_index >= d->ex->n) {
     /* i, the SH term index (sh_index increments three times per i for Zeeman),
      * increments once every 6 observables for spin Hamiltonian observables. */
     /* FIXME: should increment only by 5 for quadrupole terms, since quadrupole
@@ -909,9 +909,9 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   
   /* The number of parameters. */
   n = obj->n;
-  /* The number of observables; we count 6 observables per spin Hamiltonian
-   * term.  This is not quite correct for quadrupole terms, since they are
-   * tracless after diagonalization. */
+  /* FIXME: The number of observables; we count 6 observables per spin
+   * Hamiltonian term.  This is not quite correct for quadrupole terms, since
+   * they are tracless after diagonalization. */
   m = d->ex->n + d->ninv*6;
   
   F.function = &eshfit_cov_df;
@@ -944,9 +944,9 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
 
   /* The number of parameters. */
   n = obj->n;
-  /* The number of observables; we count 6 observables per spin Hamiltonian
-   * term.  This is not quite correct for quadrupole terms, since they are
-   * tracless after diagonalization. */
+  /* FIXME: The number of observables; we count 6 observables per spin
+   * Hamiltonian term.  This is not quite correct for quadrupole terms, since
+   * they are tracless after diagonalization. */
   m = d->ex->n + d->ninv*6;
   
   F.function = &eshfit_hpro_cov_df;

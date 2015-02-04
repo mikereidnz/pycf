@@ -15,8 +15,8 @@ TODO
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
-  * Numerical derivatives for covariance matrix evaluation spontaneously
-    segfault.
+  * There is a disagreement between the state admixtures between my calculation
+    and Mikes for Ce:LiYF4. 
 
 Distributed memory parallelization
 ----------------------------------

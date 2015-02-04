@@ -35,6 +35,6 @@
 #define BH_DEF_ADAPT_INT      20
 
 /* Numerical derivative step-size for covariance matrix estimation. */
-#define COV_DERIV_H           1e-8
+#define COV_DERIV_H           1e-10
 
 #endif /* _TEST_DATA_H_ */
