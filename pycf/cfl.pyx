@@ -1095,11 +1095,13 @@ cdef class ESHFitRunner(object):
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
-    sh : SpinHamiltonian
-        The spin Hamiltonian object to be fit. 
+        A list of tensor objects for which to vary the prefactor.
+    sh_tensors : list
+        A list of tensor objects for which to project spin Hamiltonian terms. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
+    sh : SpinHamiltonian
+        The spin Hamiltonian object to be fit. 
     ex : np.ndarray
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices starting
@@ -1174,7 +1176,7 @@ cdef class ESHFitRunner(object):
                 try:
                     inter.set_pro_data([sh_tensor_dict['MAGX'], sh_tensor_dict['MAGY'], sh_tensor_dict['MAGZ']])
                 except KeyError:
-                    raise ValueError("Missing a Zeeman tensor from the sh_tensors_list.")
+                    raise ValueError("Missing a Zeeman tensor from the sh_tensors list.")
                 for t in inter.terms:
                     if t.tensor in h:
                         c_sh_tensors += [t.tensor]
@@ -1184,12 +1186,12 @@ cdef class ESHFitRunner(object):
                     try:
                         inter.set_pro_data(sh_tensor_dict['AHYP'])
                     except KeyError:
-                        raise ValueError("Missing hyperfine tensor from the sh_tensors_list.")
+                        raise ValueError("Missing hyperfine tensor from the sh_tensors list.")
                 elif inter.type == 'quadrupole':
                     try:
                         inter.set_pro_data(sh_tensor_dict['EQHYP'])
                     except KeyError:
-                        raise ValueError("Missing quadrupole tensor from the sh_tensors_list.")
+                        raise ValueError("Missing quadrupole tensor from the sh_tensors list.")
                 if inter.term.tensor in h:
                     c_sh_tensors += [inter.term.tensor]
        
