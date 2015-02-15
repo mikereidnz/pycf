@@ -103,6 +103,10 @@ class ImportSLJM(object):
             tensor_matrices['MAGX'] = tensor_matrices['MAG11'] * 1/np.sqrt(2)
             tensor_matrices['MAGY'] = tensor_matrices['MAGX'] * np.complex(0, -1)
             tensor_matrices['MAGZ'] = tensor_matrices['MAG10']
+        
+        # AHYP is the L.I part and BHYP is (sC2).I part
+        if 'AHYP' in tensor_matrices and 'BHYP' in tensor_matrices:
+            tensor_matrices['HYP'] = tensor_matrices['AHYP'] - np.sqrt(10) * tensor_matrices['BHYP']
        
         # Create tensors; since tensors use hermitian matrix compressed row
         # storage we do not require the lower triangular half.
