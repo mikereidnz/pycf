@@ -556,6 +556,8 @@ cdef class SHInteractionData(object):
     cdef int level
     cdef cfl.zsh_inv_data *cfl_inv_data
     cdef public object inv_data_cap
+    cdef public n
+    cdef public m
 
     def __init__(self, d, inter, coeff, level):
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
@@ -567,11 +569,19 @@ cdef class SHInteractionData(object):
         else:
             self.term = SHTerm(d, inter)
         
+        # Determine the dimensions of the inversion problem consisting of
+        # solving for x in Ax = b.  n is the number rows of A and length of b,
+        # while m is the number columns of B, and the length of x.  For Zeeman
+        # case, coeff already has the correct dimensions for inversion, that is,
+        # three times the number of rows. 
+        self.m = coeff.shape[0]
+        self.n = coeff.shape[1]
+
         # Assign coeff to self to ensure there exists a reference to the coeff
         # memory for as long as this object exists. 
         self.coeff = np.asfortranarray(coeff, dtype=np.complex128)
         a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.coeff
-        self.cfl_inv_data = zsh_inv_data_alloc(&a[0,0], coeff.shape[0], coeff.shape[1])
+        self.cfl_inv_data = zsh_inv_data_alloc(&a[0,0], self.m, self.n)
         if self.cfl_inv_data == NULL:
             raise MemoryError("Failed to alloc inv_data memory")
         else:
@@ -776,6 +786,7 @@ cdef class SpinHamiltonian:
         cdef np.ndarray[double complex, ndim=1, mode="c"] a
         cdef np.ndarray[double complex, ndim=1, mode="c"] cz
         cdef int cj
+        cdef int cdz
         cdef int z_num
         c_sh_tensors = []
         self.nzeeman = -1
@@ -808,7 +819,7 @@ cdef class SpinHamiltonian:
                     c_sh_tensors += [inter.term.tensor]
 
         # If not present, add small magnetic field to Hamiltonian to order
-        # states..
+        # states.
         if 'MAGZ_small' not in h.coeff_dict:
             for i in self.inter_data:
                 if i.type == 'zeeman':
@@ -833,23 +844,27 @@ cdef class SpinHamiltonian:
         # Diagonalize the complete Hamiltonian, then determine the sh terms and
         # finally do the inversion for each interaction of sh.
         (w, z) = h.diag()
-
         cz = <np.ndarray[double complex, ndim=1, mode="c"]> z.flatten()
+
+        sh_index=0
         for i,inter in enumerate(self.inter_data):
             if inter.type == 'zeeman':
                 # Since Zeeman interactions require three sh terms for inversion
                 # we create a results array (a) big enough to hold the matrix
                 # elements of three sh terms; then we fill a in three blocks.
-                z_num = inter.terms[0].n**2
-                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(z_num*3, dtype=np.complex128)
+                cdz = inter.m/3
+                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.m, dtype=np.complex128)
                 for j,t in enumerate(inter.terms):
                     cj = j
-                    cfl.zshp(&a[cj*z_num], &cz[0], <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm"),
-                            <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
+                    cfl.zshp(&a[cj*cdz], &cz[0], <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm"),
+                            <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[sh_index], "pycfl.SHCalcParamProWork"))
+                    sh_index += 1
             else:
-                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.term.n**2, dtype=np.complex128)
+                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.m, dtype=np.complex128)
                 cfl.zshp(&a[0], &cz[0], <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm"), 
-                        <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
+                        <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[sh_index], "pycfl.SHCalcParamProWork"))
+                sh_index += 1
+
             # Do the inversion; we can directly pass on 'a' even in the Zeeman
             # case.
             cfl.zshi(&a[0], <cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
@@ -857,6 +872,7 @@ cdef class SpinHamiltonian:
 
         for i in range(len(shp_work_list)):
             cfl.zshp_w_free(<cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
+
         for i in range(len(shi_work_list)):
             cfl.zshi_w_free(<cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
         
@@ -1184,7 +1200,7 @@ cdef class ESHFitRunner(object):
             else:
                 if inter.type == 'hyperfine':
                     try:
-                        inter.set_pro_data(sh_tensor_dict['AHYP'])
+                        inter.set_pro_data(sh_tensor_dict['HYP'])
                     except KeyError:
                         raise ValueError("Missing hyperfine tensor from the sh_tensors list.")
                 elif inter.type == 'quadrupole':
@@ -1467,7 +1483,6 @@ cdef class ESHFitRunner(object):
             else:
                 coeff[self.h.index(p)] = x[ri]
                 ri += 1
-
 
         return(coeff, fmin)
 
@@ -1865,7 +1880,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     
     # The number of degrees of freedom of the chi-squared distribution
     ndof = len(ex) + sh.nobs - len(parameters)
-
+    
     sh_param = sh.calc_param(eshfit.h)
     e_sigma = e_fit_sigma(w, ex, ndof)
     sh_sigma = sh_fit_sigma(sh_param, sh, shx, ndof)

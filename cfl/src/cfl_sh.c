@@ -121,7 +121,6 @@ void zsh_free(zsh *sh) {
  *          Hamiltonian. 
  */
 void zsh_set_pro(zsh *sh, zt *t, int l) {
-
   if (!sh->pro_data->set_flag) {
     sh->pro_data->td = (complex double *) malloc(t->n*t->n*sizeof(double
           complex));
@@ -221,6 +220,7 @@ void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
   zero = 0;
   lapack_int n = shp_w->nc;
   int nsh = sh->n;
+  
   /* The projection is a similarity transformation of the form V^dag H V, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
@@ -232,7 +232,7 @@ void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
       hz, n, shp_w->a, n, &zero, shp_w->b, n);
   size_t l = sh->pro_data->l;
-
+  
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
       a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
@@ -242,7 +242,7 @@ void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
 
 /*
  * Allocate workspace for the spin Hamiltonian inversion function, which
- * consists of solving the over-determined system Ax=b.
+ * solves the over-determined system Ax=b.
  *
  * Parameters
  * ----------
@@ -278,8 +278,8 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   }
   
   /* Storage for the inversion coefficient matrix; since this is overwritten by
-   * zgels we must key a copy of the inversion matrix d->a to allow for repeated
-   * evaluations. */
+   * zgels we must make a copy of the inversion matrix d->a to allow for
+   * repeated evaluations. */
   a = (complex double *) calloc(d->m*d->n,sizeof(complex double));
   if (work == 0) {
     free(w);
@@ -323,6 +323,7 @@ void zshi(complex double *a, zshi_w *w) {
   
   /* Store a copy of the inversion matrix. */
   memcpy((void *)w->a, (void *)w->data->a, w->a_size);
+   
   info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, w->data->n, 1,
       w->a, w->data->m, a, w->data->m, w->work, w->lwork);
   if (info != 0) {

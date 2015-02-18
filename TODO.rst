@@ -23,7 +23,8 @@ TODO
   * There is an issue with the number of observables of quadrupole terms in the
     covariance matrix estimation in cfl_h_fit.c. Set the number of observables
     in cfl.pyx, since the python SpinHamiltonian class knows the true number of
-    observables. 
+    observables.
+  * Add weighting to spin Hamiltonian log.
 
 Distributed memory parallelization
 ----------------------------------

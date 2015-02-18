@@ -117,7 +117,8 @@ typedef struct {
   zsh **sh_a;
   /* Number of spin Hamiltonians. */
   size_t nsh;
-  /* The index of the first Zeeman term. */
+  /* The index of the first Zeeman term; is -1 for cases without Zeeman
+   * interaction. */
   size_t nzeeman;
   /* Number of spin Hamiltonian inversions (depends on term types). */
   size_t ninv;

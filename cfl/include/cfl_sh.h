@@ -78,7 +78,8 @@ typedef struct {
   /* Spin Hamiltonian inversion data. */
   zsh_inv_data *data;
   /* Storage for inversion coefficient matrix; since zgels overwrites this upon
-   * exit we can't pass the pointer to a of the zsh_inv_data object directly. */
+   * exit we can't pass the pointer to a stored in the zsh_inv_data object
+   * directly. */
   complex double *a;
   /* The size of a */
   size_t a_size;

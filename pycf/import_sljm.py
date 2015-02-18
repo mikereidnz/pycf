@@ -113,6 +113,8 @@ class ImportSLJM(object):
         sl = cfl.StateLabels(state_labels)
         tensors = {}
         for t in tensor_matrices:
+            if np.count_nonzero(tensor_matrices[t])== 0:
+                print("Warning: all matrix elements of %s are zero." % t) 
             tensors[t] = cfl.Tensor(t, tensor_matrices[t], sl)
 
         self.tensors = tensors

@@ -25,7 +25,7 @@ endif
 
 TESTS=$(patsubst tests/%.c,%,$(wildcard tests/*test.c))
 
-all: libcfl.a test
+all: libcfl.a
 
 test: $(TESTS) 
 	sh ./cfl_testing.sh

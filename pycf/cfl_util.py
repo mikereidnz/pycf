@@ -135,7 +135,6 @@ def gen_sh_summary(param, sh, shx=None, sigma=None):
     s = "Spin Hamiltonian summary\n"
     s+= "========================\n\n"
     for i,inter in enumerate(sh.interactions):
-        print(inter)
         s += uline_char("%s interaction\n" % inter)
         if shx != None:
             s += uline_char("Theory                        Experiment                    Difference\n")
@@ -259,7 +258,10 @@ def e_fit_sigma(e, ex, ndof):
     """
     # Experimental level index.
     ex_li = np.array(ex[:,0], dtype=int)-1
-    sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
+    try:
+        sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
+    except:
+        raise IndexError("Level index in experimental energies file is out of range.")
     
     return sigma
 
