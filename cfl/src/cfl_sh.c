@@ -232,12 +232,24 @@ void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
       hz, n, shp_w->a, n, &zero, shp_w->b, n);
   size_t l = sh->pro_data->l;
-  
+#if 0  
+  for (i=0; i<n; i++) {
+    for (j=0; j<n; j++) {
+      printf("%f+%fi ", creal(hz[i*nsh+j]), cimag(hz[i*nsh+j]));
+    }
+    printf("\n");
+  }
+  printf("\n");
+#endif
+
   for (i=0; i<nsh; i++) {
     for (j=0; j<nsh; j++) {
       a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
+      printf("%f+%fi ", creal(a[i*nsh+j]), cimag(a[i*nsh+j]));
     }
+    printf("\n");
   }
+  printf("\n");
 }
 
 /*
@@ -330,4 +342,15 @@ void zshi(complex double *a, zshi_w *w) {
     sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
+
+#if 1
+  int i, j;
+  for (i=0; i<3; i++) {
+    for (j=0; j<3; j++) {
+      printf("%f ", a[i*3+j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+#endif
 }

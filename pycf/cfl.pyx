@@ -845,13 +845,14 @@ cdef class SpinHamiltonian:
         # finally do the inversion for each interaction of sh.
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=1, mode="c"]> z.flatten()
-
+                
         sh_index=0
         for i,inter in enumerate(self.inter_data):
             if inter.type == 'zeeman':
                 # Since Zeeman interactions require three sh terms for inversion
-                # we create a results array (a) big enough to hold the matrix
-                # elements of three sh terms; then we fill a in three blocks.
+                # we create a results array, called a, big enough to hold the
+                # matrix elements of three sh terms; then we fill a in three
+                # blocks.
                 cdz = inter.m/3
                 a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.m, dtype=np.complex128)
                 for j,t in enumerate(inter.terms):
@@ -869,7 +870,7 @@ cdef class SpinHamiltonian:
             # case.
             cfl.zshi(&a[0], <cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
             result_list += [a[0:9].reshape(3,3)]
-
+        
         for i in range(len(shp_work_list)):
             cfl.zshp_w_free(<cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
 

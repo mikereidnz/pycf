@@ -124,7 +124,7 @@ typedef struct {
   size_t ninv;
   /* Array of pointers to spin Hamiltonian projection workspaces. */
   zshp_w **shp_w_array;
-  /* Array of pointers spin Hamiltonian inversion workspaces. */
+  /* Array of pointers to spin Hamiltonian inversion workspaces. */
   zshi_w **shi_w_array;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
   complex double **sh_pa;
