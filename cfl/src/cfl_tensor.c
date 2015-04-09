@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,24 +36,22 @@
 #include <cfl_tensor.h>
 
 /*
- * Implement the djb2 hash algorithm for arrays of strings. For details on djb2,
- * see: http://www.cse.yorku.ca/~oz/hash.html
+ * Implement the djb2 hash algorithm for array of char arrays.  For details
+ * on djb2, see: http://www.cse.yorku.ca/~oz/hash.html
  *
  * Parameters
  * ----------
- *  n         The length of the array.
- *  str_a     Array of strings to hash. 
+ *  n         The length of the array of char arrays.
+ *  nc        The length of the char arrays.
+ *  a         Array of char arrays to hash. 
  */
-long state_hash(size_t n, char **str_a) {
+long state_hash(size_t n, size_t nc, char **a) {
   unsigned long hash = 5381;
-  int i, c;
-  char *str;
+  int i, j;
    
   for (i=0; i<n; i++) {
-    str = str_a[i];
-    while (c = *str++) {
-      /* hash * 33 + c */
-      hash = ((hash << 5) + hash) + c;
+    for (j=0; j<nc; j++) {
+      hash = ((hash << 5) + hash) + a[i][j];
     }
   }
   return hash;
@@ -65,41 +63,57 @@ long state_hash(size_t n, char **str_a) {
  * Parameters
  * ----------
  *  n         The number of states.
- *  states    Array of strings containing state labels; it is assumed that all
- *            state label strings are of the same length. 
+ *  key       String identifying the type of each state label.  Valid keys are:
+ *            S, L, J, M and I, and the order in which they are listed must
+ *            correspond to the order used in the label array for each state. 
+ *  labels    Char array corresponding to the value of each state label.
+ *            The order is dictade by the key array.  To avoid half integers,
+ *            label values are always stored as twice their real value.  N.B.:
+ *            label arrays are not strings, since 0 is a perfectly valid state
+ *            label yet would yield a premature string termination. 
  */
-sl *sl_alloc(size_t n, char **states) {
+sl *sl_alloc(size_t n, char *key, char **labels) {
   sl *l;
   int i, j;
-  size_t sl_len;
+  size_t nl;
 
   l = (sl *) malloc(sizeof(sl));
   if (l == 0) {
     CFL_ERROR_NULL("malloc failed for sl");
   }
-  sl_len = strlen(states[0])+1;
+  nl = strlen(key);
 
-  l->states = (char **) malloc(n*sizeof(char *));
-  if (l->states == 0) {
+  l->key = (char *) malloc((nl+1)*sizeof(char));
+  if (l->key == 0) {
     free(l);
-    CFL_ERROR_NULL("malloc failed for l.states");
+    CFL_ERROR_NULL("malloc failed for l.key");
+  }
+  strcpy(l->key, key);
+
+  l->labels = (char **) malloc(n*sizeof(char *));
+  if (l->labels == 0) {
+    free(l->key);
+    free(l);
+    CFL_ERROR_NULL("malloc failed for l.labels");
   }
 
   for (i=0; i<n; i++) {
-    l->states[i] = (char *) malloc(sl_len*sizeof(char));
-    if (l->states[i] == 0) {
+    l->labels[i] = (char *) malloc(nl*sizeof(char));
+    if (l->labels[i] == 0) {
       for (j=0; j<i; j++) {
-        free(l->states[j]);
+        free(l->labels[j]);
       }
-      free(l->states);
+      free(l->key);
+      free(l->labels);
       free(l);
       CFL_ERROR_NULL("malloc failed for l.states[i]");
     }
-    strcpy(l->states[i], states[i]);
+    memcpy(l->labels[i], labels[i], nl*sizeof(char));
   }
   
-  l->hash = state_hash(n, l->states);
+  l->hash = state_hash(n, nl, l->labels);
   l->n = n;
+  l->nl = nl;
   
   return l;
 }
@@ -108,9 +122,10 @@ void sl_free(sl *l) {
   int i;
 
   for (i=0; i<l->n; i++) {
-    free(l->states[i]);
+    free(l->labels[i]);
   }
-  free(l->states);
+  free(l->key);
+  free(l->labels);
   free(l);
 }
 

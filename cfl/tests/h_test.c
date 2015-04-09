@@ -98,15 +98,19 @@ int main (void)
     2-3*I, 0};
 
   /* State label preparation. */
-  char *s[4];
+  char label_key[] = "SLJM";
+  char *l[4];
   for (i=0; i<4; i++) {
-    s[i] = malloc(4*sizeof(char));
-    if (s[i] == 0) 
+    l[i] = malloc(4*sizeof(char));
+    if (l[i] == 0) 
       printf("Error; label array s malloc failed\n");
-    sprintf(s[i], "l=%i", i);
+    
+    for (j=0; j<4; j++) {
+      l[i][j] = j;
+    }
   }
   sl *states;
-  states = sl_alloc(4, s);
+  states = sl_alloc(4, label_key, l);
 
   /* Tensor allocs; neglecting state labels for now. */
   zt *t1, *t2;
@@ -206,9 +210,9 @@ int main (void)
   zt_free(t2);
   sl_free(states);
   for (i=0; i<4; i++) {
-    free(s[i]);
+    free(l[i]);
   }
-
+  
   /*=========================================================================*/
   /* Spin Hamiltonian projection test.                                       */
   /*=========================================================================*/
@@ -261,14 +265,17 @@ int main (void)
     
   w = (double *) calloc(14,sizeof(double));
   z = (complex double *) calloc(196,sizeof(complex double));
-  char *ce_s[14]; 
+  char *ce_l[14]; 
   for (i=0; i<14; i++) {
-    ce_s[i] = malloc(5*sizeof(char));
-    if (ce_s[i] == 0) 
+    ce_l[i] = malloc(5*sizeof(char));
+    if (ce_l[i] == 0) 
       printf("Error; label array ce_s malloc failed\n");
-    sprintf(ce_s[i], "l=%02d", i);
+
+    for (j=0; j<4; j++) {
+      ce_l[i][j] = j;
+    }
   }
-  states = sl_alloc(14, ce_s);
+  states = sl_alloc(14, label_key, ce_l);
 
   zt *zeta, *c20, *magz;
   zeta = (zt *) zt_alloc("zeta", zeta_matel, 14, states);
@@ -303,7 +310,7 @@ int main (void)
   free(z);
   sl_free(states);
   for (i=0; i<14; i++) {
-    free(ce_s[i]);
+    free(ce_l[i]);
   }
   /*=========================================================================*/
   /* Spin Hamiltonian inversion test.                                        */

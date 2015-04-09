@@ -25,6 +25,8 @@ TODO
     in cfl.pyx, since the python SpinHamiltonian class knows the true number of
     observables.
   * Add weighting to spin Hamiltonian log.
+  * Make sure there is no duplicate information in spin Hamiltonian type given
+    the new state labeling data structure. 
 
 Distributed memory parallelization
 ----------------------------------

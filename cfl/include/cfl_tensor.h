@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,12 +25,15 @@
 typedef struct {
   /* The number of states. */
   size_t n;
+  /* The number of labels per state. */
+  size_t nl;
+  /* Key identifying the type of label; of length nl. */
+  char *key;
   /* Pointer to arrays of length l of state labels. */
-  char **states;
+  char **labels;
   /* Pointer to hash of states. */
   long hash;
 } sl;
-
  
 /* The tensor structure for complex valued matrix elements. */
 typedef struct {
@@ -44,13 +47,12 @@ typedef struct {
   crs_zhm *matel;
 } zt; 
 
-
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
 
-sl *sl_alloc(size_t n, char **states);
+sl *sl_alloc(size_t n, char *key, char **labels);
 void sl_free(sl *l);
 zt *zt_alloc(char *name, complex double *a, size_t n, sl *states);
 void zt_free(zt *t);
