@@ -122,7 +122,7 @@ class ImportSLJM(object):
 
     def print_names(self):
         r"""
-        Print the names of all available the available tensors that have been loaded.
+        Print the names of all the tensors that have been loaded.
 
         """
         for t in self.tensors:
