@@ -29,7 +29,7 @@ typedef struct {
   size_t nl;
   /* Key identifying the type of label; of length nl. */
   char *key;
-  /* Pointer to arrays of length l of state labels. */
+  /* Array of length l containing arrays of length nl of state labels. */
   char **labels;
   /* Pointer to hash of states. */
   long hash;

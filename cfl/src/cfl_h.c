@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -236,6 +236,21 @@ void zhd_w_free(zhd_w *hd_w) {
   free(hd_w->rwork);
   free(hd_w->iwork);
   free(hd_w);
+}
+
+/* 
+ * Allocate storage for complex eigenstates. 
+ *
+ * Parameters
+ * ----------
+ *  h       The Hamiltonian to be diagonalized. 
+ */
+zeigst *zeigst_alloc(zh *h) {
+
+}
+
+void zeigst_free(zeigst *eigst) {
+
 }
 
 /*

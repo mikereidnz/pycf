@@ -17,6 +17,7 @@
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <complex.h>
@@ -225,6 +226,14 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
   }
   else {
     ninv = nsh;
+  }
+
+  /* Check whether there are any interactions that depend on nuclear spin. */
+  data->iz_label = 0;
+  for (i=0; i<nsh; i++) {
+    if (!strcmp(sh_a[i]->type, "hyperfine") || strcmp(sh_a[i]->type, "quadrupole")) {
+      data->iz_label = 1;
+    }
   }
 
   data->shi_w_array = (zshi_w **) malloc(ninv*sizeof(zshi_w *));

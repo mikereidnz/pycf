@@ -24,6 +24,8 @@
  * Spin Hamiltonian data structure used for spin Hamiltonian projection from a
  * complete Hamiltonian (see cfl_h.c) and inversion of spin Hamiltonians to
  * obtain the spin Hamiltonian parameter matrices. 
+ *
+ * TODO: explain call sequence of gen sort, proj, and inv. 
  */
 
 #include <stdio.h>
@@ -52,7 +54,9 @@
  *
  * Parameters
  * ----------
- * n  The dimensions of the spin Hamiltonian term.
+ * n      The dimensions of the spin Hamiltonian term.
+ * type   The type should point to a string with recognized values being
+ *        'zeeman', 'hyperfine', and 'quadrupole'.
  */
 zsh *zsh_alloc(size_t n, char *type) {
   zsh *sh;
@@ -133,8 +137,10 @@ void zsh_set_pro(zsh *sh, zt *t, int l) {
   /* Convert to dense storage, as required by the blas zhemm and ztrmm functions
    * in zshp. */
   crs_zhm2zha(t->matel, sh->pro_data->td);
+
   sh->pro_data->tn = t->n;
   sh->pro_data->l = l;
+  sh->pro_data->t_slabel = t->states;
 }
 
 /* Alloc spin Hamiltonian inversion data; a wrapper for cython. 
@@ -169,6 +175,7 @@ zshp_w *zshp_w_alloc(zsh *sh) {
   size_t n = sh->pro_data->tn;
   complex double *a; 
   complex double *b;
+  zsh_sort_t *zsh_sort;
 
   shp_w = (zshp_w *) malloc(sizeof(zshp_w));
   if (shp_w == 0) {
@@ -188,8 +195,17 @@ zshp_w *zshp_w_alloc(zsh *sh) {
     CFL_ERROR_NULL("calloc failed for b");
   }
 
+  zsh_sort = (zsh_sort_t *) malloc(sh->n*sizeof(zsh_sort_t));
+  if (zsh_sort == 0) {
+    free(shp_w);
+    free(a);
+    free(b);
+    CFL_ERROR_NULL("malloc failed for zsh_sort");
+  }
+
   shp_w->a = a;
   shp_w->b = b;
+  shp_w->zsh_sort = zsh_sort;
   shp_w->nc = n;
 
   return shp_w;
@@ -198,7 +214,61 @@ zshp_w *zshp_w_alloc(zsh *sh) {
 void zshp_w_free(zshp_w *shp_w) {
   free(shp_w->a);
   free(shp_w->b);
+  free(zsh_sort);
   free(shp_w);
+}
+
+/* 
+ * Comparison function for state label sorting.
+ */
+int zshp_state_cmp(const void *a, const void *b) {
+  const zsh_sort_t *sa = (const zsh_sort_t *) a;
+  const zsh_sort_t *sb = (const zsh_sort_t *) b;
+
+  if (sa->Iz == sb->Iz) {
+    return (sa->Sz > sb->Sz) - (sa->Sz < sb->Sz);
+  }
+  else {
+    return (sa->Iz > sb->Iz) - (sa->Iz < sb->Iz);
+  }
+}
+
+/* 
+ * Generate the state label sorting array.  This function must be run prior to
+ * calling zshp whenever the eigenvectors used for the zshp call change and sh
+ * contains an interaction that depends on the nuclear spin.
+ *
+ * Parameters
+ * ----------
+ *  hz    Pointer to array containing the eigenvectors that diagonalize the
+ *        Hamiltonian containing free-ion and crystal-field interactions.
+ *  sh    The spin Hamiltonian object.
+ *  shp_w The projection workspace, allocated with zshp_w_alloc.
+ */
+void zshp_gen_sort(complex double *hz, zsh *sh, zshp_w *shp_w) {
+  int i, j, col_offset, max_component;
+  //FIXME: iz_index, sz_index
+  //Current status: have included check whether sh array contains nuclear spin
+  //label, in which case the iz_label of the esh fitting data struct is set to
+  //1. Next, we have to somehow disable sorting if iz_label = 0... maybe set to
+  //ptr to zsh_sort to NULL in workspace alloc and don't call zshp_gen_sort each
+  //itteration?
+  for (i=0; i<sh->n; i++) {
+    max_component = 0;
+    /* Offset for hz to start of current column. */
+    col_offset = (sh->pro_data->l+i)*sh_pro_data->tn;
+
+    for (j=0; j<sh->pro_data->tn; j++) {
+      if (hz[col_offset+j] > hz[col_offset+max_component]) {
+        max_component = j;
+      }
+    }
+    shp->zsh_sort[i] = i + sh->pro_data->l;
+    (shp->zsh_sort[i])->Iz = sh->pro_data->t_slabels[max_index][iz_index];
+    (shp->zsh_sort[i])->Sz = sh->pro_data->t_slabels[max_index][sz_index];
+  }
+
+  qsort((void *) shp_w->zsh_sort, sh->n, sizeof(zsh_sort_t), zshp_state_cmp); 
 }
 
 /*

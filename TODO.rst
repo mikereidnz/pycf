@@ -16,7 +16,7 @@ TODO
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
   * There is a disagreement between the state admixtures between my calculation
-    and Mikes for Ce:LiYF4. Most probably this is since Mike's program operates
+    and Mike's for Ce:LiYF4. Most probably this is since Mike's program operates
     on block diagonals and, consequently, in effect chooses a linear combination
     of eigenvectors. Verify that there exists a linear combination of states 1
     and 2 that reproduce Mike's state admixtures. 
@@ -26,7 +26,12 @@ TODO
     observables.
   * Add weighting to spin Hamiltonian log.
   * Make sure there is no duplicate information in spin Hamiltonian type given
-    the new state labeling data structure. 
+    the new state labeling data structure.
+  * Remember to revisit state-label sorting for Iz=0 case. Do we need to sort by
+    Sz, or does the small magnetic field always guarantee that? At present, we
+    don't sort if Iz=0, and this should be fine, since it has worked with
+    previous calculations... but verify (the complex coefficient mess comes to
+    mind).
 
 Distributed memory parallelization
 ----------------------------------

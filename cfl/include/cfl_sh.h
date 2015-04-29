@@ -36,10 +36,21 @@ typedef struct {
   /* Integer specifying the initial level for which to project the spin
    * Hamiltonian. */
   size_t l;
+  /* Statelabes for the tensor to be projected. */
+  sl *t_slabels;
   /* Flag used to free memory if alloced. */
   int set_flag;
 } zsh_pro_data;
 
+/* Data type for sorting projection states according to Iz and Sz labels. */
+typedef struct {
+  /* Spin Hamiltonian element index. */
+  int index;
+  /* Pointer to correspoding Iz value. */
+  char Iz;
+  /* Pointer to corresponding Sz value. */
+  char Sz;
+} zsh_sort_t;
 
 /* Spin Hamiltonian inversion data. */
 typedef struct {
@@ -71,6 +82,8 @@ typedef struct {
   complex double *a;
   /* Array used for storing the final values of the projection. */
   complex double *b;
+  /* Data for sorting w.r.t. Iz and Sz labels of projection result. */
+  zsh_sort_t *zsh_sort;
 } zshp_w; 
 
 /* The spin Hamiltonian inversion workspace. */

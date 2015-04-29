@@ -120,6 +120,8 @@ typedef struct {
   /* The index of the first Zeeman term; is -1 for cases without Zeeman
    * interaction. */
   size_t nzeeman;
+  /* Contains an interaction with a nuclear spin label. */
+  int iz_label;
   /* Number of spin Hamiltonian inversions (depends on term types). */
   size_t ninv;
   /* Array of pointers to spin Hamiltonian projection workspaces. */

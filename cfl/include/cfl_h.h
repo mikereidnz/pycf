@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ typedef struct {
   /* Number of tensors. */
   int nt;
   /* State labels. */
-  sl *states;
+  sl *slabels;
   /* Pointer to array of pointers to complex valued tensors. */
   zt **t;
   /* Tensor coefficients. */
