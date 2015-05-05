@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,64 +27,81 @@
 #include "cfl_tensor.h"
 #include "cfl_h.h"
 
-/* Spin Hamiltonian projection data. */
-typedef struct {
-  /* Matrix elements of tensor to project in dense storage. */
-  complex double *td;
-  /* Dimension of the tensor. */
-  size_t tn;
-  /* Integer specifying the initial level for which to project the spin
-   * Hamiltonian. */
-  size_t l;
-  /* Statelabes for the tensor to be projected. */
-  sl *t_slabels;
-  /* Flag used to free memory if alloced. */
-  int set_flag;
-} zsh_pro_data;
-
-/* Data type for sorting projection states according to Iz and Sz labels. */
+/* Data type for sorting projection states according to sz and iz labels. */
 typedef struct {
   /* Spin Hamiltonian element index. */
-  int index;
-  /* Pointer to correspoding Iz value. */
-  char Iz;
-  /* Pointer to corresponding Sz value. */
-  char Sz;
+  size_t index;
+  /* sz value (2*S_z). */
+  int sz;
+  /* iz value (2*I_z). */
+  int iz;
 } zsh_sort_t;
 
-/* Spin Hamiltonian inversion data. */
+/* Data for spin Hamiltonian inversion, solving Ax=b. */
 typedef struct {
   /* Pointer to the inversion coefficient matrix A. */
   complex double *a;
-  /* The number of rows of A and length of b. */
+  /* Pointer to the spin Hamiltonian matrix elements, b. */
+  complex double *b;
+  /* The number of columns of A, and the length of x; the number of rows of A
+   * and the length of b is always 9. */
   size_t m;
-  /* The number of columns of B, and the length of x. */
-  size_t n;
 } zsh_inv_data;
+
+/* Data for projection from full dimension tensor matrix elements to spin
+ * Hamiltonian space. */
+typedef struct {
+  /* The dimension of the spin Hamiltonian inversion term. */
+  int shi_dim;
+  /* The matrix elements of the full dimension tensor to project. */
+  complex double *pt;
+} zsh_pro_data;
 
 /* Spin Hamiltonian structure definition. */
 typedef struct {
-  /* Dimension of the spin Hamiltonian. */
-  size_t n;
-  /* Pointer to term type character array. */
-  char *type;
-  /* State labels corresponding to eigenvalues. */
-  sl *states;
+  /* Dimension of the complete spin Hamiltonian. */
+  size_t dim;
+  /* State labels corresponding to eigenvalues; currently not implemented. */
+  sl *slabels;
+  /* Array of strings specifing the type of interactions described by the spin
+   * Hamiltonian. */
+  char **inter;
+  /* The number of interactions described by the spin Hamiltonian. */
+  int ninter;
+  /* The spin projection S_z * 2 (to ensure integer values). */
+  int sz;
+  /* The nuclear spin projection I_z * 2 (to ensure integer values). */
+  int iz;
+  /* The spin Hamiltonian inversion data. */
+  zsh_inv_data **inv_data;
+  /* The number of tensors to project. */
+  int ntensors;
+  /* Integer specifying the initial level for which to project the spin
+   * Hamiltonian. */
+  size_t l;
+  /* The dimension of the tensor to project. */
+  size_t pt_dim;
   /* Projection data. */
-  zsh_pro_data *pro_data;
+  zsh_pro_data **pro_data;
+  /* The projection tensor state labels. */
+  sl *pt_slabels;
 } zsh;
 
 /* Definition of spin Hamiltonian projection workspace type. */
 typedef struct {
-  /* Dimension of the complete Hamiltonian. */
-  size_t nc;
   /* Array used for storing intermediate values. */
   complex double *a;
   /* Array used for storing the final values of the projection. */
   complex double *b;
   /* Data for sorting w.r.t. Iz and Sz labels of projection result. */
-  zsh_sort_t *zsh_sort;
-} zshp_w; 
+  zsh_sort_t **sh_sort;
+  /* The complete spin Hamiltonian dimension; required for freeing sh_sort. */
+  size_t sh_dim;
+  /* The index of the sz label in sh->pt_slabels. */
+  char sz_i;
+  /* The index of the iz label in sh->pt_slabels. */
+  char iz_i;
+} zshph_w; 
 
 /* The spin Hamiltonian inversion workspace. */
 typedef struct {
@@ -102,22 +119,33 @@ typedef struct {
   complex double *work;
 } zshi_w;
 
+/* Workspace for crystal field Hamiltonian to spin Hamiltonian parameter
+ * projection. */
+typedef struct {
+  /* Pointer to the spin Hamiltonian projection workspace. */
+  zshph_w *shph_w;
+  /* Array of pointers to the spin Hamiltonian inversion workspaces. */
+  zshi_w **shi_w;
+  /* The number of interactions; required for freeing zshi_w. */
+  int ninter;
+} zshp_w;
+
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
 
-zsh *zsh_alloc(size_t n, char *type);
+zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int l, complex double **a);
 void zsh_free(zsh *sh);
-zshp_w *zshp_w_alloc(zsh *sh);
-void zshp_w_free(zshp_w *shp_w);
+zshph_w *zshph_w_alloc(zsh *sh);
+void zshph_w_free(zshph_w *shph_w);
 zsh_inv_data *zsh_inv_data_alloc(complex double *a, size_t m, size_t n);
 void zsh_inv_data_free(zsh_inv_data *d);
 zshi_w *zshi_w_alloc(zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
-void zsh_set_pro(zsh *sh, zt *t, int l);
+int zsh_set_pro(zsh *sh, zt **t, size_t l);
 void zsh_set_inv(zsh *sh, complex double *a, size_t m, size_t n); 
-void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w);
+void zshph(complex double *a, complex double *hz, size_t l, size_t pt_dim, zsh_pro_data *pd, zshph_w *shph_w);
 void zshi(complex double *a, zshi_w *w);
 #ifdef __cplusplus
 }

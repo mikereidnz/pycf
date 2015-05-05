@@ -62,11 +62,11 @@ zh *zh_alloc(int n, int nt, zt **t) {
 
   /* Ensure all tensors have matching state labels. */
   for (i=1; i<nt; i++) {
-    if (t[0]->states->hash != t[i]->states->hash) {
+    if (t[0]->slabels->hash != t[i]->slabels->hash) {
       CFL_ERROR_NULL("Tensors have mismatching state labels")
     }
   }
-  h->states = t[0]->states;
+  h->slabels = t[0]->slabels;
 
   ap = (complex double *) calloc(n*(n+1)/2,sizeof(complex double));
   if (ap == 0) {
@@ -236,21 +236,6 @@ void zhd_w_free(zhd_w *hd_w) {
   free(hd_w->rwork);
   free(hd_w->iwork);
   free(hd_w);
-}
-
-/* 
- * Allocate storage for complex eigenstates. 
- *
- * Parameters
- * ----------
- *  h       The Hamiltonian to be diagonalized. 
- */
-zeigst *zeigst_alloc(zh *h) {
-
-}
-
-void zeigst_free(zeigst *eigst) {
-
 }
 
 /*

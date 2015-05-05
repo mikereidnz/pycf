@@ -42,7 +42,7 @@ typedef struct {
   /* Dimension of the matrix elements. */
   int n;
   /* State labels of the tensor. */
-  sl *states;
+  sl *slabels;
   /* Pointer to the matrix elements stored in CRS form. */
   crs_zhm *matel;
 } zt; 
@@ -54,7 +54,7 @@ extern "C" {
 
 sl *sl_alloc(size_t n, char *key, char **labels);
 void sl_free(sl *l);
-zt *zt_alloc(char *name, complex double *a, size_t n, sl *states);
+zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels);
 void zt_free(zt *t);
 zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2);
 zt *zt_s(char *name, zt *t, complex double s);

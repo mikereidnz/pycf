@@ -106,7 +106,7 @@ sl *sl_alloc(size_t n, char *key, char **labels) {
       free(l->key);
       free(l->labels);
       free(l);
-      CFL_ERROR_NULL("malloc failed for l.states[i]");
+      CFL_ERROR_NULL("malloc failed for l.labels[i]");
     }
     memcpy(l->labels[i], labels[i], nl*sizeof(char));
   }
@@ -137,9 +137,9 @@ void sl_free(sl *l) {
  *  name    A unique identifier of the tensor. 
  *  a       Pointer to array containing the matrix elements. 
  *  n       The dimension of the matrix element matrix.
- *  states  Pointer to state labels struct.
+ *  slabels Pointer to state labels struct.
  */
-zt *zt_alloc(char *name, complex double *a, size_t n, sl *states) {
+zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels) {
   zt *t;
   size_t sl_len;
   t = (zt *) malloc(sizeof(zt));
@@ -155,7 +155,7 @@ zt *zt_alloc(char *name, complex double *a, size_t n, sl *states) {
 
   t->name = name;
   t->n = n;
-  t->states = states;
+  t->slabels = slabels;
   t->matel = ma;
   
   return t;
@@ -185,7 +185,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
   if (t1->n != t2->n) {
     CFL_ERROR_NULL("dimensions of tensors to be added do not match");
   }
-  else if (t1->states->hash != t2->states->hash) {
+  else if (t1->slabels->hash != t2->slabels->hash) {
     CFL_ERROR_NULL("state labels of tensors to be added don't match");
   }
 
@@ -203,7 +203,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
 
   t->name = name;
   t->n = t1->n;
-  t->states = t1->states;
+  t->slabels = t1->slabels;
 
   return t;
 }
@@ -235,7 +235,7 @@ zt *zt_s(char *name, zt *t, complex double s) {
 
   ts->name = name;
   ts->n = t->n;
-  ts->states = t->states;
+  ts->slabels = t->slabels;
 
   return ts;
 } 

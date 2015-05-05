@@ -483,7 +483,7 @@ int main (void)
     164.585574683-451.424703072*I, 867.195};
 
   /* The inversion matrix and hyperfine term of the Hamiltonian were externally
-   * calculated for Er:YSO, with experimental A-tensor data source from O.
+   * calculated for Eu:YSO, with experimental A-tensor data source from O.
    * Guillot_Noel et al, Journal of Alloys and Compounds, 451, (2008) 62. */
   zsh_inv_data hyp_inv_data;
   hyp_inv_data.a = euyso_hyp_inv;

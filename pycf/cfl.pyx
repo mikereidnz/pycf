@@ -398,12 +398,12 @@ cpdef zeeman_sh_coeff(v, t):
 cpdef hyperfine_sh_coeff(t1, t2):
     r"""
     Generate the hyperfine interaction spin Hamiltonian 'coefficient array'.
-    This consists of a `2j_1+1 \times 2j_2+1` by `3 \times 3` array containing
-    the matrix elements of the operators `I_a S_b`, with `a,b \in \{x, y, z\}`
-    and `j_1` and `j_2` the angular momentum of the rank one tensors `I` and
-    `S`, respectively.  Here the rows enumerate the `2j_1+1 \times 2j_2+1`
-    different state combinations while the columns enumerate all combinations of
-    `a` and `b`.  
+    This consists of a `(2j_1+1 \times 2j_2+1) \times (2j_1+1 \times 2j_2+1)` by
+    `3 \times 3` array containing the matrix elements of the operators `I_a
+    S_b`, with `a,b \in \{x, y, z\}` and `j_1` and `j_2` the angular momentum of
+    the rank one tensors `I` and `S`, respectively.  Here the rows enumerate the
+    `(2j_1+1 \times 2j_2+1) \times (2j_1+1 \times 2j_2+1)` different state
+    combinations while the columns enumerate all combinations of `a` and `b`.  
     
     Parameters
     ----------
@@ -415,7 +415,8 @@ cpdef hyperfine_sh_coeff(t1, t2):
     Returns
     -------
     result : numpy.ndarray
-        A `2j_1+1 \times 2j_2+1` by `3 \times 3` array.
+        A `(2j_1+1 \times 2j_2+1) \times (2j_1+1 \times 2j_2+1)` by `3 \times 3`
+        array.
     """
 
     t1l = len(t1[0])
@@ -571,7 +572,7 @@ cdef class SHInteractionData(object):
         
         # Determine the dimensions of the inversion problem consisting of
         # solving for x in Ax = b.  n is the number rows of A and length of b,
-        # while m is the number columns of B, and the length of x.  For Zeeman
+        # while m is the number columns of A, and the length of x.  For Zeeman
         # case, coeff already has the correct dimensions for inversion, that is,
         # three times the number of rows. 
         self.m = coeff.shape[0]

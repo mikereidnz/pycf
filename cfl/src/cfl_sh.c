@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <complex.h>
+#include <errno.h>
 
 #include "cfl_config.h"
 
@@ -49,173 +50,297 @@
 #include "cfl_sh.h"
 
 
-/*
- * Allocate storage for a spin Hamiltonian term. 
+/* Allocate spin Hamiltonian storage.
  *
- * Parameters
- * ----------
- * n      The dimensions of the spin Hamiltonian term.
- * type   The type should point to a string with recognized values being
- *        'zeeman', 'hyperfine', and 'quadrupole'.
+ * inter    Array of strings specifying the interactions described by the spin
+ *          Hamiltonian.  Valid options are "zeeman", "hyperfine", and
+ *          "quadrupole", and each option must only be specified once.
+ * ninter   The number of interactions specified in inter.
+ * sz       The spin projection S_z * 2; must be non-zero if inter contains
+ *          "zeeman" or "hyperfine".  The factor of 2 ensures we're dealing with
+ *          integer values.
+ * iz       The nuclear spin projection I_z * 2; must be non-zero of inter
+ *          contains "hyperfine" or "quadrupole". The factor of 2 ensures we're
+ *          dealing with integer values.
+ * l        Integer specifying the initial level for which to project the spin
+ *          Hamiltonian.
+ * a        An array of length ninter with entries corresponding to the
+ *          inversion coefficient matrices with order matching that of inter.
+ *          The coefficent matrix for a given interaction is A in Ax = b, where
+ *          x is 9 by spin Hamiltonian dim column containing the spin
+ *          Hamiltonian matrix elements and x is the spin Hamiltonian parameter
+ *          matrix stacked into a 9 by 1 column. 
  */
-zsh *zsh_alloc(size_t n, char *type) {
+zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int l, complex double **a) {
+  int i, j, m;
   zsh *sh;
+  zsh_inv_data **inv_data;
 
   sh = (zsh *) malloc(sizeof(zsh));
   if (sh == 0) {
     CFL_ERROR_NULL("malloc failed for sh");
   }
 
-#if 0
-  st = (label_t *) malloc(sizeof(label_t;));
-  if (st == 0) {
+  inv_data = (zsh_inv_data **) malloc(sizeof(zsh_inv_data *)*ninter);
+  if (inv_data == 0) {
     free(sh);
-    CFL_ERROR_NULL("malloc failed for st");
+    CFL_ERROR_NULL("malloc failed for inv_data array");
   }
-
-
-  s_size = sizeof(states[0][0]);
-  for (i=0; i<n; i++) {
-    st[i] = (char *) malloc(s_size);
-    if (st[i] == 0) {
+  
+  for (i=0; i<ninter; i++) {
+    inv_data[i] = (zsh_inv_data *) malloc(sizeof(zsh_inv_data));
+    if (inv_data[i] == 0) {
       for (j=0; j<i; j++) {
-        free(st[j]);
+        free((inv_data[j])->b);
+        free(inv_data[j]);
       }
-      free(st);
+      free(inv_data);
       free(sh);
-      CFL_ERROR_NULL("malloc failed for st[i]");
+      CFL_ERROR_NULL("malloc failed for inv_data");
     }
-    strcpy(st[i], states[i]);
+    /* Since sz and iz correspond to 2*S_z and 2*I_z we don't have to multiply
+     * by 2 to calculate the number of matrix elements.  The factor of 3 for
+     * zeeman is due to 3 magnetic field directions being required to span the
+     * solution space. */
+    if (strcmp("zeeman", inter[i])) {
+      m = (sz+1)*(sz+1)*3;
+    }
+    else if (strcmp("hyperfine", inter[i])) {
+      m = (sz+1)*(iz+1)*(sz+1)*(iz+1); 
+    }
+    else if (strcmp("quadrupole", inter[i])) {
+      m = (iz+1)*(iz+1);
+    }
+    else {
+      CFL_ERROR_NULL("inter array contained invalid interaction type");
+    }
+    (inv_data[i])->a = a[i];
+    (inv_data[i])->b = (complex double *) calloc(m, sizeof(complex double));
+    if ((inv_data[i])->b == 0) {
+      for (j=0; j<i; j++) {
+        free((inv_data[j])->b);
+        free(inv_data[j]);
+      }
+      free(inv_data[i]);
+      free(inv_data);
+      free(sh);
+      CFL_ERROR_NULL("malloc failed for inv_data[i]->b");
+    }
+    (inv_data[i])->m = m;
   }
-#endif
 
-  sh->pro_data = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
-  if (sh->pro_data == 0) {
-    free(sh);
-    CFL_ERROR_NULL("malloc failed for sh->pro_data");
-  }
-  /* Since the size of pro_data->td is not known until zsh_set_pro is called we
-   * cannot alloc space for it here.  Instead, we leave this to zsh_set_pro and
-   * use the set_flag to notify zsh_free whether space has been alloced. */
-  sh->pro_data->set_flag = 0;
-
-  sh->n = n;
-  sh->type = type;
-
-  return sh;
+  sh->dim = (2*sz+1)*(2*iz+1);
+  sh->inter = inter;
+  sh->ninter = ninter; 
+  sh->sz = sz;
+  sh->iz = iz;
+  sh->inv_data = inv_data;
+  sh->ntensors = 0;
 }
 
 void zsh_free(zsh *sh) {
-  if (sh->pro_data->set_flag) {
-    free(sh->pro_data->td);
+  int i;
+
+  if (sh->ntensors != 0) {
+    for (i=0; i<sh->ntensors; i++) {
+      free((sh->pro_data[i])->pt);
+      free(sh->pro_data[i]);
+    }
+    free(sh->pro_data);
   }
-  free(sh->pro_data);
+  for (i=0; i<sh->ninter; i++) {
+    free((sh->inv_data[i])->b);
+    free(sh->inv_data[i]);
+  }
+  free(sh->inv_data);
   free(sh);
 }
 
-/* Set the projection data for a spin Hamiltonian; a wrapper function for
- * cython. 
+/* Set the projection data for a spin Hamiltonian. 
  *
  * Parameters
  * ----------
  *  sh      Pointer to the spin Hamlitonian for which to set pro_data.
- *  t       Pointer to tensor of the complete Hamiltonian for which to project
- *          out the spin Hamiltonian.  
+ *  t       Pointer to array of tensors for which to project to spin Hamiltonian
+ *          space.  The order of tensors in t must match the order of
+ *          interactions used to alloc sh; for "zeeman" interactions three
+ *          tensors are expected, in the order "magx", "magy", and "magz". 
  *  l       Integer specifying the initial level for which to project the spin
  *          Hamiltonian. 
  */
-void zsh_set_pro(zsh *sh, zt *t, int l) {
-  if (!sh->pro_data->set_flag) {
-    sh->pro_data->td = (complex double *) malloc(t->n*t->n*sizeof(double
-          complex));
-    if (sh->pro_data->td == 0) {
-      CFL_ERROR_VOID("malloc failed for pro_data->td");
+int zsh_set_pro(zsh *sh, zt **t, size_t l) {
+  int i, j, ntensors, zeeman_index, zeeman_term;
+  long thash;
+
+  /* Check for zeeman interaction, in which case we expect tensors for three
+   * magnetic field directions. */
+  ntensors = sh->ninter;
+  for (i=0; i<sh->ninter; i++) {
+    if (strcmp("zeeman", sh->inter[i])) {
+      ntensors += 2;
+    }
+  }
+
+  sh->pro_data = (zsh_pro_data **) malloc(ntensors*sizeof(zsh_pro_data *));
+  if (sh->pro_data == 0) {
+    CFL_ERROR_VAL("malloc failed for pro_data", ENOMEM);
+  }
+
+  zeeman_index = 0;
+  zeeman_term = 0;
+  thash = (t[0])->slabels->hash;
+  for (i=0; i<ntensors; i++) {
+    sh->pro_data[i] = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
+    if (sh->pro_data[i] == 0) {
+      for (j=0; j<i; j++) {
+        free((sh->pro_data[j])->pt);
+        free(sh->pro_data[j]);
+      }
+      free(sh->pro_data);
+      CFL_ERROR_VAL("malloc failed for pro_data[i]", ENOMEM);
+    }
+    (sh->pro_data[i])->pt = (complex double *)
+      calloc((t[i])->n*(t[i])->n, sizeof(complex double));
+    if ((sh->pro_data[i])->pt == 0) {
+      for (j=0; j<i; j++) {
+        free((sh->pro_data[j])->pt);
+        free(sh->pro_data[j]);
+      }
+      free(sh->pro_data[i]);
+      free(sh->pro_data);
+      CFL_ERROR_VAL("malloc failed for pro_data[i]->pt", ENOMEM);
+    }
+    else if (thash != (t[i])->slabels->hash) {
+      for (j=0; j=i; j++) {
+        free((sh->pro_data[j])->pt);
+        free(sh->pro_data[j]);
+      }
+      free(sh->pro_data);
+      CFL_ERROR_VAL("Tensor state labels passed to zsh_set_pro don't match",
+          EINVAL);
     }
 
-    sh->pro_data->set_flag = 1;
-  }
-  /* Convert to dense storage, as required by the blas zhemm and ztrmm functions
-   * in zshp. */
-  crs_zhm2zha(t->matel, sh->pro_data->td);
+    /* Convert tensor matrix elements to dense storage, as required by the blas
+     * zhemm and ztrmm functions in zshph. */
+     crs_zhm2zha((t[i])->matel, (sh->pro_data[i])->pt);
 
-  sh->pro_data->tn = t->n;
-  sh->pro_data->l = l;
-  sh->pro_data->t_slabel = t->states;
+     /* Record the size of each spin Hamiltonian interaction term; for zeeman
+      * interactions we need to record the same size for three tensors. */
+     if (zeeman_term && zeeman_index < 2) {
+       (sh->pro_data[i])->shi_dim = sh->sz*sh->sz;
+       zeeman_index++;
+     }
+     else if (strcmp("zeeman", sh->inter[i-zeeman_index])) {
+       (sh->pro_data[i])->shi_dim = sh->sz*sh->sz;
+       zeeman_term = 1;
+     }
+     else if (strcmp("hyperfine", sh->inter[i-zeeman_index])) {
+       (sh->pro_data[i])->shi_dim = sh->sz*sh->iz*sh->sz*sh->iz;
+     }
+     else if (strcmp("quadrupole", sh->inter[i-zeeman_index])) {
+       (sh->pro_data[i])->shi_dim = sh->iz*sh->iz;
+     }
+  }
+  
+  sh->ntensors = ntensors;
+  sh->l = l;
+  /* We have verified that all tensors have matching state labels. */
+  sh->pt_slabels = t[0]->slabels;
+  sh->pt_dim = t[0]->n;
+
+  return 1;
 }
 
-/* Alloc spin Hamiltonian inversion data; a wrapper for cython. 
+
+/* Alloc workspace for the spin Hamiltonian projection. 
  *
  * Parameters
  * ----------
- *  a   The inversion coefficient matrix A in A x = b. 
- *  m   The number of rows of A and length of b. 
- *  n   The number of columns of B, and the length of x.
+ *  sh    The spin Hamiltonian object for which to alloc projection workspace. 
+ *
  */
-zsh_inv_data *zsh_inv_data_alloc(complex double *a, size_t m, size_t n) {
-  zsh_inv_data *d;
-
-  d = (zsh_inv_data *) malloc(sizeof(zsh_inv_data));
-  if (d == 0) {
-    CFL_ERROR_NULL("malloc failed for d");
-  }
-  d->a = a;
-  d->m = m;
-  d->n = n;
-
-  return d;
-}
-
-void zsh_inv_data_free(zsh_inv_data *d) {
-  free(d);
-}
-
-/* Alloc workspace for the spin Hamiltonian projection. */
-zshp_w *zshp_w_alloc(zsh *sh) {
-  zshp_w *shp_w;
-  size_t n = sh->pro_data->tn;
+zshph_w *zshph_w_alloc(zsh *sh) {
+  zshph_w *shph_w;
+  int i, j;
+  size_t n = sh->pt_dim;
   complex double *a; 
   complex double *b;
-  zsh_sort_t *zsh_sort;
+  zsh_sort_t **sh_sort;
 
-  shp_w = (zshp_w *) malloc(sizeof(zshp_w));
-  if (shp_w == 0) {
-    CFL_ERROR_NULL("malloc failed for shp_w");
+  shph_w = (zshph_w *) malloc(sizeof(zshph_w));
+  if (shph_w == 0) {
+    CFL_ERROR_NULL("malloc failed for shph_w");
   }
 
   a = (complex double *) calloc(n*n, sizeof(complex double));
   if (a == 0) {
-    free(shp_w);
+    free(shph_w);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
   b = (complex double *) calloc(n*n,sizeof(complex double));
   if (b == 0) {
-    free(shp_w);
+    free(shph_w);
     free(a);
     CFL_ERROR_NULL("calloc failed for b");
   }
-
-  zsh_sort = (zsh_sort_t *) malloc(sh->n*sizeof(zsh_sort_t));
-  if (zsh_sort == 0) {
-    free(shp_w);
-    free(a);
-    free(b);
-    CFL_ERROR_NULL("malloc failed for zsh_sort");
+  
+  /* We only need to sort if the nuclear spin projection is non-zero; sz should
+   * already be sorted in the absence of iz since we apply a small magnetic
+   * field along z. */
+  if (sh->iz != 0) {
+    sh_sort = (zsh_sort_t **) malloc(sh->dim*sizeof(zsh_sort_t *));
+    if (sh_sort == 0) {
+      free(shph_w);
+      free(a);
+      free(b);
+      CFL_ERROR_NULL("malloc failed for sh_sort");
+    }
+    for (i=0; i<sh->dim; i++) {
+      sh_sort[i] = (zsh_sort_t *) malloc(sizeof(zsh_sort_t));
+      if (sh_sort[i] == 0) {
+        for (j=0; j<i; j++) {
+          free(sh_sort[j]);
+        }
+        free(sh_sort);
+        free(shph_w);
+        free(a);
+        free(b);
+        CFL_ERROR_NULL("malloc failed for sh_sort[i]");
+      }
+    }
+    /* Determine indices of the sz and iz labels. */
+    for (i=0; i<sh->pt_slabels->nl; i++) {
+      if (sh->pt_slabels->key[i] == atoi("S")) {
+        shph_w->sz_i = i;
+      }
+      else if (sh->pt_slabels->key[i] == atoi("I")) {
+        shph_w->iz_i = i;
+      }
+    }
+  } 
+  else {
+    sh_sort = NULL;
   }
 
-  shp_w->a = a;
-  shp_w->b = b;
-  shp_w->zsh_sort = zsh_sort;
-  shp_w->nc = n;
+  shph_w->a = a;
+  shph_w->b = b;
+  shph_w->sh_sort = sh_sort;
+  shph_w->sh_dim = sh->dim;
 
-  return shp_w;
+  return shph_w;
 }
 
-void zshp_w_free(zshp_w *shp_w) {
-  free(shp_w->a);
-  free(shp_w->b);
-  free(zsh_sort);
-  free(shp_w);
+void zshph_w_free(zshph_w *shph_w) {
+  int i;
+
+  free(shph_w->a);
+  free(shph_w->b);
+  for (i=0; i<shph_w->sh_dim; i++) {
+    free(shph_w->sh_sort[i]);
+  }
+  free(shph_w->sh_sort);
+  free(shph_w);
 }
 
 /* 
@@ -225,101 +350,104 @@ int zshp_state_cmp(const void *a, const void *b) {
   const zsh_sort_t *sa = (const zsh_sort_t *) a;
   const zsh_sort_t *sb = (const zsh_sort_t *) b;
 
-  if (sa->Iz == sb->Iz) {
-    return (sa->Sz > sb->Sz) - (sa->Sz < sb->Sz);
+  if (sa->iz == sb->iz) {
+    return (sa->sz > sb->sz) - (sa->sz < sb->sz);
   }
   else {
-    return (sa->Iz > sb->Iz) - (sa->Iz < sb->Iz);
+    return (sa->iz > sb->iz) - (sa->iz < sb->iz);
   }
 }
 
 /* 
  * Generate the state label sorting array.  This function must be run prior to
- * calling zshp whenever the eigenvectors used for the zshp call change and sh
- * contains an interaction that depends on the nuclear spin.
+ * calling zshph whenever the eigenvectors used for the zshph call changes and
+ * sh contains an interaction that depends on the nuclear spin.
  *
  * Parameters
  * ----------
- *  hz    Pointer to array containing the eigenvectors that diagonalize the
- *        Hamiltonian containing free-ion and crystal-field interactions.
- *  sh    The spin Hamiltonian object.
- *  shp_w The projection workspace, allocated with zshp_w_alloc.
+ *  hz      Pointer to array containing the eigenvectors that diagonalize the
+ *          Hamiltonian containing free-ion and crystal-field interactions.
+ *  sh      The spin Hamiltonian object.
+ *  shp_w   The parameter projection workspace, allocated with zshp_w_alloc.
  */
 void zshp_gen_sort(complex double *hz, zsh *sh, zshp_w *shp_w) {
-  int i, j, col_offset, max_component;
-  //FIXME: iz_index, sz_index
-  //Current status: have included check whether sh array contains nuclear spin
-  //label, in which case the iz_label of the esh fitting data struct is set to
-  //1. Next, we have to somehow disable sorting if iz_label = 0... maybe set to
-  //ptr to zsh_sort to NULL in workspace alloc and don't call zshp_gen_sort each
-  //itteration?
-  for (i=0; i<sh->n; i++) {
-    max_component = 0;
-    /* Offset for hz to start of current column. */
-    col_offset = (sh->pro_data->l+i)*sh_pro_data->tn;
+  int i, j, col_offset;
+  /* The principal component index. */
+  int pr_i;
+  zsh_sort_t *sh_sort;
+  sh_sort = shp_w->shph_w->sh_sort;
 
-    for (j=0; j<sh->pro_data->tn; j++) {
-      if (hz[col_offset+j] > hz[col_offset+max_component]) {
-        max_component = j;
+  for (i=0; i<sh->dim; i++) {
+    pr_i = 0;
+    /* Offset for hz to start of current column. */
+    col_offset = (sh->l+i)*sh->pt_dim;
+
+    for (j=0; j<sh->pt_dim; j++) {
+      if (cabs(hz[col_offset+j]) > cabs(hz[col_offset+pr_i])) {
+        pr_i = j;
       }
     }
-    shp->zsh_sort[i] = i + sh->pro_data->l;
-    (shp->zsh_sort[i])->Iz = sh->pro_data->t_slabels[max_index][iz_index];
-    (shp->zsh_sort[i])->Sz = sh->pro_data->t_slabels[max_index][sz_index];
+    /* The i index will enumerate all unique spin Hamiltonian states.  We record
+     * each i and the associated sz and iz label of the corresponding principal
+     * component. */
+    (sh_sort[i])->index = i;
+    (sh_sort[i])->sz = sh->pt_slabels->labels[pr_i][shph_w->sz_i];
+    (sh_sort[i])->iz = sh->pt_slabels->labels[pr_i][shph_w->iz_i];
   }
 
-  qsort((void *) shp_w->zsh_sort, sh->n, sizeof(zsh_sort_t), zshp_state_cmp); 
+  qsort((void *) sh_sort, sh->dim, sizeof(zsh_sort_t), zshp_state_cmp);
 }
+
 
 /*
  * Project out the spin Hamiltonian given an effective Hamiltonian and tensor. 
  *
  * Parameters
  * ----------
- *  a     Array of length nsh*nsh, with nsh the dimension of the spin
- *        Hamiltonian; will be overwritten with the result upon exit.  
- *  hz    Pointer to array containing the eigenvectors that diagonalize the
- *        Hamiltonian containing free-ion and crystal-field interactions.
- *  sh    The spin Hamiltonian object.
- *  shp_w The projection workspace, allocated with zshp_w_alloc.
+ *  a       Array of length shi_dim*shi_dim, with shi_dim the dimension of the
+ *          spin Hamiltonian inversion term; this will be overwritten with the
+ *          result upon exit.  
+ *  hz      Pointer to array containing the eigenvectors that diagonalize the
+ *          Hamiltonian containing free-ion and crystal-field interactions.
+ *  l       Integer specifying the initial level for which to project the spin
+ *          Hamiltonian.
+ *  pt_dim  The dimension of the tensor to project. 
+ *  pd      The projection data. 
+ *  shph_w  The projection workspace, allocated with zshph_w_alloc.
  */
-void zshp(complex double *a, complex double *hz, zsh *sh, zshp_w *shp_w) {
+void zshph(complex double *a, complex double *hz, size_t l, size_t pt_dim,
+    zsh_pro_data *pd, zshph_w *shph_w) {
   int i, j;
-  lapack_complex_double one, zero;
+  int d, dsh;
+  complex double one, zero;
+
+  dsh = pd->shi_dim;
   one = 1;
   zero = 0;
-  lapack_int n = shp_w->nc;
-  int nsh = sh->n;
-  
+
   /* The projection is a similarity transformation of the form V^dag H V, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
    * Zeeman, hyperfine or quadrupole interaction elements. */
   /* Calculate H V. */
-  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, n, n, &one,
-      sh->pro_data->td, n, hz, n, &zero, shp_w->a, n);
+  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, pt_dim, pt_dim, &one,
+      pd->pt, pt_dim, hz, pt_dim, &zero, shph_w->a, pt_dim);
   /* Calculate V^dag (HV). */
-  cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, n, n, n, &one,
-      hz, n, shp_w->a, n, &zero, shp_w->b, n);
-  size_t l = sh->pro_data->l;
-#if 0  
-  for (i=0; i<n; i++) {
-    for (j=0; j<n; j++) {
-      printf("%f+%fi ", creal(hz[i*nsh+j]), cimag(hz[i*nsh+j]));
-    }
-    printf("\n");
-  }
-  printf("\n");
-#endif
+  cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, pt_dim, pt_dim,
+      pt_dim, &one, hz, pt_dim, shph_w->a, pt_dim, &zero, shph_w->b, pt_dim);
 
-  for (i=0; i<nsh; i++) {
-    for (j=0; j<nsh; j++) {
-      a[i*nsh+j] = shp_w->b[(i+l)*n+j+l];
-      printf("%f+%fi ", creal(a[i*nsh+j]), cimag(a[i*nsh+j]));
+  /* We read out the shi_dim*shi_dim block corresponding to the spin Hamiltonian
+   * matrix elements specific to the interaction type.  Furthermore, we use the
+   * index mapping, sh_sort, that sorts the state labels according to, firstly,
+   * nuclear spin projection, and, secondly, spin projection.  This ensures that
+   * when we go to invert the resulting array to calculate the spin Hamiltonian
+   * parameters, our matrix element state labels match those calculated here. */
+  for (i=0; i<dsh; i++) {
+    for (j=0; j<dsh; j++) {
+      a[i*dsh+j] =
+        shph_w->b[(shph_w->sh_sort[i]->index+l)*d+shph_w->sh_sort[j]->index+l];
     }
-    printf("\n");
   }
-  printf("\n");
 }
 
 /*
@@ -344,7 +472,7 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   lapack_complex_double *work, wquery;
   lapack_int lwork, info;
 
-  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', d->m, d->n, 1, d->a, d->m, NULL,
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', d->m, 9, 1, d->a, d->m, NULL,
       d->m, &wquery, -1);
 
   if (info != 0) {
@@ -362,7 +490,7 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   /* Storage for the inversion coefficient matrix; since this is overwritten by
    * zgels we must make a copy of the inversion matrix d->a to allow for
    * repeated evaluations. */
-  a = (complex double *) calloc(d->m*d->n,sizeof(complex double));
+  a = (complex double *) calloc(d->m*9,sizeof(complex double));
   if (work == 0) {
     free(w);
     free(work);
@@ -372,7 +500,7 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
   w->lwork = lwork,
   w->work = work;
   w->a = a;
-  w->a_size = d->m*d->n*sizeof(double complex);
+  w->a_size = d->m*9*sizeof(double complex);
   w->data = d;
 
   return w;
@@ -393,34 +521,129 @@ void zshi_w_free(zshi_w *w) {
  *
  * Parameters
  * ----------
- * a  The vector of the system to be solved; more specifically, the spin
- *    Hamiltonian elements of the term to be inverted stored in an array.  This
- *    will be overwritten with the solution upon exit, which will correspond to
- *    the spin Hamiltonian parameter tensor.
- * w  The workspace allocated with zshi_w_alloc. 
+ *  a   An array of length 9 which will be overwritten with the spin Hamiltonian
+ *      parameter matrix of the interaction up on exit.
+ *  w   The workspace allocated with zshi_w_alloc. 
  */
 void zshi(complex double *a, zshi_w *w) {
-  lapack_int info; 
+  int i, info; 
   char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
   
   /* Store a copy of the inversion matrix. */
   memcpy((void *)w->a, (void *)w->data->a, w->a_size);
    
-  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, w->data->n, 1,
-      w->a, w->data->m, a, w->data->m, w->work, w->lwork);
+  info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, 9, 1, w->a,
+      w->data->m, w->data->b, w->data->m, w->work, w->lwork);
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
-
-#if 1
-  int i, j;
-  for (i=0; i<3; i++) {
-    for (j=0; j<3; j++) {
-      printf("%f ", a[i*3+j]);
-    }
-    printf("\n");
+  for (i=0; i<9; i++) {
+    a[i] = w->data->b[i];
   }
-  printf("\n");
-#endif
+}
+
+/*
+ * Alloc storage for a crystal field Hamiltonian to spin Hamiltonian parameter
+ * projection. 
+ *
+ * Parameters
+ * ----------
+ *  sh    The spin Hamiltonian object.
+ *  t     Pointer to array of tensors for which to project to spin Hamiltonian
+ *        space.  The order of tensors in t must match the order of interactions
+ *        used to alloc sh; for "zeeman" interactions three tensors are
+ *        expected, in the order "magx", "magy", and "magz". 
+ *  l     Integer specifying the initial level for which to project the spin
+ *        Hamiltonian. 
+ */
+zshp_w *zshp_w_alloc(zsh *sh, zt **t, size_t l) {
+  int i, j;
+  zshp_w *w;
+
+  if (zsh_set_pro(sh, t, l) == 0) {
+    CFL_ERROR_NULL("Setting projection data failed");
+  }
+
+  w = (zshp_w *) malloc(sizeof(zshp_w));
+  if (w == 0) {
+    CFL_ERROR_NULL("malloc faild for w");
+  }
+
+  w->shph_w = (zshph_w *) zshph_w_alloc(sh);
+  if (w->shph_w == 0) {
+    free(w);
+    CFL_ERROR_NULL("malloc failed for zshph_w");
+  }
+
+  w->shi_w = (zshi_w **) malloc(sh->ninter*sizeof(zshi_w *));
+  if (w->shi_w == 0) {
+    free(w->shph_w);
+    free(w);
+    CFL_ERROR_NULL("malloc failed for zshi_w");
+  }
+
+  for (i=0; i<sh->ninter; i++) {
+    w->shi_w[i] = zshi_w_alloc(sh->inv_data[i]);
+    if (w->shi_w[i] == 0) {
+      for (j=0; j<i; j++) {
+        free(w->shi_w[i]);
+      }
+      free(w->shph_w);
+      free(w);
+      CFL_ERROR_NULL("malloc failed for zshi_w[i]");
+    }
+  }
+
+  w->ninter = sh->ninter;
+
+  return w;
+}
+
+
+void zshp_w_free(zshp_w *w) {
+  int i;
+
+  zshph_w_free(w->shph_w);
+  for (i=0; i<w->ninter; i++) {
+    zshi_w_free(w->zshi_w[i]);
+  }
+  free(w);
+}
+
+/* 
+ * Calculate the spin Hamiltonian parameters given a crystal field Hamiltonian.
+ * This function wraps the projection, if required, state label sorting, and
+ * inversion function calls.  Additionally, the associated alloc and free
+ * functions handle all necessary initializations operations and memory
+ * allocs/frees. 
+ *
+ * Parameters
+ * ----------
+ *  a       An array of length 9 which will be overwritten with the spin
+ *          Hamiltonian parameter matrix of the interaction specified with
+ *          inter_i upon exit.
+ *  hz      Pointer to array containing the eigenvectors that diagonalize the
+ *          Hamiltonian containing free-ion and crystal-field interactions.
+ *  inter_i Index specifying for which interaction to calculate the parameter
+ *          matrix.  The value is determined by the order of the **inter array
+ *          used to create the sh object.  
+ *  sh      The spin Hamiltonian object.
+ *  shp_w   The parameter workspace.
+ */
+void zshp(complex double *a, complex double *hz, int inter_i, zsh *sh, zshp_w *w) {
+  int i, ms;
+
+  if (strcmp(sh->inter[inter_i], "zeeman")) {
+    /* The dimension of a single Zeeman term. */
+    ms = (sh->inv_data[inter_i])->m/3;
+    for (i=0; i<3; i++) {
+      zshph(&((sh->inv_data[inter_i])->b[i*ms]), hz, sh->l, sh->pt_dim, sh->pd[inter_i], w->shph_w[inter_i]);
+    }
+  }
+  else {
+    zshph((sh->inv_data[inter_i])->b, hz, sh->l, sh->pt_dim, sh->pd[inter_i], w->shph_w[inter_i]);
+  }
+
+  zshi(a, w->shi_w[inter_i]);
 }

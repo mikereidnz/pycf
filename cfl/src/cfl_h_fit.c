@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,6 +30,12 @@
 #include "cfl_config.h"
 #include "cfl_min.h"
 #include "cfl_h_fit.h"
+//FIXME: currently pro data is not available when eshfit_alloc is called,
+//therefore the zshp workspace is not being allocated. Also, check free
+//functions. Okay, pro data should already be set.. adjust the zshp_alloc
+//function, then remove this and add zshp_alloc to eshfit_alloc. Also, make sure
+//this new zshp call sequence will not completely break the way we do covariant
+//matrix estimates.
 
 /*
  * Overview:
@@ -146,17 +152,12 @@ void efit_data_free(efit_data *data) {
  *
  * Parameters
  * ----------
- *  sh_a    Array of pointers to spin Hamiltonians. If the inversion involves a
- *          Zeeman term then this function expects three linearly independent
- *          Zeeman terms in a row.    
- *  nsh     The number of spin Hamiltonians to be fit.
- *  nzeeman The index of the first Zeeman term; for cases without Zeeman
- *          interaction, set to -1.
  *  h       Pointer to the complete Hamiltonian.  
  *  hpro    Pointer to the projection Hamiltonian; can be NULL if identical to
  *          h.
  *  coeff   Tensor coefficient array.
  *  ex      Experimental energy level data.  
+ *  sh      Pointers to spin Hamiltonian.    
  *  shx     Array of pointers to spin Hamiltonian experimental data.  These must
  *          be in the same order as the terms in sh.  For Zeeman terms, the
  *          experimental data position is expected to coincide with the position
@@ -165,9 +166,8 @@ void efit_data_free(efit_data *data) {
  *          Hamiltonian h.
  *  p       Array of pointers to parameters to be fit.
  */
-eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
-    *hpro, complex double *coeff, ex_data *ex, shx_data
-    **shx, size_t n_zx, param_type **p) {
+eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
+    *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p) {
   int i,j;
   size_t ninv;
   eshfit_data *data;
@@ -194,108 +194,22 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
     free(data);
     CFL_ERROR_NULL("calloc failed for data->h_eval");
   }
-  data->shp_w_array = (zshp_w **) malloc(nsh*sizeof(zshp_w *));
-  if (data->shp_w_array == 0) {
-    zhd_w_free(data->hd_w);
-    free(data->h_evect);
-    free(data->h_eval);
-    free(data);
-    CFL_ERROR_NULL("malloc failed for data->shp_w_array *");
-  }
 
-  /* Allocate spin Hamiltonian projection space. */
-  for (i=0; i<nsh; i++) {
-    data->shp_w_array[i] = zshp_w_alloc(sh_a[i]);
-    if (data->shp_w_array == 0) {
-      zhd_w_free(data->hd_w);
-      free(data->h_evect);
-      free(data->h_eval);
-      for (j=0; j<i; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-      }
-      free(data->shp_w_array);
-      free(data);
-      CFL_ERROR_NULL("zshp_w_alloc failed for data->shp_w_array");
-    }
-  }
-
-  /* Determine the number of inversions; a Zeeman inversion requires three
-   * terms. */
-  if (nzeeman != -1) {
-    ninv = nsh-2;
-  }
-  else {
-    ninv = nsh;
-  }
-
-  /* Check whether there are any interactions that depend on nuclear spin. */
-  data->iz_label = 0;
-  for (i=0; i<nsh; i++) {
-    if (!strcmp(sh_a[i]->type, "hyperfine") || strcmp(sh_a[i]->type, "quadrupole")) {
-      data->iz_label = 1;
-    }
-  }
-
-  data->shi_w_array = (zshi_w **) malloc(ninv*sizeof(zshi_w *));
-  if (data->shp_w_array == 0) {
-    zhd_w_free(data->hd_w);
-    free(data->h_evect);
-    free(data->h_eval);
-    for (j=0; j<nsh; j++) {
-      zshp_w_free(data->shp_w_array[j]);
-    }
-    free(data->shp_w_array);
-    free(data);
-    CFL_ERROR_NULL("malloc failed for data->shi_w_array *");
-  }
-  data->sh_pa = (complex double **) malloc(ninv*sizeof(complex double *));
+  data->sh_pa = (complex double **) malloc(sh->ninter*sizeof(complex double *));
   if (data->sh_pa == 0) {
     zhd_w_free(data->hd_w);
     free(data->h_evect);
     free(data->h_eval);
-    for (j=0; j<nsh; j++) {
-      zshp_w_free(data->shp_w_array[j]);
-    }
-    free(data->shp_w_array);
-    free(data->shi_w_array);
     free(data);
-    CFL_ERROR_NULL("malloc failed for data->sh_pa *");
+    CFL_ERROR_NULL("malloc failed for data->sh_pa");
   }
-
-  for (i=0; i<ninv; i++) {
-    data->shi_w_array[i] = zshi_w_alloc(shx[i]->inv_data);
-    if (data->shi_w_array[i] == 0) {
-      zhd_w_free(data->hd_w);
-      free(data->h_evect);
-      free(data->h_eval);
-      for (j=0; j<nsh; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-      }
-      free(data->shp_w_array);
-      for (j=0; j<i; j++) {
-        zshi_w_free(data->shi_w_array[j]);
-        free(data->sh_pa[j]);
-      }
-      free(data->shi_w_array);
-      free(data->sh_pa);
-      free(data);
-      CFL_ERROR_NULL("zshi_w_alloc failed for data->shi_w_array");
-    }
-    /* Size m for Zeeman shx is set to three times the size of a single term. */
-    data->sh_pa[i] = (complex double *) calloc(shx[i]->inv_data->m,sizeof(complex
-          double));
+  
+  for (i=0; i<sh->ninter; i++) {
+    data->sh_pa[i] = (complex double *) calloc(9,sizeof(complex double));
     if (data->sh_pa[i] == 0) {
       zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
-      for (j=0; j<nsh; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-      }
-      free(data->shp_w_array);
-      for (j=0; j<=i; j++) {
-        zshi_w_free(data->shi_w_array[j]);
-      }
-      free(data->shi_w_array);
       for (j=0; j<i; j++) {
         free(data->sh_pa[j]);
       }
@@ -304,24 +218,16 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       CFL_ERROR_NULL("calloc failed for data->sh_pa");
     }
   }
-
+  
+  /* Only alloc data if we require a separate projection Hamiltonian. */
   if (hpro != NULL) {
-    /* Only alloc data if we require a separate projection Hamiltonian. */
     data->hprod_w = zhd_w_alloc(hpro);
     if (data->hprod_w == 0) {
       zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
-      for (j=0; j<nsh; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-      }
-      free(data->shp_w_array);
-      for (j=0; j<ninv; j++) {
-        zshi_w_free(data->shi_w_array[j]);
-      }
-      free(data->shi_w_array);
-      for (j=0; j<ninv; j++) {
-        free(data->sh_pa[j]);
+      for (i=0; i<sh->ninter; i++) {
+        free(data->sh_pa[i]);
       }
       free(data->sh_pa);
       free(data);
@@ -333,16 +239,8 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
-      for (j=0; j<nsh; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-      }
-      free(data->shp_w_array);
-      for (j=0; j<ninv; j++) {
-        zshi_w_free(data->shi_w_array[j]);
-      }
-      free(data->shi_w_array);
-      for (j=0; j<ninv; j++) {
-        free(data->sh_pa[j]);
+      for (i=0; i<sh->ninter; i++) {
+        free(data->sh_pa[i]);
       }
       free(data->sh_pa);
       free(data->hprod_w);
@@ -354,16 +252,8 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
       zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
-      for (j=0; j<nsh; j++) {
-        zshp_w_free(data->shp_w_array[j]);
-      }
-      free(data->shp_w_array);
-      for (j=0; j<ninv; j++) {
-        zshi_w_free(data->shi_w_array[j]);
-      }
-      free(data->shi_w_array);
-      for (j=0; j<ninv; j++) {
-        free(data->sh_pa[j]);
+      for (i=0; i<sh->ninter; i++) {
+        free(data->sh_pa[i]);
       }
       free(data->sh_pa);
       free(data->hprod_w);
@@ -373,14 +263,12 @@ eshfit_data *eshfit_data_alloc(zsh **sh_a, size_t nsh, size_t nzeeman, zh *h, zh
     }
   }
 
-  data->sh_a = sh_a;
+
   data->h = h;
   data->hpro = hpro;
   data->coeff = coeff;
   data->ex = ex;
-  data->nsh = nsh;
-  data->nzeeman = nzeeman;
-  data->ninv = ninv;
+  data->sh = sh;
   data->shx = shx;
   data->n_zx = n_zx;
   data->p = p;

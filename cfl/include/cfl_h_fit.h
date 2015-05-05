@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -113,21 +113,8 @@ typedef struct {
   complex double *hpro_evect;
   /* Projection Hamiltonian eigenvalue array. */
   double *hpro_eval;
-  /* Array of pointers to spin Hamiltonians. */
-  zsh **sh_a;
-  /* Number of spin Hamiltonians. */
-  size_t nsh;
-  /* The index of the first Zeeman term; is -1 for cases without Zeeman
-   * interaction. */
-  size_t nzeeman;
-  /* Contains an interaction with a nuclear spin label. */
-  int iz_label;
-  /* Number of spin Hamiltonian inversions (depends on term types). */
-  size_t ninv;
-  /* Array of pointers to spin Hamiltonian projection workspaces. */
-  zshp_w **shp_w_array;
-  /* Array of pointers to spin Hamiltonian inversion workspaces. */
-  zshi_w **shi_w_array;
+  /* Pointer to the spin Hamiltonian. */
+  zsh *sh;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
   complex double **sh_pa;
   /* Experimental energy level data */
