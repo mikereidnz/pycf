@@ -128,6 +128,9 @@ typedef struct {
   zshi_w **shi_w;
   /* The number of interactions; required for freeing zshi_w. */
   int ninter;
+  /* The offset between int_i and pro_i due to there being three pro_i indices
+   * per int_i for a zeeman interaction. */
+  int zeeman_offset;
 } zshp_w;
 
 /* Function prototypes. */
@@ -135,18 +138,20 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int l, complex double **a);
+zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a);
 void zsh_free(zsh *sh);
+int zsh_set_pro(zsh *sh, zt **t, size_t l);
+void zsh_set_inv(zsh *sh, complex double *b, char *inter);
 zshph_w *zshph_w_alloc(zsh *sh);
 void zshph_w_free(zshph_w *shph_w);
-zsh_inv_data *zsh_inv_data_alloc(complex double *a, size_t m, size_t n);
-void zsh_inv_data_free(zsh_inv_data *d);
+void zshph(complex double *a, complex double *hz, zsh *sh, int pro_i, 
+    zshph_w *shph_w);
 zshi_w *zshi_w_alloc(zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
-int zsh_set_pro(zsh *sh, zt **t, size_t l);
-void zsh_set_inv(zsh *sh, complex double *a, size_t m, size_t n); 
-void zshph(complex double *a, complex double *hz, size_t l, size_t pt_dim, zsh_pro_data *pd, zshph_w *shph_w);
 void zshi(complex double *a, zshi_w *w);
+zshp_w *zshp_w_alloc(zsh *sh);
+void zshp_w_free(zshp_w *w);
+void zshp(complex double *a, complex double *hz, int int_i, zsh *sh, zshp_w *w);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

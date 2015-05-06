@@ -59,7 +59,7 @@ typedef struct {
 
 /* Data for covariance matrix estimation. */
 typedef struct {
-  /* Index of parameter with repsect to differentiate. */
+  /* Index of parameter with repsect to which we differentiate. */
   size_t par_index;
   /* Index of current observable being differentiated w.r.t. parameters. */
   size_t obs_index;
@@ -68,9 +68,12 @@ typedef struct {
   double *df_x;
   /* Pointer to data for minimization objective function. */
   void *obj_f_data;
-  /* The index for the current spin Hamiltonian; required for cases containing
-   * Zeeman terms, which require three spin Hamiltonians per inversion. */
+  /* The index of the spin Hamiltonian that contains the current observable. */
   size_t sh_index;
+  /* The element of the spin Hamiltonian that the current observable corresponds
+   * to.  Ranges between 0 to 4 for quadrupole interaction, 0 to 5 otherwise,
+   * enumerating the upper diagonal of spin Hamiltonian parameter matrices. */
+  size_t sh_el;
 } cov_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -115,6 +118,8 @@ typedef struct {
   double *hpro_eval;
   /* Pointer to the spin Hamiltonian. */
   zsh *sh;
+  /* Pointer to spin Hamiltonian parameter projection workspace. */
+  zshp_w *shp_w;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
   complex double **sh_pa;
   /* Experimental energy level data */
@@ -139,9 +144,8 @@ extern "C" {
 efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t
     n_zx, param_type **p);
 void efit_data_free(efit_data *data);
-eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh
-    *hpro, complex double *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
-    param_type **p);
+eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
+    *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p);
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
     cfl_min_obj *min_obj);

@@ -62,8 +62,6 @@
  * iz       The nuclear spin projection I_z * 2; must be non-zero of inter
  *          contains "hyperfine" or "quadrupole". The factor of 2 ensures we're
  *          dealing with integer values.
- * l        Integer specifying the initial level for which to project the spin
- *          Hamiltonian.
  * a        An array of length ninter with entries corresponding to the
  *          inversion coefficient matrices with order matching that of inter.
  *          The coefficent matrix for a given interaction is A in Ax = b, where
@@ -71,7 +69,7 @@
  *          Hamiltonian matrix elements and x is the spin Hamiltonian parameter
  *          matrix stacked into a 9 by 1 column. 
  */
-zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int l, complex double **a) {
+zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a) {
   int i, j, m;
   zsh *sh;
   zsh_inv_data **inv_data;
@@ -102,13 +100,13 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int l, complex doubl
      * by 2 to calculate the number of matrix elements.  The factor of 3 for
      * zeeman is due to 3 magnetic field directions being required to span the
      * solution space. */
-    if (strcmp("zeeman", inter[i])) {
+    if (!strcmp("zeeman", inter[i])) {
       m = (sz+1)*(sz+1)*3;
     }
-    else if (strcmp("hyperfine", inter[i])) {
+    else if (!strcmp("hyperfine", inter[i])) {
       m = (sz+1)*(iz+1)*(sz+1)*(iz+1); 
     }
-    else if (strcmp("quadrupole", inter[i])) {
+    else if (!strcmp("quadrupole", inter[i])) {
       m = (iz+1)*(iz+1);
     }
     else {
@@ -129,13 +127,15 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int l, complex doubl
     (inv_data[i])->m = m;
   }
 
-  sh->dim = (2*sz+1)*(2*iz+1);
+  sh->dim = (sz+1)*(iz+1);
   sh->inter = inter;
   sh->ninter = ninter; 
   sh->sz = sz;
   sh->iz = iz;
   sh->inv_data = inv_data;
   sh->ntensors = 0;
+
+  return sh;
 }
 
 void zsh_free(zsh *sh) {
@@ -154,6 +154,28 @@ void zsh_free(zsh *sh) {
   }
   free(sh->inv_data);
   free(sh);
+}
+
+/* Copy the matrix elements of a spin Hamiltonian interaction to a spin
+ * Hamiltonian object.  This can be used for inverting spin Hamiltonians without
+ * projecting the matrix elements from a crystal field Hamiltonian.
+ *
+ * Parameters
+ * ----------
+ *  sh      Pointer to the spin Hamlitonian for which to set matrix elements.
+ *  b       Pointer to array of matrix elements; these will be copied to storage
+ *          already allocated with zsh_alloc.
+ *  inter   The string identifing the interaction for which to copy matrix
+ *          elements. 
+ */
+void zsh_set_inv(zsh *sh, complex double *b, char *inter) {
+  int i;
+
+  for (i=0; i<sh->ninter; i++) {
+    if (!strcmp(sh->inter[i], inter)) {
+      memcpy((sh->inv_data[i])->b, b, (sh->inv_data[i])->m*sizeof(complex double));
+    }
+  }
 }
 
 /* Set the projection data for a spin Hamiltonian. 
@@ -176,7 +198,7 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
    * magnetic field directions. */
   ntensors = sh->ninter;
   for (i=0; i<sh->ninter; i++) {
-    if (strcmp("zeeman", sh->inter[i])) {
+    if (!strcmp("zeeman", sh->inter[i])) {
       ntensors += 2;
     }
   }
@@ -230,14 +252,14 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
        (sh->pro_data[i])->shi_dim = sh->sz*sh->sz;
        zeeman_index++;
      }
-     else if (strcmp("zeeman", sh->inter[i-zeeman_index])) {
+     else if (!strcmp("zeeman", sh->inter[i-zeeman_index])) {
        (sh->pro_data[i])->shi_dim = sh->sz*sh->sz;
-       zeeman_term = 1;
+       zeeman_term = i;
      }
-     else if (strcmp("hyperfine", sh->inter[i-zeeman_index])) {
+     else if (!strcmp("hyperfine", sh->inter[i-zeeman_index])) {
        (sh->pro_data[i])->shi_dim = sh->sz*sh->iz*sh->sz*sh->iz;
      }
-     else if (strcmp("quadrupole", sh->inter[i-zeeman_index])) {
+     else if (!strcmp("quadrupole", sh->inter[i-zeeman_index])) {
        (sh->pro_data[i])->shi_dim = sh->iz*sh->iz;
      }
   }
@@ -374,7 +396,7 @@ void zshp_gen_sort(complex double *hz, zsh *sh, zshp_w *shp_w) {
   int i, j, col_offset;
   /* The principal component index. */
   int pr_i;
-  zsh_sort_t *sh_sort;
+  zsh_sort_t **sh_sort;
   sh_sort = shp_w->shph_w->sh_sort;
 
   for (i=0; i<sh->dim; i++) {
@@ -391,8 +413,8 @@ void zshp_gen_sort(complex double *hz, zsh *sh, zshp_w *shp_w) {
      * each i and the associated sz and iz label of the corresponding principal
      * component. */
     (sh_sort[i])->index = i;
-    (sh_sort[i])->sz = sh->pt_slabels->labels[pr_i][shph_w->sz_i];
-    (sh_sort[i])->iz = sh->pt_slabels->labels[pr_i][shph_w->iz_i];
+    (sh_sort[i])->sz = sh->pt_slabels->labels[pr_i][shp_w->shph_w->sz_i];
+    (sh_sort[i])->iz = sh->pt_slabels->labels[pr_i][shp_w->shph_w->iz_i];
   }
 
   qsort((void *) sh_sort, sh->dim, sizeof(zsh_sort_t), zshp_state_cmp);
@@ -409,18 +431,20 @@ void zshp_gen_sort(complex double *hz, zsh *sh, zshp_w *shp_w) {
  *          result upon exit.  
  *  hz      Pointer to array containing the eigenvectors that diagonalize the
  *          Hamiltonian containing free-ion and crystal-field interactions.
- *  l       Integer specifying the initial level for which to project the spin
- *          Hamiltonian.
- *  pt_dim  The dimension of the tensor to project. 
- *  pd      The projection data. 
+ *  sh      The spin Hamiltonian.
+ *  pro_i   The index for which tensor to project out the spin Hamiltonian
+ *          matrix elements.
  *  shph_w  The projection workspace, allocated with zshph_w_alloc.
  */
-void zshph(complex double *a, complex double *hz, size_t l, size_t pt_dim,
-    zsh_pro_data *pd, zshph_w *shph_w) {
+void zshph(complex double *a, complex double *hz, zsh *sh, int pro_i, 
+    zshph_w *shph_w) {
   int i, j;
   int d, dsh;
   complex double one, zero;
-
+  zsh_pro_data *pd;
+  
+  pd = sh->pro_data[pro_i];
+  d = sh->pt_dim;
   dsh = pd->shi_dim;
   one = 1;
   zero = 0;
@@ -430,11 +454,11 @@ void zshph(complex double *a, complex double *hz, size_t l, size_t pt_dim,
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
    * Zeeman, hyperfine or quadrupole interaction elements. */
   /* Calculate H V. */
-  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, pt_dim, pt_dim, &one,
-      pd->pt, pt_dim, hz, pt_dim, &zero, shph_w->a, pt_dim);
+  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, d, d, &one, pd->pt, d, hz,
+      d, &zero, shph_w->a, d);
   /* Calculate V^dag (HV). */
-  cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, pt_dim, pt_dim,
-      pt_dim, &one, hz, pt_dim, shph_w->a, pt_dim, &zero, shph_w->b, pt_dim);
+  cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, d, d, d, &one, hz, d,
+      shph_w->a, d, &zero, shph_w->b, d);
 
   /* We read out the shi_dim*shi_dim block corresponding to the spin Hamiltonian
    * matrix elements specific to the interaction type.  Furthermore, we use the
@@ -444,8 +468,8 @@ void zshph(complex double *a, complex double *hz, size_t l, size_t pt_dim,
    * parameters, our matrix element state labels match those calculated here. */
   for (i=0; i<dsh; i++) {
     for (j=0; j<dsh; j++) {
-      a[i*dsh+j] =
-        shph_w->b[(shph_w->sh_sort[i]->index+l)*d+shph_w->sh_sort[j]->index+l];
+      a[i*dsh+j] = shph_w->b[(shph_w->sh_sort[i]->index+sh->l)*d + \
+        shph_w->sh_sort[j]->index+sh->l];
     }
   }
 }
@@ -550,20 +574,10 @@ void zshi(complex double *a, zshi_w *w) {
  * Parameters
  * ----------
  *  sh    The spin Hamiltonian object.
- *  t     Pointer to array of tensors for which to project to spin Hamiltonian
- *        space.  The order of tensors in t must match the order of interactions
- *        used to alloc sh; for "zeeman" interactions three tensors are
- *        expected, in the order "magx", "magy", and "magz". 
- *  l     Integer specifying the initial level for which to project the spin
- *        Hamiltonian. 
  */
-zshp_w *zshp_w_alloc(zsh *sh, zt **t, size_t l) {
+zshp_w *zshp_w_alloc(zsh *sh) {
   int i, j;
   zshp_w *w;
-
-  if (zsh_set_pro(sh, t, l) == 0) {
-    CFL_ERROR_NULL("Setting projection data failed");
-  }
 
   w = (zshp_w *) malloc(sizeof(zshp_w));
   if (w == 0) {
@@ -606,7 +620,7 @@ void zshp_w_free(zshp_w *w) {
 
   zshph_w_free(w->shph_w);
   for (i=0; i<w->ninter; i++) {
-    zshi_w_free(w->zshi_w[i]);
+    zshi_w_free(w->shi_w[i]);
   }
   free(w);
 }
@@ -618,32 +632,43 @@ void zshp_w_free(zshp_w *w) {
  * functions handle all necessary initializations operations and memory
  * allocs/frees. 
  *
+ * N.B.: repeat evaluations are fine, provided int_i increases monotonically to
+ * ninter and then starts at 0 again. 
+ *
  * Parameters
  * ----------
  *  a       An array of length 9 which will be overwritten with the spin
  *          Hamiltonian parameter matrix of the interaction specified with
- *          inter_i upon exit.
+ *          int_i upon exit.
  *  hz      Pointer to array containing the eigenvectors that diagonalize the
  *          Hamiltonian containing free-ion and crystal-field interactions.
- *  inter_i Index specifying for which interaction to calculate the parameter
+ *  int_i   Index specifying for which interaction to calculate the parameter
  *          matrix.  The value is determined by the order of the **inter array
  *          used to create the sh object.  
  *  sh      The spin Hamiltonian object.
  *  shp_w   The parameter workspace.
  */
-void zshp(complex double *a, complex double *hz, int inter_i, zsh *sh, zshp_w *w) {
+void zshp(complex double *a, complex double *hz, int int_i, zsh *sh, zshp_w *w) {
   int i, ms;
 
-  if (strcmp(sh->inter[inter_i], "zeeman")) {
-    /* The dimension of a single Zeeman term. */
-    ms = (sh->inv_data[inter_i])->m/3;
-    for (i=0; i<3; i++) {
-      zshph(&((sh->inv_data[inter_i])->b[i*ms]), hz, sh->l, sh->pt_dim, sh->pd[inter_i], w->shph_w[inter_i]);
-    }
-  }
-  else {
-    zshph((sh->inv_data[inter_i])->b, hz, sh->l, sh->pt_dim, sh->pd[inter_i], w->shph_w[inter_i]);
+  /* Reset the offset between int_i and pro_i due to a zeeman term every time we
+   * cycle through all interactions. */
+  if (int_i == 0) {
+    w->zeeman_offset = 0;
   }
 
-  zshi(a, w->shi_w[inter_i]);
+  if (!strcmp("zeeman", sh->inter[int_i])) {
+    //FIXME: change ms->mzeeman, and evaluate only once in work alloc. 
+    /* The dimension of a single Zeeman term. */
+    ms = (sh->inv_data[int_i])->m/3;
+    for (i=0; i<3; i++) {
+      zshph(&((sh->inv_data[int_i])->b[i*ms]), hz, sh, int_i+i, w->shph_w);
+    }
+    w->zeeman_offset = 2;
+  }
+  else {
+    zshph((sh->inv_data[int_i])->b, hz, sh, int_i+w->zeeman_offset, w->shph_w);
+  }
+
+  zshi(a, w->shi_w[int_i]);
 }

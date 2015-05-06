@@ -292,14 +292,14 @@ int main (void)
   zhd(w, z, h, hd_w);
   zhd_w_free(hd_w);
 
-  sh = zsh_alloc(2, "ce test");
-  zsh_set_pro(sh, magz, 0);
-  shp_w = zshp_w_alloc(sh);
-  zshp(sha, z, sh, shp_w);
-  zshp_w_free(shp_w);
-  zsh_free(sh);
-  printf("zshp:\n");
-  zequ_chk(zshp_res, sha, 4);
+  //sh = zsh_alloc(2, "ce test");
+  //zsh_set_pro(sh, magz, 0);
+  //shp_w = zshp_w_alloc(sh);
+  //zshp(sha, z, sh, shp_w);
+  //zshp_w_free(shp_w);
+  //zsh_free(sh);
+  //printf("zshp:\n");
+  //zequ_chk(zshp_res, sha, 4);
 
   zh_free(h);
   zt_free(zeta);
@@ -315,7 +315,7 @@ int main (void)
   /*=========================================================================*/
   /* Spin Hamiltonian inversion test.                                        */
   /*=========================================================================*/
-  complex double euyso_hyp_inv[2304] = {0, 0, 0, 0, 0, 0, 0, 0, 0,
+  complex double euyso_inv[2304] = {0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.661437827766, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.661437827766, 0,
     0.866025403784, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.866025403784, 0,
     0.968245836552, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.968245836552, 0,
@@ -485,20 +485,25 @@ int main (void)
   /* The inversion matrix and hyperfine term of the Hamiltonian were externally
    * calculated for Eu:YSO, with experimental A-tensor data source from O.
    * Guillot_Noel et al, Journal of Alloys and Compounds, 451, (2008) 62. */
-  zsh_inv_data hyp_inv_data;
-  hyp_inv_data.a = euyso_hyp_inv;
-  hyp_inv_data.m = 256;
-  hyp_inv_data.n = 9;
+  zsh *euyso_sh;
+  zshi_w *euyso_w;
+  
+  complex double *euyso_a[] = {euyso_inv};
+  char *inter[] = {"hyperfine"};
+
+  euyso_sh = zsh_alloc(inter, 1, 1, 7, euyso_a);
+  zsh_set_inv(euyso_sh, euyso_hyp_term, "hyperfine");
 
   complex double hyp_inv_result[9] = {69.35, -580.73, -248.83, -580.73, 696.30,
     682.49, -248.83, 682.49, 495.54};
-
-  zshi_w *hyp_work = zshi_w_alloc(&hyp_inv_data);
-  zshi(euyso_hyp_term, hyp_work);
+  
+  euyso_w = zshi_w_alloc(euyso_sh->inv_data[0]);
+  zshi(euyso_hyp_term, euyso_w);
 
   printf("Hyperfine inversion test for Eu:YSO:\n");
   zequ_chk(hyp_inv_result, euyso_hyp_term, 9);
   
-  zshi_w_free(hyp_work);
+  zshi_w_free(euyso_w);
+  zsh_free(euyso_sh);
   return 0;
 }  

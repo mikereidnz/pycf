@@ -394,17 +394,30 @@ int main (void)
   complex double ce_gvalues[9] = {1.473, 0, 0, 0, 1.473, 0, 0, 0, 2.765};
  
   /* Dummy state label preparation. */
-  int nstates = 14;
-  char *s[nstates];
+
+  char label_key[] = "SLJMI";
+  int nstates = 28;
+  static char l_array[28][5] = {
+    {1,3,7,7,1}, {1,3,7,7,-1}, {1,3,5,5,1}, {1,3,5,5,-1},
+    {1,3,7,5,1}, {1,3,7,5,-1}, {1,3,5,3,1}, {1,3,5,3,-1}, {1,3,7,3,1},
+    {1,3,7,3,-1}, {1,3,5,1,1}, {1,3,5,1,-1}, {1,3,7,1,1}, {1,3,7,1,-1},
+    {1,3,5,-1,1}, {1,3,5,-1,-1}, {1,3,7,-1,1}, {1,3,7,-1,-1}, {1,3,5,-3,1},
+    {1,3,5,-3,-1}, {1,3,7,-3,1}, {1,3,7,-3,-1}, {1,3,5,-5,1}, {1,3,5,-5,-1},
+    {1,3,7,-5,1}, {1,3,7,-5,-1}, {1,3,7,-7,1}, {1,3,7,-7,-1}
+  };
+
+  char **l;
+  l = (char **) malloc(nstates*sizeof(char *));
+  if (l == 0) {
+      printf("Error; label array **l malloc failed\n");
+  }
   for (i=0; i<nstates; i++) {
-    s[i] = malloc(nstates*sizeof(char));
-    if (s[i] == 0) 
-      printf("Error; label array s malloc failed\n");
-    sprintf(s[i], "l=%i", i);
+    l[i] = l_array[i];
   }
 
+
   sl *states;
-  states = sl_alloc(4, s);
+  states = sl_alloc(nstates, label_key, l);
 
   /* Tensor allocs. */
   zt *eavg, *zeta, *C20, *C40, *C44, *C60, *C64, *magx, *magy, *magz;
@@ -437,7 +450,7 @@ int main (void)
 
   printf("Ce:LiYF4 diagonalization:\n");
   dequ_chk(celiyf4_diag_res, w, 14);
-
+#if 0
   /* Inversion test. */
   zsh_inv_data celiyf4_inv_data;
   celiyf4_inv_data.a = ce_zeeman_inv;
@@ -449,7 +462,7 @@ int main (void)
   printf("Ce:LiYF4 inversion:\n");
   zequ_chk(ce_gvalues, ce_zeeman_term, 9);
   zshi_w_free(celiyf4_inv_work);
-
+#endif
   /* Manually prepare array of parameter structs. */
   param_type efit_p0;
   efit_p0.type = 'r';
@@ -507,7 +520,7 @@ int main (void)
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
-  
+#if 0  
   /* Spin Hamiltonian and energy level fit. */
   zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
   ce_x_sh = zsh_alloc(2, "magx");
@@ -576,11 +589,8 @@ int main (void)
   zsh_free(ce_x_sh);
   zsh_free(ce_y_sh);
   zsh_free(ce_z_sh);
-
+#endif
   zh_free(h);
-  for (i=0; i<nstates; i++) {
-    free(s[i]);
-  }
   free(w);
   free(z);
 
@@ -596,6 +606,8 @@ int main (void)
   zt_free(magy);
   zt_free(magz);
   sl_free(states);
+  free(cov);
+  free(l);
   
   return 0;
 }  
