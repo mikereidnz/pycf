@@ -584,8 +584,8 @@ int main (void) {
   zhd(w, z, h, hd_w);
   zhd_w_free(hd_w);
 
-  complex double *inv_a[] = {zeeman_inv_a, hyperfine_inv_a, quadrupole_inv_a};
-  char *inter[] = {"zeeman", "hyperfine", "quadrupole"};
+  complex double *inv_a[] = {zeeman_inv_a, hyperfine_inv_a};
+  char *inter[] = {"zeeman", "hyperfine"};
   zsh *cehyp_sh;
   zshp_w *cehyp_shp_w;
   complex double **a;
@@ -598,7 +598,9 @@ int main (void) {
   a[1] = (complex double *) calloc(9,sizeof(complex double));
   a[2] = (complex double *) calloc(9,sizeof(complex double));
 
-  cehyp_sh = zsh_alloc(inter, 3, 1, 1, inv_a);
+  cehyp_sh = zsh_alloc(inter, 2, 1, 1, inv_a);
+  zsh_set_pro(cehyp_sh, tensors, 0);
+
   cehyp_shp_w = zshp_w_alloc(cehyp_sh);
 
   zshp(a[0], z, 0, cehyp_sh, cehyp_shp_w);

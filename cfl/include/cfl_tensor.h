@@ -25,11 +25,10 @@
 typedef struct {
   /* The number of states. */
   size_t n;
-  /* The number of labels per state. */
-  size_t nl;
-  /* Key identifying the type of label; of length nl. */
+  /* String identifying the type of label.  Valid characters are S, L, J, M, and
+   * I, and their position in key specifies the location in each label. */
   char *key;
-  /* Array of length l containing arrays of length nl of state labels. */
+  /* Array of length l containing arrays of length strlen(key). */
   char **labels;
   /* Pointer to hash of states. */
   long hash;

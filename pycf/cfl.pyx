@@ -1223,7 +1223,8 @@ cdef class ESHFitRunner(object):
             magz_small.name = 'MAGZ_small'
         except KeyError:
             raise ValueError("Missing 'MAGZ' from the sh_tensors list; 'MAGZ' is always "
-                    "required, since it is used to distinguish S=+1/2 and S=-1/2 states.")
+                    "required, since it is used to distinguish S=+1/2 and S=-1/2 states "
+                    "in the projection space.")
         
         if h.coeff_dict == None:
             raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")

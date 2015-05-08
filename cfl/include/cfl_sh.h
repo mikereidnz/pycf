@@ -31,8 +31,6 @@
 typedef struct {
   /* Spin Hamiltonian element index. */
   size_t index;
-  /* sz value (2*S_z). */
-  int sz;
   /* iz value (2*I_z). */
   int iz;
 } zsh_sort_t;
@@ -97,11 +95,9 @@ typedef struct {
   zsh_sort_t **sh_sort;
   /* The complete spin Hamiltonian dimension; required for freeing sh_sort. */
   size_t sh_dim;
-  /* The index of the sz label in sh->pt_slabels. */
-  char sz_i;
   /* The index of the iz label in sh->pt_slabels. */
   char iz_i;
-} zshph_w; 
+} zshp_p_w; 
 
 /* The spin Hamiltonian inversion workspace. */
 typedef struct {
@@ -123,7 +119,7 @@ typedef struct {
  * projection. */
 typedef struct {
   /* Pointer to the spin Hamiltonian projection workspace. */
-  zshph_w *shph_w;
+  zshp_p_w *shp_p_w;
   /* Array of pointers to the spin Hamiltonian inversion workspaces. */
   zshi_w **shi_w;
   /* The number of interactions; required for freeing zshi_w. */
@@ -131,6 +127,11 @@ typedef struct {
   /* The offset between int_i and pro_i due to there being three pro_i indices
    * per int_i for a zeeman interaction. */
   int zeeman_offset;
+  /* The dimension of a single Zeeman term. */
+  int msz;
+ /* The tensor index of the magz or magzs tensor, used for sorting matrix
+  * elements w.r.t. Sz. */
+  int magz_i;
 } zshp_w;
 
 /* Function prototypes. */
@@ -142,10 +143,11 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a);
 void zsh_free(zsh *sh);
 int zsh_set_pro(zsh *sh, zt **t, size_t l);
 void zsh_set_inv(zsh *sh, complex double *b, char *inter);
-zshph_w *zshph_w_alloc(zsh *sh);
-void zshph_w_free(zshph_w *shph_w);
-void zshph(complex double *a, complex double *hz, zsh *sh, int pro_i, 
-    zshph_w *shph_w);
+zshp_p_w *zshp_p_w_alloc(zsh *sh);
+void zshp_p_w_free(zshp_p_w *shp_p_w);
+void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_w *shp_w);
+void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
+void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
 zshi_w *zshi_w_alloc(zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
 void zshi(complex double *a, zshi_w *w);

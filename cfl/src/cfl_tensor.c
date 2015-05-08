@@ -113,7 +113,6 @@ sl *sl_alloc(size_t n, char *key, char **labels) {
   
   l->hash = state_hash(n, nl, l->labels);
   l->n = n;
-  l->nl = nl;
   
   return l;
 }

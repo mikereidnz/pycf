@@ -32,6 +32,7 @@ TODO
     don't sort if Iz=0, and this should be fine, since it has worked with
     previous calculations... but verify (the complex coefficient mess comes to
     mind).
+  * Change all small MAGZ values to a macro def.
 
 Distributed memory parallelization
 ----------------------------------
