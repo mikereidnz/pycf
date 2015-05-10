@@ -41,8 +41,8 @@ typedef struct {
   complex double *a;
   /* Pointer to the spin Hamiltonian matrix elements, b. */
   complex double *b;
-  /* The number of columns of A, and the length of x; the number of rows of A
-   * and the length of b is always 9. */
+  /* The number of rows of A, and the length of b; the number of columns of A
+   * and the length of x is always 9. */
   size_t m;
 } zsh_inv_data;
 
@@ -113,6 +113,8 @@ typedef struct {
   int lwork;
   /* Pointer to workspace required by zgels. */
   complex double *work;
+  /* The leading dimension of array b. ldb >= MAX(1,M,N) */
+  int ldb;
 } zshi_w;
 
 /* Workspace for crystal field Hamiltonian to spin Hamiltonian parameter

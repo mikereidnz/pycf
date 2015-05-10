@@ -2,6 +2,7 @@ CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
 CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -I/usr/include/lapacke 
+CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke 
 LDLIBS=-llapacke -llapack -lblas -lgfortran -lgslcblas -lgsl -lm -lnlopt 
 LDFLAGS=
 MKL_CFLAGS=-mkl -g -O3 -fPIC -std=c99 -ansi-alias -xhost -lpthread -openmp
