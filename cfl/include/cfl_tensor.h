@@ -28,7 +28,7 @@ typedef struct {
   /* String identifying the type of label.  Valid characters are S, L, J, M, and
    * I, and their position in key specifies the location in each label. */
   char *key;
-  /* Array of length l containing arrays of length strlen(key). */
+  /* Array of length n containing arrays of length strlen(key). */
   char **labels;
   /* Pointer to hash of states. */
   long hash;

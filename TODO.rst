@@ -33,6 +33,9 @@ TODO
     previous calculations... but verify (the complex coefficient mess comes to
     mind).
   * Change all small MAGZ values to a macro def.
+  * Change ImportSLJM to return a dictionary of tensors... that would make it
+    more consistent, and easier to call from a loop?
+   
 
 Distributed memory parallelization
 ----------------------------------

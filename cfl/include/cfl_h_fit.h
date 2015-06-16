@@ -31,7 +31,7 @@
  * optimization routines into complex parameters for Hamiltonian
  * diagonalization. */
 typedef struct {
-  /* Indicator whether real, purely imaginary, or complex. */
+  /* Indicator whether parameter is real, purely imaginary, or complex. */
   int type;
   /* Complex (resultant) parameter array index. */
   size_t index;
@@ -53,8 +53,6 @@ typedef struct {
   complex double *pa;
   /* chi^2 weighting. */
   double chisq_weight;
-  /* Pointer to spin Hamiltonian inversion data. */
-  zsh_inv_data *inv_data; 
 } shx_data;
 
 /* Data for covariance matrix estimation. */
@@ -145,7 +143,7 @@ efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t
     n_zx, param_type **p);
 void efit_data_free(efit_data *data);
 eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
-    *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p);
+    *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
     cfl_min_obj *min_obj);

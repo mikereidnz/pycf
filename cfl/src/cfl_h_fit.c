@@ -151,7 +151,7 @@ void efit_data_free(efit_data *data) {
  *          h.
  *  coeff   Tensor coefficient array.
  *  ex      Experimental energy level data.  
- *  sh      Pointers to spin Hamiltonian.    
+ *  sh      Pointer to spin Hamiltonian.    
  *  shx     Array of pointers to spin Hamiltonian experimental data.  These must
  *          be in the same order as the terms in sh.  For Zeeman terms, the
  *          experimental data position is expected to coincide with the position
@@ -222,6 +222,7 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
     }
   }
   
+
   /* Only alloc data if we require a separate projection Hamiltonian. */
   if (hpro != NULL) {
     data->hprod_w = zhd_w_alloc(hpro);
@@ -348,7 +349,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
 inline void parse_param_data(size_t n_zx, param_type **p, complex double *coeff,
     double *x) {
   int i, zi;
-
+  
   i = 0;
   for(zi=0; zi<n_zx; zi++) {
     if (p[zi]->type == 'c') {
@@ -386,7 +387,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   int i;
   double chisq;
   eshfit_data *d = data;
-
+  
   parse_param_data(d->n_zx, d->p, d->coeff, x);
 
   /* Calculate the energy level chi^2. */

@@ -147,7 +147,7 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l);
 void zsh_set_inv(zsh *sh, complex double *b, char *inter);
 zshp_p_w *zshp_p_w_alloc(zsh *sh);
 void zshp_p_w_free(zshp_p_w *shp_p_w);
-void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_w *shp_w);
+void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w);
 void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
 void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
 zshi_w *zshi_w_alloc(zsh_inv_data *d);

@@ -2,7 +2,7 @@
 #cython: c_string_encoding=ascii
 #cython: embedsignature=True
 
-#   Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+#   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -43,40 +43,53 @@ cdef class StateLabels:
 
     Paramters
     ---------
-    n : int
-        The number of states.
-    states : list
-        Elements are strings corresponding to labels; all labels must be of
-        equal length.
+    label_key : string
+        String identifying the type of each state label.  Valid keys are: S, L,
+        J, M and I, and the order in which they are listed must correspond to
+        the order used in the state tuples that make up the labels list.
+    labels : list
+        List of strings, with each string corresponding to a specific state, and
+        string elements indicating the respective label values of that state.
+        The order of the labels in state strings is specified using the label_key
+        argument.  To avoid half integers, label values are always stored as
+        twice their real value.
     """
     cdef:
         cfl.sl *cfl_sl
         public object sl_cap
 
-    def __cinit__(self, labels):
+    def __cinit__(self, label_key, labels):
+        cdef size_t n
+        cdef char *key
         cdef char *char_ptr
-        cdef char **state_labels
-        cdef int label_length
+        cdef char *clabel
+        cdef char **l_a
 
-        state_labels = <char **>malloc(len(labels)*cython.sizeof(char_ptr))
-        if state_labels == NULL:
-            raise MemoryError("state_labels array alloc failed")
+        n = <size_t> len(labels)
+        key = <char *> label_key
+        l_a = <char **>malloc(len(labels)*cython.sizeof(char_ptr))
+        if l_a == NULL:
+            raise MemoryError("l_a malloc failed")
 
-        label_length = len(labels[0])
         for i,l in enumerate(labels):
-            if (len(l) != label_length):
-                free(state_labels)
-                raise ValueError("State label '%s' is not of the same length as the first "
-                    "label in states" % l)
-            state_labels[i] = l
+            clabel = labels[i]
+            l_a[i] = &clabel[0]
 
-        self.cfl_sl = cfl.sl_alloc(len(labels), state_labels) 
-        free(state_labels)
+        Py_INCREF(n)
+        Py_INCREF(key)
+        
+        # sl_alloc copies both the label key and the labels, so we do not need
+        # to retain a reference after the alloc call.
+        self.cfl_sl = cfl.sl_alloc(n, key, l_a)
         if self.cfl_sl == NULL:
             raise MemoryError("cfl_sl alloc failed")
         else:
             self.sl_cap = PyCapsule_New(<void *>self.cfl_sl, "pycfl.StateLabels", NULL)
-
+        
+        Py_DECREF(n)
+        Py_DECREF(key)
+        
+        free(l_a)
     def __dealloc__(self):
         if self.cfl_sl != NULL:
             cfl.sl_free(self.cfl_sl)
@@ -354,7 +367,7 @@ cdef class Hamiltonian:
         if self.diag_run:
             labels = [] 
             for i in range(self.n):
-                labels += [h.states.states[i]]
+                labels += [h.slabels.labels[i]]
             return gen_e_summary(self.w, self.z, labels, ex, nstates, sigma)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
@@ -472,135 +485,6 @@ cpdef quadrupole_sh_coeff(t):
     return(np.reshape(a, (tl*tl, l*l)))
 
 
-cdef class SHTerm:
-    r"""
-    Data storage for a single spin Hamiltonian term; it is a wrapper for cfl sh
-    objects.  As such, it is a representation for the matrix elements of a given
-    interaction type. 
-
-    Parameters
-    ----------
-    n : int
-        The dimension of the spin Hamiltonian term. 
-    interaction : string
-        The type of interaction that this term is associated with; valid values
-        are 'zeeman', 'hyperfine', and 'quadrupole'.
-
-    Returns
-    -------
-    term : SHTerm
-
-    """
-    cpdef public int n
-    cdef cfl.zsh *cfl_sh
-    cpdef public str type
-    cdef public object sh_cap
-    cdef public Tensor tensor
-
-    def __cinit__(self, n, interaction):
-        self.n = n
-        self.type = interaction
-        
-        self.cfl_sh = zsh_alloc(n, interaction)
-        if self.cfl_sh is NULL:
-            raise MemoryError("Failed to alloc zsh memory")
-        else:
-            self.sh_cap = PyCapsule_New(<void *>self.cfl_sh, "pycfl.SHTerm", NULL)
-
-    def __dealloc__(self):
-        if self.cfl_sh != NULL:
-            cfl.zsh_free(self.cfl_sh)
-
-    def set_pro_data(self, tensor, l):
-        r""" 
-        Set projection data. 
-
-        Parameters
-        ----------
-        tensor : Tensor
-            The projection tensor. 
-        int : l 
-            The starting level that the spin Hamiltonian corresponds to. 
-        """
-        cfl.zsh_set_pro(self.cfl_sh, <cfl.zt *>PyCapsule_GetPointer(tensor.t_cap, "pycfl.Tensor"), l)
-        self.tensor = tensor
-
-        
-cdef class SHInteractionData(object):
-    r"""
-    Class used to store spin Hamiltonian data for a specific interaction.  For
-    'hyperfine' and 'quadrupole' interactions, this corresponds to a single
-    SHTerm, whereas for 'zeeman' interactions, it corresponds to three SHTerms. 
-
-    Parameters
-    ----------
-    d : int
-        The dimension of the spin Hamiltonian interaction term(s). 
-    inter : string
-        The type of interaction; valid values are 'zeeman', 'hyperfine', and
-        'quadrupole'.
-    coeff : np.ndarray
-        The coefficient array used for the inversion of the spin Hamiltonian;
-        calculated using the helper functions 'zeeman_sh_coeff',
-        'hyperfine_sh_coeff', and 'quadrupole_sh_coeff'.
-    
-    Returns
-    -------
-    data : SHInteractionData
-
-    """
-    cpdef public str type
-    cdef public int pro_data
-    cdef public list terms
-    cdef public SHTerm term
-    cdef np.ndarray coeff
-    cdef int level
-    cdef cfl.zsh_inv_data *cfl_inv_data
-    cdef public object inv_data_cap
-    cdef public n
-    cdef public m
-
-    def __init__(self, d, inter, coeff, level):
-        cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
-        self.type = inter
-        self.level = level
-        self.pro_data = 0
-        if inter == 'zeeman':
-            self.terms = [SHTerm(d, 'zeeman_x'), SHTerm(d, 'zeeman_y'), SHTerm(d, 'zeeman_z')]
-        else:
-            self.term = SHTerm(d, inter)
-        
-        # Determine the dimensions of the inversion problem consisting of
-        # solving for x in Ax = b.  n is the number rows of A and length of b,
-        # while m is the number columns of A, and the length of x.  For Zeeman
-        # case, coeff already has the correct dimensions for inversion, that is,
-        # three times the number of rows. 
-        self.m = coeff.shape[0]
-        self.n = coeff.shape[1]
-
-        # Assign coeff to self to ensure there exists a reference to the coeff
-        # memory for as long as this object exists. 
-        self.coeff = np.asfortranarray(coeff, dtype=np.complex128)
-        a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.coeff
-        self.cfl_inv_data = zsh_inv_data_alloc(&a[0,0], self.m, self.n)
-        if self.cfl_inv_data == NULL:
-            raise MemoryError("Failed to alloc inv_data memory")
-        else:
-            self.inv_data_cap = PyCapsule_New(<void *>self.cfl_inv_data, "pycfl.InvData", NULL)
-
-    def __dealloc__(self):
-        if self.cfl_inv_data != NULL:
-            cfl.zsh_inv_data_free(self.cfl_inv_data)
-
-    def set_pro_data(self, tensor):
-        if self.type == 'zeeman':
-            for i,t in enumerate(self.terms):
-                t.set_pro_data(tensor[i], self.level)
-        else:
-            self.term.set_pro_data(tensor, self.level)
-        self.pro_data = 1
-
-
 cdef class SpinHamiltonian:
     r""" 
     Abstraction for spin Hamiltonian data.  Objects of type SpinHamiltonian are
@@ -634,18 +518,30 @@ cdef class SpinHamiltonian:
     -------
     object : SpinHamiltonian
     """
+    cdef cfl.zsh *cfl_zsh
     cdef public list interactions 
-    cdef public list inter_data
+    cdef public list required_tensors
     cpdef public int level
     cdef public int nsh
-    cdef public int dsh
     cdef public int nobs
-    cdef int nzeeman
-    cpdef public float S_spin
+    cpdef public float Sz
     cpdef public list S_matel
-    cpdef public float I_spin
+    cpdef public float Iz
     cpdef public list I_matel
+    cdef list inv_data
+    cdef double complex **inv_data_ptrs
+    cdef char **inter_array
+    cdef public object sh_cap
+    cdef list tensors
+    cdef int pro_data_set
+
     def __init__(self, interactions, **kwargs):
+        cdef int csz
+        cdef int ciz
+        cdef double complex *doublecomplex_ptr
+        cdef char *char_ptr
+        cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
+
         if not isinstance(interactions, list):
             interactions = [interactions]
         for i in interactions:
@@ -661,109 +557,137 @@ cdef class SpinHamiltonian:
         j_l = ['jx', 'jy', 'jz']
         if 'zeeman' in interactions or 'hyperfine' in interactions:
             try: 
-                S_spin = kwargs['S']
+                self.Sz = kwargs['S']
             except KeyError:
                 raise KeyError("SpinHamiltonian: missing keyword argument S.")
             # Calculate the matrix elements of spin operator.
-            S_matel = [None]*3
-            for i in range(3):
-                S_matel[i] = matel(j_l[i], S_spin)
-            self.S_spin = S_spin
-            self.S_matel = S_matel
+            self.S_matel = [matel(j_l[i], self.Sz) for i in range(3)]
         else:
-            S_matel = None
+            self.S_matel = None
 
         if 'hyperfine' in interactions or 'quadrupole' in interactions:
             try:
-                I_spin = kwargs['I']
+                self.Iz = kwargs['I']
             except KeyError:
                 raise KeyError("SpinHamiltonian: missing keyword argument I.")
             # Calculate the matrix elements of nuclear spin operator.
-            I_matel = [None]*3
-            for i in range(3):
-                I_matel[i] = matel(j_l[i], I_spin)
-
-            self.I_spin = I_spin
-            self.I_matel = I_matel
+            self.I_matel = [matel(j_l[i], self.Iz) for i in range(3)]
         else:
-            I_matel = None
-
-        # Determine spin Hamiltonian dimension.
-        if 'zeeman' in interactions:
-            if I_matel == None:
-                # Only the zeeman interaction.
-                dsh = 2*S_spin+1
-            else:
-                # Both the zeeman and quadrupole interactions.
-                dsh = (2*S_spin+1) * (2*I_spin+1)
-        elif S_matel == None:
-            # Only the quadrupole interactions.
-            dsh = 2*I_spin+1 
-        else:
-            # Contains hyperfine interactions.
-            dsh = (2*S_spin+1) * (2*I_spin+1)
+            self.I_matel = None
         
-        self.dsh = dsh
-        # Calculate the coefficient arrays and alloc spin Hamiltonian
-        # interactions.
-        self.inter_data = []
+        # Calculate the coefficient arrays and alloc spin Hamiltonian.
+        n_inter = len(interactions)
+        if 'zeeman' not in interactions:
+            # One unspecified interaction, magzs. 
+            n_inter += 1
+
+        self.inter_array = <char **>malloc(n_inter*cython.sizeof(char_ptr))
+        if self.inter_array == NULL:
+            raise MemoryError("inter_array malloc failed")
+
+        self.inv_data_ptrs = <double complex **>malloc(len(interactions)*cython.sizeof(doublecomplex_ptr))
+        if self.inv_data_ptrs == NULL:
+            raise MemoryError("inv_data_ptrs malloc failed")
+        
         self.nsh = 0
         self.nobs = 0
-        if 'zeeman' in interactions:
-            # Coefficient arrays are calculated for three B fields in \hat{x},
-            # \hat{y}, and \hat{z} directions, respectively. 
-            dz = 2*S_spin+1
-            B_a = np.zeros([3, dz**2, 9], dtype = np.complex)
-            for i in range(3):
-                B_a[i, :, :] = zeeman_sh_coeff(np.eye(3,3)[i,:], S_matel)
-            zeeman = SHInteractionData(dz, 'zeeman', np.reshape(B_a, (3 * dz**2, 9)), self.level)
-            self.inter_data += [zeeman]
-            self.nsh += 3
-            # Three g-values plus three Euler rotation parameters.
-            self.nobs += 6
+        self.required_tensors = []
+        self.inv_data = []
+        for i,inter in enumerate(interactions):
+            if inter == 'zeeman':
+                # Coefficient arrays are calculated for three B fields in \hat{x},
+                # \hat{y}, and \hat{z} directions, respectively.
+                dz = 2*self.Sz+1
+                B_a = np.zeros([3, dz**2, 9], dtype = np.complex)
+                for j in range(3):
+                    B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.S_matel)
+                self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * dz**2, 9)), dtype=np.complex128)]
+                self.nsh += 3
+                # Three g-values plus three Euler rotation parameters.
+                self.nobs += 6
+                self.required_tensors += ['MAGX', 'MAGY', 'MAGZ']
 
-        if 'hyperfine' in interactions:
-            dh = 2*S_spin+1 + 2*I_spin+1
-            hyperfine = SHInteractionData(dh, 'hyperfine', hyperfine_sh_coeff(I_matel, S_matel), self.level)
-            self.inter_data += [hyperfine]
-            self.nsh += 1
-            # Three hyperfine values plus three Euler rotation parameters.
-            self.nobs += 6
+            if inter == 'hyperfine':
+                dh = 2*self.Sz+1 + 2*self.Iz+1
+                self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.I_matel, self.S_matel), dtype=np.complex128)]
+                self.nsh += 1
+                # Three hyperfine values plus three Euler rotation parameters.
+                self.nobs += 6
+                self.required_tensors += ['HYP']
 
-        if 'quadrupole' in interactions: 
-            dq = 2*I_spin+1
-            quadrupole = SHInteractionData(dq, 'quadrupole', quadrupole_sh_coeff(I_matel), self.level)
-            self.inter_data += [quadrupole]
-            self.nsh += 1
-            # Two quadrupole values plus three Euler rotation parameters.
-            self.nobs += 5
+            if inter == 'quadrupole': 
+                dq = 2*self.Iz+1
+                self.inv_data += [np.asfortranarray(quadrupole_sh_coeff(self.I_matel), dtype=np.complex128)]
+                self.nsh += 1
+                # Two quadrupole values plus three Euler rotation parameters.
+                self.nobs += 5
+                self.required_tensors += ['EQHYP']
 
+            a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.inv_data[i]
+            self.inv_data_ptrs[i] = &a[0,0]
+            self.inter_array[i] = inter
+        
+        # Add magzs to interactions if no Zeeman interaction is specified.
+        if 'zeeman' not in interactions:
+            self.inter_array[n_inter-1] = 'magzs'
+            self.required_tensors += ['MAGZ']
+        
+        csz = int(2*self.Sz)
+        ciz = int(2*self.Iz)
+        self.cfl_zsh = cfl.zsh_alloc(self.inter_array, len(interactions), csz, ciz, self.inv_data_ptrs);
+        if self.cfl_zsh == NULL:
+            raise MemoryError("Failed to alloc zsh")
+        else:
+            self.sh_cap = PyCapsule_New(<void *>self.cfl_zsh, "pycfl.SpinHamiltonian", NULL)
+
+        self.tensors = None
+        self.pro_data_set = 0
+
+    def __dealloc__(self):
+        if self.cfl_zsh != NULL:
+            cfl.zsh_free(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
+        if self.inv_data_ptrs != NULL:
+            free(self.inv_data_ptrs)
+        if self.inter_array != NULL:
+            free(self.inter_array)
     
-    def set_pro_data(self, interaction, tensor):
+    def set_pro_data(self, tensors):
         r"""
         Set the projection data for a specific spin Hamiltonian interaction. 
 
         Parameters
         ----------
-        interaction : string
-            Valid options are 'zeeman', 'hyperfine', and 'quadrupole'. 
-        tensor : list or Tensor
-            For Zeeman interactions a list of three tensors corresponding to
-            `\hat{x}`, `\hat{y}`, and `\hat{z}` interactions must be specified. 
-
+        tensor : list
+            Elements must be of type Tensor.  The list must contain Tensors for
+            every interaction specified when the SpinHamiltonian was created.
+            These must have the following name attributes: 'MAGX', 'MAGY', and
+            'MAGZ' for Zeeman interactions; 'HYP' for hyperfine interactions;
+            'QUAD' for quadrupole interactions.  Finally, even if the
+            SpinHamiltonian does not describe Zeeman interactions the 'MAGZ'
+            tensor must be provided for state-label sorting. 
         """
-        for i in self.inter_data:
-            if i.type == interaction:
-                if interaction == 'zeeman':
-                    if not isinstance(tensor, list):
-                        raise ValueError("For Zeeman interactions tensor must be a list.")
-                i.set_pro_data(tensor)
-                return
+        cdef cfl.zt **t_array
 
-        raise ValueError("This spin Hamiltonian object was not instantiated with {} "
-            "interaction support.".format(interaction))
+        t_array = <cfl.zt **>malloc(len(self.required_tensors)*cython.sizeof(cfl.zt))
+        if t_array == NULL:
+            raise MemoryError("t_array malloc failed")
 
-    
+        # Ensure all tensors required for projecting the interactions specified
+        # when this spin Hamiltonian object is created are provided. 
+        for t in tensors:
+            try:
+                i = self.required_tensors.index(t.name)
+            except ValueError:
+                raise ValueError("Missing tensor %s in tensors list" % t.name)
+            t_array[i] = <cfl.zt *>PyCapsule_GetPointer(t.t_cap, "pycfl.Tensor")
+            
+        zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), t_array, self.level)
+        free(t_array)
+
+        self.tensors = tensors
+        self.pro_data_set = 1
+
+
     def calc_param(self, h):
         r"""
         Calculate the spin Hamiltonian parameters given a complete Hamiltonian.
@@ -780,106 +704,59 @@ cdef class SpinHamiltonian:
             interactions specified when the spin Hamiltonian object was
             instantiated. 
         """
-        cdef cfl.zshp_w shp_w
-        cdef list shp_work_list = []
-        cdef list shi_work_list = []
-        cdef list result_list = []
-        cdef np.ndarray[double complex, ndim=1, mode="c"] a
+
+        cdef cfl.zshp_w *shp_w
         cdef np.ndarray[double complex, ndim=1, mode="c"] cz
-        cdef int cj
-        cdef int cdz
-        cdef int z_num
-        c_sh_tensors = []
-        self.nzeeman = -1
-        for i,inter in enumerate(self.inter_data):
-            if not inter.pro_data:
-                raise ValueError("The spin Hamiltonian interaction {} is missing projection data.".format(i.type))
+        cdef np.ndarray[double complex, ndim=1, mode="c"] a
+        
+        if not self.pro_data_set:
+            raise ValueError("The spin Hamiltonian interaction is missing projection data.")
 
-            # Alloc projection and inversion workspace.
-            if inter.type == 'zeeman':
-                for t in inter.terms: 
-                    shp_work_list += [PyCapsule_New(<void *>cfl.zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(
-                        t.sh_cap, "pycfl.SHTerm")), "pycfl.SHCalcParamProWork", NULL)]
+        # Check whether the provided Hamiltonian contains Zeeman interaction
+        # matrix elements, in which case we create a separate Hamiltonian to
+        # perform the spin Hamiltonian projection which has these matrix
+        # elements removed.  This is done since we use built-in field-strengths
+        # for magx, magy, and magz. 
+        zeeman_tensors = ['MAGX', 'MAGY', 'MAGZ']
+        pro_h_tensors = []
+        create_pro_h = False
+        for t in h:
+            if t.name not in zeeman_tensors:
+                pro_h_tensors += [t]
             else:
-                shp_work_list += [PyCapsule_New(<void *>cfl.zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(
-                    inter.term.sh_cap, "pycfl.SHTerm")), "pycfl.SHCalcParamProWork", NULL)]
-            shi_work_list += [PyCapsule_New(<void *>cfl.zshi_w_alloc(<cfl.zsh_inv_data *>PyCapsule_GetPointer(
-                inter.inv_data_cap, "pycfl.InvData")), "pycfl.SHCalcParamInvWork", NULL)]
-
-            # Determine whether the complete Hamiltonian contains any
-            # interactions that are also part of the spin Hamiltonian.
-            # Furthermore, we record the location of the Zeeman tensor, if it
-            # exists. 
-            if inter.type == 'zeeman':
-                for t in inter.terms:
-                    if t.tensor in h:
-                        c_sh_tensors += [t.tensor]
-                self.nzeeman = i
-            else:
-                if inter.term.tensor in h:
-                    c_sh_tensors += [inter.term.tensor]
+                create_pro_h = True
+        
+        if create_pro_h:
+            tmp_coeff = h.coeff_dict
+            h = Hamiltonian(pro_h_tensors)
+            h.set_coeff(tmp_coeff)
 
         # If not present, add small magnetic field to Hamiltonian to order
         # states.
-        if 'MAGZ_small' not in h.coeff_dict:
-            for i in self.inter_data:
-                if i.type == 'zeeman':
-                    small_magz =  0.0001 * i.terms[2].tensor
-                    small_magz.name = 'MAGZ_small'
+        if 'MAGZS' not in h.coeff_dict:
+            for t in self.tensors:
+                if t.name == 'MAGZ':
+                    magzs = 0.0001 * t
+                    magzs.name = 'MAGZS'
             
             tmp_h_coeff = h.coeff_dict
-            tmp_h_coeff['MAGZ_small'] = 1
-            h = Hamiltonian([small_magz] + h.tensors)
+            tmp_h_coeff['MAGZS'] = 1
+            h = Hamiltonian([magzs] + h.tensors)
             h.set_coeff(tmp_h_coeff)
         
-        # If required, replace h with a dedicated projection Hamiltonian.
-        pro_tensors = []
-        if len(c_sh_tensors) != 0:
-            for i,t in enumerate(h):
-                if t not in c_sh_tensors:
-                    pro_tensors += [t]
-            tmp_coeff = h.coeff_dict
-            h = Hamiltonian(pro_tensors)
-            h.set_coeff(tmp_coeff)
-
-        # Diagonalize the complete Hamiltonian, then determine the sh terms and
-        # finally do the inversion for each interaction of sh.
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=1, mode="c"]> z.flatten()
-                
-        sh_index=0
-        for i,inter in enumerate(self.inter_data):
-            if inter.type == 'zeeman':
-                # Since Zeeman interactions require three sh terms for inversion
-                # we create a results array, called a, big enough to hold the
-                # matrix elements of three sh terms; then we fill a in three
-                # blocks.
-                cdz = inter.m/3
-                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.m, dtype=np.complex128)
-                for j,t in enumerate(inter.terms):
-                    cj = j
-                    cfl.zshp(&a[cj*cdz], &cz[0], <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm"),
-                            <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[sh_index], "pycfl.SHCalcParamProWork"))
-                    sh_index += 1
-            else:
-                a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(inter.m, dtype=np.complex128)
-                cfl.zshp(&a[0], &cz[0], <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm"), 
-                        <cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[sh_index], "pycfl.SHCalcParamProWork"))
-                sh_index += 1
-
-            # Do the inversion; we can directly pass on 'a' even in the Zeeman
-            # case.
-            cfl.zshi(&a[0], <cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
-            result_list += [a[0:9].reshape(3,3)]
+        shp_w = zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"));
+        a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(9, dtype=np.complex128)
         
-        for i in range(len(shp_work_list)):
-            cfl.zshp_w_free(<cfl.zshp_w *>PyCapsule_GetPointer(shp_work_list[i], "pycfl.SHCalcParamProWork"))
+        result_list = []
+        for i in range(len(self.interactions)):
+            zshp(&a[0], &cz[0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w);
+            result_list += [a.reshape(3,3)]
 
-        for i in range(len(shi_work_list)):
-            cfl.zshi_w_free(<cfl.zshi_w *>PyCapsule_GetPointer(shi_work_list[i], "pycfl.SHCalcParamInvWork"))
-        
+        zshp_w_free(shp_w);
+
         return result_list
-
 
 def parse_param_helper(parameters, h):
     r"""
@@ -1143,10 +1020,8 @@ cdef class ESHFitRunner(object):
     cpdef public int n_p_real
     cpdef public list param_list
     cpdef public list param_types
-    cdef int nzeeman
     cdef cfl.ex_data *ex_data
     cdef cfl.param_type **param_array
-    cdef cfl.zsh **sh_array
     cdef cfl.shx_data **shx_array
     cdef np.ndarray ex_e
     cdef np.ndarray ex_li
@@ -1165,7 +1040,6 @@ cdef class ESHFitRunner(object):
     # all circumstances. 
     def __init__(self, parameters, sh_tensors, h, sh, ex, shx, weights):
         cdef cfl.param_type *param_type_ptr
-        cdef cfl.zsh *zsh_array_ptr
         cdef cfl.shx_data *shx_data_ptr
         cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
@@ -1174,79 +1048,48 @@ cdef class ESHFitRunner(object):
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
         
+        self.h = h
         self.n_p = len(parameters)
         self.parameters = parameters
         self.sh = sh
 
-        sh_tensor_dict = {}
-        for t in sh_tensors:
-            sh_tensor_dict[t.name] = t
-        
-        # Determine whether the complete Hamiltonian contains any interactions
-        # that are also part of the spin Hamiltonian.  Furthermore, we set the
-        # spin Hamiltonian projection tensors and we record the index of the
-        # Zeeman tensor, if it exists. 
-        c_sh_tensors = []
-        pro_data_tensors = []
-        self.nzeeman = -1
-        for i,inter in enumerate(sh.inter_data):
-            if inter.type == 'zeeman':
-                try:
-                    inter.set_pro_data([sh_tensor_dict['MAGX'], sh_tensor_dict['MAGY'], sh_tensor_dict['MAGZ']])
-                except KeyError:
-                    raise ValueError("Missing a Zeeman tensor from the sh_tensors list.")
-                for t in inter.terms:
-                    if t.tensor in h:
-                        c_sh_tensors += [t.tensor]
-                self.nzeeman = i
+        sh.set_pro_data(sh_tensors)
+
+        # Check whether the provided Hamiltonian contains Zeeman interaction
+        # matrix elements, in which case we create a separate Hamiltonian to
+        # perform the spin Hamiltonian projection which has these matrix
+        # elements removed.  This is done since we use built-in field-strengths
+        # for magx, magy, and magz. 
+        zeeman_tensors = ['MAGX', 'MAGY', 'MAGZ']
+        pro_h_tensors = []
+        create_pro_h = False
+        for t in h:
+            if t.name not in zeeman_tensors:
+                pro_h_tensors += [t]
             else:
-                if inter.type == 'hyperfine':
-                    try:
-                        inter.set_pro_data(sh_tensor_dict['HYP'])
-                    except KeyError:
-                        raise ValueError("Missing hyperfine tensor from the sh_tensors list.")
-                elif inter.type == 'quadrupole':
-                    try:
-                        inter.set_pro_data(sh_tensor_dict['EQHYP'])
-                    except KeyError:
-                        raise ValueError("Missing quadrupole tensor from the sh_tensors list.")
-                if inter.term.tensor in h:
-                    c_sh_tensors += [inter.term.tensor]
-       
-        # Add small magnetic field along the \hat{z} direction to corretly order
-        # S=1/2 and S=-1/2 states.  Since we have already determined
-        # c_sh_tensors (list of tensors in the complete h that are also present
-        # in sh), the small MAGZ term will always be added to hpro even if the
-        # zeeman term is present.
-        try:
-            magz_small = 0.0001 * sh_tensor_dict['MAGZ']
-            magz_small.name = 'MAGZ_small'
-        except KeyError:
-            raise ValueError("Missing 'MAGZ' from the sh_tensors list; 'MAGZ' is always "
-                    "required, since it is used to distinguish S=+1/2 and S=-1/2 states "
-                    "in the projection space.")
+                create_pro_h = True
         
-        if h.coeff_dict == None:
-            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
-
-        if 'MAGZ_small' not in h.coeff_dict:
-            tmp_coeff = h.coeff_dict
-            tmp_coeff['MAGZ_small'] = 1
-            self.h = Hamiltonian([magz_small] + h.tensors)
-            self.h.set_coeff(tmp_coeff)
-        else:
-            self.h = h
-
-        # Generate a dedicated projection Hamiltonian, if required. 
-        pro_tensors = []
-        if len(c_sh_tensors) != 0:
-            for i,t in enumerate(self.h):
-                if t not in c_sh_tensors:
-                    pro_tensors += [t]
-            self.hpro = Hamiltonian(pro_tensors)
+        if create_pro_h:
+            self.hpro = Hamiltonian(pro_h_tensors)
             self.hpro.set_coeff(self.h.coeff_dict)
         else:
             self.hpro = None
+
+        # If not present, add small magnetic field to Hamiltonian to order
+        # states.
+        magzs = None
+        if 'MAGZS' not in h.coeff_dict:
+            for t in sh_tensors:
+                if t.name == 'MAGZ':
+                    # Call to sh.set_pro_data ensures MAGZ is present. 
+                    magzs = 0.0001 * t
+                    magzs.name = 'MAGZS'
+                    break
+            
+            tmp_h_coeff = h.coeff_dict
+            tmp_h_coeff['MAGZS'] = 1
+            h = Hamiltonian([magzs] + h.tensors)
+            h.set_coeff(tmp_h_coeff)
 
         if self.n_p_real > len(ex) + sh.nsh:
             raise ValueError("The total (real and imaginary) number of parameters "
@@ -1309,53 +1152,41 @@ cdef class ESHFitRunner(object):
                 self.p0_real[ip_real] =  self.param_list[i]
                 ip_real += 1
 
-        # Array of spin Hamiltonians and experimental spin Hamiltonian data.
-        sh_array = <cfl.zsh **>malloc(sh.nsh*cython.sizeof(zsh_array_ptr))
-        if (sh_array == NULL):
-            for i in range(self.n_p):
-                free(param_array[i])
-            free(self.ex_data)
-            free(param_array)
-            raise MemoryError("sh_array alloc failed")
-        self.sh_array = sh_array
+        # Array of experimental spin Hamiltonian data.
         self.weights = weights
-        shx_array = <cfl.shx_data **>malloc(len(sh.inter_data)*cython.sizeof(shx_data_ptr))
+        shx_array = <cfl.shx_data **>malloc(len(sh.interactions)*cython.sizeof(shx_data_ptr))
         if shx_array == NULL:
             for i in range(self.n_p):
                 free(param_array[i])
             free(self.ex_data)
             free(param_array)
-            free(sh_array)
             raise MemoryError("shx_array alloc failed")
         self.shx_list = []
         self.shx_array = shx_array
-        j = 0
-        for i,inter in enumerate(sh.inter_data):
-            if inter.type not in shx:
+        for i,inter in enumerate(sh.interactions):
+            if inter not in shx:
                 for j in range(i):
                     free(shx_array[j])
                 for j in range(self.n_p):
                     free(param_array[i])
                 free(self.ex_data)
                 free(param_array)
-                free(sh_array)
                 free(shx_array)
                 raise ValueError("The spin Hamiltonian experimental data dictonary "
-                        "is missing data for the {} interaction.".format(inter.type))
-            elif not isinstance(shx[inter.type], np.ndarray):
+                        "is missing data for the {} interaction.".format(inter))
+            elif not isinstance(shx[inter], np.ndarray):
                 for j in range(i):
                     free(shx_array[j])
                 for j in range(self.n_p):
                     free(param_array[i])
                 free(self.ex_data)
                 free(param_array)
-                free(sh_array)
                 free(shx_array)
                 raise TypeError("exp_tensor must be a np.ndarray.")
-            elif shx[inter.type].shape == (3, 3):
-                self.shx_list += [np.ascontiguousarray(shx[inter.type].flatten(), dtype=np.complex128)]
-            elif shx[inter.type].shape == (9,):
-                self.shx_list += [np.ascontiguousarray(shx[inter.type], dtype=np.complex128)]
+            elif shx[inter].shape == (3, 3):
+                self.shx_list += [np.ascontiguousarray(shx[inter].flatten(), dtype=np.complex128)]
+            elif shx[inter].shape == (9,):
+                self.shx_list += [np.ascontiguousarray(shx[inter], dtype=np.complex128)]
             else:
                 for j in range(i):
                     free(shx_array[j])
@@ -1363,14 +1194,8 @@ cdef class ESHFitRunner(object):
                     free(param_array[i])
                 free(self.ex_data)
                 free(param_array)
-                free(sh_array)
                 free(shx_array)
                 raise ValueError("exp_tensor must either be a (3, 3) or (9, 1) array.")
-            if inter.type == 'zeeman':
-                for j,t in enumerate(inter.terms):
-                    sh_array[i+j] = <cfl.zsh *>PyCapsule_GetPointer(t.sh_cap, "pycfl.SHTerm")
-            else:
-                sh_array[i+j] = <cfl.zsh *>PyCapsule_GetPointer(inter.term.sh_cap, "pycfl.SHTerm")
             
             shx_array[i] = <cfl.shx_data *>malloc(cython.sizeof(cfl.shx_data))
             if shx_array[i] == NULL:
@@ -1380,24 +1205,20 @@ cdef class ESHFitRunner(object):
                     free(param_array[i])
                 free(self.ex_data)
                 free(param_array)
-                free(sh_array)
                 free(shx_array)
                 raise MemoryError("shx_array[{}] alloc failed".format(i))
             shx_pa = <np.ndarray[double complex, ndim=1, mode="c"]> self.shx_list[i]
             shx_array[i].pa = &shx_pa[0]
-            shx_array[i].inv_data = <cfl.zsh_inv_data *>PyCapsule_GetPointer(inter.inv_data_cap, "pycfl.InvData")
             shx_array[i].chisq_weight = 1
 
         # Alloc data for objective functions and estimate initial chi^2 values. 
         chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(len(sh.interactions)+1)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-
-
         if (self.hpro != None):
-            self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
-                    <cfl.zh*>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"),
-                    <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"), &coeff[0],
-                    self.ex_data, shx_array, self.n_p, self.param_array)
+            self.eshfit_data = eshfit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
+                &coeff[0], self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_cov, "pycfl.MinCovF", NULL)
             
@@ -1405,9 +1226,9 @@ cdef class ESHFitRunner(object):
             cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
 
         else:
-            self.eshfit_data = cfl.eshfit_data_alloc(sh_array, sh.nsh, self.nzeeman,
-                    <cfl.zh*>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), NULL, &coeff[0], 
-                    self.ex_data, shx_array, self.n_p, self.param_array)
+            self.eshfit_data = eshfit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                NULL, &coeff[0], self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
             
@@ -1423,9 +1244,9 @@ cdef class ESHFitRunner(object):
         else:
             ew_scale = 1.0
 
-        for i,inter in enumerate(sh.inter_data):
+        for i,inter in enumerate(sh.interactions):
             try:
-                shwi = self.weights[inter.type]
+                shwi = self.weights[inter]
             except KeyError:
                 shwi = 1.0
             shx_array[i].chisq_weight = shwi/chi2[i+1] * ew_scale 
@@ -1438,10 +1259,8 @@ cdef class ESHFitRunner(object):
                 if self.param_array[i] != NULL:
                     free(self.param_array[i])
             free(self.param_array)
-        if self.sh_array != NULL:
-            free(self.sh_array)
         if self.shx_array != NULL:
-            for i in range(len(self.sh.inter_data)):
+            for i in range(len(self.sh.interactions)):
                 if self.shx_array[i] != NULL:
                     free(self.shx_array[i])
             free(self.shx_array)
@@ -1783,10 +1602,8 @@ cdef class CFLMin:
                     cxtol, self.cfl_bounds)
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
-        
         with nogil:
             retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
-        
         self.kwargs['retval'] = retval
 
         return fmin

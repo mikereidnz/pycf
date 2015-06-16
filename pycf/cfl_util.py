@@ -297,7 +297,28 @@ def sh_fit_sigma(param, sh, shx, ndof):
 
     return sigma
 
-
+def print_as_c_array(a):
+    r"""
+    Print a numpy array in a form that makes it easy to include in a c program.
+    This is useful for generating input data for cfl tests.  
+    """
+    s = "{"
+    for i in range(a.shape[0]):
+        for j in range(a.shape[1]):
+            if (np.real(a[i,j]) == 0):
+                a_real = 0
+            else: 
+                a_real = np.real(a[i,j])
+            if (np.imag(a[i,j]) > 0):
+                s += "{0}+{1}*I".format(a_real, np.imag(a[i,j]))
+            elif (np.imag(a[i,j]) < 0):
+                s += "{0}{1}*I".format(a_real, np.imag(a[i,j]))
+            else:
+                s += str(a_real)
+            if ((i*a.shape[1]+j)<(a.shape[0]*a.shape[1])-1):
+                s += ", "
+    s += "};"
+    print(s)
 
 
 

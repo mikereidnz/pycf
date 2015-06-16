@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Filename = import_sljm.py
 
-#   Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+#   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -51,6 +51,33 @@ def get_state_number(source):
         else:
             yield [0]
 
+def term2L(c):
+    if c == 'S': 
+        return 0
+    elif c == 'P':
+        return 1
+    elif c == 'D':
+        return 2
+    elif c == 'F':
+        return 3
+    elif c == 'G':
+        return 4
+    elif c == 'H':
+        return 5
+    elif c == 'I':
+        return 6
+    elif c == 'K':
+        return 7
+    elif c == 'L':
+        return 8
+    elif c == 'M':
+        return 9
+    elif c == 'N':
+        return 10
+    else:
+        raise NotImplementedError("Unknown L quantum number in term symbol while parsing SLJM state files.")
+
+
 class ImportSLJM(object):
     r"""
     Import the matrix elements and state labels from an SLJM calc plain text file. 
@@ -77,11 +104,19 @@ class ImportSLJM(object):
                 dim = int(d[0])
 
         with open("%s.st_" % name, 'r') as f:
-            state_labels = re.findall(r'[^[]+(\[[\w\s,-]+[)>])', f.read())
+            state_labels = re.findall(r'[^[]*\[(\d+)(\w)\s+(\d+)\s*([\d-]+),?\s*([\d-]*)[)>]', f.read())
         if dim != len(state_labels):
             raise RuntimeError("Parsing state labels file %s.st_ failed.  This "
                     "is indicative of either a limitation of the parsing regex,"
                     " or a corrupt *.st_ file." % name)
+
+        sl = []
+        if state_labels[0][4]:
+            sl = ["%d%d%d%d%d" % (int(l[0]), term2L(l[1]), int(l[2]), int(l[3]), int(l[4])) for l in state_labels]
+            label_key = "SLJMI"
+        else:
+            sl = ["%d%d%d%d" % (int(l[0]), term2L(l[1]), int(l[2]), int(l[3])) for l in state_labels]
+            label_key = "SLJM"
 
         data = np.loadtxt('%s.txt' % name, skiprows = 2)
         # Generate a dictionary of lists, with list elements [row, col, matel].
@@ -110,7 +145,7 @@ class ImportSLJM(object):
        
         # Create tensors; since tensors use hermitian matrix compressed row
         # storage we do not require the lower triangular half.
-        sl = cfl.StateLabels(state_labels)
+        sl = cfl.StateLabels(label_key, sl)
         tensors = {}
         for t in tensor_matrices:
             if np.count_nonzero(tensor_matrices[t])== 0:
