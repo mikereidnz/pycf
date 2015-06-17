@@ -522,43 +522,33 @@ double efit_cov_df(double x, void *data) {
  */
 double eshfit_cov_df(double x, void *data) {
   int i;
+  size_t shi, shel;
   cov_data *cov_d = (cov_data *)data;
   eshfit_data *d = cov_d->obj_f_data;
-
+  
   cov_d->df_x[cov_d->par_index] = x;
   parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
   zh_set_coeff(d->h, d->coeff);
   zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
 
   if (cov_d->obs_index >= d->ex->n) {
-    /* Index of the current spin Hamiltonian.  There are only 5 observables for
-     * quadrupole terms, since the quadrupole parameter matrices are traceless. */
-    if (!strcmp("quadrupole", d->sh->inter[cov_d->sh_index])) {
-      if (cov_d->obs_index - d->ex->n == 5) {
-        cov_d->sh_index++;
-        cov_d->sh_el = 0;
-      }
-      cov_d->sh_el++;
-    }
-    else if (cov_d->obs_index - d->ex->n == 6) {
-      cov_d->sh_index++;
-      cov_d->sh_el = 0;
-    }
-    else {
-      cov_d->sh_el++;
-    }
-    
-    zshp(d->sh_pa[cov_d->sh_index], d->h_evect, cov_d->sh_index, d->sh,
-        d->shp_w);
+    /* obs_index corresponds to an observable from the spin Hamiltonian. */
+
+    /* The current spin Hamiltonian index. */
+    shi = cov_d->shi_index[cov_d->obs_index - d->ex->n];
+    /* The current spin Hamiltonian element. */
+    shel = cov_d->shel_index[cov_d->obs_index - d->ex->n];
+
+    zshp(d->sh_pa[shi], d->h_evect, shi, d->sh, d->shp_w);
 
     /* Return the upper diagonal entries of the parameter matrix. */
-    if (cov_d->sh_el < 3) {
+    if (shel < 3) {
       /* The first row. */
-      return d->sh_pa[i][cov_d->sh_el];
+      return d->sh_pa[i][shel];
     }
-    else if (cov_d->sh_el < 5) {
+    else if (shel < 5) {
       /* Second row; diagonal is starts at 1. */
-      return d->sh_pa[i][cov_d->sh_el+1];
+      return d->sh_pa[i][shel+1];
     }
     else {
       /* Last row and column. */
@@ -566,7 +556,8 @@ double eshfit_cov_df(double x, void *data) {
     }
   }
   else {
-    /* Energy level case; return the value of the specified level.*/
+    /* obs_index corresponds to an energy level observable; return the value of
+     * the specified level.*/
     return d->h_eval[d->ex->li[cov_d->obs_index]];
   }
 }
@@ -584,6 +575,7 @@ double eshfit_cov_df(double x, void *data) {
  */
 double eshfit_hpro_cov_df(double x, void *data) {
   int i;
+  size_t shi, shel;
   cov_data *cov_d = (cov_data *)data;
   eshfit_data *d = cov_d->obj_f_data;
 
@@ -598,34 +590,23 @@ double eshfit_hpro_cov_df(double x, void *data) {
   zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   if (cov_d->obs_index >= d->ex->n) {
-    /* Index of the current spin Hamiltonian.  There are only 5 observables for
-     * quadrupole terms, since the quadrupole parameter matrices are traceless. */
-    if (!strcmp("quadrupole", d->sh->inter[cov_d->sh_index])) {
-      if (cov_d->obs_index - d->ex->n == 5) {
-        cov_d->sh_index++;
-        cov_d->sh_el = 0;
-      }
-      cov_d->sh_el++;
-    }
-    else if (cov_d->obs_index - d->ex->n == 6) {
-      cov_d->sh_index++;
-      cov_d->sh_el = 0;
-    }
-    else {
-      cov_d->sh_el++;
-    }
-    
-    zshp(d->sh_pa[cov_d->sh_index], d->hpro_evect, cov_d->sh_index, d->sh,
-        d->shp_w);
+    /* obs_index corresponds to an observable from the spin Hamiltonian. */
+
+    /* The current spin Hamiltonian index. */
+    shi = cov_d->shi_index[cov_d->obs_index - d->ex->n];
+    /* The current spin Hamiltonian element. */
+    shel = cov_d->shel_index[cov_d->obs_index - d->ex->n];
+
+    zshp(d->sh_pa[shi], d->h_evect, shi, d->sh, d->shp_w);
 
     /* Return the upper diagonal entries of the parameter matrix. */
-    if (cov_d->sh_el < 3) {
+    if (shel < 3) {
       /* The first row. */
-      return d->sh_pa[i][cov_d->sh_el];
+      return d->sh_pa[i][shel];
     }
-    else if (cov_d->sh_el < 5) {
+    else if (shel < 5) {
       /* Second row; diagonal is starts at 1. */
-      return d->sh_pa[i][cov_d->sh_el+1];
+      return d->sh_pa[i][shel+1];
     }
     else {
       /* Last row and column. */
@@ -633,15 +614,16 @@ double eshfit_hpro_cov_df(double x, void *data) {
     }
   }
   else {
-    /* Energy level case; return the value of the specified level.*/
+    /* obs_index corresponds to an energy level observable; return the value of
+     * the specified level.*/
     return d->h_eval[d->ex->li[cov_d->obs_index]];
   }
 }
 
 /* Common steps for covariance matrix estimation for *fit_cov functions. */
-inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
-    void *data, double sigma, double *cov_inv) {
-
+inline void covariance_helper(size_t m, size_t n, size_t *shi_index, size_t
+    *shel_index, gsl_function F, double *x0, void *data, double sigma, double
+    *cov_inv) {
   int i, j, k;
   double result, abserr;
   double *a;
@@ -662,9 +644,10 @@ inline void covariance_helper(size_t m, size_t n, gsl_function F, double *x0,
     free(cov_d);
     CFL_ERROR_VOID("malloc failed for cov_d->df_x");
   }
+
+  cov_d->shi_index = shi_index;
+  cov_d->shel_index = shel_index;
   cov_d->obj_f_data = data;
-  cov_d->sh_index = 0;
-  cov_d->sh_el = 0;
 
   /* Create copy of x0, since the derivative function modifies the parameter
    * value w.r.t. which we're differentiating. */
@@ -729,7 +712,7 @@ void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   efit_chi2(x0, d, &chisq);
   sigma = sqrt(chisq/(m-n));
 
-  covariance_helper(m, n, F, x0, d, sigma, cov_inv);
+  covariance_helper(m, n, NULL, NULL, F, x0, d, sigma, cov_inv);
 }
 
 /* Estimate the covariance matrix for an energy level and spin Hamiltonian fit
@@ -743,8 +726,8 @@ void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
  *  obj     The cfl_min_obj for which the minimization was run.
  */
 void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
-  int i;
-  size_t m, n;
+  int i, j, obs_i;
+  size_t m, n, *shi_index, *shel_index;
   double sigma;
   double chisq[2] = {0, 0};
   gsl_function F;
@@ -764,8 +747,37 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
       m += 6;
     }
   }
-  m += d->ex->n;
-  
+
+  /* Create index arrays that map the obs_index, minus the number of energy
+   * level observables, to the corresponding spin Hamiltonian interaction and
+   * spin Hamiltonian elements. */
+  shi_index = (size_t *) malloc((m-d->ex->n)*sizeof(size_t));
+  if (shi_index == 0) {
+    CFL_ERROR_VOID("malloc failed for cov_d->shi_index");
+  }
+  shel_index = (size_t *)malloc((m-d->ex->n)*sizeof(size_t));
+  if (shel_index == 0) {
+    free(shi_index);
+    CFL_ERROR_VOID("malloc failed for cov_d->shel_index");
+  }
+  obs_i = 0;
+  for (i=0; i<d->sh->ninter; i++) {
+    if (!strcmp("quadrupole", d->sh->inter[i])) {
+      for (j=0; j<5; j++) {
+        shi_index[obs_i] = i;
+        shel_index[obs_i] = j;
+        obs_i++;
+      }
+    }
+    else {
+      for (j=0; j<6; j++) {
+        shi_index[obs_i] = i;
+        shel_index[obs_i] = j;
+        obs_i++;
+      }
+    }    
+  }
+ 
   F.function = &eshfit_cov_df;
 
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
@@ -773,7 +785,10 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   eshfit_chi2(x0, d, chisq);
   sigma = sqrt((chisq[0] + chisq[1])/(m-n));
   
-  covariance_helper(m, n, F, x0, d, sigma, cov_inv);
+  covariance_helper(m, n, shi_index, shel_index, F, x0, d, sigma, cov_inv);
+
+  free(shi_index);
+  free(shel_index);
 }
 
 /* Estimate the covariance matrix for an energy level and spin Hamiltonian fit
@@ -788,8 +803,8 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
  *  obj     The cfl_min_obj for which the minimization was run.
  */
 void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
-  int i;
-  size_t m, n;
+  int i, j, obs_i;
+  size_t m, n, *shi_index, *shel_index;
   double sigma;
   double chisq[2] = {0, 0};
   gsl_function F;
@@ -809,8 +824,37 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
       m += 6;
     }
   }
-  m += d->ex->n;
-  
+
+  /* Create index arrays that map the obs_index, minus the number of energy
+   * level observables, to the corresponding spin Hamiltonian interaction and
+   * spin Hamiltonian elements. */
+  shi_index = (size_t *) malloc((m-d->ex->n)*sizeof(size_t));
+  if (shi_index == 0) {
+    CFL_ERROR_VOID("malloc failed for cov_d->shi_index");
+  }
+  shel_index = (size_t *)malloc((m-d->ex->n)*sizeof(size_t));
+  if (shel_index == 0) {
+    free(shi_index);
+    CFL_ERROR_VOID("malloc failed for cov_d->shel_index");
+  }
+  obs_i = 0;
+  for (i=0; i<d->sh->ninter; i++) {
+    if (!strcmp("quadrupole", d->sh->inter[i])) {
+      for (j=0; j<5; j++) {
+        shi_index[obs_i] = i;
+        shel_index[obs_i] = j;
+        obs_i++;
+      }
+    }
+    else {
+      for (j=0; j<6; j++) {
+        shi_index[obs_i] = i;
+        shel_index[obs_i] = j;
+        obs_i++;
+      }
+    }    
+  }
+
   F.function = &eshfit_hpro_cov_df;
 
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
@@ -818,5 +862,8 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   eshfit_chi2(x0, d, chisq);
   sigma = sqrt((chisq[0] + chisq[1])/(m-n));
 
-  covariance_helper(m, n, F, x0, d, sigma, cov_inv);
+  covariance_helper(m, n, shi_index, shel_index, F, x0, d, sigma, cov_inv);
+
+  free(shi_index);
+  free(shel_index);
 }

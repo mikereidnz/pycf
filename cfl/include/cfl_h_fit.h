@@ -66,12 +66,12 @@ typedef struct {
   double *df_x;
   /* Pointer to data for minimization objective function. */
   void *obj_f_data;
-  /* The index of the spin Hamiltonian that contains the current observable. */
-  size_t sh_index;
-  /* The element of the spin Hamiltonian that the current observable corresponds
-   * to.  Ranges between 0 to 4 for quadrupole interaction, 0 to 5 otherwise,
-   * enumerating the upper diagonal of spin Hamiltonian parameter matrices. */
-  size_t sh_el;
+  /* Array that maps obs_index, minus the number of energy level observables, to
+   * the correct spin Hamlitonian interaction. */
+  size_t *shi_index;
+  /* Array that maps obs_index, minus the number of energy level observables, to
+   * the element of the spin Hamiltonian specified by shi_index. */
+  size_t *shel_index;
 } cov_data;
 
 /* Data for Hamiltonian fitting objective function. */
