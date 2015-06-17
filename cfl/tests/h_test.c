@@ -99,9 +99,9 @@ int main (void)
 
   /* State label preparation. */
   char label_key[] = "SLJM";
-  char *l[4];
+  int *l[4];
   for (i=0; i<4; i++) {
-    l[i] = malloc(4*sizeof(char));
+    l[i] = malloc(4*sizeof(int));
     if (l[i] == 0) 
       printf("Error; label array s malloc failed\n");
     
@@ -265,9 +265,9 @@ int main (void)
     
   w = (double *) calloc(14,sizeof(double));
   z = (complex double *) calloc(196,sizeof(complex double));
-  char *ce_l[14]; 
+  int *ce_l[14]; 
   for (i=0; i<14; i++) {
-    ce_l[i] = malloc(5*sizeof(char));
+    ce_l[i] = malloc(5*sizeof(int));
     if (ce_l[i] == 0) 
       printf("Error; label array ce_s malloc failed\n");
 

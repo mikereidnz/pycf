@@ -20,8 +20,8 @@
 from __future__ import division
 import numpy as np
 import re
-
 import cfl
+from cfl_util import *
 
 def get_tensor_dim(source):
     "Generator for extracting tensor dimensions from ``*.mi_`` files."
@@ -110,14 +110,13 @@ class ImportSLJM(object):
                     "is indicative of either a limitation of the parsing regex,"
                     " or a corrupt *.st_ file." % name)
 
-        sl = []
         if state_labels[0][4]:
-            sl = ["%d%d%d%d%d" % (int(l[0]), term2L(l[1]), int(l[2]), int(l[3]), int(l[4])) for l in state_labels]
+            sl = [(int(l[0]), term2L(l[1]), int(l[2]), int(l[3]), int(l[4])) for l in state_labels]
             label_key = "SLJMI"
         else:
-            sl = ["%d%d%d%d" % (int(l[0]), term2L(l[1]), int(l[2]), int(l[3])) for l in state_labels]
+            sl = [(int(l[0]), term2L(l[1]), int(l[2]), int(l[3])) for l in state_labels]
             label_key = "SLJM"
-
+        
         data = np.loadtxt('%s.txt' % name, skiprows = 2)
         # Generate a dictionary of lists, with list elements [row, col, matel].
         i = 0

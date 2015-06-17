@@ -36,22 +36,26 @@
 #include <cfl_tensor.h>
 
 /*
- * Implement the djb2 hash algorithm for array of char arrays.  For details
+ * FIXME: replace with integer hash function; such as:
+ * http://isthe.com/chongo/tech/comp/fnv/
+ * Implement the djb2 hash algorithm for array of int arrays.  For details
  * on djb2, see: http://www.cse.yorku.ca/~oz/hash.html
  *
  * Parameters
  * ----------
- *  n         The length of the array of char arrays.
- *  nc        The length of the char arrays.
- *  a         Array of char arrays to hash. 
+ *  n         The length of the array of int arrays.
+ *  nc        The length of the int arrays.
+ *  a         Array of int arrays to hash. 
  */
-long state_hash(size_t n, size_t nc, char **a) {
+long state_hash(size_t n, size_t nc, int **a) {
   unsigned long hash = 5381;
+  char c;
   int i, j;
    
   for (i=0; i<n; i++) {
     for (j=0; j<nc; j++) {
-      hash = ((hash << 5) + hash) + a[i][j];
+      c = (char ) a[i][j];
+      hash = ((hash << 5) + hash) + c;
     }
   }
   return hash;
@@ -72,7 +76,7 @@ long state_hash(size_t n, size_t nc, char **a) {
  *            label arrays are not strings, since 0 is a perfectly valid state
  *            label yet would yield a premature string termination. 
  */
-sl *sl_alloc(size_t n, char *key, char **labels) {
+sl *sl_alloc(size_t n, char *key, int **labels) {
   sl *l;
   int i, j;
   size_t nl;
@@ -90,7 +94,7 @@ sl *sl_alloc(size_t n, char *key, char **labels) {
   }
   strcpy(l->key, key);
 
-  l->labels = (char **) malloc(n*sizeof(char *));
+  l->labels = (int **) malloc(n*sizeof(int *));
   if (l->labels == 0) {
     free(l->key);
     free(l);
@@ -98,7 +102,7 @@ sl *sl_alloc(size_t n, char *key, char **labels) {
   }
 
   for (i=0; i<n; i++) {
-    l->labels[i] = (char *) malloc(nl*sizeof(char));
+    l->labels[i] = (int *) malloc(nl*sizeof(int));
     if (l->labels[i] == 0) {
       for (j=0; j<i; j++) {
         free(l->labels[j]);
@@ -108,7 +112,7 @@ sl *sl_alloc(size_t n, char *key, char **labels) {
       free(l);
       CFL_ERROR_NULL("malloc failed for l.labels[i]");
     }
-    memcpy(l->labels[i], labels[i], nl*sizeof(char));
+    memcpy(l->labels[i], labels[i], nl*sizeof(int));
   }
   
   l->hash = state_hash(n, nl, l->labels);

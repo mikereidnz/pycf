@@ -42,7 +42,7 @@ cdef extern from "../../cfl/include/cfl_tensor.h":
     ctypedef struct zt:
         pass
     
-    sl *sl_alloc(size_t n, char *key, char **labels)
+    sl *sl_alloc(size_t n, char *key, int **labels)
     void sl_free(sl *l)
     zt *zt_alloc(char *name, double complex *a, size_t n, sl *slabels)
     void zt_free(zt *t)

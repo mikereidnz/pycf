@@ -29,7 +29,7 @@ typedef struct {
    * I, and their position in key specifies the location in each label. */
   char *key;
   /* Array of length n containing arrays of length strlen(key). */
-  char **labels;
+  int **labels;
   /* Pointer to hash of states. */
   long hash;
 } sl;
@@ -51,7 +51,7 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-sl *sl_alloc(size_t n, char *key, char **labels);
+sl *sl_alloc(size_t n, char *key, int **labels);
 void sl_free(sl *l);
 zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels);
 void zt_free(zt *t);

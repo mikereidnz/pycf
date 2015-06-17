@@ -587,7 +587,7 @@ int main (void) {
   /* State label preparation. */
   int nstates = 28;
   char label_key[] = "SLJMI";
-  static char l_array[28][5] = {
+  static int l_array[28][5] = {
     {1,3,7,7,1}, {1,3,7,7,-1}, {1,3,5,5,1}, {1,3,5,5,-1},
     {1,3,7,5,1}, {1,3,7,5,-1}, {1,3,5,3,1}, {1,3,5,3,-1}, {1,3,7,3,1},
     {1,3,7,3,-1}, {1,3,5,1,1}, {1,3,5,1,-1}, {1,3,7,1,1}, {1,3,7,1,-1},
@@ -596,8 +596,8 @@ int main (void) {
     {1,3,7,-5,1}, {1,3,7,-5,-1}, {1,3,7,-7,1}, {1,3,7,-7,-1}
   };
 
-  char **l;
-  l = (char **) malloc(nstates*sizeof(char *));
+  int **l;
+  l = (int **) malloc(nstates*sizeof(int *));
   if (l == 0) {
       printf("Error; label array **l malloc failed\n");
   }

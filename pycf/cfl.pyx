@@ -54,29 +54,28 @@ cdef class StateLabels:
         argument.  To avoid half integers, label values are always stored as
         twice their real value.
     """
-    cdef:
-        cfl.sl *cfl_sl
-        public object sl_cap
-
+    cdef cfl.sl *cfl_sl
+    cdef public object sl_cap
+    cpdef public list labels
     def __cinit__(self, label_key, labels):
         cdef size_t n
         cdef char *key
-        cdef char *char_ptr
-        cdef char *clabel
-        cdef char **l_a
+        cdef int *int_ptr
+        cdef np.ndarray[int, ndim=1, mode='c'] clabels
+        cdef int **l_a
 
         n = <size_t> len(labels)
         key = <char *> label_key
-        l_a = <char **>malloc(len(labels)*cython.sizeof(char_ptr))
+        l_a = <int **>malloc(len(labels)*cython.sizeof(int_ptr))
         if l_a == NULL:
             raise MemoryError("l_a malloc failed")
 
+        self.labels = labels
+        nplabels = []
         for i,l in enumerate(labels):
-            clabel = labels[i]
-            l_a[i] = &clabel[0]
-
-        Py_INCREF(n)
-        Py_INCREF(key)
+            nplabels += [np.ascontiguousarray(np.array(labels[i], dtype=np.int32))]
+            clabels = nplabels[i]
+            l_a[i] = &clabels[0]
         
         # sl_alloc copies both the label key and the labels, so we do not need
         # to retain a reference after the alloc call.
@@ -86,10 +85,8 @@ cdef class StateLabels:
         else:
             self.sl_cap = PyCapsule_New(<void *>self.cfl_sl, "pycfl.StateLabels", NULL)
         
-        Py_DECREF(n)
-        Py_DECREF(key)
-        
         free(l_a)
+
     def __dealloc__(self):
         if self.cfl_sl != NULL:
             cfl.sl_free(self.cfl_sl)
@@ -306,6 +303,7 @@ cdef class Hamiltonian:
         
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
+
         return None
 
     cpdef diag(self):
@@ -340,10 +338,9 @@ cdef class Hamiltonian:
         with nogil:
             cfl.zhd(&w[0], &z[0,0], h, hd_w)
         
-
         cfl.zhd_w_free(hd_w)
-
         self.diag_run = 1
+
         return (w, z)
 
     cpdef gen_summary(self, ex=None, nstates=2, sigma=None):
@@ -362,13 +359,8 @@ cdef class Hamiltonian:
         sigma : float, optional
             The standard deviation for the energy level chi^2.
         """
-        cdef cfl.zh *h = self.cfl_zh
-
         if self.diag_run:
-            labels = [] 
-            for i in range(self.n):
-                labels += [h.slabels.labels[i]]
-            return gen_e_summary(self.w, self.z, labels, ex, nstates, sigma)
+            return gen_e_summary(self.w, self.z, self.tensors[0].states.labels, ex, nstates, sigma)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
 

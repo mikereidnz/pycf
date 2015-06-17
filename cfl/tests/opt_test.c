@@ -396,14 +396,14 @@ int main (void)
   /* State label preparation. */
   int nstates = 14;
   char label_key[] = "SLJM";
-  static char l_array[14][4] = {
+  static int l_array[14][4] = {
     {1,3,7,7}, {1,3,5,5}, {1,3,7,5}, {1,3,5,3}, {1,3,7,3}, {1,3,5,1}, {1,3,7,1},
     {1,3,5,-1}, {1,3,7,-1}, {1,3,5,-3}, {1,3,7,-3}, {1,3,5,-5}, {1,3,7,-5},
     {1,3,7,-7}
   };
 
-  char **l;
-  l = (char **) malloc(nstates*sizeof(char *));
+  int **l;
+  l = (int **) malloc(nstates*sizeof(int *));
   if (l == 0) {
       printf("Error; label array **l malloc failed\n");
   }
