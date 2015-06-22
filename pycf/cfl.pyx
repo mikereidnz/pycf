@@ -334,7 +334,7 @@ cdef class Hamiltonian:
         self.z = np.ascontiguousarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
         z = <np.ndarray[double complex, ndim=2, mode="c"]> self.z
-
+        
         with nogil:
             cfl.zhd(&w[0], &z[0,0], h, hd_w)
         
@@ -663,18 +663,20 @@ cdef class SpinHamiltonian:
         t_array = <cfl.zt **>malloc(len(self.required_tensors)*cython.sizeof(cfl.zt))
         if t_array == NULL:
             raise MemoryError("t_array malloc failed")
-
-        # Ensure all tensors required for projecting the interactions specified
-        # when this spin Hamiltonian object is created are provided. 
-        for t in tensors:
+        
+        # Ensure all tensors required for projecting the interactions of this
+        # spin Hamltionian are provided. 
+        for i,rt in enumerate(self.required_tensors):
             try:
-                i = self.required_tensors.index(t.name)
-            except ValueError:
-                raise ValueError("Missing tensor %s in tensors list" % t.name)
-            t_array[i] = <cfl.zt *>PyCapsule_GetPointer(t.t_cap, "pycfl.Tensor")
+                t_array[i] = <cfl.zt *>PyCapsule_GetPointer(next((t for t in tensors if t.name == rt)).t_cap, "pycfl.Tensor")
+            except StopIteration:
+                raise ValueError("Missing tensor %s in tensors list" % rt)
             
-        zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), t_array, self.level)
+        retval = zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), t_array, self.level)
+        
         free(t_array)
+        if retval != 1:
+            raise ValueError("zsh_set_pro failed.  See the cfl error message for details.")
 
         self.tensors = tensors
         self.pro_data_set = 1

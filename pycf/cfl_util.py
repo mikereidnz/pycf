@@ -148,7 +148,7 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
             elif i == 1:
                 label += L2term(l)
             elif i != len(labels[li])-1:
-                label += "{:d},".format(l)
+                label += "{: d},".format(l)
             else:
                 label += "{: d}>".format(l)
 
@@ -403,5 +403,6 @@ def print_as_c_array(a):
     s += "};"
     print(s)
 
-
-
+def MHz2cm1(val):
+    r"Convert MHz to cm$^{-1}$."
+    return (1.0/29979.2458)*val

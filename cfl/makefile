@@ -42,6 +42,8 @@ opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl
 
 sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
 
+sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
+
 h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
 
 crs_test: cfl_h.o cfl_crs.o

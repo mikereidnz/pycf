@@ -20,21 +20,15 @@ TODO
     on block diagonals and, consequently, in effect chooses a linear combination
     of eigenvectors. Verify that there exists a linear combination of states 1
     and 2 that reproduce Mike's state admixtures. 
-  * There is an issue with the number of observables of quadrupole terms in the
-    covariance matrix estimation in cfl_h_fit.c. Set the number of observables
-    in cfl.pyx, since the python SpinHamiltonian class knows the true number of
-    observables.
   * Add weighting to spin Hamiltonian log.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
-  * Remember to revisit state-label sorting for Iz=0 case. Do we need to sort by
-    Sz, or does the small magnetic field always guarantee that? At present, we
-    don't sort if Iz=0, and this should be fine, since it has worked with
-    previous calculations... but verify (the complex coefficient mess comes to
-    mind).
   * Change all small MAGZ values to a macro def.
   * Change ImportSLJM to return a dictionary of tensors... that would make it
     more consistent, and easier to call from a loop?
+  * V^dag H V multiplication should only calculate the minimum necessary matel,
+    and use crs to ignore any zero elements. 
+
    
 
 Distributed memory parallelization

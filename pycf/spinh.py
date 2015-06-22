@@ -599,8 +599,12 @@ class SpinHamiltonian(object):
 
         # Use LAPACK's QR factorization, to solve the equation coeff_a * x = b
         # for x.
-        return(np.real(zgels(np.asfortranarray(coeff_a, dtype=np.complex),
-            np.asfortranarray(b, dtype=np.complex))))
+        #FIXME: delete below, move a back to return statement.
+        res = np.real(zgels(np.asfortranarray(coeff_a, dtype=np.complex),
+            np.asfortranarray(b, dtype=np.complex)))
+        print("res: \n{}\n".format(res.reshape(3,3)))
+        print("b: \n{}\n".format(b))
+        return(res)
 
     def get_H(self):
         r"""
@@ -649,6 +653,7 @@ def su2_rz_lsq(sh, spec, n_sh=0, phi_p=0, term=None):
     elif np.abs(f_min([phi_p])) <= 10**(-10):
         phi = phi_p
     else:
+        print("require sym") #FIXME: remove
         r = minimize(f_min, 0, method='Powell')
         if not r['success']:
             warnings.warn("The tensor symmetrization fit did not succeed.",

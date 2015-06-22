@@ -509,14 +509,50 @@ int main (void)
   cfl_min_free(efit_min_obj);
   cfl_min_free(efit_lmin_obj);
   efit_data_free(efit_d);
+  zh_free(h);
 
   printf("Energy level only fit:\n");
   printf("fmin = %.6f\n", fmin);
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
-#if 0  
   /* Spin Hamiltonian and energy level fit. */
+  zt *sh_tensors[8] = {eavg, zeta, C20, C40, C44, C60, C64, magz};
+  zt *shpro_tensors[3] = {magx, magy, magz};
+
+  complex double sh_celiyf4_coeff[8] = {1535.1277, 625.6990, 297.8906,
+    -1328.1522, -1282.4766, -191.5100, -1743.1424+692.8662*I, 0.0001};
+
+  complex double *inv_a[] = {ce_zeeman_inv};
+  char *inter[] = {"zeeman"};
+  zsh *ce_sh;
+  eshfit_data *eshfit_d;
+  cfl_min_obj *eshfit_lmin_obj, *eshfit_min_obj;
+  shx_data ce_zeeman_exp_data;
+
+
+  ce_zeeman_exp_data.pa = ce_gvalues;
+  ce_zeeman_exp_data.chisq_weight = 4e6;
+  shx_data *shx[1] = {&ce_zeeman_exp_data};
+
+  h = zh_alloc(14, 8, sh_tensors);
+  zh_set_coeff(h, sh_celiyf4_coeff);
+
+  ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
+  zsh_set_pro(ce_sh, shpro_tensors, 0);
+  eshfit_d = eshfit_data_alloc(h, NULL, sh_celiyf4_coeff, &ce_ex_data, ce_sh,
+      shx, 6, p);
+  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, &eshfit_cov, 6, eshfit_d,
+      gsl_vector_bfgs2);
+  eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
+  status = cfl_min(ce_x0, &fmin, cov, eshfit_min_obj);
+
+  cfl_min_free(eshfit_min_obj);
+  cfl_min_free(eshfit_lmin_obj);
+  eshfit_data_free(eshfit_d);
+  zsh_free(ce_sh);
+  zh_free(h);
+#if 0
   zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
   ce_x_sh = zsh_alloc(2, "magx");
   ce_y_sh = zsh_alloc(2, "magy");
@@ -585,7 +621,7 @@ int main (void)
   zsh_free(ce_y_sh);
   zsh_free(ce_z_sh);
 #endif
-  zh_free(h);
+
   free(w);
   free(z);
 
