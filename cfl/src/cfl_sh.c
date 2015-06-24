@@ -407,7 +407,7 @@ void zshp_p_w_free(zshp_p_w *shp_p_w) {
 int zshp_state_cmp(const void *a, const void *b) {
   const zsh_sort_t *sa = *(const zsh_sort_t **) a;
   const zsh_sort_t *sb = *(const zsh_sort_t **) b;
-  
+
   return (sa->iz > sb->iz) - (sa->iz < sb->iz);
 }
 
@@ -471,7 +471,6 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       odi = sh->pt_dim*(i*2+sh->l+1)+i*2+sh->l+1;
 
       if (cabs(shp_p_w->b[edi]) < cabs(shp_p_w->b[odi])) {
-        printf("swap sz\n");
         /* Swap index states for the current block in the sh_sort data. */
         temp_i = sh_sort[i*2]->index;
         sh_sort[i*2]->index = sh_sort[i*2+1]->index;
@@ -524,8 +523,8 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
  *  hz      Pointer to array containing the eigenvectors that diagonalize the
  *          Hamiltonian containing free-ion and crystal-field interactions.
  *  sh      The spin Hamiltonian.
- *  pro_i   The index for which tensor to project out the spin Hamiltonian
- *          matrix elements.
+ *  pro_i   The index for which tensor to project the spin Hamiltonian matrix
+ *          elements.
  *  shp_p_w The projection workspace, allocated with zshp_p_w_alloc.
  */
 void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
@@ -537,7 +536,7 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   d = sh->pt_dim;
   one = 1;
   zero = 0;
-
+  
   /* The projection is a similarity transformation of the form V^dag H V, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
@@ -632,10 +631,6 @@ void zshi(complex double *a, zshi_w *w) {
   /* Store a copy of the inversion matrix. */
   memcpy((void *)w->a, (void *)w->data->a, w->a_size);
   
-  printf("w->data->m[i]:\n");
-  for (i=0; i<9; i++) {
-    printf("%f+%fI ", creal(w->data->b[i]), cimag(w->data->b[i]));
-  }
   info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, 9, 1, w->a,
       w->data->m, w->data->b, w->ldb, w->work, w->lwork);
   if (info != 0) {
@@ -775,22 +770,12 @@ void zshp(complex double *a, complex double *hz, int int_i, zsh *sh, zshp_w *w) 
       zshp_parse(&((sh->inv_data[int_i])->b[i*w->msz]), sh, int_i+2,
           w->shp_p_w);
     }
-    w->zeeman_offset = 1;
+    w->zeeman_offset = 2;
   }
   else {
     zshp_p(hz, sh, int_i+w->zeeman_offset, w->shp_p_w);
-    zshp_p((sh->inv_data[int_i])->b, sh, int_i+w->zeeman_offset, w->shp_p_w);
+    zshp_parse((sh->inv_data[int_i])->b, sh, int_i+w->zeeman_offset, w->shp_p_w);
   }
   
   zshi(a, w->shi_w[int_i]);
-
-  int j;
-  printf("\ncalculated sh term\n");
-  for (i=0; i<3; i++) {
-    for (j=0; j<3; j++) {
-      printf("%f ", a[i*3+j]);
-    }
-    printf("\n");
-  }
-  printf("\n");
 }

@@ -746,7 +746,7 @@ cdef class SpinHamiltonian:
         result_list = []
         for i in range(len(self.interactions)):
             zshp(&a[0], &cz[0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w);
-            result_list += [a.reshape(3,3)]
+            result_list += [np.copy(a.reshape(3,3))]
 
         zshp_w_free(shp_w);
 
