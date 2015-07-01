@@ -111,11 +111,12 @@ class ImportSLJM(object):
             tensor_matrices['MAGY'] = tensor_matrices['MAGX'] * np.complex(0, -1)
             tensor_matrices['MAGZ'] = tensor_matrices['MAG10']
 
+
         # AHYP is the L.I part and BHYP is (sC2).I part
         if 'AHYP' in tensor_matrices and 'BHYP' in tensor_matrices:
             tensor_matrices['HYP'] = tensor_matrices['AHYP'] - np.sqrt(10) * tensor_matrices['BHYP']
-            #np.set_printoptions(linewidth=240) 
-            #print(tensor_matrices['HYP'])
+
+        #np.set_printoptions(linewidth=240)
        
         # Create tensors; since tensors use hermitian matrix compressed row
         # storage we do not require the lower triangular half.
@@ -124,7 +125,7 @@ class ImportSLJM(object):
         for t in tensor_matrices:
             if np.count_nonzero(tensor_matrices[t])== 0:
                 print("Warning: all matrix elements of %s are zero." % t) 
-            tensors[t] = cfl.Tensor(t, tensor_matrices[t], sl)
+            tensors[t] = cfl.Tensor(t, np.asfortranarray(np.transpose(tensor_matrices[t])), sl)
 
         self.tensors = tensors
         self.__dict__.update(tensors)

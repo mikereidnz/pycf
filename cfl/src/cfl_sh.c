@@ -69,11 +69,14 @@
  * a        An array of length ninter with entries corresponding to the
  *          inversion coefficient matrices with order matching that of inter.
  *          The coefficent matrix for a given interaction is A in Ax = b, where
- *          x is 9 by spin Hamiltonian dim column containing the spin
- *          Hamiltonian matrix elements and x is the spin Hamiltonian parameter
- *          matrix stacked into a 9 by 1 column.  For the zeeman inversion
- *          array, A must consists of three inversion arrays for magnetic fields
- *          along x, y, and z directions, in that order.
+ *          b is a columnv vector containing the matrix elements of the spin
+ *          Hamiltonian for this interaction.  Consequently, it is shdim*shdim
+ *          by 1, where shdim is the dimension of the spin Hamiltonian for the
+ *          specific interaction.  Additonally, x is the spin Hamiltonian
+ *          parameter matrix stacked into a 9 by 1 column.  For the zeeman
+ *          inversion array, A must consists of three inversion arrays,
+ *          concatenated into one large array, for magnetic fields along x, y,
+ *          and z directions, in that order.
  */
 zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a) {
   int i, j, m;
@@ -334,13 +337,15 @@ zshp_p_w *zshp_p_w_alloc(zsh *sh) {
     CFL_ERROR_NULL("malloc failed for shp_p_w");
   }
 
-  a = (complex double *) calloc(n*n, sizeof(complex double));
+  a = (complex double *) calloc(n*sh->dim, sizeof(complex double));
+  //a = (complex double *) calloc(n*n, sizeof(complex double));
   if (a == 0) {
     free(shp_p_w);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
-  b = (complex double *) calloc(n*n,sizeof(complex double));
+  b = (complex double *) calloc(sh->dim*sh->dim,sizeof(complex double));
+  //b = (complex double *) calloc(n*n,sizeof(complex double));
   if (b == 0) {
     free(shp_p_w);
     free(a);
@@ -408,7 +413,7 @@ int zshp_state_cmp(const void *a, const void *b) {
   const zsh_sort_t *sa = *(const zsh_sort_t **) a;
   const zsh_sort_t *sb = *(const zsh_sort_t **) b;
 
-  return (sa->iz > sb->iz) - (sa->iz < sb->iz);
+  return (sa->iz < sb->iz) - (sa->iz > sb->iz);
 }
 
 /* 
@@ -433,14 +438,10 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
     for (i=0; i<sh->dim; i++) {
       /* The principal component index. */
       pr_i = 0;
-      /* Offset for hz to start of current column. */
+      /* hz is packed column wise; col_offset is the index of the first element
+       * of the current column. */
       col_offset = (sh->l+i)*sh->pt_dim;
-
-      for (j=0; j<sh->pt_dim; j++) {
-        if (cabs(hz[col_offset+j]) > cabs(hz[col_offset+pr_i])) {
-          pr_i = j;
-        }
-      }
+      
       /* The i index will enumerate all unique spin Hamiltonian states.  We record
        * each i and the associated iz label of the corresponding principal
        * component. */
@@ -458,17 +459,18 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       (sh_sort[i])->index = i;
     }
   }
-  
+
   /* If the spin Hamiltonian depends on sz, sort according to it (pro_i != -1).
-   * When sorting, we assume sz = 1.  We step through projected magz matrix
-   * elements and sort according to diagonal values, from largest to smallest.
+   * When sorting, we assume sz = 1, so sz degenerate blocks will be 2 by 2.  We
+   * step through projected magz matrix elements and sort according to diagonal
+   * values, from largest to smallest.
    */
   if (pro_i != -1) {
     for (i=0; i<sh->dim/2; i++) {
       /* Index of even diagonal elements. */
-      edi = sh->pt_dim*(i*2+sh->l)+i*2+sh->l;
+      edi = sh->dim*(sh_sort[i*2]->index)+sh_sort[i*2]->index;
       /* Index of odd diagonal elements. */
-      odi = sh->pt_dim*(i*2+sh->l+1)+i*2+sh->l+1;
+      odi = sh->dim*(sh_sort[i*2+1]->index)+sh_sort[i*2+1]->index;
 
       if (cabs(shp_p_w->b[edi]) < cabs(shp_p_w->b[odi])) {
         /* Swap index states for the current block in the sh_sort data. */
@@ -478,7 +480,6 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       }
     }
   }
-  shp_p_w->sh_sort = sh_sort;
 }
 
 /*
@@ -542,11 +543,19 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
    * Zeeman, hyperfine or quadrupole interaction elements. */
   /* Calculate H V. */
-  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, d, d, &one, pd->pt, d, hz,
-      d, &zero, shp_p_w->a, d);
+  cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, d, sh->dim, &one, pd->pt, d,
+      &hz[(sh->l)*d], d, &zero, shp_p_w->a, d);
   /* Calculate V^dag (HV). */
-  cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, d, d, d, &one, hz, d,
-      shp_p_w->a, d, &zero, shp_p_w->b, d);
+  cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, sh->dim, sh->dim, d,
+      &one, &hz[(sh->l)*d], d, shp_p_w->a, d, &zero, shp_p_w->b, sh->dim);
+
+
+  ///* Calculate H V. */
+  //cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, d, d, &one, pd->pt, d, hz,
+  //    d, &zero, shp_p_w->a, d);
+  ///* Calculate V^dag (HV). */
+  //cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, d, d, d, &one, hz, d,
+  //    shp_p_w->a, d, &zero, shp_p_w->b, d);
 }
 
 /*
@@ -717,6 +726,7 @@ void zshp_w_free(zshp_w *w) {
   for (i=0; i<w->ninter; i++) {
     zshi_w_free(w->shi_w[i]);
   }
+  free(w->shi_w);
   free(w);
 }
 

@@ -123,7 +123,7 @@ cdef class Tensor:
     
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='c']a, states,
+    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='fortran']a, states,
             object data_tuple=None):
         cdef cfl.zt *t
         cdef cfl.zt *t1
@@ -320,7 +320,7 @@ cdef class Hamiltonian:
         cdef cfl.zh *h = self.cfl_zh
         cdef cfl.zhd_w *hd_w
         cdef np.ndarray[double, ndim=1, mode="c"] w
-        cdef np.ndarray[double complex, ndim=2, mode="c"] z
+        cdef np.ndarray[double complex, ndim=2, mode="fortran"] z
         
         if self.coeff_dict == None:
             raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
@@ -331,9 +331,9 @@ cdef class Hamiltonian:
             raise MemoryError("hd_w alloc failed")
 
         self.w = np.ascontiguousarray(np.zeros(self.n), dtype=np.float64)
-        self.z = np.ascontiguousarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
+        self.z = np.asfortranarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
-        z = <np.ndarray[double complex, ndim=2, mode="c"]> self.z
+        z = <np.ndarray[double complex, ndim=2, mode="fortran"]> self.z
         
         with nogil:
             cfl.zhd(&w[0], &z[0,0], h, hd_w)

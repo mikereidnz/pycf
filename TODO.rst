@@ -9,9 +9,8 @@ TODO
     we multiply by the complex conjugate on the lower-diagonal?
   * When passing a void * type argument, does the function call have to cast to
     void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
-  * In explanation section, discuss the fortran vs c array mess. Everything is
-    expected to be a fortran array at the moment? At least the inversion matrix
-    for the inversion tests needs to be... the rest don't. 
+  * cov_inv in CFLMin is currently a 2 dimensional c type array. Make sure this
+    is correct, rather than a fortran style array. 
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
@@ -21,6 +20,7 @@ TODO
     of eigenvectors. Verify that there exists a linear combination of states 1
     and 2 that reproduce Mike's state admixtures. 
   * Add weighting to spin Hamiltonian log.
+  * Tidy up summary printing.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.
@@ -28,6 +28,22 @@ TODO
     more consistent, and easier to call from a loop?
   * V^dag H V multiplication should only calculate the minimum necessary matel,
     and use crs to ignore any zero elements. 
+  * make sure that the spin hamiltonian level, l, passed by cython starts at 0.
+
+Notes on col vs row major arrays
+--------------------------------
+  * All lapack/blas calls are ROW major, that is, fortran style arrays, since
+    they are passed as 1 by n dimensional contiguous blocks of memory (see
+    examples in http://www.netlib.org/lapack/lapacke.html).  However, we store
+    sparse matrix elements using the compressed row storage format (CRS).  Since
+    we don't directly pass CRS matrices to LAPACK routines, we apply an exact
+    inverse to the CRS parsing transformation to revert to dense matrices.  This
+    ensures that the matrix is again stored in a 1 by n dimensional array.
+    Matrices should be passed from cython as fortran contigious arrays, although
+    for tensor matrix elements such inconsistencies don't always show up due to
+    their hermiticity.  Furthermore, some sometimes 1 dimensional arrays are
+    passed as c style arrays, since for these cases they are identical to
+    fortran style arrays. 
 
    
 

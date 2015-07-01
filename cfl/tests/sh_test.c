@@ -1,5 +1,8 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
+#include <math.h>
+#include <complex.h>
 
 #include <math.h>
 #include <complex.h>
@@ -71,7 +74,7 @@ void dequ_chk(double *a, double *b, size_t n) {
 
 
 int main (void) {
-  int i;
+  int i, j, nstates;
 
   complex double ce_eavg_a[784] = {1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -579,28 +582,76 @@ int main (void) {
     0-0.25*I, 0, -0.25, 0.25, 0, 0-0.25*I, 0, 0, 0+0.25*I, 0.25, 0, 0, 0.25, 0,
     0+0.25*I, 0+0.25*I, 0, 0, 0.25, -0.25, 0, 0, 0-0.25*I, 0-0.25*I, 0, 0.25, 0,
     0, 0.25};
+
+  /* State sorting test. */
+  complex double sls_hz[64] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 1, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 1, 
+    0, 0, 0, 0, 0, 1, 0, 0, 
+    0, 0, 0, 0, 0, 0, 1, 0};
   
-  complex double celiyf4_coeff[7] = {1535.1277, 625.6990, 297.8906, -1328.1522,
-    -1282.4766, -191.5100, -1743.1424+692.8662*I};
+  complex double sls_b[16] = {
+    2, 3, 4, 1, 
+    2, 3, 4, 1, 
+    2, 3, 4, 1, 
+    2, 3, 4, 1};
 
-  //complex double celiyf4_coeff[7] = {1519.1210, 619.5912, 1245.4464, 602.9417,
-  //  1438.4881, -712.2919, -1982.9545+268.3884*I};
+  complex double sls_zero[64] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-  // spin Hamiltonian result:
-  //[[  1.47148975e+00   5.98891197e-11  -3.14018492e-16]
-  // [ -5.98891197e-11   1.47148975e+00   3.14018492e-16]
-  // [ -0.00000000e+00   1.74315280e-32   2.76662734e+00]]
-  //
-  // b result:
-  // [  1.47148975e+00 +0.00000000e+00j   5.98891197e-11 +1.23259516e-32j
-  //   -3.14018492e-16 +6.15296332e-27j  -5.98891197e-11 +1.84716760e-17j
-  //    1.47148975e+00 -0.00000000e+00j   3.14018492e-16 -0.00000000e+00j
-  //   -0.00000000e+00 -0.00000000e+00j   1.74315280e-32 +0.00000000e+00j
-  //    2.76662734e+00 -8.23993651e-18j   2.40154311e-16 +3.66039050e-17j
-  //    8.86415216e-17 +1.77667536e-16j   1.11022302e-15 -5.21319762e-18j]
+  zt *sls_magz, *sls_hyp;
+  zsh *sls_sh;
+  zshp_p_w *sls_shp_p_w;
 
+  char *sls_inter[] = {"hyperfine"};
+  complex double *sls_hyp_inv_a;
+  sls_hyp_inv_a = (complex double *) malloc(4*9*sizeof(complex double));
+  complex double *sls_inv_a[] = {sls_hyp_inv_a};
+
+  nstates = 8;
+  char sls_label_key[] = "SLJMI";
+  static int sls_l_array[8][5] = { 
+    {1,1,2,2,1}, {1,1,2,2,-1}, {1,1,2,1,1}, {1,1,2,1,-1},
+    {1,1,2,-1,1}, {1,1,2,-1,-1}, {1,1,2,-2,1}, {1,1,2,-2,-1}};
+
+  int **sls_l;
+  sls_l = (int **) malloc(nstates*sizeof(int *));
+  if (sls_l == 0) {
+      printf("Error; label array **l malloc failed\n");
+  }
+  for (i=0; i<nstates; i++) {
+    sls_l[i] = sls_l_array[i];
+  }
+  sl *sls_states;
+  sls_states = sl_alloc(nstates, sls_label_key, sls_l);
+
+  sls_magz = (zt *) zt_alloc("magz", sls_zero, nstates, sls_states);
+  sls_hyp = (zt *) zt_alloc("hyp", sls_zero, nstates, sls_states);
+  zt *sls_pro_tensors[2] = {sls_magz, sls_hyp};
+
+  sls_sh = zsh_alloc(sls_inter, 1, 1, 1, sls_inv_a);
+  zsh_set_pro(sls_sh, sls_pro_tensors, 4);
+  sls_shp_p_w = zshp_p_w_alloc(sls_sh);
+  
+  memcpy(sls_shp_p_w->b, sls_b, 16*sizeof(complex double));
+  zshp_gen_sort(sls_hz, 0, sls_sh, sls_shp_p_w);
+
+  zshp_p_w_free(sls_shp_p_w);
+  zsh_free(sls_sh);
+  zt_free(sls_magz);
+  zt_free(sls_hyp);
+  sl_free(sls_states);
+  free(sls_l);
+  free(sls_hyp_inv_a);
+#if 1
+  /* Spin Hamiltonian projection and inversion test. */
   /* State label preparation. */
-  int nstates = 28;
+  nstates = 28;
   char label_key[] = "SLJMI";
   static int l_array[28][5] = {
     {1,3,7,7,1}, {1,3,7,7,-1}, {1,3,5,5,1}, {1,3,5,5,-1},
@@ -636,19 +687,11 @@ int main (void) {
   magz = (zt *) zt_alloc("magz", ce_magz_a, nstates, states);
   hyp = (zt *) zt_alloc("hyp", ce_hyp_a, nstates, states);
 
-  zt *tensors[7] = {eavg, zeta, C20, C40, C44, C60, C64};
-  zt *pro_tensors[3] = {magx, magy, magz};
+  zt *tensors[8] = {eavg, zeta, C20, C40, C44, C60, C64, magz};
+  zt *pro_tensors[4] = {magx, magy, magz, hyp};
 
-  //complex double *tt;
-  //tt = (complex double *) malloc(784*sizeof(complex double));
-  //
-  //printf("nnz=%i\n", hyp->matel->nnz);
-  //crs_zhm2zha(magz->matel, tt);
-  //for (i=0; i<784; i++) {
-  //  printf("%f, ", tt[i]);
-  //}
-  //printf("\n");
-  //free(tt);
+  complex double celiyf4_coeff[8] = {1535.1277, 625.6990, 297.8906, -1328.1522,
+    -1282.4766, -191.5100, -1743.1424+692.8662*I, 0.0001};
 
   double *w;
   complex double *z;
@@ -658,7 +701,7 @@ int main (void) {
   zhd_w *hd_w;
 
   /* Check diagonalization routine. */
-  h = zh_alloc(nstates, 7, tensors);
+  h = zh_alloc(nstates, 8, tensors);
   zh_set_coeff(h, celiyf4_coeff);
   hd_w = zhd_w_alloc(h);
   zhd(w, z, h, hd_w);
@@ -668,25 +711,36 @@ int main (void) {
   for (i=0; i<28; i++) {
     printf("%f ", w[i]);
   }
-  printf("\n");
-  complex double *inv_a[] = {zeeman_inv_a};
-  char *inter[] = {"zeeman"};
+  printf("\n\n");
+  complex double *inv_a[] = {zeeman_inv_a, hyperfine_inv_a};
+  char *inter[] = {"zeeman", "hyperfine"};
   zsh *cehyp_sh;
   zshp_w *cehyp_shp_w;
   complex double *a = (complex double *) calloc(9,sizeof(complex double));
   
-
-  // zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a)
-  cehyp_sh = zsh_alloc(inter, 1, 1, 1, inv_a);
+  cehyp_sh = zsh_alloc(inter, 2, 1, 1, inv_a);
   zsh_set_pro(cehyp_sh, pro_tensors, 0);
   cehyp_shp_w = zshp_w_alloc(cehyp_sh);
 
   zshp(a, z, 0, cehyp_sh, cehyp_shp_w);
+  printf("Zeeman tensor:\n");
+  for (i=0; i<3; i++) {
+    for (j=0; j<3; j++) {
+      printf("%f ", a[i*3+j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
 
-  //for (i=0; i<9; i++) {
-  //  printf("%f ", a[i]);
-  //}
-  //printf("\n");
+  zshp(a, z, 1, cehyp_sh, cehyp_shp_w);
+  printf("hyperfine tensor:\n");
+  for (i=0; i<3; i++) {
+    for (j=0; j<3; j++) {
+      printf("%f ", a[i*3+j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
 
   zshp_w_free(cehyp_shp_w);
   zsh_free(cehyp_sh);
@@ -694,6 +748,7 @@ int main (void) {
   free(a);
   free(w);
   free(z);
+  zh_free(h);
   zt_free(eavg);
   zt_free(zeta);
   zt_free(C20);
@@ -706,5 +761,6 @@ int main (void) {
   zt_free(magz);
   zt_free(hyp);
   sl_free(states);
-  free(l);
+  free(l);  
+#endif
 }
