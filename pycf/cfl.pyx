@@ -700,7 +700,7 @@ cdef class SpinHamiltonian:
         """
 
         cdef cfl.zshp_w *shp_w
-        cdef np.ndarray[double complex, ndim=1, mode="c"] cz
+        cdef np.ndarray[double complex, ndim=2, mode="fortran"] cz
         cdef np.ndarray[double complex, ndim=1, mode="c"] a
         
         if not self.pro_data_set:
@@ -730,22 +730,45 @@ cdef class SpinHamiltonian:
         if 'MAGZS' not in h.coeff_dict:
             for t in self.tensors:
                 if t.name == 'MAGZ':
-                    magzs = 0.0001 * t
+                    magzs = 0.001 * t
                     magzs.name = 'MAGZS'
             
             tmp_h_coeff = h.coeff_dict
             tmp_h_coeff['MAGZS'] = 1
             h = Hamiltonian([magzs] + h.tensors)
             h.set_coeff(tmp_h_coeff)
+
+        if self.Iz != 0:
+            # If not present, add small hyperfine interaction to break
+            # degeneracy. 
+            if 'HYPS' not in h.coeff_dict:
+                for t in self.tensors:
+                    if t.name == 'HYP':
+                        hyps = 0.01 * t
+                        hyps.name = 'HYPS'
+
+            #if 'EQHYPS' not in h.coeff_dict:
+            #    for t in self.tensors:
+            #        if t.name == 'EQHYP':
+            #            eqhyps = 0.01 * t
+            #            eqhyps.name = 'EQHYPS'
+
+            tmp_h_coeff = h.coeff_dict
+            tmp_h_coeff['HYPS'] = 0
+            #tmp_h_coeff['EQHYPS'] = 1
+            #h = Hamiltonian([hyps, eqhyps] + h.tensors)
+            h = Hamiltonian([hyps] + h.tensors)
+            h.set_coeff(tmp_h_coeff)
+
         
         (w, z) = h.diag()
-        cz = <np.ndarray[double complex, ndim=1, mode="c"]> z.flatten()
+        cz = <np.ndarray[double complex, ndim=2, mode="fortran"]> z
         shp_w = zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"));
         a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(9, dtype=np.complex128)
         
         result_list = []
         for i in range(len(self.interactions)):
-            zshp(&a[0], &cz[0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w);
+            zshp(&a[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w);
             result_list += [np.copy(a.reshape(3,3))]
 
         zshp_w_free(shp_w);
@@ -1645,7 +1668,7 @@ def e_fit(parameters, h, ex, cfl_min):
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
-    return {'coeff': x, 'summary': summary}
+    return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
 
 def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
@@ -1709,5 +1732,5 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     summary += "\n"
     summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
 
-    return {'coeff': x, 'summary': summary}
+    return {'fmin': fmin, 'coeff': x, 'summary': summary}
 

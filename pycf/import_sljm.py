@@ -91,7 +91,8 @@ class ImportSLJM(object):
             label_key = "SLJM"
         
         data = np.loadtxt('%s.txt' % name, skiprows = 2)
-        # Generate a dictionary of lists, with list elements [row, col, matel].
+        # Generate a dictionary with keys for each tensor and lists of the form
+        # [row, col, matel] as values.
         i = 0
         tensor_elements = {}
         tensor_matrices = {}
@@ -104,7 +105,20 @@ class ImportSLJM(object):
         # Populate tensor matrices with non-zero matrix elements.
         for t in tensor_matrices:
             for e in tensor_elements[t]:
-                tensor_matrices[t][np.real(e[0])-1, np.real(e[1])-1] = e[2]
+                tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
+
+
+        if state_labels[0][4]:
+            for t in tensor_matrices:
+                for e in tensor_elements[t]:
+                    if np.int(e[1]) % 2:
+                        tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
+                        tensor_matrices[t][np.int(e[0]), np.int(e[1])-1] = e[2]
+                        
+                    else:
+                        tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
+                        if (np.int(e[0]) != np.int(e[1])):
+                            tensor_matrices[t][np.int(e[0])-2, np.int(e[1])-1] = e[2]
         
         if 'MAG11' in tensor_matrices and 'MAG10' in tensor_matrices:
             tensor_matrices['MAGX'] = tensor_matrices['MAG11'] * 1/np.sqrt(2)
@@ -125,6 +139,7 @@ class ImportSLJM(object):
         for t in tensor_matrices:
             if np.count_nonzero(tensor_matrices[t])== 0:
                 print("Warning: all matrix elements of %s are zero." % t) 
+            #tensor_matrices[t] = tensor_matrices[t] + np.transpose(tensor_matrices[t]) - np.diag(np.diag(tensor_matrices[t]))
             tensors[t] = cfl.Tensor(t, np.asfortranarray(np.transpose(tensor_matrices[t])), sl)
 
         self.tensors = tensors

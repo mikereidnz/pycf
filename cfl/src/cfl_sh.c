@@ -337,15 +337,15 @@ zshp_p_w *zshp_p_w_alloc(zsh *sh) {
     CFL_ERROR_NULL("malloc failed for shp_p_w");
   }
 
-  a = (complex double *) calloc(n*sh->dim, sizeof(complex double));
-  //a = (complex double *) calloc(n*n, sizeof(complex double));
+  //a = (complex double *) calloc(n*sh->dim, sizeof(complex double));
+  a = (complex double *) calloc(n*n, sizeof(complex double));
   if (a == 0) {
     free(shp_p_w);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
-  b = (complex double *) calloc(sh->dim*sh->dim,sizeof(complex double));
-  //b = (complex double *) calloc(n*n,sizeof(complex double));
+  //b = (complex double *) calloc(sh->dim*sh->dim,sizeof(complex double));
+  b = (complex double *) calloc(n*n,sizeof(complex double));
   if (b == 0) {
     free(shp_p_w);
     free(a);
@@ -459,6 +459,10 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       (sh_sort[i])->index = i;
     }
   }
+  //printf("after iz sort:\n");
+  //for (i=0; i<sh->dim; i++) {
+  //  printf("%i\n", sh_sort[i]->index);
+  //}
 
   /* If the spin Hamiltonian depends on sz, sort according to it (pro_i != -1).
    * When sorting, we assume sz = 1, so sz degenerate blocks will be 2 by 2.  We
@@ -480,6 +484,10 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       }
     }
   }
+  //printf("after sz sort:\n");
+  //for (i=0; i<sh->dim; i++) {
+  //  printf("%i\n", sh_sort[i]->index);
+  //}
 }
 
 /*
@@ -497,22 +505,29 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
  *          matrix elements.
  */
 void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
-  int i, j, dsh;
+  int i, j, shi_dim, sh_dim;
 
-  dsh = sh->pro_data[pro_i]->shi_dim;
-
+  shi_dim = sh->pro_data[pro_i]->shi_dim;
+  sh_dim = sh->dim;
   /* We read out the shi_dim*shi_dim block corresponding to the spin Hamiltonian
    * matrix elements specific to the interaction type.  Furthermore, we use the
    * index mapping, sh_sort, that sorts the state labels according to, firstly,
    * nuclear spin projection, and, secondly, spin projection.  This ensures that
    * when we go to invert the resulting array to calculate the spin Hamiltonian
    * parameters, our matrix element state labels match those calculated here. */
-  for (i=0; i<dsh; i++) {
-    for (j=0; j<dsh; j++) {
-      a[i*dsh+j] = shp_p_w->b[(shp_p_w->sh_sort[i]->index+sh->l)*sh->pt_dim + \
-        shp_p_w->sh_sort[j]->index+sh->l];
+  for (i=0; i<shi_dim; i++) {
+    for (j=0; j<shi_dim; j++) {
+      a[i*shi_dim+j] = shp_p_w->b[(shp_p_w->sh_sort[i]->index)*sh_dim + j];
+      //printf("%f ", a[i*shi_dim+j]);
     }
+    //printf("\n");
   }
+  //for (i=0; i<sh_dim; i++) {
+  //  for (j=0; j<sh_dim; j++) {
+  //    printf("%f ", shp_p_w->b[(shp_p_w->sh_sort[i]->index)*sh_dim + j]);
+  //  }
+  //  printf("\n");
+  //}
 }
 
 
@@ -537,15 +552,28 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   d = sh->pt_dim;
   one = 1;
   zero = 0;
-  
+ 
   /* The projection is a similarity transformation of the form V^dag H V, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
-   * Zeeman, hyperfine or quadrupole interaction elements. */
-  /* Calculate H V. */
+   * Zeeman, hyperfine or quadrupole interaction elements.
+   *
+   * We only calculate the submatrix that corresponds to the spin Hamiltonian
+   * (denoted with entries x):
+   *     v^dag       H        V
+   *  (        )(--------)(      ||)    (        )
+   *  (        )(--------)(      ||) =  (        )
+   *  (--------)(--------)(      ||)    (      xx)
+   *  (--------)(--------)(      ||)    (      xx)
+   *            `------------------'
+   *                      HV
+   *                  (      ||)
+   *               =  (      ||)
+   *                  (      ||)
+   *                  (      ||)
+   */
   cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, d, sh->dim, &one, pd->pt, d,
       &hz[(sh->l)*d], d, &zero, shp_p_w->a, d);
-  /* Calculate V^dag (HV). */
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, sh->dim, sh->dim, d,
       &one, &hz[(sh->l)*d], d, shp_p_w->a, d, &zero, shp_p_w->b, sh->dim);
 

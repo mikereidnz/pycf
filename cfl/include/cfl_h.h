@@ -40,8 +40,8 @@ typedef struct {
   zt **t;
   /* Tensor coefficients. */
   complex double *coeff;
-  /* Pointer to matrix of the complete Hamiltonian in packed row major form. */
-  complex double *ap;
+  /* Pointer to matrix of the complete Hamiltonian in dense col major form. */
+  complex double *a;
 } zh;
 
 
@@ -51,17 +51,21 @@ typedef struct {
   crs_zhm **coeff_w;
   /* Length of coeff_w array. */
   int lcoeff_w;
-  /* Workspace for LAPACKE_zhpevd. */
+  /* The total number of eigenvalues found by zheevr. */
+  int m;
+  /* The support of the eigenvectors in Z. */
+  int *isuppz;
+  /* Workspace for LAPACKE_zheevr. */
   complex double *work;
-  /* Dimensions of LAPACKE_zhpevd work. */
+  /* Dimensions of LAPACKE_zheevr work. */
   int lwork;
-  /* LAPACKE_zhpevd RWORK. */
+  /* LAPACKE_zheevr RWORK. */
   double *rwork;
-  /* Dimensions of LAPACKE_zhpevd rwork. */
+  /* Dimensions of LAPACKE_zheevr rwork. */
   int lrwork;
-  /* LAPACKE_zhpevd IWORK. */
+  /* LAPACKE_zheevd IWORK. */
   int *iwork;
-  /* Dimensions of LAPACKE_zhpevd iwork. */
+  /* Dimensions of LAPACKE_zheevr iwork. */
   int liwork;
 } zhd_w;
 

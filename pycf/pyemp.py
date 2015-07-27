@@ -598,11 +598,23 @@ class Cfit(GenericErun):
                         B[t] = B[t][Sz_sort][:, Sz_sort]
                     else:
                         sh_terms[t] = sh_terms[t][Sz_sort][:, Sz_sort]
-                    
+                   
+                print("iz sort")
+                print(Iz_sort)
+                print("sz sort")
+                print(Sz_sort)
                 if len(B) == 3:
                     # Return list in order x, y, z. 
                     sh_terms['bgs'] = [B['bgsx'], B['bgsy'], B['bgsz']]
-                
+                    # FIXME: remove print statements
+                    np.set_printoptions(precision=4, suppress=True, linewidth=240)
+                    print("bgsx:")
+                    print(np.round(B['bgsx'], decimals=3))
+                    print("bgsy:")
+                    print(np.round(B['bgsy'], decimals=3))
+                    print("bgsz:")
+                    print(np.round(B['bgsz'], decimals=3))
+
                 spectrum.sh_terms += [sh_terms]
 
 

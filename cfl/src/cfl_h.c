@@ -53,7 +53,7 @@
 zh *zh_alloc(int n, int nt, zt **t) {
   zh *h;
   int i;
-  complex double *ap;
+  complex double *a;
 
   h = (zh *) malloc(sizeof(zh));
   if (h == 0) {
@@ -68,22 +68,22 @@ zh *zh_alloc(int n, int nt, zt **t) {
   }
   h->slabels = t[0]->slabels;
 
-  ap = (complex double *) calloc(n*(n+1)/2,sizeof(complex double));
-  if (ap == 0) {
+  a = (complex double *) calloc(n*n,sizeof(complex double));
+  if (a == 0) {
     free(h);
-    CFL_ERROR_NULL("calloc failed for ap");
+    CFL_ERROR_NULL("calloc failed for a");
   }
 
   h->n = n;
   h->nt = nt;
   h->t = t;
-  h->ap = ap;
+  h->a = a;
   
   return h;
 }
 
 void zh_free(zh *h) {
-  free(h->ap);
+  free(h->a);
   free(h);
 }
 
@@ -106,6 +106,12 @@ void zh_set_coeff(zh *h, complex double *coeff) {
  * h    The Hamiltonian to be diagonalized.
  */
 zhd_w *zhd_w_alloc(zh *h) {
+  int n = h->n, lda = h->n, ldz = h->n, il, iu, info;
+  double vl, vu;
+  int lwork, lrwork, liwork;
+  complex double *work, wquery;
+  double *rwork, rwquery;
+  int *iwork, iwquery;
   zhd_w *hd_w;
 
   hd_w = (zhd_w *) malloc(sizeof(zhd_w));
@@ -113,34 +119,46 @@ zhd_w *zhd_w_alloc(zh *h) {
     CFL_ERROR_NULL("malloc failed for hd_w");
   }
 
+  hd_w->isuppz = (int *) malloc(2*n*sizeof(int));
+  if (hd_w->isuppz == 0) {
+    free(hd_w);
+    CFL_ERROR_NULL("malloc failed for hd_w->isuppz");
+  }
 
-  /* hpevd workspace query. */
-  complex double *work, wquery;
-  double *rwork, rwquery;
-  int *iwork, iwquery, lwork, lrwork, liwork, info;
-  info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, NULL,
-      NULL, h->n, &wquery, -1, &rwquery, -1, &iwquery, -1);
+  /* zheevr workspace query. */
+  lwork = -1;
+  lrwork = -1;
+  liwork = -1;
+
+  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'L', n, h->a, lda, vl, vu, il, iu,
+      ZHEEVR_ABSTOL, &(hd_w->m), NULL, NULL, ldz, hd_w->isuppz, &wquery, lwork, &rwquery, lrwork,
+      &iwquery, liwork);
   if (info != 0) {
+    free(hd_w->isuppz);
     free(hd_w);
     CFL_ERROR_NULL("LAPACKE workspace query failed");
   }
-  lwork = (int)wquery;
-  lrwork = (int)rwquery;
-  liwork = (int)iwquery;
 
-  work = calloc(lwork,sizeof(complex double));
+  lwork = (int) creal(wquery);
+  lrwork = (int) rwquery;
+  liwork = iwquery;
+
+  work = (complex double *) calloc(lwork,sizeof(complex double));
   if (work == 0) {
+    free(hd_w->isuppz);
     free(hd_w);
     CFL_ERROR_NULL("calloc failed for work");
   }
-  rwork = calloc(lrwork,sizeof(double));
+  rwork = (double *) calloc(lrwork,sizeof(double));
   if (rwork == 0) {
+    free(hd_w->isuppz);
     free(hd_w);
     free(work);
     CFL_ERROR_NULL("calloc failed for rwork");
   }
-  iwork = calloc(liwork,sizeof(int));
+  iwork = (int *) calloc(liwork,sizeof(int));
   if (iwork == 0) {
+    free(hd_w->isuppz);
     free(hd_w);
     free(work);
     free(rwork);
@@ -167,9 +185,11 @@ zhd_w *zhd_w_alloc(zh *h) {
     hd_w->lcoeff_w = h->nt;
   }
   if (coeff_w == 0) {
+    free(hd_w->isuppz);
     free(hd_w);
     free(work);
     free(rwork);
+    free(iwork);
     CFL_ERROR_NULL("malloc failed for coeff_w");
   }
 
@@ -187,9 +207,11 @@ zhd_w *zhd_w_alloc(zh *h) {
   if (h->nt>1) {
     coeff_w[0] = crs_zhsam_alloc((h->t[0])->matel, (h->t[1])->matel);
     if (coeff_w[0] == 0) {
+      free(hd_w->isuppz);
       free(hd_w);
       free(work);
       free(rwork);
+      free(iwork);
       free(coeff_w);
       CFL_ERROR_NULL("alloc failed for coeff_w");
     }
@@ -197,9 +219,11 @@ zhd_w *zhd_w_alloc(zh *h) {
     for (i=1; i<h->nt-1; i++) {
       coeff_w[i] = crs_zhsam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
       if (coeff_w[i] == 0) {
+        free(hd_w->isuppz);
         free(hd_w);
         free(work);
         free(rwork);
+        free(iwork);
         free(coeff_w);
         for (j=0; j<i; j++) {
           crs_zhm_free(coeff_w[j]);
@@ -212,9 +236,11 @@ zhd_w *zhd_w_alloc(zh *h) {
   else {
     coeff_w[0] = crs_zhsm_alloc((h->t[0])->matel);
     if (coeff_w[0] == 0) {
+      free(hd_w->isuppz);
       free(hd_w);
       free(work);
       free(rwork);
+      free(iwork);
       free(coeff_w);
       CFL_ERROR_NULL("alloc failed for coeff_w");
     }
@@ -232,6 +258,7 @@ void zhd_w_free(zhd_w *hd_w) {
     crs_zhm_free(hd_w->coeff_w[i]);
   }
   free(hd_w->coeff_w);
+  free(hd_w->isuppz);
   free(hd_w->work);
   free(hd_w->rwork);
   free(hd_w->iwork);
@@ -252,6 +279,8 @@ void zhd_w_free(zhd_w *hd_w) {
  */
 void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
   int i;
+  int n = h->n, lda = h->n, ldz = h->n, il, iu, info;
+  double vl, vu;
   char lapack_err[] = "LAPACKE_zhpevd failed with error code: 0";
 
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
@@ -268,13 +297,13 @@ void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
   else
     crs_zhsm((h->t[0])->matel, hd_w->coeff_w[0], h->coeff[0]);
 
-  /* Convert the Hamiltonian from CRS to dense lower-triangular packed storage
-   * for diagonalization. */
-  crs_zhm2zhpa(hd_w->coeff_w[hd_w->lcoeff_w-1], h->ap);
+  /* Convert the Hamiltonian from CRS to dense lower-triangular storage for
+   * diagonalization. */
+  crs_zhm2zha(hd_w->coeff_w[hd_w->lcoeff_w-1], h->a);
 
-  int info;
-  info = LAPACKE_zhpevd_work(LAPACK_COL_MAJOR, 'V', 'L', h->n, h->ap, w, z,
-      h->n, hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
+  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'L', n, h->a, lda, vl,
+      vu, il, iu, ZHEEVR_ABSTOL, &(hd_w->m), w, z, ldz, hd_w->isuppz,
+      hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
       hd_w->liwork);
 
   if (info != 0) {

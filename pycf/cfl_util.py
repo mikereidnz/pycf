@@ -148,9 +148,9 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
             elif i == 1:
                 label += L2term(l)
             elif i != len(labels[li])-1:
-                label += "{: d},".format(l)
+                label += "{: >2d},".format(l)
             else:
-                label += "{: d}>".format(l)
+                label += "{: >3d}>".format(l)
 
         return label
 
@@ -380,10 +380,10 @@ def sh_fit_sigma(param, sh, shx, ndof):
 
     return sigma
 
-def print_as_c_array(a):
+def print_as_fortran_array(a):
     r"""
-    Print a numpy array in a form that makes it easy to include in a c program.
-    This is useful for generating input data for cfl tests.  
+    Print a two dimensional numpy array in a form that makes it easy to include
+    in a c program, using column major ordering.
     """
     s = "{"
     for i in range(a.shape[0]):
@@ -400,6 +400,33 @@ def print_as_c_array(a):
                 s += str(a_real)
             if ((i*a.shape[1]+j)<(a.shape[0]*a.shape[1])-1):
                 s += ", "
+    s += "};"
+    print(s)
+
+def print_as_c_array(a):
+    r"""
+    Print a two dimensional numpy array in a form that makes it easy to include
+    in a c program, using row major ordering.  
+    """
+    s = "{"
+    for i in range(a.shape[0]):
+        s += "{"
+        for j in range(a.shape[1]):
+            if (np.real(a[i,j]) == 0):
+                a_real = 0
+            else: 
+                a_real = np.real(a[i,j])
+            if (np.imag(a[i,j]) > 0):
+                s += "{0}+{1}*I".format(a_real, np.imag(a[i,j]))
+            elif (np.imag(a[i,j]) < 0):
+                s += "{0}{1}*I".format(a_real, np.imag(a[i,j]))
+            else:
+                s += str(a_real)
+            if j != a.shape[1]-1:
+                s += ","
+        s += "}"
+        if i != a.shape[0]-1:
+            s += ", "
     s += "};"
     print(s)
 

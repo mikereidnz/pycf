@@ -602,8 +602,8 @@ class SpinHamiltonian(object):
         #FIXME: delete below, move a back to return statement.
         res = np.real(zgels(np.asfortranarray(coeff_a, dtype=np.complex),
             np.asfortranarray(b, dtype=np.complex)))
-        print("res: \n{}\n".format(res.reshape(3,3)))
-        print("b: \n{}\n".format(b))
+        #print("res: \n{}\n".format(res.reshape(3,3)))
+        #print("b: \n{}\n".format(b))
         return(res)
 
     def get_H(self):

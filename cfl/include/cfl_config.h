@@ -37,4 +37,8 @@
 /* Numerical derivative step-size for covariance matrix estimation. */
 #define COV_DERIV_H           1e-10
 
+/* The absolute error tolerance for the eigenvalues of Hamiltonian
+ * diagonalization (see LAPACK zheevr for detailed description). */
+#define ZHEEVR_ABSTOL         -1
+
 #endif /* _TEST_DATA_H_ */
