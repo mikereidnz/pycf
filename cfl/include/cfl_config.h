@@ -39,6 +39,6 @@
 
 /* The absolute error tolerance for the eigenvalues of Hamiltonian
  * diagonalization (see LAPACK zheevr for detailed description). */
-#define ZHEEVR_ABSTOL         -1
+#define ZHEEVR_ABSTOL         -1.0
 
 #endif /* _TEST_DATA_H_ */
