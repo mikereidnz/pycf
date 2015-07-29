@@ -738,27 +738,27 @@ cdef class SpinHamiltonian:
             h = Hamiltonian([magzs] + h.tensors)
             h.set_coeff(tmp_h_coeff)
 
-        #if self.Iz != 0:
-        #    # If not present, add small hyperfine interaction to break
-        #    # degeneracy. 
-        #    if 'HYPS' not in h.coeff_dict:
-        #        for t in self.tensors:
-        #            if t.name == 'HYP':
-        #                hyps = 0.000 * t
-        #                hyps.name = 'HYPS'
+        if self.Iz != 0:
+            # If not present, add small hyperfine interaction to break
+            # degeneracy. 
+            if 'HYPS' not in h.coeff_dict:
+                for t in self.tensors:
+                    if t.name == 'HYP':
+                        hyps = 0.001 * t
+                        hyps.name = 'HYPS'
 
-        #    #if 'EQHYPS' not in h.coeff_dict:
-        #    #    for t in self.tensors:
-        #    #        if t.name == 'EQHYP':
-        #    #            eqhyps = 0.01 * t
-        #    #            eqhyps.name = 'EQHYPS'
+            #if 'EQHYPS' not in h.coeff_dict:
+            #    for t in self.tensors:
+            #        if t.name == 'EQHYP':
+            #            eqhyps = 0.01 * t
+            #            eqhyps.name = 'EQHYPS'
 
-        #    tmp_h_coeff = h.coeff_dict
-        #    tmp_h_coeff['HYPS'] = 1
-        #    #tmp_h_coeff['EQHYPS'] = 1
-        #    #h = Hamiltonian([hyps, eqhyps] + h.tensors)
-        #    h = Hamiltonian([hyps] + h.tensors)
-        #    h.set_coeff(tmp_h_coeff)
+            tmp_h_coeff = h.coeff_dict
+            tmp_h_coeff['HYPS'] = 1
+            #tmp_h_coeff['EQHYPS'] = 1
+            #h = Hamiltonian([hyps, eqhyps] + h.tensors)
+            h = Hamiltonian([hyps] + h.tensors)
+            h.set_coeff(tmp_h_coeff)
 
         
         (w, z) = h.diag()

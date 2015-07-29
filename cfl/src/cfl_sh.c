@@ -463,7 +463,7 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
   for (i=0; i<sh->dim; i++) {
     printf("%i\n", sh_sort[i]->index);
   }
-
+#if 0
   /* If the spin Hamiltonian depends on sz, sort according to it (pro_i != -1).
    * When sorting, we assume sz = 1, so sz degenerate blocks will be 2 by 2.  We
    * step through projected magz matrix elements and sort according to diagonal
@@ -484,6 +484,7 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       }
     }
   }
+#endif
   printf("after sz sort:\n");
   for (i=0; i<sh->dim; i++) {
     printf("%i\n", sh_sort[i]->index);
@@ -518,16 +519,18 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   for (i=0; i<shi_dim; i++) {
     for (j=0; j<shi_dim; j++) {
       a[i*shi_dim+j] = shp_p_w->b[(shp_p_w->sh_sort[i]->index)*sh_dim + j];
-      printf("%f ", a[i*shi_dim+j]);
+      //printf("%f ", a[i*shi_dim+j]);
+    }
+    //printf("\n");
+  }
+  for (i=0; i<sh_dim; i++) {
+    for (j=0; j<sh_dim; j++) {
+      printf("%f+%fI ", creal(shp_p_w->b[i*sh_dim + j]), cimag(shp_p_w->b[i*sh_dim + j]) );
     }
     printf("\n");
   }
-  //for (i=0; i<sh_dim; i++) {
-  //  for (j=0; j<sh_dim; j++) {
-  //    printf("%f ", shp_p_w->b[(shp_p_w->sh_sort[i]->index)*sh_dim + j]);
-  //  }
-  //  printf("\n");
-  //}
+
+  printf("\n");
 }
 
 

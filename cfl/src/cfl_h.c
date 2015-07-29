@@ -281,7 +281,7 @@ void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
   int i;
   int n = h->n, lda = h->n, ldz = h->n, il, iu, info;
   double vl, vu;
-  char lapack_err[] = "LAPACKE_zhpevd failed with error code: 0";
+  char lapack_err[] = "LAPACKE_zhpeevr failed with error code: 0";
 
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
    * result is stored in hd_w->coeff_w[i], where i is the number of tensors -1.
@@ -307,7 +307,7 @@ void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
       hd_w->liwork);
 
   if (info != 0) {
-    sprintf(lapack_err, "LAPACKE_zhpevd failed with error code: %i", info);
+    sprintf(lapack_err, "LAPACKE_zheevr failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
 }

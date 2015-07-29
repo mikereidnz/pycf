@@ -107,19 +107,6 @@ class ImportSLJM(object):
             for e in tensor_elements[t]:
                 tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
 
-
-        if state_labels[0][4]:
-            for t in tensor_matrices:
-                for e in tensor_elements[t]:
-                    if np.int(e[1]) % 2:
-                        tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
-                        tensor_matrices[t][np.int(e[0]), np.int(e[1])-1] = e[2]
-                        
-                    else:
-                        tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
-                        if (np.int(e[0]) != np.int(e[1])):
-                            tensor_matrices[t][np.int(e[0])-2, np.int(e[1])-1] = e[2]
-        
         if 'MAG11' in tensor_matrices and 'MAG10' in tensor_matrices:
             tensor_matrices['MAGX'] = tensor_matrices['MAG11'] * 1/np.sqrt(2)
             tensor_matrices['MAGY'] = tensor_matrices['MAGX'] * np.complex(0, -1)
@@ -140,7 +127,7 @@ class ImportSLJM(object):
             if np.count_nonzero(tensor_matrices[t])== 0:
                 print("Warning: all matrix elements of %s are zero." % t) 
             tensor_matrices[t] = tensor_matrices[t] + np.transpose(np.conj(tensor_matrices[t])) - np.diag(np.diag(tensor_matrices[t]))
-            tensors[t] = cfl.Tensor(t, np.asfortranarray(np.transpose(tensor_matrices[t])), sl)
+            tensors[t] = cfl.Tensor(t, np.asfortranarray(tensor_matrices[t]), sl)
 
         self.tensors = tensors
         self.__dict__.update(tensors)
