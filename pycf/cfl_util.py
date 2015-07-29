@@ -147,19 +147,21 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
                 label = "|{:d}".format(l)
             elif i == 1:
                 label += L2term(l)
-            elif i != len(labels[li])-1:
+            elif i == 2:
                 label += "{: >2d},".format(l)
+            elif i != len(labels[li])-1:
+                label += "{: >3d},".format(l)
             else:
                 label += "{: >3d}>".format(l)
 
         return label
 
-    
+    #z = np.transpose(z) 
     s = "Energy level summary\n"
     s+= "====================\n\n"
     sort_list = []
     for i in range(len(z)):
-        sort_list += [np.argsort(np.abs(z[i,:]))[::-1]]
+        sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
     heading = "Lev.  " + ("Percentage                 " + "State" + " "*(len(fmt_label(0, labels))-4))*nstates + "       Theory"
     if ex != None:
         heading += "     Experiment     Difference \n"
@@ -170,11 +172,11 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
     ex_i=0
     for i in range(len(z)):
         line = "{0:<6}".format(i+1)
-        N = np.sum(np.abs(z[i, :]))
+        N = np.sum(np.abs(z[:, i]))
         for j in range(nstates):
             si = sort_list[i][j]
             
-            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[i,si], np.abs(z[i,si])/N, si+1, fmt_label(si, labels))
+            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, si+1, fmt_label(si, labels))
         s += line + " {: >12.4f}".format(w[i])
         if ex != None:
             if ex[ex_i,0] == i+1:
