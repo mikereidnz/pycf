@@ -125,13 +125,17 @@ zhd_w *zhd_w_alloc(zh *h) {
     CFL_ERROR_NULL("malloc failed for hd_w->isuppz");
   }
 
+  /* Set the absolute error tolerance to which each eigenvalue/eigenvector is
+   * required to the safe minimum machine precision. */
+  hd_w->abstol = LAPACKE_dlamch('S');
+
   /* zheevr workspace query. */
   lwork = -1;
   lrwork = -1;
   liwork = -1;
 
-  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'L', n, h->a, lda, vl, vu, il, iu,
-      ZHEEVR_ABSTOL, &(hd_w->m), NULL, NULL, ldz, hd_w->isuppz, &wquery, lwork, &rwquery, lrwork,
+  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, h->a, lda, vl, vu, il, iu,
+      hd_w->abstol, &(hd_w->m), NULL, NULL, ldz, hd_w->isuppz, &wquery, lwork, &rwquery, lrwork,
       &iwquery, liwork);
   if (info != 0) {
     free(hd_w->isuppz);
@@ -301,8 +305,8 @@ void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
    * diagonalization. */
   crs_zhm2zha(hd_w->coeff_w[hd_w->lcoeff_w-1], h->a);
 
-  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'L', n, h->a, lda, vl,
-      vu, il, iu, ZHEEVR_ABSTOL, &(hd_w->m), w, z, ldz, hd_w->isuppz,
+  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, h->a, lda, vl,
+      vu, il, iu, hd_w->abstol, &(hd_w->m), w, z, ldz, hd_w->isuppz,
       hd_w->work, hd_w->lwork, hd_w->rwork, hd_w->lrwork, hd_w->iwork,
       hd_w->liwork);
 

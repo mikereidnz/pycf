@@ -337,15 +337,15 @@ zshp_p_w *zshp_p_w_alloc(zsh *sh) {
     CFL_ERROR_NULL("malloc failed for shp_p_w");
   }
 
-  //a = (complex double *) calloc(n*sh->dim, sizeof(complex double));
-  a = (complex double *) calloc(n*n, sizeof(complex double));
+  a = (complex double *) calloc(n*sh->dim, sizeof(complex double));
+  //a = (complex double *) calloc(n*n, sizeof(complex double));
   if (a == 0) {
     free(shp_p_w);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
-  //b = (complex double *) calloc(sh->dim*sh->dim,sizeof(complex double));
-  b = (complex double *) calloc(n*n,sizeof(complex double));
+  b = (complex double *) calloc(sh->dim*sh->dim,sizeof(complex double));
+  //b = (complex double *) calloc(n*n,sizeof(complex double));
   if (b == 0) {
     free(shp_p_w);
     free(a);
@@ -441,7 +441,13 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       /* hz is packed column wise; col_offset is the index of the first element
        * of the current column. */
       col_offset = (sh->l+i)*sh->pt_dim;
-      
+       
+      for (j=0; j<sh->pt_dim; j++) {
+        if (cabs(hz[col_offset+j]) > cabs(hz[col_offset+pr_i])) {
+          pr_i = j;
+        }
+      }
+      printf("i=%i, pr_i=%i, pr=%f, label=%i\n", i, pr_i, cabs(hz[col_offset+pr_i]), sh->pt_slabels->labels[pr_i][shp_p_w->iz_i]);  
       /* The i index will enumerate all unique spin Hamiltonian states.  We record
        * each i and the associated iz label of the corresponding principal
        * component. */
@@ -581,7 +587,7 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
       &one, &hz[(sh->l)*d], d, shp_p_w->a, d, &zero, shp_p_w->b, sh->dim);
 
 
-  ///* Calculate H V. */
+///* Calculate H V. */
   //cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, d, d, &one, pd->pt, d, hz,
   //    d, &zero, shp_p_w->a, d);
   ///* Calculate V^dag (HV). */

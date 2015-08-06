@@ -89,7 +89,7 @@ class ImportSLJM(object):
         else:
             sl = [(int(l[0]), term2L(l[1]), int(l[2]), int(l[3])) for l in state_labels]
             label_key = "SLJM"
-        
+
         data = np.loadtxt('%s.txt' % name, skiprows = 2)
         # Generate a dictionary with keys for each tensor and lists of the form
         # [row, col, matel] as values.

@@ -55,6 +55,8 @@ typedef struct {
   int m;
   /* The support of the eigenvectors in Z. */
   int *isuppz;
+  /* The absolute error tolerance to which each eigenvalue/eigenvector is required. */
+  double abstol;
   /* Workspace for LAPACKE_zheevr. */
   complex double *work;
   /* Dimensions of LAPACKE_zheevr work. */
