@@ -393,18 +393,26 @@ int main (void)
   
   complex double ce_gvalues[9] = {1.473, 0, 0, 0, 1.473, 0, 0, 0, 2.765};
  
-  /* Dummy state label preparation. */
+  /* State label preparation. */
   int nstates = 14;
-  char *s[nstates];
+  char label_key[] = "SLJM";
+  static int l_array[14][4] = {
+    {1,3,7,7}, {1,3,5,5}, {1,3,7,5}, {1,3,5,3}, {1,3,7,3}, {1,3,5,1}, {1,3,7,1},
+    {1,3,5,-1}, {1,3,7,-1}, {1,3,5,-3}, {1,3,7,-3}, {1,3,5,-5}, {1,3,7,-5},
+    {1,3,7,-7}
+  };
+
+  int **l;
+  l = (int **) malloc(nstates*sizeof(int *));
+  if (l == 0) {
+      printf("Error; label array **l malloc failed\n");
+  }
   for (i=0; i<nstates; i++) {
-    s[i] = malloc(nstates*sizeof(char));
-    if (s[i] == 0) 
-      printf("Error; label array s malloc failed\n");
-    sprintf(s[i], "l=%i", i);
+    l[i] = l_array[i];
   }
 
   sl *states;
-  states = sl_alloc(4, s);
+  states = sl_alloc(nstates, label_key, l);
 
   /* Tensor allocs. */
   zt *eavg, *zeta, *C20, *C40, *C44, *C60, *C64, *magx, *magy, *magz;
@@ -437,7 +445,7 @@ int main (void)
 
   printf("Ce:LiYF4 diagonalization:\n");
   dequ_chk(celiyf4_diag_res, w, 14);
-
+#if 0
   /* Inversion test. */
   zsh_inv_data celiyf4_inv_data;
   celiyf4_inv_data.a = ce_zeeman_inv;
@@ -449,7 +457,7 @@ int main (void)
   printf("Ce:LiYF4 inversion:\n");
   zequ_chk(ce_gvalues, ce_zeeman_term, 9);
   zshi_w_free(celiyf4_inv_work);
-
+#endif
   /* Manually prepare array of parameter structs. */
   param_type efit_p0;
   efit_p0.type = 'r';
@@ -501,14 +509,50 @@ int main (void)
   cfl_min_free(efit_min_obj);
   cfl_min_free(efit_lmin_obj);
   efit_data_free(efit_d);
+  zh_free(h);
 
   printf("Energy level only fit:\n");
   printf("fmin = %.6f\n", fmin);
   for (i=0; i<6; i++) {
     printf("%.5f\n", ce_x0[i]);
   }
-  
   /* Spin Hamiltonian and energy level fit. */
+  zt *sh_tensors[8] = {eavg, zeta, C20, C40, C44, C60, C64, magz};
+  zt *shpro_tensors[3] = {magx, magy, magz};
+
+  complex double sh_celiyf4_coeff[8] = {1535.1277, 625.6990, 297.8906,
+    -1328.1522, -1282.4766, -191.5100, -1743.1424+692.8662*I, 0.0001};
+
+  complex double *inv_a[] = {ce_zeeman_inv};
+  char *inter[] = {"zeeman"};
+  zsh *ce_sh;
+  eshfit_data *eshfit_d;
+  cfl_min_obj *eshfit_lmin_obj, *eshfit_min_obj;
+  shx_data ce_zeeman_exp_data;
+
+
+  ce_zeeman_exp_data.pa = ce_gvalues;
+  ce_zeeman_exp_data.chisq_weight = 4e6;
+  shx_data *shx[1] = {&ce_zeeman_exp_data};
+
+  h = zh_alloc(14, 8, sh_tensors);
+  zh_set_coeff(h, sh_celiyf4_coeff);
+
+  ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
+  zsh_set_pro(ce_sh, shpro_tensors, 0);
+  eshfit_d = eshfit_data_alloc(h, NULL, sh_celiyf4_coeff, &ce_ex_data, ce_sh,
+      shx, 6, p);
+  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, &eshfit_cov, 6, eshfit_d,
+      gsl_vector_bfgs2);
+  eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
+  status = cfl_min(ce_x0, &fmin, cov, eshfit_min_obj);
+
+  cfl_min_free(eshfit_min_obj);
+  cfl_min_free(eshfit_lmin_obj);
+  eshfit_data_free(eshfit_d);
+  zsh_free(ce_sh);
+  zh_free(h);
+#if 0
   zsh *ce_x_sh, *ce_y_sh, *ce_z_sh;
   ce_x_sh = zsh_alloc(2, "magx");
   ce_y_sh = zsh_alloc(2, "magy");
@@ -576,11 +620,8 @@ int main (void)
   zsh_free(ce_x_sh);
   zsh_free(ce_y_sh);
   zsh_free(ce_z_sh);
+#endif
 
-  zh_free(h);
-  for (i=0; i<nstates; i++) {
-    free(s[i]);
-  }
   free(w);
   free(z);
 
@@ -596,6 +637,8 @@ int main (void)
   zt_free(magy);
   zt_free(magz);
   sl_free(states);
+  free(cov);
+  free(l);
   
   return 0;
 }  

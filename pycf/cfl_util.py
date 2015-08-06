@@ -39,6 +39,74 @@ def uline_char(s):
     else:
         return s + ul
 
+def term2L(c):
+    r"""
+    Convert an L quantum number term character to its numerical value.
+
+    Parameters
+    ----------
+    c : string
+        The L quantum number term character to be converted. 
+    """
+    if c == 'S': 
+        return 0
+    elif c == 'P':
+        return 1
+    elif c == 'D':
+        return 2
+    elif c == 'F':
+        return 3
+    elif c == 'G':
+        return 4
+    elif c == 'H':
+        return 5
+    elif c == 'I':
+        return 6
+    elif c == 'K':
+        return 7
+    elif c == 'L':
+        return 8
+    elif c == 'M':
+        return 9
+    elif c == 'N':
+        return 10
+    else:
+        raise NotImplementedError("L quantum number term symbols beyond N are not supported.")
+
+def L2term(i):
+    r"""
+    Convert an L quantum number numerical value to its term character.
+
+    Parameters
+    ----------
+    i : integer
+        The L quantum number numerical value to be converted. 
+    """
+    if i == 0: 
+        return 'S'
+    elif i == 1:
+        return 'P'
+    elif i == 2:
+        return 'D'
+    elif i == 3:
+        return 'F'
+    elif i == 4:
+        return 'G'
+    elif i == 5:
+        return 'H'
+    elif i == 6:
+        return 'I'
+    elif i == 7:
+        return 'K'
+    elif i == 8:
+        return 'L'
+    elif i == 9:
+        return 'M'
+    elif i == 10:
+        return 'N'
+    else:
+        raise NotImplementedError("L quantum number values greater than 10 are not supported.")
+
 def gen_pycf_summary():
     r"""
     Print the pycf version and date/time.
@@ -72,13 +140,29 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
     sigma : float, optional
         The standard deviation for the energy level chi^2.
     """
-    
+
+    def fmt_label(li, labels):
+        for i,l in enumerate(labels[li]):
+            if i == 0:
+                label = "|{:d}".format(l)
+            elif i == 1:
+                label += L2term(l)
+            elif i == 2:
+                label += "{: >2d},".format(l)
+            elif i != len(labels[li])-1:
+                label += "{: >3d},".format(l)
+            else:
+                label += "{: >3d}>".format(l)
+
+        return label
+
+    #z = np.transpose(z) 
     s = "Energy level summary\n"
     s+= "====================\n\n"
     sort_list = []
     for i in range(len(z)):
-        sort_list += [np.argsort(np.abs(z[i,:]))[::-1]]
-    heading = "Lev.  " + ("Percentage                 " + "State" + " "*(len(labels[0])-4))*nstates + "       Theory"
+        sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
+    heading = "Lev.  " + ("Percentage                 " + "State" + " "*(len(fmt_label(0, labels))-4))*nstates + "       Theory"
     if ex != None:
         heading += "     Experiment     Difference \n"
     else:
@@ -88,10 +172,11 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
     ex_i=0
     for i in range(len(z)):
         line = "{0:<6}".format(i+1)
-        N = np.sum(np.abs(z[i, :]))
+        N = np.sum(np.abs(z[:, i]))
         for j in range(nstates):
             si = sort_list[i][j]
-            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[i,si], np.abs(z[i,si])/N, si+1, labels[si])
+            
+            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, si+1, fmt_label(si, labels))
         s += line + " {: >12.4f}".format(w[i])
         if ex != None:
             if ex[ex_i,0] == i+1:
@@ -297,7 +382,56 @@ def sh_fit_sigma(param, sh, shx, ndof):
 
     return sigma
 
+def print_as_fortran_array(a):
+    r"""
+    Print a two dimensional numpy array in a form that makes it easy to include
+    in a c program, using column major ordering.
+    """
+    s = "{"
+    for i in range(a.shape[0]):
+        for j in range(a.shape[1]):
+            if (np.real(a[i,j]) == 0):
+                a_real = 0
+            else: 
+                a_real = np.real(a[i,j])
+            if (np.imag(a[i,j]) > 0):
+                s += "{0}+{1}*I".format(a_real, np.imag(a[i,j]))
+            elif (np.imag(a[i,j]) < 0):
+                s += "{0}{1}*I".format(a_real, np.imag(a[i,j]))
+            else:
+                s += str(a_real)
+            if ((i*a.shape[1]+j)<(a.shape[0]*a.shape[1])-1):
+                s += ", "
+    s += "};"
+    print(s)
 
+def print_as_c_array(a):
+    r"""
+    Print a two dimensional numpy array in a form that makes it easy to include
+    in a c program, using row major ordering.  
+    """
+    s = "{"
+    for i in range(a.shape[0]):
+        s += "{"
+        for j in range(a.shape[1]):
+            if (np.real(a[i,j]) == 0):
+                a_real = 0
+            else: 
+                a_real = np.real(a[i,j])
+            if (np.imag(a[i,j]) > 0):
+                s += "{0}+{1}*I".format(a_real, np.imag(a[i,j]))
+            elif (np.imag(a[i,j]) < 0):
+                s += "{0}{1}*I".format(a_real, np.imag(a[i,j]))
+            else:
+                s += str(a_real)
+            if j != a.shape[1]-1:
+                s += ","
+        s += "}"
+        if i != a.shape[0]-1:
+            s += ", "
+    s += "};"
+    print(s)
 
-
-
+def MHz2cm1(val):
+    r"Convert MHz to cm$^{-1}$."
+    return (1.0/29979.2458)*val

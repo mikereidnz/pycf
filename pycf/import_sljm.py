@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Filename = import_sljm.py
 
-#   Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+#   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -20,8 +20,8 @@
 from __future__ import division
 import numpy as np
 import re
-
 import cfl
+from cfl_util import *
 
 def get_tensor_dim(source):
     "Generator for extracting tensor dimensions from ``*.mi_`` files."
@@ -77,14 +77,22 @@ class ImportSLJM(object):
                 dim = int(d[0])
 
         with open("%s.st_" % name, 'r') as f:
-            state_labels = re.findall(r'[^[]+(\[[\w\s,-]+[)>])', f.read())
+            state_labels = re.findall(r'[^[]*\[(\d+)(\w)\s+(\d+)\s*([\d-]+),?\s*([\d-]*)[)>]', f.read())
         if dim != len(state_labels):
             raise RuntimeError("Parsing state labels file %s.st_ failed.  This "
                     "is indicative of either a limitation of the parsing regex,"
                     " or a corrupt *.st_ file." % name)
 
+        if state_labels[0][4]:
+            sl = [(int(l[0]), term2L(l[1]), int(l[2]), int(l[3]), int(l[4])) for l in state_labels]
+            label_key = "SLJMI"
+        else:
+            sl = [(int(l[0]), term2L(l[1]), int(l[2]), int(l[3])) for l in state_labels]
+            label_key = "SLJM"
+
         data = np.loadtxt('%s.txt' % name, skiprows = 2)
-        # Generate a dictionary of lists, with list elements [row, col, matel].
+        # Generate a dictionary with keys for each tensor and lists of the form
+        # [row, col, matel] as values.
         i = 0
         tensor_elements = {}
         tensor_matrices = {}
@@ -97,25 +105,29 @@ class ImportSLJM(object):
         # Populate tensor matrices with non-zero matrix elements.
         for t in tensor_matrices:
             for e in tensor_elements[t]:
-                tensor_matrices[t][np.real(e[0])-1, np.real(e[1])-1] = e[2]
-        
+                tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
+
         if 'MAG11' in tensor_matrices and 'MAG10' in tensor_matrices:
             tensor_matrices['MAGX'] = tensor_matrices['MAG11'] * 1/np.sqrt(2)
             tensor_matrices['MAGY'] = tensor_matrices['MAGX'] * np.complex(0, -1)
             tensor_matrices['MAGZ'] = tensor_matrices['MAG10']
-        
+
+
         # AHYP is the L.I part and BHYP is (sC2).I part
         if 'AHYP' in tensor_matrices and 'BHYP' in tensor_matrices:
             tensor_matrices['HYP'] = tensor_matrices['AHYP'] - np.sqrt(10) * tensor_matrices['BHYP']
+
+        #np.set_printoptions(linewidth=240)
        
         # Create tensors; since tensors use hermitian matrix compressed row
         # storage we do not require the lower triangular half.
-        sl = cfl.StateLabels(state_labels)
+        sl = cfl.StateLabels(label_key, sl)
         tensors = {}
         for t in tensor_matrices:
             if np.count_nonzero(tensor_matrices[t])== 0:
                 print("Warning: all matrix elements of %s are zero." % t) 
-            tensors[t] = cfl.Tensor(t, tensor_matrices[t], sl)
+            tensor_matrices[t] = tensor_matrices[t] + np.transpose(np.conj(tensor_matrices[t])) - np.diag(np.diag(tensor_matrices[t]))
+            tensors[t] = cfl.Tensor(t, np.asfortranarray(tensor_matrices[t]), sl)
 
         self.tensors = tensors
         self.__dict__.update(tensors)

@@ -56,6 +56,9 @@ for i in range(3):
     sh.add_term('bgs', g)
     bgs += [sh.terms['bgs']]
 
+
+print(sh.terms['bgs'].shape)
+
 sh_inv = SpinHamiltonian(['bgs'], B = [B_m[:, i] for i in range(3)], S = 1/2, I
         = 7/2, inv = True)
 sh_inv.add_H_term('bgs', bgs)

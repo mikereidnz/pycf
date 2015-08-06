@@ -2,6 +2,7 @@ CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
 CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -I/usr/include/lapacke 
+CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke 
 LDLIBS=-llapacke -llapack -lblas -lgfortran -lgslcblas -lgsl -lm -lnlopt 
 LDFLAGS=
 MKL_CFLAGS=-mkl -g -O3 -fPIC -std=c99 -ansi-alias -xhost -lpthread -openmp
@@ -38,6 +39,10 @@ libcfl.a: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl
 	$(AR) $(ARFLAGS) $@ $^
 
 opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o cfl_error.h 
+
+sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
+
+sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
 
 h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
 

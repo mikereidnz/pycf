@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,12 +25,14 @@
 typedef struct {
   /* The number of states. */
   size_t n;
-  /* Pointer to arrays of length l of state labels. */
-  char **states;
+  /* String identifying the type of label.  Valid characters are S, L, J, M, and
+   * I, and their position in key specifies the location in each label. */
+  char *key;
+  /* Array of length n containing arrays of length strlen(key). */
+  int **labels;
   /* Pointer to hash of states. */
   long hash;
 } sl;
-
  
 /* The tensor structure for complex valued matrix elements. */
 typedef struct {
@@ -39,20 +41,19 @@ typedef struct {
   /* Dimension of the matrix elements. */
   int n;
   /* State labels of the tensor. */
-  sl *states;
+  sl *slabels;
   /* Pointer to the matrix elements stored in CRS form. */
   crs_zhm *matel;
 } zt; 
-
 
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
 
-sl *sl_alloc(size_t n, char **states);
+sl *sl_alloc(size_t n, char *key, int **labels);
 void sl_free(sl *l);
-zt *zt_alloc(char *name, complex double *a, size_t n, sl *states);
+zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels);
 void zt_free(zt *t);
 zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2);
 zt *zt_s(char *name, zt *t, complex double s);

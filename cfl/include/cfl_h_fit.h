@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
  * optimization routines into complex parameters for Hamiltonian
  * diagonalization. */
 typedef struct {
-  /* Indicator whether real, purely imaginary, or complex. */
+  /* Indicator whether parameter is real, purely imaginary, or complex. */
   int type;
   /* Complex (resultant) parameter array index. */
   size_t index;
@@ -53,13 +53,11 @@ typedef struct {
   complex double *pa;
   /* chi^2 weighting. */
   double chisq_weight;
-  /* Pointer to spin Hamiltonian inversion data. */
-  zsh_inv_data *inv_data; 
 } shx_data;
 
 /* Data for covariance matrix estimation. */
 typedef struct {
-  /* Index of parameter with repsect to differentiate. */
+  /* Index of parameter with repsect to which we differentiate. */
   size_t par_index;
   /* Index of current observable being differentiated w.r.t. parameters. */
   size_t obs_index;
@@ -68,9 +66,12 @@ typedef struct {
   double *df_x;
   /* Pointer to data for minimization objective function. */
   void *obj_f_data;
-  /* The index for the current spin Hamiltonian; required for cases containing
-   * Zeeman terms, which require three spin Hamiltonians per inversion. */
-  size_t sh_index;
+  /* Array that maps obs_index, minus the number of energy level observables, to
+   * the correct spin Hamlitonian interaction. */
+  size_t *shi_index;
+  /* Array that maps obs_index, minus the number of energy level observables, to
+   * the element of the spin Hamiltonian specified by shi_index. */
+  size_t *shel_index;
 } cov_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -113,19 +114,10 @@ typedef struct {
   complex double *hpro_evect;
   /* Projection Hamiltonian eigenvalue array. */
   double *hpro_eval;
-  /* Array of pointers to spin Hamiltonians. */
-  zsh **sh_a;
-  /* Number of spin Hamiltonians. */
-  size_t nsh;
-  /* The index of the first Zeeman term; is -1 for cases without Zeeman
-   * interaction. */
-  size_t nzeeman;
-  /* Number of spin Hamiltonian inversions (depends on term types). */
-  size_t ninv;
-  /* Array of pointers to spin Hamiltonian projection workspaces. */
-  zshp_w **shp_w_array;
-  /* Array of pointers to spin Hamiltonian inversion workspaces. */
-  zshi_w **shi_w_array;
+  /* Pointer to the spin Hamiltonian. */
+  zsh *sh;
+  /* Pointer to spin Hamiltonian parameter projection workspace. */
+  zshp_w *shp_w;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
   complex double **sh_pa;
   /* Experimental energy level data */
@@ -150,9 +142,8 @@ extern "C" {
 efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t
     n_zx, param_type **p);
 void efit_data_free(efit_data *data);
-eshfit_data *eshfit_data_alloc(zsh **sh, size_t nsh, size_t nzeeman, zh *h, zh
-    *hpro, complex double *coeff, ex_data *ex, shx_data **shx, size_t n_zx,
-    param_type **p);
+eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
+    *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
     cfl_min_obj *min_obj);

@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,23 +36,25 @@
 #include <cfl_tensor.h>
 
 /*
- * Implement the djb2 hash algorithm for arrays of strings. For details on djb2,
- * see: http://www.cse.yorku.ca/~oz/hash.html
+ * FIXME: replace with integer hash function; such as:
+ * http://isthe.com/chongo/tech/comp/fnv/
+ * Implement the djb2 hash algorithm for array of int arrays.  For details
+ * on djb2, see: http://www.cse.yorku.ca/~oz/hash.html
  *
  * Parameters
  * ----------
- *  n         The length of the array.
- *  str_a     Array of strings to hash. 
+ *  n         The length of the array of int arrays.
+ *  nc        The length of the int arrays.
+ *  a         Array of int arrays to hash. 
  */
-long state_hash(size_t n, char **str_a) {
+long state_hash(size_t n, size_t nc, int **a) {
   unsigned long hash = 5381;
-  int i, c;
-  char *str;
+  char c;
+  int i, j;
    
   for (i=0; i<n; i++) {
-    str = str_a[i];
-    while (c = *str++) {
-      /* hash * 33 + c */
+    for (j=0; j<nc; j++) {
+      c = (char ) a[i][j];
       hash = ((hash << 5) + hash) + c;
     }
   }
@@ -65,40 +67,55 @@ long state_hash(size_t n, char **str_a) {
  * Parameters
  * ----------
  *  n         The number of states.
- *  states    Array of strings containing state labels; it is assumed that all
- *            state label strings are of the same length. 
+ *  key       String identifying the type of each state label.  Valid keys are:
+ *            S, L, J, M and I, and the order in which they are listed must
+ *            correspond to the order used in the label array for each state. 
+ *  labels    Char array corresponding to the value of each state label.
+ *            The order is dictade by the key array.  To avoid half integers,
+ *            label values are always stored as twice their real value.  N.B.:
+ *            label arrays are not strings, since 0 is a perfectly valid state
+ *            label yet would yield a premature string termination. 
  */
-sl *sl_alloc(size_t n, char **states) {
+sl *sl_alloc(size_t n, char *key, int **labels) {
   sl *l;
   int i, j;
-  size_t sl_len;
+  size_t nl;
 
   l = (sl *) malloc(sizeof(sl));
   if (l == 0) {
     CFL_ERROR_NULL("malloc failed for sl");
   }
-  sl_len = strlen(states[0])+1;
+  nl = strlen(key);
 
-  l->states = (char **) malloc(n*sizeof(char *));
-  if (l->states == 0) {
+  l->key = (char *) malloc((nl+1)*sizeof(char));
+  if (l->key == 0) {
     free(l);
-    CFL_ERROR_NULL("malloc failed for l.states");
+    CFL_ERROR_NULL("malloc failed for l.key");
+  }
+  strcpy(l->key, key);
+
+  l->labels = (int **) malloc(n*sizeof(int *));
+  if (l->labels == 0) {
+    free(l->key);
+    free(l);
+    CFL_ERROR_NULL("malloc failed for l.labels");
   }
 
   for (i=0; i<n; i++) {
-    l->states[i] = (char *) malloc(sl_len*sizeof(char));
-    if (l->states[i] == 0) {
+    l->labels[i] = (int *) malloc(nl*sizeof(int));
+    if (l->labels[i] == 0) {
       for (j=0; j<i; j++) {
-        free(l->states[j]);
+        free(l->labels[j]);
       }
-      free(l->states);
+      free(l->key);
+      free(l->labels);
       free(l);
-      CFL_ERROR_NULL("malloc failed for l.states[i]");
+      CFL_ERROR_NULL("malloc failed for l.labels[i]");
     }
-    strcpy(l->states[i], states[i]);
+    memcpy(l->labels[i], labels[i], nl*sizeof(int));
   }
   
-  l->hash = state_hash(n, l->states);
+  l->hash = state_hash(n, nl, l->labels);
   l->n = n;
   
   return l;
@@ -108,9 +125,10 @@ void sl_free(sl *l) {
   int i;
 
   for (i=0; i<l->n; i++) {
-    free(l->states[i]);
+    free(l->labels[i]);
   }
-  free(l->states);
+  free(l->key);
+  free(l->labels);
   free(l);
 }
 
@@ -122,9 +140,9 @@ void sl_free(sl *l) {
  *  name    A unique identifier of the tensor. 
  *  a       Pointer to array containing the matrix elements. 
  *  n       The dimension of the matrix element matrix.
- *  states  Pointer to state labels struct.
+ *  slabels Pointer to state labels struct.
  */
-zt *zt_alloc(char *name, complex double *a, size_t n, sl *states) {
+zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels) {
   zt *t;
   size_t sl_len;
   t = (zt *) malloc(sizeof(zt));
@@ -140,7 +158,7 @@ zt *zt_alloc(char *name, complex double *a, size_t n, sl *states) {
 
   t->name = name;
   t->n = n;
-  t->states = states;
+  t->slabels = slabels;
   t->matel = ma;
   
   return t;
@@ -170,7 +188,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
   if (t1->n != t2->n) {
     CFL_ERROR_NULL("dimensions of tensors to be added do not match");
   }
-  else if (t1->states->hash != t2->states->hash) {
+  else if (t1->slabels->hash != t2->slabels->hash) {
     CFL_ERROR_NULL("state labels of tensors to be added don't match");
   }
 
@@ -188,7 +206,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
 
   t->name = name;
   t->n = t1->n;
-  t->states = t1->states;
+  t->slabels = t1->slabels;
 
   return t;
 }
@@ -220,7 +238,7 @@ zt *zt_s(char *name, zt *t, complex double s) {
 
   ts->name = name;
   ts->n = t->n;
-  ts->states = t->states;
+  ts->slabels = t->slabels;
 
   return ts;
 } 
