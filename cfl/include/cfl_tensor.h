@@ -43,7 +43,7 @@ typedef struct {
   /* State labels of the tensor. */
   sl *slabels;
   /* Pointer to the matrix elements stored in CRS form. */
-  crs_zhm *matel;
+  zhcrs *matel;
 } zt; 
 
 /* Function prototypes. */

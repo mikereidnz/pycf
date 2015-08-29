@@ -280,7 +280,7 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
 
     /* Convert tensor matrix elements to dense storage, as required by the blas
      * zhemm and ztrmm functions in zshp_p. */
-    crs_zhm2zha((t[i])->matel, (sh->pro_data[i])->pt);
+    zhcrs2zha((t[i])->matel, (sh->pro_data[i])->pt);
     
     /* Record the size of each spin Hamiltonian interaction term; for zeeman
      * interactions we need to record the same size for three tensors. */

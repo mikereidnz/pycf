@@ -178,14 +178,14 @@ zhd_w *zhd_w_alloc(zh *h) {
 
   /* Allocation for matrix element scaling an addition. */
   int i, j;
-  crs_zhm **coeff_w;
+  zhcrs **coeff_w;
 
   if (h->nt>1) {
-    coeff_w = (crs_zhm **) malloc((h->nt-1)*sizeof(crs_zhm *));
+    coeff_w = (zhcrs **) malloc((h->nt-1)*sizeof(zhcrs *));
     hd_w->lcoeff_w = h->nt-1;
   }
   else {
-    coeff_w = (crs_zhm **) malloc((h->nt)*sizeof(crs_zhm *));
+    coeff_w = (zhcrs **) malloc((h->nt)*sizeof(zhcrs *));
     hd_w->lcoeff_w = h->nt;
   }
   if (coeff_w == 0) {
@@ -202,14 +202,14 @@ zhd_w *zhd_w_alloc(zh *h) {
    * alpha and beta complex scalars.  The first two matrix elements are summed
    * directly with respective coefficients set for alpha and beta.  Further
    * matrix elements are then iteratively added to the previous result.  Since
-   * crs_zhsam_alloc also calculates the row_ptr array and number of non-zero
+   * zhcrssam_alloc also calculates the row_ptr array and number of non-zero
    * elements of C, we have to run through the actual additions in order to
    * determine these values for each of the intermediate sums.  Finally, in case
-   * there is only a single tensor, we use the scaling function crs_zhsm for
+   * there is only a single tensor, we use the scaling function zhcrssm for
    * which we still have to allocate separate memory. 
    */
   if (h->nt>1) {
-    coeff_w[0] = crs_zhsam_alloc((h->t[0])->matel, (h->t[1])->matel);
+    coeff_w[0] = zhcrssam_alloc((h->t[0])->matel, (h->t[1])->matel);
     if (coeff_w[0] == 0) {
       free(hd_w->isuppz);
       free(hd_w);
@@ -219,9 +219,9 @@ zhd_w *zhd_w_alloc(zh *h) {
       free(coeff_w);
       CFL_ERROR_NULL("alloc failed for coeff_w");
     }
-    crs_zhsam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], 1, 1);
+    zhcrssam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], 1, 1);
     for (i=1; i<h->nt-1; i++) {
-      coeff_w[i] = crs_zhsam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
+      coeff_w[i] = zhcrssam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
       if (coeff_w[i] == 0) {
         free(hd_w->isuppz);
         free(hd_w);
@@ -230,15 +230,15 @@ zhd_w *zhd_w_alloc(zh *h) {
         free(iwork);
         free(coeff_w);
         for (j=0; j<i; j++) {
-          crs_zhm_free(coeff_w[j]);
+          zhcrs_free(coeff_w[j]);
         }
         CFL_ERROR_NULL("alloc failed for coeff_w");
       }
-      crs_zhsam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], 1, 1);
+      zhcrssam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], 1, 1);
     }
   }
   else {
-    coeff_w[0] = crs_zhsm_alloc((h->t[0])->matel);
+    coeff_w[0] = zhcrssm_alloc((h->t[0])->matel);
     if (coeff_w[0] == 0) {
       free(hd_w->isuppz);
       free(hd_w);
@@ -259,7 +259,7 @@ void zhd_w_free(zhd_w *hd_w) {
   int i;
 
   for (i=0; i<hd_w->lcoeff_w; i++) {
-    crs_zhm_free(hd_w->coeff_w[i]);
+    zhcrs_free(hd_w->coeff_w[i]);
   }
   free(hd_w->coeff_w);
   free(hd_w->isuppz);
@@ -291,19 +291,19 @@ void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
    * result is stored in hd_w->coeff_w[i], where i is the number of tensors -1.
    */
   if (h->nt>1) {
-    crs_zhsam((h->t[0])->matel, (h->t[1])->matel, hd_w->coeff_w[0], h->coeff[0],
+    zhcrssam((h->t[0])->matel, (h->t[1])->matel, hd_w->coeff_w[0], h->coeff[0],
         h->coeff[1]);
     for (i=1; i<hd_w->lcoeff_w; i++) {
-      crs_zhsam(hd_w->coeff_w[i-1], (h->t[i+1])->matel, hd_w->coeff_w[i], 1,
+      zhcrssam(hd_w->coeff_w[i-1], (h->t[i+1])->matel, hd_w->coeff_w[i], 1,
           h->coeff[i+1]);
     }
   }
   else
-    crs_zhsm((h->t[0])->matel, hd_w->coeff_w[0], h->coeff[0]);
+    zhcrssm((h->t[0])->matel, hd_w->coeff_w[0], h->coeff[0]);
 
   /* Convert the Hamiltonian from CRS to dense lower-triangular storage for
    * diagonalization. */
-  crs_zhm2zha(hd_w->coeff_w[hd_w->lcoeff_w-1], h->a);
+  zhcrs2zha(hd_w->coeff_w[hd_w->lcoeff_w-1], h->a);
 
   info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, h->a, lda, vl,
       vu, il, iu, hd_w->abstol, &(hd_w->m), w, z, ldz, hd_w->isuppz,

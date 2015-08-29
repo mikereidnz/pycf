@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,10 +16,6 @@
 
 */
 
-/*
- * @file    cfl_crs.c
- * @brief   Compressed row storage routines used by CFL.
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,10 +23,6 @@
 #include <complex.h>
 #include "cfl_error.h"
 #include "cfl_crs.h"
-
-/*===========================================================================*/
-/* Exported functions.                                                       */
-/*===========================================================================*/
 
 /*
  * Allocate storage and fill in values of a Hermitian sparse matrix in
@@ -42,13 +34,13 @@
  * a    An n by n dense matrix stored as a one dimensional array.
  * n    The number of columns and rows of a. 
  */
-crs_zhm *crs_zhm_alloc(complex double a[], int n) {
+zhcrs *zhcrs_alloc(complex double a[], int n) {
   int i,j;
   int vi = 0;
   int ri = 0;
   int nnz = 0;
   int zrow = 1;
-  crs_zhm *crs_m;
+  zhcrs *m;
   complex double *val;
   int *col_in;
   int *row_ptr;
@@ -69,31 +61,31 @@ crs_zhm *crs_zhm_alloc(complex double a[], int n) {
     zrow = 1;
   }
 
-  crs_m = (crs_zhm *) malloc(sizeof(crs_zhm));
-  if (crs_m == 0) {
-    CFL_ERROR_NULL("malloc failed for crs_m");
+  m = (zhcrs *) malloc(sizeof(zhcrs));
+  if (m == 0) {
+    CFL_ERROR_NULL("malloc failed for m");
   }
   val = (complex double *) calloc(nnz,sizeof(complex double));
   if (val == 0) {
-    free(crs_m);
+    free(m);
     CFL_ERROR_NULL("calloc failed for val");
   }
   col_in = (int *) calloc(nnz,sizeof(int));
   if (col_in == 0) {
-    free(crs_m);
+    free(m);
     free(val);
     CFL_ERROR_NULL("calloc failed for col_in");
   }
   row_ptr = (int *) calloc((n+1),sizeof(int));
   if (row_ptr == 0) {
-    free(crs_m);
+    free(m);
     free(val);
     free(col_in);
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
 
   /* col_in is an array containing the column index of all non-zero entries of
-   * crs_m.  row_ptr is an array containing the entry number, that is the number
+   * m.  row_ptr is an array containing the entry number, that is the number
    * of non-zero entries that precede it, for each first non-zero entry of a
    * given row.  Some rows only contain elements in the lower-triangular part
    * and, since we're only checking the upper-triangular half, we include a
@@ -123,19 +115,155 @@ crs_zhm *crs_zhm_alloc(complex double a[], int n) {
    * for convenient looping through values row by row. */
   row_ptr[n] = nnz;
 
+  m->n = n;
+  m->nnz = nnz;
+  m->val = val;
+  m->col_in = col_in;
+  m->row_ptr = row_ptr;
+  return m;
+}
+
+void zhcrs_free(zhcrs *m) {
+  free(m->val);
+  free(m->col_in);
+  free(m->row_ptr);
+  free(m);
+}
+
+/*
+ * Convert a matrix in Hermitian CRS form to plain CRS form.  This function
+ * allocates the CRS matrix with appropriate sparsity pattern.
+ *
+ * Parameters
+ * ----------
+ * hcrs_m   Pointer to the sparse matrix in Hermitian CRS form.  
+ */
+zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
+  int i,j,k;
+  int n, nnz, nnzd, vi;
+  complex double *val;
+  int *col_in;
+  int *row_ptr;
+  zcrs *crs_m;
+  
+  n = hcrs_m->n;
+    
+  /* Determine the number of non-zero diagonal elements. */
+  nnzd = 0;
+  for (i=0; i<n; i++) {
+    if (hcrs_m->col_in[hcrs_m->row_ptr[i]] == i) {
+      nnzd++;
+    }
+  }
+  nnz = hcrs_m->nnz*2-nnzd;
+  
+  row_ptr = (int *) calloc((n+1),sizeof(int));
+  if (row_ptr == 0) {
+    CFL_ERROR_NULL("calloc failed for row_ptr");
+  }
+  
+  col_in = (int *) calloc(nnz, sizeof(int));
+  if (col_in == 0) {
+    free(row_ptr);
+    CFL_ERROR_NULL("calloc failed for col_ind");
+  }
+
+  vi = 0;
+  for (i=0; i<n; i++) {
+    row_ptr[i] = vi; 
+
+    /* Fill lower-triangular values (excluding diagonal). */
+    for (j=0; j<i; j++) {
+      for (k=hcrs_m->row_ptr[j]; k<hcrs_m->row_ptr[j+1]; k++) {
+        if (hcrs_m->col_in[k] == i) {
+          col_in[vi] = j;
+          vi++;
+          break;
+        }
+        else if (hcrs_m->col_in[k] > i) {
+          break;
+        }
+      }
+    }
+
+    /* Fill the upper-triangular values; these match the original matrix. */
+    for (j=hcrs_m->row_ptr[i]; j<hcrs_m->row_ptr[i+1]; j++) {
+      col_in[vi] = hcrs_m->col_in[j];
+      vi++;
+    }
+
+  }
+  row_ptr[n] = nnz;
+
+  crs_m = (zcrs *) malloc(sizeof(zcrs));
+  if (crs_m == 0) {
+    free(row_ptr);
+    free(col_in);
+    CFL_ERROR_NULL("malloc failed for crs_m");
+  }
+  val = (complex double *) calloc(sizeof(complex double), nnz);
+  if (val == 0) {
+    free(row_ptr);
+    free(col_in);
+    free(crs_m);
+    CFL_ERROR_NULL("calloc failed for val");
+  }
+
   crs_m->n = n;
   crs_m->nnz = nnz;
   crs_m->val = val;
   crs_m->col_in = col_in;
   crs_m->row_ptr = row_ptr;
+
   return crs_m;
 }
 
-void crs_zhm_free(crs_zhm *crs_m) {
-  free(crs_m->val);
-  free(crs_m->col_in);
-  free(crs_m->row_ptr);
-  free(crs_m);
+
+void zcrs_free(zcrs *m) {
+  free(m->val);
+  free(m->col_in);
+  free(m->row_ptr);
+  free(m);
+}
+
+
+/*
+ * Convert a matrix in Hermitian CRS form to plain CRS form.  This function
+ * performs the conversion for a zcrs matrix previously created with
+ * zhcrs2zcrs_alloc.  
+ *
+ * Parameters
+ * ----------
+ * hcrs_m   Pointer to the sparse matrix in Hermitian CRS form. 
+ * crs_m    Pointer to the CRS matrix with correct sparsity pattern.
+ */
+void zhcrs2zcrs(zhcrs *hcrs_m, zcrs *crs_m) {
+  int i, j;
+  int hvi, row;
+
+  hvi = 0;
+  row = 0;
+  for (i=0; i<crs_m->nnz; i++) {
+    if (crs_m->col_in[i] < row) {
+      /* The lower-triangular part; we need to seek the val index of hcrs_m that
+       * corresponds to the current column. */
+      for(j=hcrs_m->row_ptr[crs_m->col_in[i]]; j<hcrs_m->row_ptr[crs_m->col_in[i]+1]; j++) {
+        if (hcrs_m->col_in[j] == row) {
+          crs_m->val[i] = conj(hcrs_m->val[j]);
+          break;
+        }
+      }
+    }
+    else {
+      /* Process the upper-triangular portion of the current row. */
+      for (; i<crs_m->row_ptr[row+1]; i++) {
+        crs_m->val[i] = hcrs_m->val[hvi];
+        hvi++;
+      }
+      row++;
+      i--;
+    }
+  }
 }
 
 /*
@@ -147,13 +275,13 @@ void crs_zhm_free(crs_zhm *crs_m) {
  *       
  * Parameters
  * ----------
- * crs_m    Pointer to the sparse matrix in CRS form of dimension n.
+ * hcrs_m   Pointer to the sparse matrix in Hermitian CRS form of dimension n.
  * a        Pointer to complex double valued array of length n*(n+1)/2. 
  */
-void crs_zhm2zhpa(crs_zhm *crs_m, complex double *ap) {
+void zhcrs2zhpa(zhcrs *hcrs_m, complex double *ap) {
   int i, j;
   int vi = 0;
-  int n = crs_m->n;
+  int n = hcrs_m->n;
 
   /* The readout is in row-major form since it allows for an iteration over a
    * contiguous block of memory to recover the original ordering of elements
@@ -164,11 +292,11 @@ void crs_zhm2zhpa(crs_zhm *crs_m, complex double *ap) {
   for (i=0; i<n; i++) {
     for (j=i; j<n; j++) {
       /* Ensure we're matching column indices on the current row. */
-      if (vi == crs_m->row_ptr[i+1]) {
+      if (vi == hcrs_m->row_ptr[i+1]) {
         ap[j+i*(2*n-(i+1))/2] = 0;
       }
-      else if (crs_m->col_in[vi] == j) {
-        ap[j+i*(2*n-(i+1))/2] = crs_m->val[vi];
+      else if (hcrs_m->col_in[vi] == j) {
+        ap[j+i*(2*n-(i+1))/2] = hcrs_m->val[vi];
         vi++;
       }
       else {
@@ -179,18 +307,18 @@ void crs_zhm2zhpa(crs_zhm *crs_m, complex double *ap) {
 }
 
 /*
- * Convert a Hermitian CRS matrix to a Hermitian dense matrix A. 
+ * Convert a Hermitian CRS matrix to a dense matrix A. 
  *
  * Parameters
  * ----------
- * crs_m    Pointer to the sparse matrix in CRS form.  
+ * hcrs_m   Pointer to the sparse matrix in Hermitian CRS form.  
  * a        Pointer to allocated block of sufficient size to store n*n complex
  *          double values.
  */
-void crs_zhm2zha(crs_zhm *crs_m, complex double *a) {
+void zhcrs2zha(zhcrs *hcrs_m, complex double *a) {
   int i, j;
   int vi = 0;
-  int n = crs_m->n;
+  int n = hcrs_m->n;
 
   for (i=0; i<n; i++) {
     for (j=0; j<n; j++) {
@@ -198,7 +326,38 @@ void crs_zhm2zha(crs_zhm *crs_m, complex double *a) {
         a[i*n+j] = conj(a[j*n+i]);
       }
       /* Ensure we're matching column indices on the current row. */
-      else if (vi == crs_m->row_ptr[i+1]) {
+      else if (vi == hcrs_m->row_ptr[i+1]) {
+        a[i*n+j] = 0;
+      }
+      else if (hcrs_m->col_in[vi] == j) {
+        a[i*n+j] = hcrs_m->val[vi];
+        vi++;
+      }
+      else {
+        a[i*n+j] = 0;
+      }
+    }
+  }
+}
+
+/*
+ * Convert a CRS matrix to a dense matrix A. 
+ *
+ * Parameters
+ * ----------
+ * crs_m   Pointer to the sparse matrix in CRS form.  
+ * a        Pointer to allocated block of sufficient size to store n*n complex
+ *          double values.
+ */
+void zcrs2zha(zcrs *crs_m, complex double *a) {
+  int i, j;
+  int vi = 0;
+  int n = crs_m->n;
+
+  for (i=0; i<n; i++) {
+    for (j=0; j<n; j++) {
+      /* Ensure we're matching column indices on the current row. */
+      if (vi == crs_m->row_ptr[i+1]) {
         a[i*n+j] = 0;
       }
       else if (crs_m->col_in[vi] == j) {
@@ -215,7 +374,7 @@ void crs_zhm2zha(crs_zhm *crs_m, complex double *a) {
 /*
  * Given three sparse matrices of the same shape in Hermitian CRS form, A, B,
  * and C, this function calculates the number of non-zero elements of C, the
- * row_ptr of C, and allocates storage for a crs_zhm object. 
+ * row_ptr of C, and allocates storage for a zhcrs object. 
  *
  * Parameters
  * ----------
@@ -224,16 +383,16 @@ void crs_zhm2zha(crs_zhm *crs_m, complex double *a) {
  * m    The number of columns of A, B, and C.
  * n    The number of rows of A, B, and C. 
  */
-crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
+zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
   int i,j,k;
   int nnz;
   complex double *val;
   int *col_in;
   int *row_ptr;
-  crs_zhm *crs_m;
+  zhcrs *hcrs_m;
   int n;
   int match = 0;
-  
+
   if (a->n != b->n) {
     CFL_ERROR_NULL("matrix dimensions don't match");
   }
@@ -263,35 +422,35 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
   nnz = a->nnz + b->nnz - match;
   row_ptr[n] = nnz;
 
-  crs_m = (crs_zhm *) malloc(sizeof(crs_zhm));
-  if (crs_m == 0) {
+  hcrs_m = (zhcrs *) malloc(sizeof(zhcrs));
+  if (hcrs_m == 0) {
     free(row_ptr);
-    CFL_ERROR_NULL("malloc failed for crs_m");
+    CFL_ERROR_NULL("malloc failed for hcrs_m");
   }
   val = (complex double *) calloc(nnz,sizeof(complex double));
   if (val == 0) {
     free(row_ptr);
-    free(crs_m);
+    free(hcrs_m);
     CFL_ERROR_NULL("calloc failed for val");
   }
   col_in = (int *) calloc(nnz,sizeof(int));
   if (col_in == 0) {
     free(row_ptr);
-    free(crs_m);
+    free(hcrs_m);
     free(val);
     CFL_ERROR_NULL("calloc failed for col_in");
   }
 
-  crs_m->n = n;
-  crs_m->nnz = nnz;
-  crs_m->val = val;
-  crs_m->col_in = col_in;
-  crs_m->row_ptr = row_ptr;
+  hcrs_m->n = n;
+  hcrs_m->nnz = nnz;
+  hcrs_m->val = val;
+  hcrs_m->col_in = col_in;
+  hcrs_m->row_ptr = row_ptr;
 
-  return crs_m;
+  return hcrs_m;
 }
 
-  
+
 /*
  * Add and scale matrices in Hermitian CRS form; that is, given CRS matrices A,
  * B, and C, in addition to scalers alpha and beta, then this function
@@ -305,7 +464,7 @@ crs_zhm *crs_zhsam_alloc(crs_zhm *a, crs_zhm *b) {
  * alpha  Double complex valued scaler alpha.
  * beta   Double complex valued scalar beta.
  */
-void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, complex double alpha, double
+void zhcrssam(zhcrs *a, zhcrs *b, zhcrs *c, complex double alpha, double
     complex beta) {
   int i, j;
   int ai = 0;
@@ -355,51 +514,51 @@ void crs_zhsam(crs_zhm *a, crs_zhm *b, crs_zhm *c, complex double alpha, double
  *
  * Parameters
  * ----------
- * crs_m    Pointer to CRS matrix to be scaled. 
+ * hcrs_m    Pointer to CRS matrix to be scaled. 
  */
-crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
+zhcrs *zhcrssm_alloc(zhcrs *hcrs_m) {
   int i;
-  crs_zhm *crs_sm;
+  zhcrs *hcrs_sm;
   complex double *val;
   int *col_in;
   int *row_ptr;
 
-  crs_sm = (crs_zhm *) malloc(sizeof(crs_zhm));
-  if (crs_sm == 0) {
-    CFL_ERROR_NULL("malloc failed for crs_sm");
+  hcrs_sm = (zhcrs *) malloc(sizeof(zhcrs));
+  if (hcrs_sm == 0) {
+    CFL_ERROR_NULL("malloc failed for hcrs_sm");
   }
-  val = (complex double *) calloc(crs_m->nnz,sizeof(complex double));
+  val = (complex double *) calloc(hcrs_m->nnz,sizeof(complex double));
   if (val == 0) {
-    free(crs_sm);
+    free(hcrs_sm);
     CFL_ERROR_NULL("calloc failed for col_in");
   }
-  col_in = (int *) calloc(crs_m->nnz,sizeof(int));
+  col_in = (int *) calloc(hcrs_m->nnz,sizeof(int));
   if (col_in == 0) {
-    free(crs_sm);
+    free(hcrs_sm);
     free(val);
     CFL_ERROR_NULL("calloc failed for col_in");
   }
-  row_ptr = (int *) calloc((crs_m->n+1),sizeof(int));
+  row_ptr = (int *) calloc((hcrs_m->n+1),sizeof(int));
   if (row_ptr == 0) {
-    free(crs_sm);
+    free(hcrs_sm);
     free(val);
     free(col_in);
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
 
   /* Identical row and column pointers. */
-  for (i=0; i<crs_m->nnz; i++) 
-    col_in[i] = crs_m->col_in[i];
-  for (i=0; i<crs_m->n+1; i++)
-    row_ptr[i] = crs_m->row_ptr[i];
+  for (i=0; i<hcrs_m->nnz; i++) 
+    col_in[i] = hcrs_m->col_in[i];
+  for (i=0; i<hcrs_m->n+1; i++)
+    row_ptr[i] = hcrs_m->row_ptr[i];
 
-  crs_sm->n = crs_m->n;
-  crs_sm->nnz = crs_m->nnz;
-  crs_sm->val = val;
-  crs_sm->col_in = col_in;
-  crs_sm->row_ptr = row_ptr;
+  hcrs_sm->n = hcrs_m->n;
+  hcrs_sm->nnz = hcrs_m->nnz;
+  hcrs_sm->val = val;
+  hcrs_sm->col_in = col_in;
+  hcrs_sm->row_ptr = row_ptr;
 
-  return crs_sm;
+  return hcrs_sm;
 }
 
 /*
@@ -407,16 +566,16 @@ crs_zhm *crs_zhsm_alloc(crs_zhm *crs_m) {
  *
  * Parameters
  * ----------
- * crs_m    Pointer to a CRS matrix of dimension n by n.
- * crs_sm   Pointer to a CRS matrix to which the result will be written; must
- *          have the same n, nnz, col_in, and row_ptr values as crs_m. 
- * s        Double complex valued scalar whereby to multiply crs_m.
+ * hcrs_m    Pointer to a CRS matrix of dimension n by n.
+ * hcrs_sm   Pointer to a CRS matrix to which the result will be written; must
+ *          have the same n, nnz, col_in, and row_ptr values as hcrs_m. 
+ * s        Double complex valued scalar whereby to multiply hcrs_m.
  */
-void crs_zhsm(crs_zhm *crs_m, crs_zhm *crs_sm, complex double s) {
+void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s) {
   int i;
 
-  for (i=0; i<crs_m->nnz; i++) {
-    crs_sm->val[i] = s * crs_m->val[i];
+  for (i=0; i<hcrs_m->nnz; i++) {
+    hcrs_sm->val[i] = s * hcrs_m->val[i];
   }
 }
 

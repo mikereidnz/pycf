@@ -48,7 +48,7 @@ typedef struct {
 /* Work space type declaration for Hamiltonian diagonalization. */
 typedef struct {
   /* Workspace for summing the tensors for currently set coefficents. */
-  crs_zhm **coeff_w;
+  zhcrs **coeff_w;
   /* Length of coeff_w array. */
   int lcoeff_w;
   /* The total number of eigenvalues found by zheevr. */

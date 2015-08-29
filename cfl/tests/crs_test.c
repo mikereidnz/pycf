@@ -34,31 +34,41 @@ int main (void)
     0, 2-3*I, 0};
 
   /* Allocs used by multiple crs tests. */
-  crs_zhm *ma = crs_zhm_alloc(a, 4);
-  crs_zhm *mb = crs_zhm_alloc(b, 4);
+  zhcrs *ma = zhcrs_alloc(a, 4);
+  zhcrs *mb = zhcrs_alloc(b, 4);
 
-  /* crs_zhm2zha test. */
+  /* zhcrs2zha test. */
   complex double *aa;
   aa = (complex double *) calloc(16,sizeof(complex double));
   if (aa==0) {
     printf("Error; failed to calloc aa");
   }
-  crs_zhm2zha(ma, aa);
-  printf("crs_zhm2zha:\n");
+  zhcrs2zha(ma, aa);
+  printf("zhcrs2zha:\n");
   equ_chk(a, aa, 16);
+
+  /* zhcrs2zcrs test. */
+  zcrs *mac = zhcrs2zcrs_alloc(ma);
+  zhcrs2zcrs(ma, mac);
+  zcrs2zha(mac, aa);
+
+  printf("zhcrs2zcrs: (depends on zcrs2zha)\n");
+  equ_chk(a, aa, 16);
+
+  zcrs_free(mac);
   free(aa);
 
-  /* crs_zhm2zhpa test. */
+  /* zhcrs2zhpa test. */
   complex double bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
   complex double *bbp;
   bbp = (complex double *) calloc(10,sizeof(complex double));
-  crs_zhm2zhpa(mb, bbp);
+  zhcrs2zhpa(mb, bbp);
 
-  printf("crs_zhm2zhpa:\n");
+  printf("zhcrs2zhpa:\n");
   equ_chk(bp, bbp, 10);
   free(bbp);
 
-  /* crs_zhsam test. */
+  /* zhcrssam test. */
   complex double zhsam_res[16] = {0, 0+3*I, 0+2*I, 0+3*I, 0-3*I, 1, 3+6*I,
     1+3*I, 0-2*I, 3-6*I, 2+0*I, 6+9*I, 0-3*I, 1-3*I, 6-9*I, 3};
   complex double *c;
@@ -70,16 +80,16 @@ int main (void)
     printf("Error; failed to calloc c.");
   }
 
-  crs_zhm *mc = crs_zhsam_alloc(ma, mb);
-  crs_zhsam(ma, mb, mc, alpha, beta);
-  crs_zhm2zha(mc, c);
-  printf("crs_zhsam (depends on crs_zhm2zha):\n");
+  zhcrs *mc = zhcrssam_alloc(ma, mb);
+  zhcrssam(ma, mb, mc, alpha, beta);
+  zhcrs2zha(mc, c);
+  printf("zhcrssam (depends on zhcrs2zha):\n");
   equ_chk(c, zhsam_res, 16);
   
-  crs_zhm_free(mc);
+  zhcrs_free(mc);
   free(c);
 
-  /* crs_zhsm test. */
+  /* zhcrssm test. */
   complex double zhsm_res[16] = {0, 0+2*I, 0+4*I, 0+6*I, 0-2*I, 2, 2+4*I, 2+6*I,
     0-4*I, 2-4*I, 4, 4+6*I, 0-6*I, 2-6*I, 4-6*I, 6};
   complex double *d;
@@ -89,19 +99,19 @@ int main (void)
     printf("Error; failed to calloc d.");
   }
 
-  crs_zhm *md = crs_zhsm_alloc(ma);
-  crs_zhsm(ma, md, beta);
-  crs_zhm2zha(md, d);
+  zhcrs *md = zhcrssm_alloc(ma);
+  zhcrssm(ma, md, beta);
+  zhcrs2zha(md, d);
 
-  printf("crs_zhsm (depends on crs_zhm2zha):\n");
+  printf("zhcrssm (depends on zhcrs2zha):\n");
   equ_chk(d, zhsm_res, 16);
 
-  crs_zhm_free(md);
+  zhcrs_free(md);
   free(d);
 
   /* Remaining frees. */
-  crs_zhm_free(ma);
-  crs_zhm_free(mb);
+  zhcrs_free(ma);
+  zhcrs_free(mb);
 
   
   return 0;
