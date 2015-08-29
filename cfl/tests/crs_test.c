@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <math.h>
 #include <complex.h>
-#include <cfl_crs.h>
-#include <cfl_h.h>
+
+#include "cfl_crs.h"
+#include "cfl_h.h"
 
 void equ_chk(complex double *a, complex double *b, size_t n) {
   int i;

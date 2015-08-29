@@ -16,9 +16,7 @@
 
 */
 
-
-
-#ifndef _CFL_CRS_H_
+a#ifndef _CFL_CRS_H_
 #define _CFL_CRS_H_
 
 #include <complex.h>

@@ -72,6 +72,9 @@ pycfl_ext = Extension('pycf.cfl',
         extra_link_args=link_args,
         include_dirs=['cfl/include', np.get_include(), '/usr/include/lapacke'])
 
+rcm_ext = Extension('pycf.rcm', 
+        sources=['pycf/rcm.pyx'])
+
 setup(name='pycf',
       version=version,
       description='Python crystal field theory modules',
@@ -80,5 +83,5 @@ setup(name='pycf',
       url='https://bitbucket.org/sebastianhorvath/pycf/',
       packages=['pycf'],
       cmdclass = {'build_ext': build_ext},
-      ext_modules = [pycfl_ext],
+      ext_modules = [pycfl_ext, rcm_ext],
       )
