@@ -22,19 +22,15 @@
 #include "cfl_crs.h"
 
 typedef struct {
-  /* The degree of each node in the CRS matrix. */
-  size_t *node_degrees;
-  /* Mask used to keep track of which nodes we've traveresed. */
-  size_t *mask;
-} rcm_work;
+  int index;
+  int val;
+} int_index_sort_t;
 
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-rcm_work *rcm_work_alloc(zcrs *m);
-rcm_work_free(rcm_work *w);
-void rcm(size_t *p, zcrs *m, rcm_work *w);
+void rcm_sort(int *p, zcrs *m);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014- Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,13 +16,13 @@
 
 */
 
-/*
- * @file    cfl_error.h
- * @brief   Macros for handling error messages. 
- */
+/* Macros for handling error messages.  */
 
 #ifndef _CFL_ERROR_H_
 #define _CFL_ERROR_H_
+
+#include <stdio.h>
+#include <string.h>
 
 #define CFL_ERROR_VAL(message, value) { \
   printf("CFL_ERROR in function %s of %s, line %i: %s\n",__func__, __FILE__,\
