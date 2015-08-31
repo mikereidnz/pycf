@@ -45,8 +45,8 @@ zhcrs *zhcrs_alloc(complex double a[], int n) {
   int *row_ptr;
   /* Determining the number of non-zero entries in the upper-triangular portion
    * of a. Since we only check columns j >= i, all inspected elements may turn
-   * out to be zero for large i; consequently, we add one to nnz in such cases
-   * to avoid the row from being dropped. */
+   * out to be zero; consequently, we add one to nnz in such cases to avoid the
+   * row from being dropped. */
    for (i=0; i<n; i++) {
     for (j=i; j<n; j++) {
       if (cabs(a[i*n+j]) != 0) {
@@ -139,7 +139,7 @@ void zhcrs_free(zhcrs *m) {
  */
 zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
   int i,j,k;
-  int n, nnz, nnzd, vi;
+  int n, nnz, nnzd, nnzz, vi;
   complex double *val;
   int *col_in;
   int *row_ptr;
@@ -149,12 +149,18 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
     
   /* Determine the number of non-zero diagonal elements. */
   nnzd = 0;
+  nnzz = 0;
   for (i=0; i<n; i++) {
     if (hcrs_m->col_in[hcrs_m->row_ptr[i]] == i) {
       nnzd++;
     }
+    if (hcrs_m->val[hcrs_m->row_ptr[i]] == 0) {
+      /* Record the number of placeholder "non-zero" zeros required for
+       * Hermitian CRS (zhcrs_alloc for details).*/
+      nnzz++;
+    }
   }
-  nnz = hcrs_m->nnz*2-nnzd;
+  nnz = hcrs_m->nnz*2-nnzd-nnzz;
   
   row_ptr = (int *) calloc((n+1),sizeof(int));
   if (row_ptr == 0) {
@@ -187,8 +193,12 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
 
     /* Fill the upper-triangular values; these match the original matrix. */
     for (j=hcrs_m->row_ptr[i]; j<hcrs_m->row_ptr[i+1]; j++) {
-      col_in[vi] = hcrs_m->col_in[j];
-      vi++;
+      if (hcrs_m->val[j] != 0) {
+        /* Ensure all placeholder "non-zero" zeros are removed, since we don't
+         * require them if we store the lower diagonal. */
+        col_in[vi] = hcrs_m->col_in[j];
+        vi++;
+      }
     }
 
   }
@@ -240,7 +250,6 @@ void zhcrs2zcrs(zhcrs *hcrs_m, zcrs *crs_m) {
   int i, j;
   int hvi, row;
 
-  hvi = 0;
   row = 0;
   for (i=0; i<crs_m->nnz; i++) {
     if (crs_m->col_in[i] < row) {
@@ -254,7 +263,11 @@ void zhcrs2zcrs(zhcrs *hcrs_m, zcrs *crs_m) {
       }
     }
     else {
-      /* Process the upper-triangular portion of the current row. */
+      /* Process the upper-triangular portion of the current row.  We have to
+       * update hvi for the current row in case the hermitian value index is out
+       * of sync due to "non-zero zeros" that have been dropped from
+       * crs_m->row_ptr. */
+      hvi = hcrs_m->row_ptr[row]; 
       for (; i<crs_m->row_ptr[row+1]; i++) {
         crs_m->val[i] = hcrs_m->val[hvi];
         hvi++;

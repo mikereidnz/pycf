@@ -24,6 +24,22 @@ void equ_chk(complex double *a, complex double *b, size_t n) {
   }
 }
 
+void int_equ_chk(int *a, int *b, size_t n) {
+  int i;
+  int p = 0;
+
+  for (i=0; i<n; i++) {
+    if (cabs(a[i]-b[i]) != 0) {
+      p = 1;
+    }
+  }
+  if (p==0) {
+    printf("pass\n");
+  }
+  else {
+    printf("fail\n");
+  }
+}
 int main (void)
 {
   int i, j;
@@ -164,14 +180,22 @@ int main (void)
   zhcrs *c20_zhm = zhcrs_alloc(ce_C20_a, n);
   zcrs *c20_zm = zhcrs2zcrs_alloc(c20_zhm);
   zhcrs2zcrs(c20_zhm, c20_zm);
+  
+  complex double ce_C20_aa[784];
+  zcrs2zha(c20_zm, ce_C20_aa);
+  printf("zhcrs2zcrs with I=1/2 Ce C20: (depends on zcrs2zha)\n");
+  equ_chk(ce_C20_a, ce_C20_aa, n);
+
   int p[n];
-
-  rcm_sort(p, c20_zm);
-  for (i=0; i<n; i++) {
-    printf("%i ", p[i]);
-  }
-  printf("\n");
-
+  int pa[28] = {0, 1, 4, 2, 5, 3, 8, 6, 9, 7, 12, 10, 13, 11, 16, 14, 17, 15,
+    20, 18, 21, 19, 24, 22, 25, 23, 26, 27};
+  signed char mask[n];
+  int deg[n];
+ 
+  printf("rcm test:\n");
+  RCM_FUNC(genrcmi)(n, 0, c20_zm->row_ptr, c20_zm->col_in, p, mask, deg);
+  int_equ_chk(p, pa, n);
+  
   zhcrs_free(c20_zhm);
   zcrs_free(c20_zm);
 
