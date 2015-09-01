@@ -37,6 +37,7 @@
 #include <lapacke.h>
 #endif /* USE_MKL */
 
+#include "rcm.h"
 #include "cfl_error.h"
 #include "cfl_tensor.h"
 #include "cfl_h.h"
@@ -112,6 +113,10 @@ zhd_w *zhd_w_alloc(zh *h) {
   complex double *work, wquery;
   double *rwork, rwquery;
   int *iwork, iwquery;
+  zcrs *zcrs_h;
+  signed char *node_mask;
+  int *node_deg;
+
   zhd_w *hd_w;
 
   hd_w = (zhd_w *) malloc(sizeof(zhd_w));
@@ -250,7 +255,74 @@ zhd_w *zhd_w_alloc(zh *h) {
     }
   }
 
+  /* Generate the reverse Cuthill-McKee ordering of the complete Hamiltonian. */
+  zcrs_h = zhcrs2zcrs_alloc(coeff_w[hd_w->lcoeff_w-1]);
+  if (zcrs_h == 0) {
+    for (i=0; i<hd_w->lcoeff_w; i++) {
+      zhcrs_free(hd_w->coeff_w[i]);
+    }
+    free(hd_w->coeff_w);
+    free(hd_w->isuppz);
+    free(hd_w->work);
+    free(hd_w->rwork);
+    free(hd_w->iwork);
+    free(hd_w);
+    CFL_ERROR_NULL("alloc failed for zcrs_h");
+  }
+  hd_w->rcm_perm = (int *) calloc(zcrs_h->n, sizeof(int));
+  if (hd_w->rcm_perm == 0) {
+    for (i=0; i<hd_w->lcoeff_w; i++) {
+      zhcrs_free(hd_w->coeff_w[i]);
+    }
+    zcrs_free(zcrs_h);
+    free(hd_w->coeff_w);
+    free(hd_w->isuppz);
+    free(hd_w->work);
+    free(hd_w->rwork);
+    free(hd_w->iwork);
+    free(hd_w);
+    CFL_ERROR_NULL("calloc failed for rcm_perm");
+  }
+  node_mask = (signed char *) calloc(zcrs_h->n, sizeof(signed char));
+  if (node_mask == 0) {
+    for (i=0; i<hd_w->lcoeff_w; i++) {
+      zhcrs_free(hd_w->coeff_w[i]);
+    }
+    zcrs_free(zcrs_h);
+    free(hd_w->rcm_perm);
+    free(hd_w->coeff_w);
+    free(hd_w->isuppz);
+    free(hd_w->work);
+    free(hd_w->rwork);
+    free(hd_w->iwork);
+    free(hd_w);
+    CFL_ERROR_NULL("calloc failed for node_mask");
+  }
+  node_deg = (int *) calloc(zcrs_h->n, sizeof(int));
+  if (node_deg == 0) {
+    for (i=0; i<hd_w->lcoeff_w; i++) {
+      zhcrs_free(hd_w->coeff_w[i]);
+    }
+    zcrs_free(zcrs_h);
+    free(hd_w->rcm_perm);
+    free(node_mask);
+    free(hd_w->coeff_w);
+    free(hd_w->isuppz);
+    free(hd_w->work);
+    free(hd_w->rwork);
+    free(hd_w->iwork);
+    free(hd_w);
+    CFL_ERROR_NULL("calloc failed for node_deg");
+  }
+
+  zhcrs2zcrs(coeff_w[hd_w->lcoeff_w-1], zcrs_h);
+  RCM_FUNC(genrcmi)(zcrs_h->n, 0, zcrs_h->row_ptr, zcrs_h->col_in,
+      hd_w->rcm_perm, node_mask, node_deg);
+  hd_w->zcrs_h = zcrs_h;
   hd_w->coeff_w = coeff_w;
+
+  free(node_mask);
+  free(node_deg);
 
   return hd_w;
 }
@@ -261,6 +333,8 @@ void zhd_w_free(zhd_w *hd_w) {
   for (i=0; i<hd_w->lcoeff_w; i++) {
     zhcrs_free(hd_w->coeff_w[i]);
   }
+  zcrs_free(hd_w->zcrs_h);
+  free(hd_w->rcm_perm);
   free(hd_w->coeff_w);
   free(hd_w->isuppz);
   free(hd_w->work);

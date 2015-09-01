@@ -6,6 +6,8 @@
 #include <gsl/gsl_cblas.h>
 
 #include <cfl_crs.h>
+
+#include "rcm.h"
 #include <cfl_tensor.h>
 #include <cfl_h.h>
 #include <cfl_sh.h>
@@ -134,7 +136,7 @@ int main (void)
 
   zt *t3;
   t3 = zt_sa("cten", t1, t2, alpha, beta);
-  crs_zhm2zha(t3->matel, c);
+  zhcrs2zha(t3->matel, c);
 
   printf("zt_sa:\n");
   zequ_chk(ztsa_res, c, 16);
@@ -145,7 +147,7 @@ int main (void)
     2-4*I, 4, 4+6*I, -6*I, 2-6*I, 4-6*I, 6};
 
   t3 = zt_s("cten", t1, alpha);
-  crs_zhm2zha(t3->matel, c);
+  zhcrs2zha(t3->matel, c);
 
   printf("zt_s:\n");
   zequ_chk(zts_res, c, 16);

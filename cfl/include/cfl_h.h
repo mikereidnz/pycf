@@ -51,11 +51,15 @@ typedef struct {
   zhcrs **coeff_w;
   /* Length of coeff_w array. */
   int lcoeff_w;
+  /* Storage for non-Hermitian CRS representation; used for generating RCM. */
+  zcrs *zcrs_h;
+  /* Permutation to obtain RCM ordering of the Hamiltonian. */
+  int *rcm_perm;
   /* The total number of eigenvalues found by zheevr. */
   int m;
   /* The support of the eigenvectors in Z. */
   int *isuppz;
-  /* The absolute error tolerance to which each eigenvalue/eigenvector is required. */
+  /* The absolute error tolerance to which each eigenvector is required. */
   double abstol;
   /* Workspace for LAPACKE_zheevr. */
   complex double *work;

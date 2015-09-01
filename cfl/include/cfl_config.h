@@ -41,4 +41,7 @@
  * diagonalization (see LAPACK zheevr for detailed description). */
 #define ZHEEVR_ABSTOL         -1.0
 
-#endif /* _TEST_DATA_H_ */
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+#endif /* _CFL_CONFIG_H_ */

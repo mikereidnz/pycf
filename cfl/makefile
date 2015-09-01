@@ -44,7 +44,7 @@ sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o
 
 sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
 
-h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
+h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o rcm.o
 
 crs_test: cfl_h.o cfl_crs.o rcm.o
 
@@ -56,13 +56,13 @@ cfl_min.o: cfl_min.h cfl_error.h cfl_config.h
 
 cfl_sh.o: cfl_tensor.o cfl_sh.h cfl_error.h
 
-cfl_h.o: cfl_tensor.o cfl_h.h cfl_error.h cfl_config.h
+cfl_h.o: rcm.o cfl_tensor.o cfl_h.h cfl_error.h cfl_config.h
 
 cfl_tensor.o: cfl_crs.o cfl_tensor.h cfl_error.h
 
 cfl_crs.o: cfl_crs.h cfl_error.h
 
-rcm.o: rcm.h cfl_error.h
+rcm.o: rcm.h
 
 clean:
 	rm -f *.o
