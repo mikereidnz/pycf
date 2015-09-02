@@ -591,9 +591,101 @@ void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s) {
   }
 }
 
+
+/* Perform an inline permutation of an integer valued array ix, according to 
+ * ix(perm(j)) :=  ix(j), j=1,2,.., n. */
+void ivperm(int n, int *ix, int *perm) {
+  int ii, j, k, init, next; 
+  int tmp, tmp1;
+
+  k=-1; 
+  init=-1;
+
+  while (k < n) {
+    init++;
+
+    /* Test for end and whether the current value has been permuted; that is,
+     * whether the current perm value is negative. */
+    if (init >= n)
+      break;
+    else if (perm[init] < 0)
+      continue;
+    tmp = ix[init];
+    ii = perm[init];
+    perm[init] -= n;
+
+    for (;;) {
+      k++;
+      /* Save the chased element. */
+      tmp1 = ix[ii];
+      ix[ii] = tmp;
+      next = perm[ii];
+      /* Test for end. */
+      if (next < 0)
+        break;
+      else if (k >= n)
+        break;
+      /* tmp1 value also requires permutation. */
+      tmp = tmp1;
+      perm[ii] -= n;
+      ii = next;
+    }
+  }
+  /* Restore positive valued permutation vector. */
+  for (j=0; j<n; j++) {
+    perm[j] += n;
+  }
+}
+
+/* Perform an inline permutation of a complex double valued array zx, according
+ * to zx(perm(j)) :=  zx(j), j=1,2,.., n. */
+void zvperm(int n, complex double *zx, int *perm) {
+  int ii, j, k, init, next; 
+  complex double tmp, tmp1;
+
+  k=-1; 
+  init=-1;
+
+  while (k < n) {
+    init++;
+
+    /* Test for end and whether the current value has been permuted; that is,
+     * whether the current perm value is negative. */
+    if (init >= n)
+      break;
+    else if (perm[init] < 0)
+      continue;
+    tmp = zx[init];
+    ii = perm[init];
+    perm[init] -= n;
+
+    for (;;) {
+      k++;
+      /* Save the chased element. */
+      tmp1 = zx[ii];
+      zx[ii] = tmp;
+      next = perm[ii];
+      /* Test for end. */
+      if (next < 0)
+        break;
+      else if (k >= n)
+        break;
+      /* tmp1 value also requires permutation. */
+      tmp = tmp1;
+      perm[ii] -= n;
+      ii = next;
+    }
+  }
+  /* Restore positive valued permutation vector. */
+  for (j=0; j<n; j++) {
+    perm[j] += n;
+  }
+}
+
+#if 0
 /* 
- * Allocate CSR matrix with row permuted sparsity pattern. Call prior to
- * zcsr_row_perm, which copies the permuted values.
+ * Allocate CRS matrix with row permuted sparsity pattern. Call prior to
+ * zcrs_row_perm, which copies the permuted values.
  *
  * Parameters
  * ----------
@@ -601,7 +693,7 @@ void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s) {
  *  p       The permutation array. In the returne output matrix row i is swapped
  *          with row p(i).
  */
-zcrs *zcsr_row_perm_alloc(zcrs *m, int *p) {
+zcrs *zcrs_row_perm_alloc(zcrs *m, int *p) {
   int i, j, k, pk;
   zcrs *pm;
 
@@ -653,33 +745,10 @@ zcrs *zcsr_row_perm_alloc(zcrs *m, int *p) {
 }
 
 
-/* Perform inline permutation of an integer vector ix. */
-inline void ivperm(int n, int *ix, int *p) {
-  int k, ii;
-  int tmp, tmp1;
-
-
-  
-  perm[0] = -perm[0];
-
-  k = 0;
-  do {
-    tmp = ix[k];
-    ii = perm[k];
-    tmp1 = ix[ii];
-    ix[ii] = tmp;
-
-
-
-  } while (k < n);
-
-
-}
-
 /* 
- * CSR matrix row permutation.  Requires an input CSR matrix and an output CSR
+ * CRS matrix row permutation.  Requires an input CRS matrix and an output CRS
  * matrix, where the latter is assumed to have an appropriatly permuted sparsity
- * pattern.  This can be generated with zcsr_row_perm_alloc. 
+ * pattern.  This can be generated with zcrs_row_perm_alloc. 
  *
  * Parameters
  * ----------
@@ -688,7 +757,7 @@ inline void ivperm(int n, int *ix, int *p) {
  *          to entry.
  *  p       The permutation array. Row i is swapped with row p(i).
  */
-inline void zcsr_row_perm(zcrs *m, zcrs *pm, int *p) {
+inline void zcrs_row_perm(zcrs *m, zcrs *pm, int *p) {
   int i, j, pk, 
 
   for (i=0; i<zcrs->n; i++) {
@@ -707,8 +776,8 @@ inline void zcsr_csort(zcrs *m, int *p, int *vp, int *iwork) {
 }
 
 /* 
- * Allocate CSR matrix with column permuted sparsity pattern. Call prior to
- * zcsr_col_perm, which copies the permuted values.
+ * Allocate CRS matrix with column permuted sparsity pattern. Call prior to
+ * zcrs_col_perm, which copies the permuted values.
  *
  * Parameters
  * ----------
@@ -797,7 +866,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *vp) {
   }
 
   /* Reshift the row pointers of the original matrix. */
-  for (i=m->n-1; i==0; i--) {
+  for (i=0; i<m->n; i++) {
     m->row_ptr[i+1] = m->row_ptr[i];
   }
   m->row_ptr[0] = 0;
@@ -808,9 +877,9 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *vp) {
 }
 
 /* 
- * CSR matrix column permutation.  Requires an input CSR matrix and an output CSR
+ * CRS matrix column permutation.  Requires an input CRS matrix and an output CRS
  * matrix, where the latter is assumed to have an appropriatly permuted sparsity
- * pattern.  This can be generated with zcsr_col_perm_alloc. 
+ * pattern.  This can be generated with zcrs_col_perm_alloc. 
  *
  * Parameters
  * ----------
@@ -820,7 +889,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *vp) {
  *  p       The permutation array. Column i is swapped with column p(i).
  *  pi      The permutation index used to permute the val array of m.
  */
-inline void zcsr_col_perm(zcrs *m, zcrs *pm, int *p, int *pi) {
+inline void zcrs_col_perm(zcrs *m, zcrs *pm, int *p, int *pi) {
   int i, j, pk, 
 
   for (i=0; i<zcrs->n; i++) {
@@ -832,3 +901,4 @@ inline void zcsr_col_perm(zcrs *m, zcrs *pm, int *p, int *pi) {
   }
 
 }
+#endif

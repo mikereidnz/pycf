@@ -40,8 +40,8 @@ void int_equ_chk(int *a, int *b, size_t n) {
     printf("fail\n");
   }
 }
-int main (void)
-{
+
+int main (void) {
   int i, j;
 
   /* CRS tests. */
@@ -69,7 +69,7 @@ int main (void)
   zhcrs2zcrs(ma, mac);
   zcrs2zha(mac, aa);
 
-  printf("zhcrs2zcrs: (depends on zcrs2zha)\n");
+  printf("zhcrs2zcrs (depends on zcrs2zha):\n");
   equ_chk(a, aa, 16);
 
   zcrs_free(mac);
@@ -183,7 +183,7 @@ int main (void)
   
   complex double ce_C20_aa[784];
   zcrs2zha(c20_zm, ce_C20_aa);
-  printf("zhcrs2zcrs with I=1/2 Ce C20: (depends on zcrs2zha)\n");
+  printf("zhcrs2zcrs with I=1/2 Ce C20 (depends on zcrs2zha):\n");
   equ_chk(ce_C20_a, ce_C20_aa, n);
 
   int p[n];
@@ -198,6 +198,17 @@ int main (void)
   
   zhcrs_free(c20_zhm);
   zcrs_free(c20_zm);
+
+  int ix[9] = {5, 9, 4, 7, 8, 1, 2, 6, 3};
+  int ix_perm[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+  int perm[9] = {4, 8, 3, 6, 7, 0, 1, 5, 2};
+  int perm_orig[9] = {4, 8, 3, 6, 7, 0, 1, 5, 2};
+  ivperm(9, ix, perm);
+
+  printf("ivperm:\n");
+  int_equ_chk(ix, ix_perm, 9);
+  printf("ivperm test 2:\n");
+  int_equ_chk(perm_orig, perm, 9);
 
   return 0;
 }  

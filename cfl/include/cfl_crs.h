@@ -68,6 +68,7 @@ void zhcrssam(zhcrs *a, zhcrs *b, zhcrs *c, complex double alpha, double
     complex beta);
 zhcrs *zhcrssm_alloc(zhcrs *hcrs_m);
 void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s);
+void ivperm(int n, int *ix, int *perm);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
