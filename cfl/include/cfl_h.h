@@ -55,6 +55,12 @@ typedef struct {
   zcrs *zcrs_h;
   /* Permutation to obtain RCM ordering of the Hamiltonian. */
   int *rcm_perm;
+  /* The RCM row permuted Hamiltonian. */
+  zcrs *rcm_rp_h;
+  /* Storage for value array permutation required for rcm cperm. */
+  int *rcm_pj;
+  /* The RCM column permuted Hamiltonian. */
+  zcrs *rcm_cp_h;
   /* The total number of eigenvalues found by zheevr. */
   int m;
   /* The support of the eigenvectors in Z. */

@@ -183,6 +183,7 @@ int main (void)
   printf("hdiag multiple tensors:\n");
   dequ_chk(hdiag_res, w, 4);
 
+#if 0
   /* Test diagonalization of Hamiltonian with a single tensor. */
   zt *tens2[1];
   complex double coeff2[1];
@@ -201,7 +202,7 @@ int main (void)
   printf("hdiag single tensor:\n");
   dequ_chk(h2diag_res, w, 4);
   zh_free(h2);
-
+#endif
   free(c);
   
   zh_free(h);
