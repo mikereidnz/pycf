@@ -16,6 +16,16 @@
 
 */
 
+/* Compressed row storage (CRS) routines. For a description of CRS, see [1]. 
+ *
+ * The row and column permutation algorithms, and the associated ivperm and
+ * zvperm, were adapted from SPARSKIT2/FORMATS/unary.f, originally written by Y.
+ * Saad.  See [2] for the original implementations. 
+ *
+ * [1] http://netlib.org/linalg/html_templates/node91.html
+ * [2] https://people.sc.fsu.edu/~jburkardt/f77_src/sparsekit2/sparsekit2.html
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -578,10 +588,10 @@ zhcrs *zhcrssm_alloc(zhcrs *hcrs_m) {
  *
  * Parameters
  * ----------
- * hcrs_m    Pointer to a CRS matrix of dimension n by n.
- * hcrs_sm   Pointer to a CRS matrix to which the result will be written; must
- *          have the same n, nnz, col_in, and row_ptr values as hcrs_m. 
- * s        Double complex valued scalar whereby to multiply hcrs_m.
+ * hcrs_m     Pointer to a CRS matrix of dimension n by n.
+ * hcrs_sm    Pointer to a CRS matrix to which the result will be written; must
+ *            have the same n, nnz, col_in, and row_ptr values as hcrs_m. 
+ * s          Double complex valued scalar whereby to multiply hcrs_m.
  */
 void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s) {
   int i;
@@ -637,9 +647,10 @@ void ivperm(int n, int *ix, int *perm) {
   }
 }
 
-/* Perform an inline permutation of a complex double valued array zx, according
- * to zx(perm(j)) :=  zx(j), j=1,2,.., n. */
-void zvperm(int n, complex double *zx, int *perm) {
+/* Perform a permutation of a complex double valued array zx, according
+ * to zxo(perm(j)) :=  zx(j), j=1,2,.., n.  This is a minimally modified of
+ * ivperm to not-inplace and complex double. */
+inline void zvperm(int n, complex double *zx, complex double *zxo, int *perm) {
   int ii, j, k, init, next; 
   complex double tmp, tmp1;
 
@@ -663,7 +674,7 @@ void zvperm(int n, complex double *zx, int *perm) {
       k++;
       /* Save the chased element. */
       tmp1 = zx[ii];
-      zx[ii] = tmp;
+      zxo[ii] = tmp;
       next = perm[ii];
       /* Test for end. */
       if (next < 0)
@@ -679,10 +690,9 @@ void zvperm(int n, complex double *zx, int *perm) {
   /* Restore positive valued permutation vector. */
   for (j=0; j<n; j++) {
     perm[j] += n;
-  }
+  } 
 }
 
-#if 0
 /* 
  * Allocate CRS matrix with row permuted sparsity pattern. Call prior to
  * zcrs_row_perm, which copies the permuted values.
@@ -690,8 +700,8 @@ void zvperm(int n, complex double *zx, int *perm) {
  * Parameters
  * ----------
  *  m       Matrix to permute.
- *  p       The permutation array. In the returne output matrix row i is swapped
- *          with row p(i).
+ *  p       The permutation array. In the returned output matrix row i is
+ *          swapped with row p(i).
  */
 zcrs *zcrs_row_perm_alloc(zcrs *m, int *p) {
   int i, j, k, pk;
@@ -702,44 +712,47 @@ zcrs *zcrs_row_perm_alloc(zcrs *m, int *p) {
     CFL_ERROR_NULL("malloc failed for pm");
   }
   pm->val = (complex double *) calloc(m->nnz,sizeof(complex double));
-  if (val == 0) {
+  if (pm->val == 0) {
     free(pm);
     CFL_ERROR_NULL("calloc failed for val");
   }
   pm->col_in = (int *) calloc(m->nnz,sizeof(int));
-  if (col_in == 0) {
+  if (pm->col_in == 0) {
     free(pm);
-    free(val);
+    free(pm->val);
     CFL_ERROR_NULL("calloc failed for col_in");
   }
-  pm->row_ptr = (int *) calloc((n+1),sizeof(int));
-  if (row_ptr == 0) {
+  pm->row_ptr = (int *) calloc((m->n+1),sizeof(int));
+  if (pm->row_ptr == 0) {
     free(pm);
-    free(val);
-    free(col_in);
+    free(pm->val);
+    free(pm->col_in);
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
 
   /* Determine the number of elements per row. */
-  for (j=0; j<zcrs->n; j++) {
+  for (j=0; j<m->n; j++) {
     i = p[j];
     pm->row_ptr[i+1] = m->row_ptr[j+1] - m->row_ptr[j];
   }
   
   /* Calculate the permuted row_ptr. */
   pm->row_ptr[0] = 0;
-  for (j=0; j<zcrs->n; j++) {
+  for (j=0; j<m->n; j++) {
     pm->row_ptr[j+1] = pm->row_ptr[j+1] + pm->row_ptr[j];
   }
 
   /* Assign the permuted column indices. */
-  for (i=0; i<zcrs->n; i++) {
+  for (i=0; i<m->n; i++) {
     pk = pm->row_ptr[p[i]];
-    for (k=m->row_ptr[i]; k<row_ptr[i+1]; k++) {
+    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
       pm->col_in[pk] = m->col_in[k];
       pk++;
     }
   }
+
+  pm->n = m->n;
+  pm->nnz = m->nnz;
 
   return pm;
 }
@@ -757,12 +770,12 @@ zcrs *zcrs_row_perm_alloc(zcrs *m, int *p) {
  *          to entry.
  *  p       The permutation array. Row i is swapped with row p(i).
  */
-inline void zcrs_row_perm(zcrs *m, zcrs *pm, int *p) {
-  int i, j, pk, 
+void zcrs_row_perm(zcrs *m, zcrs *pm, int *p) {
+  int i, k, pk; 
 
-  for (i=0; i<zcrs->n; i++) {
+  for (i=0; i<m->n; i++) {
     pk = pm->row_ptr[p[i]];
-    for (k=m->row_ptr[i]; k<row_ptr[i+1]; k++) {
+    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
       pm->val[pk] = m->val[k];
       pk++;
     }
@@ -770,10 +783,6 @@ inline void zcrs_row_perm(zcrs *m, zcrs *pm, int *p) {
 
 }
 
-
-inline void zcsr_csort(zcrs *m, int *p, int *vp, int *iwork) {
-
-}
 
 /* 
  * Allocate CRS matrix with column permuted sparsity pattern. Call prior to
@@ -783,13 +792,15 @@ inline void zcsr_csort(zcrs *m, int *p, int *vp, int *iwork) {
  * ----------
  *  m       The matrix to permute. 
  *  p       Array of length n, with n the number of rows of m, with entries
- *          specifying the permuted row and column indices.
- *  pi      Array of length (n + 1), will be overwritten with the permutation
+ *          specifying the permuted column indices.
+ *  pj      Array of length (n + 1), will be overwritten with the permutation
  *          that should be applied to the value array to achieve the specified
  *          column permutation.  This is achieved with a call to zcrs_col_perm. 
  */
-zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *vp) {
-  int n, j, k, pk, nnz, next;
+zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
+  int i, j, k, pk, nnz, next, irow;
+  int *iwork;
+  zcrs *pm;
 
   nnz = m->nnz;;
   pm = (zcrs *) malloc(sizeof(zcrs));
@@ -797,83 +808,104 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *vp) {
     CFL_ERROR_NULL("malloc failed for pm");
   }
   pm->val = (complex double *) calloc(m->nnz,sizeof(complex double));
-  if (val == 0) {
+  if (pm->val == 0) {
     free(pm);
     CFL_ERROR_NULL("calloc failed for val");
   }
-  pm->row_ptr = (int *) calloc((n+1),sizeof(int));
-  if (row_ptr == 0) {
+  pm->col_in = (int *) calloc(m->nnz,sizeof(int));
+  if (pm->col_in == 0) {
     free(pm);
-    free(val);
+    free(pm->val);
+    CFL_ERROR_NULL("calloc failed for iwork");
+  }
+  pm->row_ptr = (int *) calloc((m->n+1),sizeof(int));
+  if (pm->row_ptr == 0) {
+    free(pm);
+    free(pm->val);
+    free(pm->col_in);
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
   iwork = (int *) calloc(m->nnz,sizeof(int));
-  if (col_in == 0) {
+  if (iwork == 0) {
     free(pm);
-    free(val);
-    free(row_ptr);
-    CFL_ERROR_NULL("calloc failed for col_in");
+    free(pm->val);
+    free(pm->col_in);
+    free(pm->row_ptr);
+    CFL_ERROR_NULL("calloc failed for iwork");
   }
 
   /* Permute the value indices. */
   for (k=0; k<nnz; k++) {
-    m->col_in[k] = p[col_in[k]];
+    pm->col_in[k] = p[m->col_in[k]];
   }
   
   /* Now we sort the resulting matrix by increasing column order. */
 
   /* Compute the column pointers of the matrix; first count the number of
    * elements per column, then add them. */
+  for (j=0; j<m->n; j++) {
+    pj[j+1] = 0;
+  }
   for (i=0; i<m->n; i++) {
-    pi[i+1] = 0;
-    for (k=m->row_ptr[i]; k=m->row_ptr[i+1]; k++) {
-      j = m->col_in[k];
-      pi[j+1] += 1;
+    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+      j = pm->col_in[k];
+      pj[j+1] += 1;
     }
   }
-  pi[0] = 0;
-  for (i=0; i<n; i++) {
-    pi[i+1] = pi[i] + pi[i+1];
+  pj[0] = 0;
+  for (i=0; i<m->n; i++) {
+    pj[i+1] = pj[i] + pj[i+1];
   }
 
-  /* iwork is filled in to yield the CCS row_in. */
-  for (i=0; i<n; i++) {
-    for (k=m->row_ptr[i]; k<m->row_ptr[i]; k++) {
-      j = m->col_in[k];
+  /* pj starts of as the CCS col_ptr, but as we step through we increment
+   * entries to step through all non-zero elements of each column. */
+  for (i=0; i<m->n; i++) {
+    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+      /* j = the unsorted index of the kth permuted column. */
+      j = pm->col_in[k];
       /* next = the index of the next element of the jth column. */
-      next = pi[j];
+      next = pj[j];
+      /* iwork = the sorted index of the next element. */
       iwork[next] = k;
-      pi[j] = next+1; 
+      pj[j] += 1; 
     }
   }
 
   /* Record which row each nz element is in. */
   for (i=0; i<m->n; i++) {
-    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; i++) {
-      pi[k] = i;
+    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+      pj[k] = i;
     }
   }
 
   for (k=0; k<nnz; k++) {
+    /* The permuted k index. */
     pk = iwork[k];
     /* The row index of the current nz element. */
-    irow = pi[pk];
+    irow = pj[pk];
+    /* row_ptr gives, for the current row, the first nz element. */
     next = m->row_ptr[irow];
     /* The current nz element should be permuted to the next position in row; we
-     * keep track of this with pi. */
-    pi[pk] = next;
-    m->row_ptr[i] = next+1;
+     * keep track of this with pj. */
+    pj[pk] = next;
+    m->row_ptr[irow] += 1;
   }
 
   /* Reshift the row pointers of the original matrix. */
-  for (i=0; i<m->n; i++) {
+  for (i=m->n-1; i>=0; i--) {
     m->row_ptr[i+1] = m->row_ptr[i];
   }
   m->row_ptr[0] = 0;
 
-  /* Reuse iwork for the col_in of the new matrix. */
-  memcpy(iwork, m->col_in, nnz*sizeof(int));
-  pm->col_in = iwork;
+  free(iwork);
+  /* Permute col_in of the new matrix. */
+  ivperm(nnz, pm->col_in, pj); 
+
+  pm->n = m->n;
+  pm->nnz = nnz;
+  memcpy(pm->row_ptr, m->row_ptr, (m->n+1)*sizeof(int));
+
+  return pm;
 }
 
 /* 
@@ -886,19 +918,11 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *vp) {
  *  m       Matrix to permute.
  *  pm      The output matrix which must have a permuted sparsity pattern prior
  *          to entry.
- *  p       The permutation array. Column i is swapped with column p(i).
- *  pi      The permutation index used to permute the val array of m.
+ *  pj      The permutation index used to permute the val array of m.  Values
+ *          can be generated with zcrs_col_alloc.
  */
-inline void zcrs_col_perm(zcrs *m, zcrs *pm, int *p, int *pi) {
-  int i, j, pk, 
+void zcrs_col_perm(zcrs *m, zcrs *pm, int *p, int *pj) {
+  int i, j, pk;
 
-  for (i=0; i<zcrs->n; i++) {
-    pk = pm->row_ptr[p[i]];
-    for (k=m->row_ptr[i]; k<row_ptr[i+1]; k++) {
-      pm->val[pk] = m->val[k];
-      pk++;
-    }
-  }
-
+  zvperm(m->nnz, m->val, pm->val, pj);
 }
-#endif

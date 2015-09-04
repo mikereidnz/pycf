@@ -72,9 +72,6 @@ int main (void) {
   printf("zhcrs2zcrs (depends on zcrs2zha):\n");
   equ_chk(a, aa, 16);
 
-  zcrs_free(mac);
-  free(aa);
-
   /* zhcrs2zhpa test. */
   complex double bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
   complex double *bbp;
@@ -105,6 +102,8 @@ int main (void) {
   
   zhcrs_free(mc);
   free(c);
+  zcrs_free(mac);
+  free(aa);
 
   /* zhcrssm test. */
   complex double zhsm_res[16] = {0, 0+2*I, 0+4*I, 0+6*I, 0-2*I, 2, 2+4*I, 2+6*I,
@@ -209,6 +208,36 @@ int main (void) {
   int_equ_chk(ix, ix_perm, 9);
   printf("ivperm test 2:\n");
   int_equ_chk(perm_orig, perm, 9);
+
+  complex double pma[16] = {1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 1, 4, 0, 0, 4, 1};
+  complex double pmaa[16] = {1, 2, 0, 0, 2, 1, 0, 4, 0, 0, 1, 0, 0, 4, 0, 1};
+  int pm_p[4] = {0, 2, 1, 3}; 
+  zhcrs *pmh;
+  zcrs *cpm, *rpm;
+  int *pj;
+
+  pmh = zhcrs_alloc(pma, 4);
+  zcrs *pm = zhcrs2zcrs_alloc(pmh);
+  zhcrs2zcrs(pmh, pm);
+
+  pj = (int *) calloc(pm->nnz+1, sizeof(int));
+  cpm = (zcrs *) zcrs_col_perm_alloc(pm, pm_p, pj);
+  rpm = (zcrs *) zcrs_row_perm_alloc(cpm, pm_p);
+  
+  zcrs_col_perm(pm, cpm, pm_p, pj);
+  zcrs_row_perm(cpm, rpm, pm_p);
+
+  zcrs2zha(rpm, pma);
+  
+  printf("cpm and rpm:\n");
+  equ_chk(pma, pmaa, 16);
+
+  zhcrs_free(pmh);
+  zcrs_free(pm);
+
+  free(pj);
+  zcrs_free(cpm);
+  zcrs_free(rpm);
 
   return 0;
 }  
