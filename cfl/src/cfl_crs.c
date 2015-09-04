@@ -834,7 +834,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
     CFL_ERROR_NULL("calloc failed for iwork");
   }
 
-  /* Permute the value indices. */
+  /* Permute the column indices. */
   for (k=0; k<nnz; k++) {
     pm->col_in[k] = p[m->col_in[k]];
   }
@@ -857,7 +857,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
     pj[i+1] = pj[i] + pj[i+1];
   }
 
-  /* pj starts of as the CCS col_ptr, but as we step through we increment
+  /* pj starts off as the CCS col_ptr, but as we step through we increment
    * entries to step through all non-zero elements of each column. */
   for (i=0; i<m->n; i++) {
     for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
