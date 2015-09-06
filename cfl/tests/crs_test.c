@@ -97,6 +97,15 @@ int main (void) {
   zhcrs *mc = zhcrssam_alloc(ma, mb);
   zhcrssam(ma, mb, mc, alpha, beta);
   zhcrs2zha(mc, c);
+
+  for (i=0; i<4; i++) {
+    for (j=0; j<4; j++) {
+      printf("%f+I%f ",creal(c[i*4+j]), cimag(c[i*4+j]));
+    }
+    printf("\n");
+  }
+  printf("\n");
+
   printf("zhcrssam (depends on zhcrs2zha):\n");
   equ_chk(c, zhsam_res, 16);
   
@@ -194,9 +203,7 @@ int main (void) {
   printf("rcm test:\n");
   RCM_FUNC(genrcmi)(n, 0, c20_zm->row_ptr, c20_zm->col_in, p, mask, deg);
   int_equ_chk(p, pa, n);
-  
-  zhcrs_free(c20_zhm);
-  zcrs_free(c20_zm);
+
 
   int ix[9] = {5, 9, 4, 7, 8, 1, 2, 6, 3};
   int ix_perm[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -214,30 +221,77 @@ int main (void) {
   int pm_p[4] = {0, 2, 1, 3}; 
   zhcrs *pmh;
   zcrs *cpm, *rpm;
-  int *pj;
+  int *pmj;
 
   pmh = zhcrs_alloc(pma, 4);
   zcrs *pm = zhcrs2zcrs_alloc(pmh);
   zhcrs2zcrs(pmh, pm);
 
-  pj = (int *) calloc(pm->nnz+1, sizeof(int));
-  cpm = (zcrs *) zcrs_col_perm_alloc(pm, pm_p, pj);
+  pmj = (int *) calloc(pm->nnz+1, sizeof(int));
+  cpm = (zcrs *) zcrs_col_perm_alloc(pm, pm_p, pmj);
   rpm = (zcrs *) zcrs_row_perm_alloc(cpm, pm_p);
   
-  zcrs_col_perm(pm, cpm, pm_p, pj);
+  zcrs_col_perm(pm, cpm, pm_p, pmj);
   zcrs_row_perm(cpm, rpm, pm_p);
-
+  zcrs_col_perm(pm, cpm, pm_p, pmj);
+  zcrs_row_perm(cpm, rpm, pm_p);
   zcrs2zha(rpm, pma);
   
+  printf("pma perm:\n");
+  for (i=0; i<4; i++) {
+    for (j=0; j<4; j++) {
+      printf("%f ", cabs(pma[i*4+j]));
+    }
+    printf("\n");
+  }
+  printf("\n");
   printf("cpm and rpm:\n");
   equ_chk(pma, pmaa, 16);
 
   zhcrs_free(pmh);
   zcrs_free(pm);
 
-  free(pj);
+  free(pmj);
   zcrs_free(cpm);
   zcrs_free(rpm);
+  
+  //zcrs *c20_cpm, *c20_rpm;
+  //int *pj;
+
+  //pj = (int *) calloc(c20_zm->nnz+1, sizeof(int));
+
+  //int *pi;
+  //pi = (int *) calloc(c20_zm->n, sizeof(int));
+
+  //for (i=0; i<c20_zm->n; i++) {
+  //  pi[p[i]] = i;
+  //}
+  //c20_rpm = (zcrs *) zcrs_row_perm_alloc(c20_zm, pi);
+  //c20_cpm = (zcrs *) zcrs_col_perm_alloc(c20_rpm, pi, pj);
+  //
+  //zcrs_row_perm(c20_zm, c20_rpm, pi);
+  //zcrs_col_perm(c20_rpm, c20_cpm, pi, pj);
+
+  //complex double *c20_a = (complex double *) calloc( c20_zm->n*c20_zm->n, sizeof(complex double));
+  //zcrs2zha(c20_cpm, c20_a);
+
+  //for (i=0; i<c20_zm->n; i++) {
+  //  for (j=0; j<c20_zm->n; j++) {
+  //    printf("%f ", c20_a[i*c20_zm->n+j]);
+  //  }
+  //  printf("\n");
+  //}
+  //printf("\n");
+
+
+  //free(pi);
+  //free(pj);
+  //zcrs_free(c20_rpm);
+  //zcrs_free(c20_cpm);
+  //zhcrs_free(c20_zhm);
+  //zcrs_free(c20_zm);
+  //free(c20_a);
+
 
   return 0;
 }  

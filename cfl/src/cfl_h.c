@@ -115,7 +115,7 @@ zhd_w *zhd_w_alloc(zh *h) {
   int *iwork, iwquery;
   zcrs *zcrs_h;
   signed char *node_mask;
-  int *node_deg;
+  int *node_deg, *tmp_perm;
 
   zhd_w *hd_w;
 
@@ -255,6 +255,8 @@ zhd_w *zhd_w_alloc(zh *h) {
     }
   }
 
+  printf("alloc nnz = %i\n", coeff_w[hd_w->lcoeff_w-1]->nnz);
+
   /* Generate the reverse Cuthill-McKee ordering of the complete Hamiltonian. */
   zcrs_h = zhcrs2zcrs_alloc(coeff_w[hd_w->lcoeff_w-1]);
   if (zcrs_h == 0) {
@@ -315,17 +317,8 @@ zhd_w *zhd_w_alloc(zh *h) {
     CFL_ERROR_NULL("calloc failed for node_deg");
   }
 
-  zhcrs2zcrs(coeff_w[hd_w->lcoeff_w-1], zcrs_h);
-  RCM_FUNC(genrcmi)(zcrs_h->n, 0, zcrs_h->row_ptr, zcrs_h->col_in,
-      hd_w->rcm_perm, node_mask, node_deg);
-  hd_w->zcrs_h = zcrs_h;
-  hd_w->coeff_w = coeff_w;
-
-  free(node_mask);
-  free(node_deg);
-  
-  hd_w->rcm_rp_h = (zcrs *) zcrs_row_perm_alloc(hd_w->zcrs_h, hd_w->rcm_perm);
-  if (hd_w->rcm_rp_h == 0) {
+  tmp_perm = (int *) calloc(zcrs_h->n, sizeof(int));
+  if (tmp_perm == 0) {
     for (i=0; i<hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
@@ -339,8 +332,29 @@ zhd_w *zhd_w_alloc(zh *h) {
     free(hd_w->rwork);
     free(hd_w->iwork);
     free(hd_w);
-    CFL_ERROR_NULL("zcrs_row_perm_alloc failed for rcm_rp_h");
+    CFL_ERROR_NULL("calloc failed for tmp_perm");
   }
+  zhcrs2zcrs(coeff_w[hd_w->lcoeff_w-1], zcrs_h);
+  
+  RCM_FUNC(genrcmi)(zcrs_h->n, 0, zcrs_h->row_ptr, zcrs_h->col_in,
+      tmp_perm, node_mask, node_deg);
+  printf("rcm perm:\n");
+  for (i=0; i<h->n; i++) {
+    printf("%i ", tmp_perm[i]);
+  }
+  printf("\n");
+  /* Change permutation index to coordinate form. */
+  for (i=0; i<zcrs_h->n; i++) {
+    hd_w->rcm_perm[tmp_perm[i]] = i;
+  }
+
+  hd_w->zcrs_h = zcrs_h;
+  hd_w->coeff_w = coeff_w;
+
+  free(node_mask);
+  free(node_deg);
+  free(tmp_perm);
+  
   hd_w->rcm_pj = (int *) calloc(hd_w->zcrs_h->nnz+1, sizeof(int));
   if (hd_w->rcm_pj == 0) {
     for (i=0; i<hd_w->lcoeff_w; i++) {
@@ -348,9 +362,6 @@ zhd_w *zhd_w_alloc(zh *h) {
     }
     zcrs_free(zcrs_h);
     free(hd_w->rcm_perm);
-    free(node_mask);
-    free(node_deg);
-    zcrs_free(hd_w->rcm_rp_h);
     free(hd_w->coeff_w);
     free(hd_w->isuppz);
     free(hd_w->work);
@@ -359,26 +370,44 @@ zhd_w *zhd_w_alloc(zh *h) {
     free(hd_w);
     CFL_ERROR_NULL("calloc failed for rcm_pj");
   }
-  hd_w->rcm_cp_h = (zcrs *) zcrs_col_perm_alloc(hd_w->rcm_rp_h, hd_w->rcm_perm,
-      hd_w->rcm_pj);
-  if (hd_w->rcm_cp_h == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
-      zhcrs_free(hd_w->coeff_w[i]);
-    }
-    zcrs_free(zcrs_h);
-    free(hd_w->rcm_perm);
-    free(node_mask);
-    free(node_deg);
-    zcrs_free(hd_w->rcm_rp_h);
-    free(hd_w->rcm_pj);
-    free(hd_w->coeff_w);
-    free(hd_w->isuppz);
-    free(hd_w->work);
-    free(hd_w->rwork);
-    free(hd_w->iwork);
-    free(hd_w);
-    CFL_ERROR_NULL("zcrs_col_perm_alloc failed for rcm_cp_h");
-  }
+
+  hd_w->rcm_rp_h = (zcrs *) zcrs_row_perm_alloc(hd_w->zcrs_h, hd_w->rcm_perm);
+  hd_w->rcm_cp_h = (zcrs *) zcrs_col_perm_alloc(hd_w->zcrs_h, hd_w->rcm_perm, hd_w->rcm_pj);
+
+
+
+  //if (hd_w->rcm_cp_h == 0) {
+  //  for (i=0; i<hd_w->lcoeff_w; i++) {
+  //    zhcrs_free(hd_w->coeff_w[i]);
+  //  }
+  //  zcrs_free(zcrs_h);
+  //  free(hd_w->rcm_perm);
+  //  free(hd_w->rcm_pj);
+  //  free(hd_w->coeff_w);
+  //  free(hd_w->isuppz);
+  //  free(hd_w->work);
+  //  free(hd_w->rwork);
+  //  free(hd_w->iwork);
+  //  free(hd_w);
+  //  CFL_ERROR_NULL("zcrs_col_perm_alloc failed for rcm_cp_h");
+  //}
+
+  //if (hd_w->rcm_rp_h == 0) {
+  //  for (i=0; i<hd_w->lcoeff_w; i++) {
+  //    zhcrs_free(hd_w->coeff_w[i]);
+  //  }
+  //  zcrs_free(zcrs_h);
+  //  free(hd_w->rcm_perm);
+  //  zcrs_free(hd_w->rcm_cp_h);
+  //  free(hd_w->rcm_pj);
+  //  free(hd_w->coeff_w);
+  //  free(hd_w->isuppz);
+  //  free(hd_w->work);
+  //  free(hd_w->rwork);
+  //  free(hd_w->iwork);
+  //  free(hd_w);
+  //  CFL_ERROR_NULL("zcrs_row_perm_alloc failed for rcm_rp_h");
+  //}
 
   return hd_w;
 }
@@ -437,9 +466,39 @@ void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w) {
   /* Convert the Hamiltonian from Hermitian CRS to standard CRS, then apply RCM
    * permutation, and finally convert to dense storage. */
   zhcrs2zcrs(hd_w->coeff_w[hd_w->lcoeff_w-1], hd_w->zcrs_h);
-  zcrs_row_perm(hd_w->zcrs_h, hd_w->rcm_rp_h, hd_w->rcm_perm);
-  zcrs_col_perm(hd_w->rcm_rp_h, hd_w->rcm_cp_h, hd_w->rcm_perm, hd_w->rcm_pj);
+
+  zcrs2zha(hd_w->zcrs_h, h->a);
+  int j;
+  printf("pre sort\n");
+  for (i=0; i<h->n; i++) {
+    for (j=0; j<h->n; j++) {
+      printf("%f, ", creal(h->a[i*h->n+j]));
+    }
+    printf("\n");
+  }
+  printf("\n");
+
+  for (i=0; i<h->n+1; i++) {
+    printf("%i ", hd_w->zcrs_h->row_ptr[i]);
+  }
+  printf("\n");
+  //zcrs_row_perm(hd_w->zcrs_h, hd_w->rcm_rp_h, hd_w->rcm_perm);
+  zcrs_col_perm(hd_w->zcrs_h, hd_w->rcm_cp_h, hd_w->rcm_perm, hd_w->rcm_pj);
+
   zcrs2zha(hd_w->rcm_cp_h, h->a);
+  printf("post sort\n");
+  for (i=0; i<h->n; i++) {
+    for (j=0; j<h->n; j++) {
+      printf("%f, ", creal(h->a[i*h->n+j]));
+    }
+    printf("\n");
+  }
+  printf("\n");
+  printf("post sort\n");
+  for (i=0; i<h->n+1; i++) {
+    printf("%i ", hd_w->rcm_rp_h->row_ptr[i]);
+  }
+  printf("\n");
 
   info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, h->a, lda, vl,
       vu, il, iu, hd_w->abstol, &(hd_w->m), w, z, ldz, hd_w->isuppz,

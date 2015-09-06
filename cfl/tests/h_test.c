@@ -183,7 +183,7 @@ int main (void)
   printf("hdiag multiple tensors:\n");
   dequ_chk(hdiag_res, w, 4);
 
-#if 0
+#if 1
   /* Test diagonalization of Hamiltonian with a single tensor. */
   zt *tens2[1];
   complex double coeff2[1];
@@ -201,6 +201,11 @@ int main (void)
 
   printf("hdiag single tensor:\n");
   dequ_chk(h2diag_res, w, 4);
+  for (i=0; i<4; i++) {
+    printf("%f ", w[i]);
+  }
+  printf("\n");
+
   zh_free(h2);
 #endif
   free(c);
@@ -215,7 +220,7 @@ int main (void)
   for (i=0; i<4; i++) {
     free(l[i]);
   }
-  
+#if 0  
   /*=========================================================================*/
   /* Spin Hamiltonian projection test.                                       */
   /*=========================================================================*/
@@ -508,5 +513,6 @@ int main (void)
   
   zshi_w_free(euyso_w);
   zsh_free(euyso_sh);
+#endif
   return 0;
 }  

@@ -1,18 +1,18 @@
 /*
-    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -57,7 +57,7 @@ zhcrs *zhcrs_alloc(complex double a[], int n) {
    * of a. Since we only check columns j >= i, all inspected elements may turn
    * out to be zero; consequently, we add one to nnz in such cases to avoid the
    * row from being dropped. */
-   for (i=0; i<n; i++) {
+  for (i=0; i<n; i++) {
     for (j=i; j<n; j++) {
       if (cabs(a[i*n+j]) != 0) {
         nnz++;
@@ -154,9 +154,9 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
   int *col_in;
   int *row_ptr;
   zcrs *crs_m;
-  
+
   n = hcrs_m->n;
-    
+
   /* Determine the number of non-zero diagonal elements. */
   nnzd = 0;
   nnzz = 0;
@@ -166,17 +166,18 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
     }
     if (hcrs_m->val[hcrs_m->row_ptr[i]] == 0) {
       /* Record the number of placeholder "non-zero" zeros required for
-       * Hermitian CRS (zhcrs_alloc for details).*/
+       * Hermitian CRS (see zhcrs_alloc for details).*/
       nnzz++;
     }
   }
   nnz = hcrs_m->nnz*2-nnzd-nnzz;
-  
+  printf("nnz = %i, nnzd = %i, nnzz =%i\n", nnz, nnzd, nnzz);
+
   row_ptr = (int *) calloc((n+1),sizeof(int));
   if (row_ptr == 0) {
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
-  
+
   col_in = (int *) calloc(nnz, sizeof(int));
   if (col_in == 0) {
     free(row_ptr);
@@ -407,13 +408,14 @@ void zcrs2zha(zcrs *crs_m, complex double *a) {
  */
 zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
   int i,j,k;
-  int nnz;
+  int ai, bi;
+  int nnz, nnzz;
   complex double *val;
   int *col_in;
   int *row_ptr;
   zhcrs *hcrs_m;
   int n;
-  int match = 0;
+  int match, z_count;
 
   if (a->n != b->n) {
     CFL_ERROR_NULL("matrix dimensions don't match");
@@ -426,11 +428,36 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
 
-  /* Determine the number of non-zero elements and the row pointer of C.  The
-   * row pointer of the first row is always zero, hence we do not need to worry
-   * whether a or b has the first entry. */
+  /* Determine the number of non-zero elements and the row pointer of C.  We
+   * start by counting the number of zero place-holders (see zhcrs_alloc for
+   * details) that are no longer required after summing a and b.  This is
+   * recorded per row. */
+  z_count = 0;
   for (i=0; i<n; i++) {
-    row_ptr[i] = a->row_ptr[i]+b->row_ptr[i]-match;
+    if (a->val[a->row_ptr[i]] == 0) {
+      if (b->val[b->row_ptr[i]] == 0) {
+        row_ptr[i] = 0;
+      }
+      else {
+        z_count--;
+        row_ptr[i] =0; //z_count;
+      }
+    } 
+    else if (b->val[b->row_ptr[i]] == 0) {
+      z_count--;
+      row_ptr[i] = 0; //z_count;
+    }
+    else {
+      row_ptr[i] = 0;
+    }
+    printf("row_ptr=%i\n", row_ptr[i]);
+  }
+
+  /* The row pointer of the first row is always zero, hence we do not need to
+   * worry whether a or b has the first entry. */ 
+  match=0;
+  for (i=0; i<n; i++) {
+    row_ptr[i] += a->row_ptr[i]+b->row_ptr[i]-match;
     for (j=a->row_ptr[i]; j<a->row_ptr[i+1]; j++) {
       for (k=b->row_ptr[i]; k<b->row_ptr[i+1]; k++) {
         if (a->col_in[j]==b->col_in[k]) {
@@ -440,27 +467,121 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
       }
     }
   }
-
-  nnz = a->nnz + b->nnz - match;
+  
+  printf("a->nnz=%i, b->nnz=%i, match=%i, z_count=%i\n", a->nnz, b->nnz, match, z_count);
+  nnz = a->nnz + b->nnz - match + z_count;
   row_ptr[n] = nnz;
+
+  col_in = (int *) calloc(nnz,sizeof(int));
+  if (col_in == 0) {
+    free(row_ptr);
+    free(hcrs_m);
+    CFL_ERROR_NULL("calloc failed for col_in");
+  }
+
+  printf("a row_ptr:\n");
+  for (i=0; i<n; i++) {
+    printf("%i ", a->row_ptr[i]);
+  }
+  printf("\n");
+  printf("b row_ptr:\n");
+  for (i=0; i<n; i++) {
+    printf("%i ", b->row_ptr[i]);
+  }
+  printf("\n");
+  printf("c row_ptr:\n");
+  for (i=0; i<n; i++) {
+    printf("%i ", row_ptr[i]);
+  }
+  printf("\n");
+  ai = 0;
+  bi = 0;
+  /* Fill in the column index. */
+  for (i=0; i<n; i++) {
+    /* The first two cases correspond to no further elements for either b or a
+     * on the current row, respectively.  The next two cases correspond to
+     * further elements for both a and b on the current row, yet one has a lower
+     * column index and hence comes first.  Finally, the only option that
+     * remains is that the column indices of both a and b match for the current
+     * row, hence we have a matching entry. */
+    for (j=row_ptr[i]; j<row_ptr[i+1]; j++) {
+      printf("ai=%i, bi=%i\n", ai, bi);
+      if (bi == b->row_ptr[i+1]) {
+        if (ai != a->row_ptr[i+1]) {
+          col_in[j] = a->col_in[ai];
+          ai++;
+          printf("a!=\n");
+        }
+        else {
+          printf("b else\n");
+          /* Either both a and b have a zero row, in which case we grab the zero
+           * value and advance both counters.  Alternatively, only b is zero and
+           * we grab the a value and drop the b zero or a is zero and we grab
+           * the b value and drop the a zero.  Either way, we still advance both
+           * counters. */ 
+          if (b->val[bi] == 0) {
+            col_in[j] = a->col_in[ai];
+          } 
+          else {
+            col_in[j] = b->col_in[bi];
+          }
+          ai++;
+          bi++;
+        }
+      }
+      else if (ai == a->row_ptr[i+1]) {
+        if (bi != b->row_ptr[i+1]) {
+          col_in[j] = b->col_in[bi];
+          bi++;
+
+          printf("b!=\n");
+        }
+        else {
+
+          printf("a else\n");
+          /* Either both a and b have a zero row, in which case we grab the zero
+           * value and advance both counters.  Alternatively, only b is zero and
+           * we grab the a value and drop the b zero or a is zero and we grab
+           * the b value and drop the a zero.  Either way, we still advance both
+           * counters. */ 
+          if (a->val[ai] == 0) {
+            col_in[j] = b->col_in[bi];
+          } 
+          else {
+            col_in[j] = a->col_in[ai];
+          }
+          ai++;
+          bi++;
+        }
+      }
+      else if (a->col_in[ai] < b->col_in[bi]) {
+        col_in[j] = a->col_in[ai];
+        ai++;
+      }
+      else if (b->col_in[bi] < a->col_in[ai]) {
+        col_in[j] = b->col_in[bi];
+        bi++;
+      }
+      else {
+        col_in[j] = a->col_in[ai];
+        ai++;
+        bi++;
+      }
+    }
+  }
 
   hcrs_m = (zhcrs *) malloc(sizeof(zhcrs));
   if (hcrs_m == 0) {
     free(row_ptr);
+    free(col_in);
     CFL_ERROR_NULL("malloc failed for hcrs_m");
   }
   val = (complex double *) calloc(nnz,sizeof(complex double));
   if (val == 0) {
     free(row_ptr);
+    free(col_in);
     free(hcrs_m);
     CFL_ERROR_NULL("calloc failed for val");
-  }
-  col_in = (int *) calloc(nnz,sizeof(int));
-  if (col_in == 0) {
-    free(row_ptr);
-    free(hcrs_m);
-    free(val);
-    CFL_ERROR_NULL("calloc failed for col_in");
   }
 
   hcrs_m->n = n;
@@ -501,32 +622,70 @@ void zhcrssam(zhcrs *a, zhcrs *b, zhcrs *c, complex double alpha, double
   for (i=0; i<c->n; i++) {
     for (j=c->row_ptr[i]; j<c->row_ptr[i+1]; j++) {
       if (bi == b->row_ptr[i+1]) {
+        if (ai != a->row_ptr[i+1]) {
+          c->val[j] = alpha*a->val[ai];
+          ai++;
+        }
+        else {
+          /* Either both a and b have a zero row, in which case we grab the zero
+           * value and advance both counters.  Alternatively, only b is zero and
+           * we grab the a value and drop the b zero or a is zero and we grab
+           * the b value and drop the a zero.  Either way, we still advance both
+           * counters. */ 
+          if (b->val[bi] == 0) {
+            c->val[j] = alpha*a->val[ai];
+          } 
+          else {
+            c->val[j] = beta*b->val[bi];
+          }
+          ai++;
+          bi++;
+        }
+      }
+      else if (ai == a->row_ptr[i+1]) {
+        if (bi != b->row_ptr[i+1]) {
+          c->val[j] = beta*b->val[bi];
+          bi++;
+        }
+        else {
+          /* Either both a and b have a zero row, in which case we grab the zero
+           * value and advance both counters.  Alternatively, only b is zero and
+           * we grab the a value and drop the b zero or a is zero and we grab
+           * the b value and drop the a zero.  Either way, we still advance both
+           * counters. */ 
+          if (a->val[ai] == 0) {
+            c->val[j] = beta*b->val[bi];
+          } 
+          else {
+            c->val[j] = alpha*a->val[ai];
+          }
+          ai++;
+          bi++;
+        }
+      }
+      if (bi == b->row_ptr[i+1]) {
         c->val[j] = alpha*a->val[ai];
-        c->col_in[j] = a->col_in[ai];
         ai++;
       }
       else if (ai == a->row_ptr[i+1]) {
         c->val[j] = beta*b->val[bi];
-        c->col_in[j] = b->col_in[bi];
         bi++;
       }
       else if (a->col_in[ai] < b->col_in[bi]) {
         c->val[j] = alpha*a->val[ai];
-        c->col_in[j] = a->col_in[ai];
         ai++;
       }
       else if (b->col_in[bi] < a->col_in[ai]) {
         c->val[j] = beta*b->val[bi];
-        c->col_in[j] = b->col_in[bi];
         bi++;
       }
       else {
         c->val[j] = alpha*a->val[ai] + beta*b->val[bi];
-        c->col_in[j] = a->col_in[ai];
         ai++;
         bi++;
       }
     }
+
   }
 }
 
@@ -735,7 +894,7 @@ zcrs *zcrs_row_perm_alloc(zcrs *m, int *p) {
     i = p[j];
     pm->row_ptr[i+1] = m->row_ptr[j+1] - m->row_ptr[j];
   }
-  
+
   /* Calculate the permuted row_ptr. */
   pm->row_ptr[0] = 0;
   for (j=0; j<m->n; j++) {
@@ -838,7 +997,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
   for (k=0; k<nnz; k++) {
     pm->col_in[k] = p[m->col_in[k]];
   }
-  
+
   /* Now we sort the resulting matrix by increasing column order. */
 
   /* Compute the column pointers of the matrix; first count the number of
@@ -901,6 +1060,11 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
   /* Permute col_in of the new matrix. */
   ivperm(nnz, pm->col_in, pj); 
 
+  printf("pj:\n");
+  for (i=0; i<nnz; i++) {
+    printf("%i ", pj[i]);
+  }
+  printf("\n");
   pm->n = m->n;
   pm->nnz = nnz;
   memcpy(pm->row_ptr, m->row_ptr, (m->n+1)*sizeof(int));
