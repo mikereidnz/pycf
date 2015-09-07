@@ -128,7 +128,7 @@ int main (void)
    
   complex double ztsa_res[16] = {0, 6*I, 4*I, 6*I, -6*I, 2, 6+12*I, 2+6*I, -4*I,
     6-12*I, 4, 12+18*I, -6*I, 2-6*I, 12-18*I, 6};
-  
+
   c = (complex double *) calloc(16,sizeof(complex double));
   if (c==0) {
     printf("Error; failed to calloc c");

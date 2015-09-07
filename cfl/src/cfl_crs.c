@@ -170,9 +170,8 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
       nnzz++;
     }
   }
-  nnz = hcrs_m->nnz*2-nnzd-nnzz;
-  printf("nnz = %i, nnzd = %i, nnzz =%i\n", nnz, nnzd, nnzz);
-
+  nnz = hcrs_m->nnz*2-nnzd-nnzz*2;
+  
   row_ptr = (int *) calloc((n+1),sizeof(int));
   if (row_ptr == 0) {
     CFL_ERROR_NULL("calloc failed for row_ptr");
@@ -192,9 +191,14 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
     for (j=0; j<i; j++) {
       for (k=hcrs_m->row_ptr[j]; k<hcrs_m->row_ptr[j+1]; k++) {
         if (hcrs_m->col_in[k] == i) {
-          col_in[vi] = j;
-          vi++;
-          break;
+          if (hcrs_m->val[k] == 0) {
+            continue;
+          }
+          else {
+            col_in[vi] = j;
+            vi++;
+            break;
+          }
         }
         else if (hcrs_m->col_in[k] > i) {
           break;
@@ -415,47 +419,56 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
   int *row_ptr;
   zhcrs *hcrs_m;
   int n;
-  int match, z_count;
+  int match, phz_count;
 
   if (a->n != b->n) {
     CFL_ERROR_NULL("matrix dimensions don't match");
   }
   else
     n = a->n;
-
-  row_ptr = (int *) calloc((n+1),sizeof(int));
+  row_ptr = (int *) malloc((n+1)*sizeof(int));
   if (row_ptr == 0) {
-    CFL_ERROR_NULL("calloc failed for row_ptr");
+    CFL_ERROR_NULL("malloc failed for row_ptr");
   }
 
   /* Determine the number of non-zero elements and the row pointer of C.  We
    * start by counting the number of zero place-holders (see zhcrs_alloc for
    * details) that are no longer required after summing a and b.  This is
-   * recorded per row. */
-  z_count = 0;
+   * recorded per row.  If a placeholder occurs at a non-zero entry of matrix to
+   * be added, then we don't subtract 1 from phz_count, since it count as a
+   * match below, which will subtract one irrespectively. */
+  phz_count = 0;
+  row_ptr[0] = 0;
   for (i=0; i<n; i++) {
     if (a->val[a->row_ptr[i]] == 0) {
       if (b->val[b->row_ptr[i]] == 0) {
-        row_ptr[i] = 0;
+        row_ptr[i+1] = phz_count;
+      }
+      else if (b->col_in[b->row_ptr[i]] == a->col_in[a->row_ptr[i]]) {
+        row_ptr[i+1] = phz_count;
       }
       else {
-        z_count--;
-        row_ptr[i] =0; //z_count;
+        phz_count--;
+        row_ptr[i+1] = phz_count;
       }
     } 
     else if (b->val[b->row_ptr[i]] == 0) {
-      z_count--;
-      row_ptr[i] = 0; //z_count;
+      if (a->col_in[a->row_ptr[i]] == b->col_in[b->row_ptr[i]]) {
+        row_ptr[i+1] = phz_count;
+      }
+      else {
+        phz_count--;
+        row_ptr[i+1] = phz_count;
+      }
     }
     else {
-      row_ptr[i] = 0;
+      row_ptr[i+1] = phz_count;
     }
-    printf("row_ptr=%i\n", row_ptr[i]);
   }
-
   /* The row pointer of the first row is always zero, hence we do not need to
    * worry whether a or b has the first entry. */ 
   match=0;
+  row_ptr[0] = 0;
   for (i=0; i<n; i++) {
     row_ptr[i] += a->row_ptr[i]+b->row_ptr[i]-match;
     for (j=a->row_ptr[i]; j<a->row_ptr[i+1]; j++) {
@@ -468,8 +481,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
     }
   }
   
-  printf("a->nnz=%i, b->nnz=%i, match=%i, z_count=%i\n", a->nnz, b->nnz, match, z_count);
-  nnz = a->nnz + b->nnz - match + z_count;
+  nnz = a->nnz + b->nnz - match + phz_count;
   row_ptr[n] = nnz;
 
   col_in = (int *) calloc(nnz,sizeof(int));
@@ -479,23 +491,6 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
     CFL_ERROR_NULL("calloc failed for col_in");
   }
 
-  printf("a row_ptr:\n");
-  for (i=0; i<n; i++) {
-    printf("%i ", a->row_ptr[i]);
-  }
-  printf("\n");
-  printf("b row_ptr:\n");
-  for (i=0; i<n; i++) {
-    printf("%i ", b->row_ptr[i]);
-  }
-  printf("\n");
-  printf("c row_ptr:\n");
-  for (i=0; i<n; i++) {
-    printf("%i ", row_ptr[i]);
-  }
-  printf("\n");
-  ai = 0;
-  bi = 0;
   /* Fill in the column index. */
   for (i=0; i<n; i++) {
     /* The first two cases correspond to no further elements for either b or a
@@ -503,56 +498,20 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
      * further elements for both a and b on the current row, yet one has a lower
      * column index and hence comes first.  Finally, the only option that
      * remains is that the column indices of both a and b match for the current
-     * row, hence we have a matching entry. */
+     * row, hence we have a matching entry.  By resetting the ai and bi counters
+     * for each row, we automatically drop zero entries, since they are always
+     * at the end of a row and j only counts up to the required number of
+     * entries. */
+    ai = a->row_ptr[i];
+    bi = b->row_ptr[i];
     for (j=row_ptr[i]; j<row_ptr[i+1]; j++) {
-      printf("ai=%i, bi=%i\n", ai, bi);
       if (bi == b->row_ptr[i+1]) {
-        if (ai != a->row_ptr[i+1]) {
-          col_in[j] = a->col_in[ai];
-          ai++;
-          printf("a!=\n");
-        }
-        else {
-          printf("b else\n");
-          /* Either both a and b have a zero row, in which case we grab the zero
-           * value and advance both counters.  Alternatively, only b is zero and
-           * we grab the a value and drop the b zero or a is zero and we grab
-           * the b value and drop the a zero.  Either way, we still advance both
-           * counters. */ 
-          if (b->val[bi] == 0) {
-            col_in[j] = a->col_in[ai];
-          } 
-          else {
-            col_in[j] = b->col_in[bi];
-          }
-          ai++;
-          bi++;
-        }
+        col_in[j] = a->col_in[ai];
+        ai++;
       }
       else if (ai == a->row_ptr[i+1]) {
-        if (bi != b->row_ptr[i+1]) {
-          col_in[j] = b->col_in[bi];
-          bi++;
-
-          printf("b!=\n");
-        }
-        else {
-
-          printf("a else\n");
-          /* Either both a and b have a zero row, in which case we grab the zero
-           * value and advance both counters.  Alternatively, only b is zero and
-           * we grab the a value and drop the b zero or a is zero and we grab
-           * the b value and drop the a zero.  Either way, we still advance both
-           * counters. */ 
-          if (a->val[ai] == 0) {
-            col_in[j] = b->col_in[bi];
-          } 
-          else {
-            col_in[j] = a->col_in[ai];
-          }
-          ai++;
-          bi++;
-        }
+        col_in[j] = b->col_in[bi];
+        bi++;
       }
       else if (a->col_in[ai] < b->col_in[bi]) {
         col_in[j] = a->col_in[ai];
@@ -569,7 +528,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
       }
     }
   }
-
+  
   hcrs_m = (zhcrs *) malloc(sizeof(zhcrs));
   if (hcrs_m == 0) {
     free(row_ptr);
@@ -619,73 +578,30 @@ void zhcrssam(zhcrs *a, zhcrs *b, zhcrs *c, complex double alpha, double
    * index and hence comes first.  Finally, the only option that remains is that
    * the column indices of both a and b match for the current row, hence we have
    * a matching entry. */
+
   for (i=0; i<c->n; i++) {
+    ai = a->row_ptr[i];
+    bi = b->row_ptr[i];
     for (j=c->row_ptr[i]; j<c->row_ptr[i+1]; j++) {
       if (bi == b->row_ptr[i+1]) {
-        if (ai != a->row_ptr[i+1]) {
-          c->val[j] = alpha*a->val[ai];
-          ai++;
-        }
-        else {
-          /* Either both a and b have a zero row, in which case we grab the zero
-           * value and advance both counters.  Alternatively, only b is zero and
-           * we grab the a value and drop the b zero or a is zero and we grab
-           * the b value and drop the a zero.  Either way, we still advance both
-           * counters. */ 
-          if (b->val[bi] == 0) {
-            c->val[j] = alpha*a->val[ai];
-          } 
-          else {
-            c->val[j] = beta*b->val[bi];
-          }
-          ai++;
-          bi++;
-        }
-      }
-      else if (ai == a->row_ptr[i+1]) {
-        if (bi != b->row_ptr[i+1]) {
-          c->val[j] = beta*b->val[bi];
-          bi++;
-        }
-        else {
-          /* Either both a and b have a zero row, in which case we grab the zero
-           * value and advance both counters.  Alternatively, only b is zero and
-           * we grab the a value and drop the b zero or a is zero and we grab
-           * the b value and drop the a zero.  Either way, we still advance both
-           * counters. */ 
-          if (a->val[ai] == 0) {
-            c->val[j] = beta*b->val[bi];
-          } 
-          else {
-            c->val[j] = alpha*a->val[ai];
-          }
-          ai++;
-          bi++;
-        }
-      }
-      if (bi == b->row_ptr[i+1]) {
-        c->val[j] = alpha*a->val[ai];
+        c->val[j] = alpha * a->val[ai];
         ai++;
       }
       else if (ai == a->row_ptr[i+1]) {
-        c->val[j] = beta*b->val[bi];
+        c->val[j] = beta * b->val[bi];
         bi++;
-      }
-      else if (a->col_in[ai] < b->col_in[bi]) {
-        c->val[j] = alpha*a->val[ai];
-        ai++;
-      }
-      else if (b->col_in[bi] < a->col_in[ai]) {
-        c->val[j] = beta*b->val[bi];
-        bi++;
-      }
-      else {
-        c->val[j] = alpha*a->val[ai] + beta*b->val[bi];
-        ai++;
-        bi++;
+      } else {
+        c->val[j] = 0;
+        if (a->col_in[ai] == c->col_in[j]) {
+          c->val[j] += alpha * a->val[ai];
+          ai++;
+        }
+        if (b->col_in[bi] == c->col_in[j]) {
+          c->val[j] += beta * b->val[bi];
+          bi++;
+        }
       }
     }
-
   }
 }
 
@@ -1060,11 +976,6 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
   /* Permute col_in of the new matrix. */
   ivperm(nnz, pm->col_in, pj); 
 
-  printf("pj:\n");
-  for (i=0; i<nnz; i++) {
-    printf("%i ", pj[i]);
-  }
-  printf("\n");
   pm->n = m->n;
   pm->nnz = nnz;
   memcpy(pm->row_ptr, m->row_ptr, (m->n+1)*sizeof(int));
