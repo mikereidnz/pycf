@@ -334,7 +334,7 @@ zhd_w *zhd_w_alloc(zh *h) {
   }
   zhcrs2zcrs(coeff_w[hd_w->lcoeff_w-1], zcrs_h);
   
-  RCM_FUNC(genrcmi)(zcrs_h->n, 0, zcrs_h->row_ptr, zcrs_h->col_in,
+  RCM_FUNC(genrcmi)(zcrs_h->n, RCM_NO_SORT | RCM_NO_REVERSE, zcrs_h->row_ptr, zcrs_h->col_in,
       tmp_perm, node_mask, node_deg);
   
   /* Change permutation index to coordinate form. */
