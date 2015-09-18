@@ -18,6 +18,7 @@
 
 from __future__ import division
 import numpy as np
+import re
 
 from datetime import datetime
 import os, inspect
@@ -48,27 +49,27 @@ def term2L(c):
     c : string
         The L quantum number term character to be converted. 
     """
-    if c == 'S': 
+    if re.search(r'S\d?', c): 
         return 0
-    elif c == 'P':
+    elif re.search(r'P\d?', c):
         return 1
-    elif c == 'D':
+    elif re.search(r'D\d?', c):
         return 2
-    elif c == 'F':
+    elif re.search(r'F\d?', c):
         return 3
-    elif c == 'G':
+    elif re.search(r'G\d?', c):
         return 4
-    elif c == 'H':
+    elif re.search(r'H\d?', c):
         return 5
-    elif c == 'I':
+    elif re.search(r'I\d?', c):
         return 6
-    elif c == 'K':
+    elif re.search(r'K\d?', c):
         return 7
-    elif c == 'L':
+    elif re.search(r'L\d?', c):
         return 8
-    elif c == 'M':
+    elif re.search(r'M\d?', c):
         return 9
-    elif c == 'N':
+    elif re.search(r'N\d?', c):
         return 10
     else:
         raise NotImplementedError("L quantum number term symbols beyond N are not supported.")

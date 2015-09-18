@@ -77,7 +77,7 @@ class ImportSLJM(object):
                 dim = int(d[0])
 
         with open("%s.st_" % name, 'r') as f:
-            state_labels = re.findall(r'[^[]*\[(\d+)(\w)\s+(\d+)\s*([\d-]+),?\s*([\d-]*)[)>]', f.read())
+            state_labels = re.findall(r'[^[]*\[(\d+)(\w\d?)\s*(\d+)\s*([\d-]*),?\s*([\d-]*)[)>]', f.read())
         if dim != len(state_labels):
             raise RuntimeError("Parsing state labels file %s.st_ failed.  This "
                     "is indicative of either a limitation of the parsing regex,"
