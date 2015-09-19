@@ -4,6 +4,9 @@ TODO
   * ImportSLJM should parse and create crs tensors one at a time (at least the
     step that populate the dense matrix), to avoid unreasonable memory use for
     large matrices. 
+  * Extra "seniority equivalent" label is currently added with label key T when
+    imported, but there's no mechanism to print this upon return... so, sort out
+    the handling of the seniority label in the printing of results
   * Think about a complex tensor-prefactor... since a standard multiplication by
     a complex number will not preserve the hermiticity of a matrix. Presumably,
     we multiply by the complex conjugate on the lower-diagonal?
