@@ -130,47 +130,47 @@ class ImportSLJM(object):
                 sl = [(int(l[0]), term2L(l[1]), int(l[2])) for l in state_labels]
                 label_key = "SLJ"
 
-        #data = np.loadtxt('%s.txt' % name, skiprows = 2)
-        ## Generate a dictionary with keys for each tensor and lists of the form
-        ## [row, col, matel] as values.
-        #i = 0
-        #tensor_elements = {}
-        #tensor_matrices = {}
-        #for td in tensor_dims:
-        #    tensor_elements[td[0]] = data[i:i+int(td[1]), :]
-        #    i += int(td[1])
-        #    # Create zero matrix for each tensor. 
-        #    tensor_matrices[td[0]] = np.zeros((dim, dim), dtype=np.complex128)
-        #
-        ## Populate tensor matrices with non-zero matrix elements.
-        #for t in tensor_matrices:
-        #    for e in tensor_elements[t]:
-        #        tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
+        data = np.loadtxt('%s.txt' % name, skiprows = 2)
+        # Generate a dictionary with keys for each tensor and lists of the form
+        # [row, col, matel] as values.
+        i = 0
+        tensor_elements = {}
+        tensor_matrices = {}
+        for td in tensor_dims:
+            tensor_elements[td[0]] = data[i:i+int(td[1]), :]
+            i += int(td[1])
+            # Create zero matrix for each tensor. 
+            tensor_matrices[td[0]] = np.zeros((dim, dim), dtype=np.complex128)
+        
+        # Populate tensor matrices with non-zero matrix elements.
+        for t in tensor_matrices:
+            for e in tensor_elements[t]:
+                tensor_matrices[t][np.int(e[0])-1, np.int(e[1])-1] = e[2]
 
-        #if 'MAG11' in tensor_matrices and 'MAG10' in tensor_matrices:
-        #    tensor_matrices['MAGX'] = tensor_matrices['MAG11'] * 1/np.sqrt(2)
-        #    tensor_matrices['MAGY'] = tensor_matrices['MAGX'] * np.complex(0, -1)
-        #    tensor_matrices['MAGZ'] = tensor_matrices['MAG10']
+        if 'MAG11' in tensor_matrices and 'MAG10' in tensor_matrices:
+            tensor_matrices['MAGX'] = tensor_matrices['MAG11'] * 1/np.sqrt(2)
+            tensor_matrices['MAGY'] = tensor_matrices['MAGX'] * np.complex(0, -1)
+            tensor_matrices['MAGZ'] = tensor_matrices['MAG10']
 
 
-        ## AHYP is the L.I part and BHYP is (sC2).I part
-        #if 'AHYP' in tensor_matrices and 'BHYP' in tensor_matrices:
-        #    tensor_matrices['HYP'] = tensor_matrices['AHYP'] - np.sqrt(10) * tensor_matrices['BHYP']
+        # AHYP is the L.I part and BHYP is (sC2).I part
+        if 'AHYP' in tensor_matrices and 'BHYP' in tensor_matrices:
+            tensor_matrices['HYP'] = tensor_matrices['AHYP'] - np.sqrt(10) * tensor_matrices['BHYP']
 
-        ##np.set_printoptions(linewidth=240)
+        #np.set_printoptions(linewidth=240)
        
-        ## Create tensors; since tensors use hermitian matrix compressed row
-        ## storage we do not require the lower triangular half.
-        #sl = cfl.StateLabels(label_key, sl)
-        #tensors = {}
-        #for t in tensor_matrices:
-        #    if np.count_nonzero(tensor_matrices[t])== 0:
-        #        print("Warning: all matrix elements of %s are zero." % t) 
-        #    tensor_matrices[t] = tensor_matrices[t] + np.transpose(np.conj(tensor_matrices[t])) - np.diag(np.diag(tensor_matrices[t]))
-        #    tensors[t] = cfl.Tensor(t, np.asfortranarray(tensor_matrices[t]), sl)
+        # Create tensors; since tensors use hermitian matrix compressed row
+        # storage we do not require the lower triangular half.
+        sl = cfl.StateLabels(label_key, sl)
+        tensors = {}
+        for t in tensor_matrices:
+            if np.count_nonzero(tensor_matrices[t])== 0:
+                print("Warning: all matrix elements of %s are zero." % t) 
+            tensor_matrices[t] = tensor_matrices[t] + np.transpose(np.conj(tensor_matrices[t])) - np.diag(np.diag(tensor_matrices[t]))
+            tensors[t] = cfl.Tensor(t, np.asfortranarray(tensor_matrices[t]), sl)
 
-        #self.tensors = tensors
-        #self.__dict__.update(tensors)
+        self.tensors = tensors
+        self.__dict__.update(tensors)
 
     def print_names(self):
         r"""

@@ -49,27 +49,27 @@ def term2L(c):
     c : string
         The L quantum number term character to be converted. 
     """
-    if re.search(r'S\d?', c): 
+    if c == 'S': 
         return 0
-    elif re.search(r'P\d?', c):
+    elif c == 'P':
         return 1
-    elif re.search(r'D\d?', c):
+    elif c == 'D':
         return 2
-    elif re.search(r'F\d?', c):
+    elif c == 'F':
         return 3
-    elif re.search(r'G\d?', c):
+    elif c == 'G':
         return 4
-    elif re.search(r'H\d?', c):
+    elif c == 'H':
         return 5
-    elif re.search(r'I\d?', c):
+    elif c == 'I':
         return 6
-    elif re.search(r'K\d?', c):
+    elif c == 'K':
         return 7
-    elif re.search(r'L\d?', c):
+    elif c == 'L':
         return 8
-    elif re.search(r'M\d?', c):
+    elif c == 'M':
         return 9
-    elif re.search(r'N\d?', c):
+    elif c == 'N':
         return 10
     else:
         raise NotImplementedError("L quantum number term symbols beyond N are not supported.")
@@ -436,3 +436,29 @@ def print_as_c_array(a):
 def MHz2cm1(val):
     r"Convert MHz to cm$^{-1}$."
     return (1.0/29979.2458)*val
+
+def bal_bounds(coeff, bounds):
+    r"""
+    Helper function for creating balanced bounds dictionary.  That is, the
+    bounds are are some constant, symmetric, $\pm$ offset from the starting
+    coefficient values.
+
+    Parameters
+    ----------
+    coeff : dict
+        Coefficient initial value dictionary. 
+    bounds : dict
+        Dictionary of single bounds values for each parameter to be fit, which
+        will be added/subtracted from the initial coeff value.
+    Returns
+    -------
+    bal_bounds : dict
+        The balanced bounds dictionary. 
+    """
+    bal_b = {}
+    for c in bounds:
+        if type(coeff[c]) != type(bounds[c]):
+            raise ValueError("Coefficient %s is of type %s while corresponding bounds element is of type %s" % (c, type(coeff[c]), type(bounds[c])))
+        bal_b[c] = (coeff[c]-bounds[c], coeff[c]+bounds[c])
+
+    return bal_b
