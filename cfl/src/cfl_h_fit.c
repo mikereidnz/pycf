@@ -314,7 +314,8 @@ inline double echisq(double *e, ex_data *d) {
   for (i=0; i<d->n; i++) {
     chisq += pow(e[d->li[i]] - d->e[i], 2);
   }
-  
+ 
+  printf("chisq=%f\n", chisq);
   return chisq;
 }
 
@@ -441,7 +442,7 @@ void efit_chi2(double *x, void *data, double *chi2) {
   zh_set_coeff(d->h, d->coeff);
   zhd(d->eval, d->evect, d->h, d->hd_w);
   chi2[0] = echisq(d->eval, d->ex);
-  d->echisq_weight = 1/chi2[0];
+  d->echisq_weight = 1;///chi2[0];
 }
 
 /*  Function used to get an initial estimate of chi^2 values, in scenario where

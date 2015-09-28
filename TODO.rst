@@ -1,6 +1,8 @@
 TODO
 ====
-
+  * Add macro that sets the d->echisq_weight factor... probably should be
+    something at the upper limit possible given precision, since we'll
+    necessarily minimize... 
   * ImportSLJM should parse and create crs tensors one at a time (at least the
     step that populate the dense matrix), to avoid unreasonable memory use for
     large matrices. 
