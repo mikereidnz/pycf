@@ -722,51 +722,6 @@ void ivperm(int n, int *ix, int *perm) {
   }
 }
 
-/* Perform a permutation of a complex double valued array zx, according
- * to zxo(perm(j)) :=  zx(j), j=1,2,.., n.  This is a minimally modified of
- * ivperm to not-inplace and complex double. */
-inline void zvperm(int n, complex double *zx, complex double *zxo, int *perm) {
-  int ii, j, k, init, next; 
-  complex double tmp, tmp1;
-
-  k=-1; 
-  init=-1;
-
-  while (k < n) {
-    init++;
-
-    /* Test for end and whether the current value has been permuted; that is,
-     * whether the current perm value is negative. */
-    if (init >= n)
-      break;
-    else if (perm[init] < 0)
-      continue;
-    tmp = zx[init];
-    ii = perm[init];
-    perm[init] -= n;
-
-    for (;;) {
-      k++;
-      /* Save the chased element. */
-      tmp1 = zx[ii];
-      zxo[ii] = tmp;
-      next = perm[ii];
-      /* Test for end. */
-      if (next < 0)
-        break;
-      else if (k >= n)
-        break;
-      /* tmp1 value also requires permutation. */
-      tmp = tmp1;
-      perm[ii] -= n;
-      ii = next;
-    }
-  }
-  /* Restore positive valued permutation vector. */
-  for (j=0; j<n; j++) {
-    perm[j] += n;
-  } 
-}
 
 /* 
  * Allocate CRS matrix with row permuted sparsity pattern. Call prior to
@@ -855,7 +810,6 @@ void zcrs_row_perm(zcrs *m, zcrs *pm, int *p) {
       pk++;
     }
   }
-
 }
 
 
@@ -999,5 +953,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
 void zcrs_col_perm(zcrs *m, zcrs *pm, int *p, int *pj) {
   int i, j, pk;
 
-  zvperm(m->nnz, m->val, pm->val, pj);
+  for (i=0; i<m->nnz; i++) {
+    pm->val[pj[i]] = m->val[i];
+  }
 }
