@@ -28,6 +28,13 @@
 #include "cfl_crs.h"
 #include "cfl_tensor.h"
 
+typedef struct {
+  /* Block dimension. */
+  int dim;
+  /* Pointer to matrix elements in dense column major form. */
+  complex double *a;
+} zblock;
+
 /* The Hamiltonian structure. */
 typedef struct {
   /* Dimension of the Hamiltonian. */
@@ -40,12 +47,33 @@ typedef struct {
   zt **t;
   /* Tensor coefficients. */
   complex double *coeff;
-  /* Pointer to matrix of the complete Hamiltonian in dense col major form. */
-  complex double *a;
+  /* The number of blocks. */
+  int nblocks;
+  /* Array of blocks corresponding to irreducible representations. */
+  zblock **blocks;
 } zh;
 
+/* Workspace for LAPACKE_zheevr. */
+typedef struct {
+/* The support of the eigenvectors in Z. */
+  int *isuppz;
+  /* Workspace for LAPACKE_zheevr. */
+  complex double *work;
+  /* Dimensions of LAPACKE_zheevr work. */
+  int lwork;
+  /* LAPACKE_zheevr RWORK. */
+  double *rwork;
+  /* Dimensions of LAPACKE_zheevr rwork. */
+  int lrwork;
+  /* LAPACKE_zheevd IWORK. */
+  int *iwork;
+  /* Dimensions of LAPACKE_zheevr iwork. */
+  int liwork;
+  /* The total number of eigenvalues found by zheevr. */
+  int m;
+} zheevd_w;
 
-/* Work space type declaration for Hamiltonian diagonalization. */
+/* Workspace type declaration for Hamiltonian diagonalization. */
 typedef struct {
   /* Workspace for summing the tensors for currently set coefficents. */
   zhcrs **coeff_w;
@@ -61,24 +89,17 @@ typedef struct {
   int *rcm_pj;
   /* The RCM column permuted Hamiltonian. */
   zcrs *rcm_cp_h;
-  /* The total number of eigenvalues found by zheevr. */
-  int m;
-  /* The support of the eigenvectors in Z. */
-  int *isuppz;
   /* The absolute error tolerance to which each eigenvector is required. */
   double abstol;
-  /* Workspace for LAPACKE_zheevr. */
-  complex double *work;
-  /* Dimensions of LAPACKE_zheevr work. */
-  int lwork;
-  /* LAPACKE_zheevr RWORK. */
-  double *rwork;
-  /* Dimensions of LAPACKE_zheevr rwork. */
-  int lrwork;
-  /* LAPACKE_zheevd IWORK. */
-  int *iwork;
-  /* Dimensions of LAPACKE_zheevr iwork. */
-  int liwork;
+  /* LAPACKE_zheevr diagonalization workspace. */
+  zheevd_w *diag_w;
+  /* Permutation required to sort eigenvalues. */
+  int *w_perm;
+  /* The number of blocks. */
+  int nblocks;
+  /* Eigenvectors of blocks; only available if eigevector evaluation is
+   * requested. */
+  complex double **zb;
 } zhd_w;
 
 
@@ -90,10 +111,9 @@ extern "C" {
 zh *zh_alloc(int n, int nt, zt **t); 
 void zh_free(zh *h);
 void zh_set_coeff(zh *h, complex double *coeff);
-zhd_w *zhd_w_alloc(zh *h);
+zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h);
 void zhd_w_free(zhd_w *hd_w);
-void zhd(double *w, complex double *z, zh *h, zhd_w *hd_w);
-
+void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
