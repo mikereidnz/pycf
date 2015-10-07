@@ -322,21 +322,21 @@ cdef class Hamiltonian:
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] z
         
-        if self.coeff_dict == None:
-            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
-        hd_w = cfl.zhd_w_alloc(self.cfl_zh)
-        if hd_w is NULL:
-            free(self.tensor_array)
-            cfl.zh_free(self.cfl_zh)
-            raise MemoryError("hd_w alloc failed")
-
         self.w = np.ascontiguousarray(np.zeros(self.n), dtype=np.float64)
         self.z = np.asfortranarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
         z = <np.ndarray[double complex, ndim=2, mode="fortran"]> self.z
+
+        if self.coeff_dict == None:
+            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
+        hd_w = cfl.zhd_w_alloc('V', &w[0], &z[0,0], self.cfl_zh)
+        if hd_w is NULL:
+            free(self.tensor_array)
+            cfl.zh_free(self.cfl_zh)
+            raise MemoryError("hd_w alloc failed")
         
         with nogil:
-            cfl.zhd(&w[0], &z[0,0], h, hd_w)
+            cfl.zhd('V', &w[0], &z[0,0], h, hd_w)
         
         cfl.zhd_w_free(hd_w)
         self.diag_run = 1

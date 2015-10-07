@@ -1,18 +1,18 @@
 /*
-    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -81,7 +81,7 @@ zh *zh_alloc(int n, int nt, zt **t) {
   h->nt = nt;
   h->t = t;
   h->blocks = NULL;
-  
+
   return h;
 }
 
@@ -115,7 +115,7 @@ void zh_set_coeff(zh *h, complex double *coeff) {
  * ----------
  *
  */
-zheevd_w *zheevd_w_alloc(int n, double abstol) {
+zheevd_w *zheevd_w_alloc(char job, int n, double abstol) {
   int lda = n, ldz = n, il, iu, info;
   double vl, vu;
   int lwork, lrwork, liwork;
@@ -141,7 +141,7 @@ zheevd_w *zheevd_w_alloc(int n, double abstol) {
 
   //FIXME: changed h->a to NULL... if lapack throws errors, that is probably
   //why.
-  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, NULL, lda, vl, vu, il, iu,
+  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', n, NULL, lda, vl, vu, il, iu,
       abstol, &(heevd_w->m), NULL, NULL, ldz, heevd_w->isuppz, &wquery,
       lwork, &rwquery, lrwork, &iwquery, liwork);
   if (info != 0) {
@@ -203,31 +203,32 @@ void zheevd_w_free(zheevd_w *heevd_w) {
  *  crs_m       The block diagonalized CRS matrix. 
  */
 inline void zh_parse_blocks(int nblocks, zblock **blocks, zcrs *crs_m) {
-  int i, ii, j, vi, bi;
+  int i, ii, j, jj, vi, bi, bd, bri;
 
-  i = 0;  /* Row index. */
-  ii = 0; /* Index of first row of current block. */
-  vi = 0; /* Value index. */
-  bi = 0; /* Block index. */
-  do {
-    for (i = ii; i<ii+blocks[bi]->dim; i++) {
-      for (j=0; j<blocks[bi]->dim; j++) {
+  vi = 0;     /* Value index. */
+  bi = 0;     /* Block index. */
+  bri = 0;    /* Index of first row of current block. */
+  for (bi=0; bi<nblocks; bi++) {
+    bd = blocks[bi]->dim;             /* Current block dimension. */
+    for (i=0; i<bd; i++) {
+      for (j=0; j<bd; j++) {
+        ii = bri+i;                   /* Complete array row index. */
+        jj = bri+j;                   /* Complete array col index. */
         /* Ensure we're matching column indices on the current row. */
-        if (vi == crs_m->row_ptr[i+1]) {
-          blocks[bi]->a[i*blocks[bi]->dim+j] = 0;
+        if (vi == crs_m->row_ptr[ii+1]) {
+          blocks[bi]->a[i*bd+j] = 0;
         }
-        else if (crs_m->col_in[vi] == j) {
-          blocks[bi]->a[i*blocks[bi]->dim+j] = crs_m->val[vi];
+        else if (crs_m->col_in[vi] == jj) {
+          blocks[bi]->a[i*bd+j] = crs_m->val[vi];
           vi++;
         }
         else {
-          blocks[bi]->a[i*blocks[bi]->dim+j] = 0;
+          blocks[bi]->a[i*bd+j] = 0;
         }
       }
-    } 
-    ii += blocks[bi]->dim;
-    bi++;
-  } while (ii < crs_m->n);
+    }
+    bri += bd;
+  }
 }
 
 /* Diagonalize blocks of RCM ordered Hamiltonian. 
@@ -248,22 +249,22 @@ inline void zh_parse_blocks(int nblocks, zblock **blocks, zcrs *crs_m) {
  */
 inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks, 
     zblock **blocks, zheevd_w *diag_w, double abstol) {
-  int i, ii, bi;
+  int i, bri, bi;
   int n, lda, ldz, il, iu, info;
   double vl, vu;
   char lapack_err[] = "LAPACKE_zhpeevr failed with error code: 0";
 
-  ii = 0; /* Index of first row of current block. */
-  if (job = 'V') {
+  bri = 0; /* Index of first row of current block. */
+  if (job == 'V') {
     for (bi=0; bi<nblocks; bi++) {
       n = blocks[bi]->dim;
       lda = blocks[bi]->dim;
       ldz = blocks[bi]->dim;
       info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, blocks[bi]->a, lda,
-          vl, vu, il, iu, abstol, &(diag_w->m), &w[ii], zb[ii], ldz, diag_w->isuppz,
+          vl, vu, il, iu, abstol, &(diag_w->m), &w[bri], zb[bi], ldz, diag_w->isuppz,
           diag_w->work, diag_w->lwork, diag_w->rwork, diag_w->lrwork, diag_w->iwork,
           diag_w->liwork);
-    ii += blocks[bi]->dim;
+      bri += blocks[bi]->dim;
     }
   }
   else {
@@ -272,10 +273,10 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
       lda = blocks[bi]->dim;
       ldz = blocks[bi]->dim;
       info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'N', 'A', 'U', n, blocks[bi]->a, lda,
-          vl, vu, il, iu, abstol, &(diag_w->m), &w[ii], NULL, ldz, diag_w->isuppz,
+          vl, vu, il, iu, abstol, &(diag_w->m), &w[bri], NULL, ldz, diag_w->isuppz,
           diag_w->work, diag_w->lwork, diag_w->rwork, diag_w->lrwork, diag_w->iwork,
           diag_w->liwork);
-    ii += blocks[bi]->dim;
+    bri += blocks[bi]->dim;
     }
   }
 
@@ -302,7 +303,7 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
  */
 inline void zh_parse_ev(complex double *z, complex double **zb, int n, 
     int nblocks, zblock **blocks, int *w_perm) {
-  int bi, ri, i, ii, j, jj;
+  int bi, bri, i, ii, j, jj;
 
   //FIXME: looping to return z to 0... either memset, or some index array that
   //records the nz elements and only touches them...
@@ -310,16 +311,16 @@ inline void zh_parse_ev(complex double *z, complex double **zb, int n,
     z[i] = 0;
   }
 
-  ri = 0;   /* Index of first row of current block. */
+  bri = 0;   /* Index of first row of current block. */
   for (bi=0; bi<nblocks; bi++) {
     for (i=0; i<blocks[bi]->dim; i++) {
       for (j=0; j<blocks[bi]->dim; j++) {
-        ii = w_perm[(ri+i)];
-        jj = w_perm[(ri+j)];
-        z[ii*n+jj] = zb[i][j]; 
+        ii = w_perm[bri+i];
+        jj = w_perm[bri+j];
+        z[ii*n+jj] = zb[bi][i*blocks[bi]->dim+j]; 
       }
     }
-    ri += blocks[bi]->dim;
+    bri += blocks[bi]->dim;
   }
 }
 
@@ -429,7 +430,8 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       free(coeff_w);
       CFL_ERROR_NULL("alloc failed for coeff_w");
     }
-    zhcrssam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], 1, 1);
+    zhcrssam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], h->coeff[0],
+        h->coeff[1]);
     for (i=1; i<h->nt-1; i++) {
       coeff_w[i] = zhcrssam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
       if (coeff_w[i] == 0) {
@@ -440,7 +442,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
         }
         CFL_ERROR_NULL("alloc failed for coeff_w");
       }
-      zhcrssam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], 1, 1);
+      zhcrssam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], 1, h->coeff[i+1]);
     }
   }
   else {
@@ -511,7 +513,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     CFL_ERROR_NULL("calloc failed for tmp_perm");
   }
   zhcrs2zcrs(coeff_w[hd_w->lcoeff_w-1], zcrs_h);
-  
+
   RCM_FUNC(genrcmi)(zcrs_h->n, 0, zcrs_h->row_ptr, zcrs_h->col_in, tmp_perm,
       node_mask, node_deg);
 
@@ -526,7 +528,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   free(node_mask);
   free(node_deg);
   free(tmp_perm);
-  
+
   hd_w->rcm_pj = (int *) calloc(hd_w->zcrs_h->nnz+1, sizeof(int));
   if (hd_w->rcm_pj == 0) {
     for (i=0; i<hd_w->lcoeff_w; i++) {
@@ -638,7 +640,8 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     }
 
     bdim = hd_w->rcm_cp_h->row_ptr[k+1] - hd_w->rcm_cp_h->row_ptr[k];
-    k += h->blocks[i]->dim;
+    k += bdim;
+    h->blocks[i]->dim = bdim;
     h->blocks[i]->a = (complex double *) calloc(bdim*bdim, sizeof(complex double));
     if (h->blocks[i]->a == 0) {
       for (j=0; j<i; j++) {
@@ -662,7 +665,6 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       free(hd_w);
       CFL_ERROR_NULL("malloc failed for h->blocks[i]->a");
     }
-    h->blocks[i]->dim = bdim;
     if (job == 'V') {
       hd_w->zb[i] = (complex double *) calloc(bdim*bdim, sizeof(complex double));
       if (hd_w->zb[i] == 0) { 
@@ -702,7 +704,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       max_bdim = h->blocks[i]->dim;
     }
   }
-  hd_w->diag_w = (zheevd_w *) zheevd_w_alloc(max_bdim, hd_w->abstol); 
+  hd_w->diag_w = (zheevd_w *) zheevd_w_alloc(job, max_bdim, hd_w->abstol); 
   if (hd_w->diag_w == 0) {
     for (j=0; j<nblocks; j++) {
       free(h->blocks[j]->a);
@@ -729,7 +731,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   }
 
   zh_parse_blocks(nblocks, h->blocks, hd_w->rcm_cp_h);
-  zh_diag_blocks(job, w, NULL, nblocks, h->blocks, hd_w->diag_w, hd_w->abstol);
+  zh_diag_blocks(job, w, hd_w->zb, nblocks, h->blocks, hd_w->diag_w, hd_w->abstol);
 
   /* Determine the permutation required to sort eigenvalues from smallest to
    * largest. */
@@ -764,9 +766,36 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     wptr[i] = &w[i];
   }
   qsort(wptr, zcrs_h->n, sizeof(double *), dptr_cmp);
-  
+
+  hd_w->w_perm = (int *) calloc(zcrs_h->n, sizeof(int));
+  if (hd_w->w_perm == 0) {
+    for (j=0; j<nblocks; j++) {
+      free(h->blocks[j]->a);
+      free(h->blocks[j]);
+    }
+    free(h->blocks);
+    for (j=0; j<hd_w->lcoeff_w; j++) {
+      zhcrs_free(hd_w->coeff_w[j]);
+    }
+    zcrs_free(zcrs_h);
+    free(hd_w->rcm_perm);
+    zcrs_free(hd_w->rcm_rp_h);
+    zcrs_free(hd_w->rcm_cp_h);
+    free(hd_w->rcm_pj);
+    free(hd_w->coeff_w);
+    if (job == 'V') {
+      for (j=0; j<nblocks; j++) {
+        free(hd_w->zb[j]);
+      }
+      free(hd_w->zb);
+    }
+    zheevd_w_free(hd_w->diag_w);
+    free(hd_w);
+    free(wptr);
+    CFL_ERROR_NULL("calloc failed for hd_w->w_perm");
+  }
   for (i=0; i<zcrs_h->n; i++) {
-    hd_w->w_perm[i] = wptr[i] - w;
+    hd_w->w_perm[wptr[i] - w] = i;
   }
   free(wptr);
 
@@ -798,6 +827,7 @@ void zhd_w_free(zhd_w *hd_w) {
     for (i=0; i<hd_w->nblocks; i++) {
       free(hd_w->zb[i]);
     }
+    free(hd_w->zb);
   }
   free(hd_w->w_perm);
   free(hd_w);
@@ -843,7 +873,7 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
   zcrs_col_perm(hd_w->rcm_rp_h, hd_w->rcm_cp_h, hd_w->rcm_perm, hd_w->rcm_pj);
 
   zh_parse_blocks(h->nblocks, h->blocks, hd_w->rcm_cp_h);
-  zh_diag_blocks(job, w, NULL, h->nblocks, h->blocks, hd_w->diag_w, hd_w->abstol);
+  zh_diag_blocks(job, w, hd_w->zb, h->nblocks, h->blocks, hd_w->diag_w, hd_w->abstol);
 
   /* Permute the eigenvalue vector. */ 
   dvperm(h->n, w, hd_w->w_perm);

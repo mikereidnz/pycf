@@ -38,11 +38,11 @@ debug: all
 libcfl.a: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o rcm.o cfl_error.h 
 	$(AR) $(ARFLAGS) $@ $^
 
-opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o cfl_error.h 
+opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o cfl_error.h rcm.o
 
 sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
 
-sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
+sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o rcm.o
 
 h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o rcm.o
 

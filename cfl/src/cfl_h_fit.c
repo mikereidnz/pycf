@@ -99,24 +99,17 @@ efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t n_z
     CFL_ERROR_NULL("malloc failed for data");
   }
 
-  data->hd_w = zhd_w_alloc(h);
-  if (data->hd_w == 0) {
-    free(data);
-    CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
-  }
-
-  data->evect = (complex double *) calloc(h->n*h->n,sizeof(complex double));
-  if (data->evect == 0) {
-    zhd_w_free(data->hd_w);
-    free(data);
-    CFL_ERROR_NULL("calloc failed for data->evect");
-  }
   data->eval = (double *) calloc(h->n,sizeof(double));
   if (data->eval == 0) {
-    zhd_w_free(data->hd_w);
-    free(data->evect);
     free(data);
     CFL_ERROR_NULL("calloc failed for data->eval");
+  }
+
+  data->hd_w = zhd_w_alloc('N', data->eval, NULL, h);
+  if (data->hd_w == 0) {
+    free(data->eval);
+    free(data);
+    CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
   }
 
   data->h = h;
@@ -131,7 +124,6 @@ efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t n_z
 
 void efit_data_free(efit_data *data) {
   zhd_w_free(data->hd_w);
-  free(data->evect);
   free(data->eval);
   free(data);
 }
@@ -170,38 +162,37 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
   if (data == 0) {
     CFL_ERROR_NULL("malloc failed for eshfit_data");
   }
-  data->hd_w = zhd_w_alloc(h);
-  if (data->hd_w == 0) {
-    free(data);
-    CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
-  }
   data->h_evect = (complex double *) calloc(h->n*h->n,sizeof(complex double));
   if (data->h_evect == 0) {
-    zhd_w_free(data->hd_w);
     free(data);
     CFL_ERROR_NULL("calloc failed for data->h_evect");
   }
   data->h_eval = (double *) calloc(h->n,sizeof(double));
   if (data->h_eval == 0) {
-    zhd_w_free(data->hd_w);
     free(data->h_evect);
     free(data);
     CFL_ERROR_NULL("calloc failed for data->h_eval");
   }
-  
-  data->shp_w = zshp_w_alloc(sh);
-  if (data->shp_w == 0) {
-    zhd_w_free(data->hd_w);
+  data->hd_w = zhd_w_alloc('V', data->h_eval, data->h_evect, h);
+  if (data->hd_w == 0) {
     free(data->h_evect);
     free(data->h_eval);
+    free(data);
+    CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
+  }
+  data->shp_w = zshp_w_alloc(sh);
+  if (data->shp_w == 0) {
+    free(data->h_evect);
+    free(data->h_eval);
+    zhd_w_free(data->hd_w);
     free(data);
     CFL_ERROR_NULL("zshp_w_alloc failed for data->shp_w");
   }
   data->sh_pa = (complex double **) malloc(sh->ninter*sizeof(complex double *));
   if (data->sh_pa == 0) {
-    zhd_w_free(data->hd_w);
     free(data->h_evect);
     free(data->h_eval);
+    zhd_w_free(data->hd_w);
     free(data->shp_w);
     free(data);
     CFL_ERROR_NULL("malloc failed for data->sh_pa");
@@ -209,9 +200,9 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
   for (i=0; i<sh->ninter; i++) {
     data->sh_pa[i] = (complex double *) calloc(9,sizeof(complex double));
     if (data->sh_pa[i] == 0) {
-      zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
+      zhd_w_free(data->hd_w);
       for (j=0; j<i; j++) {
         free(data->sh_pa[j]);
       }
@@ -222,51 +213,50 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
     }
   }
   
-
   /* Only alloc data if we require a separate projection Hamiltonian. */
   if (hpro != NULL) {
-    data->hprod_w = zhd_w_alloc(hpro);
-    if (data->hprod_w == 0) {
-      zhd_w_free(data->hd_w);
-      free(data->h_evect);
-      free(data->h_eval);
-      for (i=0; i<sh->ninter; i++) {
-        free(data->sh_pa[i]);
-      }
-      free(data->shp_w);
-      free(data->sh_pa);
-      free(data);
-      CFL_ERROR_NULL("zhd_w_alloc failed for data->hprod_w");
-    }
     data->hpro_evect = (complex double *) calloc(hpro->n*hpro->n,sizeof(complex
           double));
     if (data->hpro_evect == 0) {
-      zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
+      zhd_w_free(data->hd_w);
       for (i=0; i<sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
       free(data->shp_w);
       free(data->sh_pa);
-      free(data->hprod_w);
       free(data);
       CFL_ERROR_NULL("calloc failed for data->hpro_evect");
     }
     data->hpro_eval = (double *) calloc(hpro->n,sizeof(double));
     if (data->hpro_eval == 0) {
-      zhd_w_free(data->hd_w);
       free(data->h_evect);
       free(data->h_eval);
+      zhd_w_free(data->hd_w);
       for (i=0; i<sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
       free(data->shp_w);
       free(data->sh_pa);
-      free(data->hprod_w);
       free(data->hpro_evect);
       free(data);
       CFL_ERROR_NULL("calloc failed for data->hpro_eval");
+    }
+    data->hprod_w = zhd_w_alloc('V', data->hpro_eval, data->hpro_evect, hpro);
+    if (data->hprod_w == 0) {
+      free(data->h_evect);
+      free(data->h_eval);
+      zhd_w_free(data->hd_w);
+      for (i=0; i<sh->ninter; i++) {
+        free(data->sh_pa[i]);
+      }
+      free(data->shp_w);
+      free(data->sh_pa);
+      free(data->hpro_evect);
+      free(data->hpro_eval);
+      free(data);
+      CFL_ERROR_NULL("zhd_w_alloc failed for data->hprod_w");
     }
   }
 
@@ -286,13 +276,13 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
 void eshfit_data_free(eshfit_data *data) {
   int i;
 
-  zhd_w_free(data->hd_w);
   free(data->h_evect);
   free(data->h_eval);
+  zhd_w_free(data->hd_w);
   if (data->hpro != NULL) {
-    zhd_w_free(data->hprod_w);
     free(data->hpro_evect);
     free(data->hpro_eval);
+    zhd_w_free(data->hprod_w);
   }
   zshp_w_free(data->shp_w);
   free(data->sh_pa);
@@ -376,7 +366,7 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->eval, d->evect, d->h, d->hd_w);
+  zhd('N', d->eval, NULL, d->h, d->hd_w);
 
   return d->echisq_weight * echisq(d->eval, d->ex);
 }
@@ -392,7 +382,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
 
   /* Calculate the energy level chi^2. */
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chisq = d->echisq_weight * echisq(d->h_eval, d->ex);
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
@@ -415,13 +405,13 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
 
   /* Calculate the energy level chi^2. */
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chisq = d->echisq_weight * echisq(d->h_eval, d->ex);
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
   zh_set_coeff(d->hpro, d->coeff);
-  zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
+  zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
@@ -439,7 +429,7 @@ void efit_chi2(double *x, void *data, double *chi2) {
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->eval, d->evect, d->h, d->hd_w);
+  zhd('N', d->eval, NULL, d->h, d->hd_w);
   chi2[0] = echisq(d->eval, d->ex);
   d->echisq_weight = 1/chi2[0];
 }
@@ -452,7 +442,7 @@ void eshfit_chi2(double *x, void *data, double *chi2) {
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chi2[0] = echisq(d->h_eval, d->ex);
   d->echisq_weight = 1/chi2[0];
 
@@ -472,14 +462,14 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
 
   parse_param_data(d->n_zx, d->p, d->coeff, x);
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chi2[0] = echisq(d->h_eval, d->ex);
   d->echisq_weight = 1/chi2[0];
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
   zh_set_coeff(d->hpro, d->coeff);
-  zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
+  zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
   
   for (i=0; i<d->sh->ninter; i++) {
     zshp(d->sh_pa[i], d->h_evect, i, d->sh, d->shp_w);
@@ -503,7 +493,7 @@ double efit_cov_df(double x, void *data) {
   cov_d->df_x[cov_d->par_index] = x;
   parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->eval, d->evect, d->h, d->hd_w);
+  zhd('N', d->eval, NULL, d->h, d->hd_w);
 
   /* Return the value of the specified energy level. */
   return d->eval[d->ex->li[cov_d->obs_index]];
@@ -529,7 +519,7 @@ double eshfit_cov_df(double x, void *data) {
   cov_d->df_x[cov_d->par_index] = x;
   parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
 
   if (cov_d->obs_index >= d->ex->n) {
     /* obs_index corresponds to an observable from the spin Hamiltonian. */
@@ -582,12 +572,12 @@ double eshfit_hpro_cov_df(double x, void *data) {
   cov_d->df_x[cov_d->par_index] = x;
   parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
   zh_set_coeff(d->h, d->coeff);
-  zhd(d->h_eval, d->h_evect, d->h, d->hd_w);
+  zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
   zh_set_coeff(d->hpro, d->coeff);
-  zhd(d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
+  zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   if (cov_d->obs_index >= d->ex->n) {
     /* obs_index corresponds to an observable from the spin Hamiltonian. */
