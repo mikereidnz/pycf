@@ -80,8 +80,6 @@ typedef struct {
   zh *h;
   /* Pointer to workspace for Hamiltonian diagonalization. */
   zhd_w *hd_w;
-  /* Eigenvector array. */
-  complex double *evect;
   /* Eigenvalue array. */
   double *eval;
   /* Experimental energy level data */

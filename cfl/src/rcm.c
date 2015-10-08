@@ -22,6 +22,12 @@
  */
 
 /*
+ * Modified by Sebastian Horvath, October 08, 2015 for use in CFL. Added two
+ * arguments to GENRCM for returning the total number of connected blocks found,
+ * and the individual dimension of each block. 
+ */
+
+/*
  *-------1---------2---------3---------4---------5---------6---------7--
  *3456789-123456789-123456789-123456789-123456789-123456789-123456789-12
  */
@@ -157,7 +163,9 @@
  *
  */
 
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #ifndef RCM__DRIVER
 #define RCM__DRIVER 1
 
@@ -414,7 +422,8 @@ void DEGREE(const INT n, const int flags,
  */
 void GENRCM(const INT n, const int flags,
             const INT *xadj, const INT *adj,
-            INT *perm, signed char *mask, INT *deg)
+            INT *perm, signed char *mask, INT *deg, 
+            INT *nblocks, INT *block_dim)
 {
     INT i, root, ccsize;
     INT num = 0;
@@ -429,6 +438,7 @@ void GENRCM(const INT n, const int flags,
     }
     DEGREE(n, xflags, xadj, adj, mask, deg);
 
+    *nblocks = 0;
     for (i = 0; i < n; ++i) {
         if (mask[i]) {
             continue;
@@ -443,17 +453,25 @@ void GENRCM(const INT n, const int flags,
 	FNROOT(&root, xflags, xadj, adj, deg,
                &ccsize,
                mask, perm+num);
+
 	RCM(root, xflags,
             xadj, adj, deg, mask, perm+num, &ccsize);
 
         num += ccsize;
         CHECK( num <= n );
+
+        /* Record the row count per block. */
+        block_dim[*nblocks] = num;
+        *nblocks += 1;
+
 	if (num >= n) {
             break;
         }
-
     }
-
+    /* Determine the dimension of each block. */
+    for (i=0; i<*nblocks; i++) {
+      block_dim[*nblocks-i] = block_dim[*nblocks-i] - block_dim[*nblocks-i-1];
+    }
 }
 
 

@@ -41,6 +41,9 @@
  * diagonalization (see LAPACK zheevr for detailed description). */
 #define ZHEEVR_ABSTOL         -1.0
 
+/* The maximum number of blocks per Hamiltonian. */
+#define CFL_MAX_BLOCK_NUM     20
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 

@@ -310,7 +310,7 @@ inline void zh_parse_ev(complex double *z, complex double **zb, int n,
   for (i=0; i<n*n; i++) {
     z[i] = 0;
   }
-
+  
   bri = 0;   /* Index of first row of current block. */
   for (bi=0; bi<nblocks; bi++) {
     for (i=0; i<blocks[bi]->dim; i++) {
@@ -388,7 +388,8 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   zcrs *zcrs_h;
   signed char *node_mask;
   int *node_deg, *tmp_perm;
-  int nblocks, bdim, max_bdim;
+  int nblocks, max_bdim;
+  int block_dim[CFL_MAX_BLOCK_NUM];
 
   zhcrs **coeff_w;
   zhd_w *hd_w;
@@ -514,8 +515,8 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   }
   zhcrs2zcrs(coeff_w[hd_w->lcoeff_w-1], zcrs_h);
 
-  RCM_FUNC(genrcmi)(zcrs_h->n, 0, zcrs_h->row_ptr, zcrs_h->col_in, tmp_perm,
-      node_mask, node_deg);
+  RCM_FUNC(genrcmi)(zcrs_h->n, RCM_NO_SORT, zcrs_h->row_ptr, zcrs_h->col_in, tmp_perm,
+      node_mask, node_deg, &nblocks, block_dim);
 
   //FIXME: don't need tmp_perm if I change the permutation in col and row swap...?
   /* Change permutation index to coordinate form. */
@@ -571,13 +572,8 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   zcrs_row_perm(hd_w->zcrs_h, hd_w->rcm_rp_h, hd_w->rcm_perm);
   zcrs_col_perm(hd_w->rcm_rp_h, hd_w->rcm_cp_h, hd_w->rcm_perm, hd_w->rcm_pj);
 
-  /* Determine the number of blocks and alloc space. */
+  /* Alloc space for blocks. */
   i = 0;
-  nblocks = 0;
-  while (i<zcrs_h->n) {
-    i += hd_w->rcm_cp_h->row_ptr[i+1] - hd_w->rcm_cp_h->row_ptr[i];
-    nblocks++;
-  }
   h->nblocks = nblocks;
   hd_w->nblocks = nblocks;
   h->blocks = (zblock **) malloc(nblocks*sizeof(zblock *));
@@ -639,10 +635,9 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       CFL_ERROR_NULL("malloc failed for h->blocks[i]");
     }
 
-    bdim = hd_w->rcm_cp_h->row_ptr[k+1] - hd_w->rcm_cp_h->row_ptr[k];
-    k += bdim;
-    h->blocks[i]->dim = bdim;
-    h->blocks[i]->a = (complex double *) calloc(bdim*bdim, sizeof(complex double));
+    k += block_dim[i];
+    h->blocks[i]->dim = block_dim[i];
+    h->blocks[i]->a = (complex double *) calloc(block_dim[i]*block_dim[i], sizeof(complex double));
     if (h->blocks[i]->a == 0) {
       for (j=0; j<i; j++) {
         free(h->blocks[j]->a);
@@ -666,7 +661,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       CFL_ERROR_NULL("malloc failed for h->blocks[i]->a");
     }
     if (job == 'V') {
-      hd_w->zb[i] = (complex double *) calloc(bdim*bdim, sizeof(complex double));
+      hd_w->zb[i] = (complex double *) calloc(block_dim[i]*block_dim[i], sizeof(complex double));
       if (hd_w->zb[i] == 0) { 
         for (j=0; j<i; j++) {
           free(h->blocks[j]->a);
@@ -701,7 +696,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   max_bdim = 0;
   for (i=0; i<nblocks; i++) {
     if (h->blocks[i]->dim > max_bdim) {
-      max_bdim = h->blocks[i]->dim;
+      max_bdim = block_dim[i];
     }
   }
   hd_w->diag_w = (zheevd_w *) zheevd_w_alloc(job, max_bdim, hd_w->abstol); 
@@ -732,7 +727,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
 
   zh_parse_blocks(nblocks, h->blocks, hd_w->rcm_cp_h);
   zh_diag_blocks(job, w, hd_w->zb, nblocks, h->blocks, hd_w->diag_w, hd_w->abstol);
-
+  
   /* Determine the permutation required to sort eigenvalues from smallest to
    * largest. */
   double **wptr = (double **) malloc(zcrs_h->n*sizeof(double *));
@@ -798,10 +793,10 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     hd_w->w_perm[wptr[i] - w] = i;
   }
   free(wptr);
-
+  
   /* Permute the eigenvalue vector. */ 
   dvperm(zcrs_h->n, w, hd_w->w_perm);
-
+  
   /* Permute and parse eigenvectors, if requested. */
   if (job == 'V') {
     zh_parse_ev(z, hd_w->zb, zcrs_h->n, nblocks, h->blocks, hd_w->w_perm);
