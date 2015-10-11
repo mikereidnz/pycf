@@ -94,6 +94,38 @@ typedef struct {
   double echisq_weight;
 } efit_data;
 
+/* Data for a single eigenvalue vector used in multi-eigenvalue vector fit. */
+typedef struct {
+  /* Pointer to the Hamiltonian. */
+  zh *h;
+  /* Complete cofficient array to be passed to the diagonalization. */
+  complex double *coeff;
+  /* Chi^2 weighting factor. */
+  float weight;
+  /* Experimental energy level data */
+  ex_data *ex;
+  /* The number of parameters after conversion to complex type. */
+  size_t n_zx;
+  /* Array of pointers to parameter type structs. */
+  param_type **param;
+} mev_data;
+
+/* Data for multi-eigenvalue vector fit. */
+typedef struct {
+  /* The number of eigenvalue vectors. */
+  int n;
+  /* Array of fitting data for individual eigenvalue vector fits. */
+  mev_data **mev_d;
+  /* The number of unique Hamiltonians. */
+  int nh;
+  /* Index specifying which hd_w workspace corresponds to which mev_d entry. */
+  int *hd_w_index;
+  /* Array of pointers to Hamiltonian diagonalization workspaces... */
+  zhd_w **hd_w;
+  /* Array of eigenvalue arrays. */
+  double **eval;
+} mevfit_data;
+
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {
   /* Pointer to the complete Hamiltonian. */

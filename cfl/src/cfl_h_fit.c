@@ -128,6 +128,130 @@ void efit_data_free(efit_data *data) {
   free(data);
 }
 
+/* Alloc data for fitting to multiple eigenvalue vectors. 
+ *
+ * Parameters
+ * ----------
+ *  n           The number of eigenvalue vectors. 
+ *  input_data  Array of eigenvalue data structs. 
+ */
+mevfit_data *mevfit_data_alloc(int n, mev_data *input_data) {
+  int i, j, nh;
+
+  mevfit_data *data;
+  long *lwork;
+  int *iwork;
+
+  data = (mevfit_data *) malloc(sizeof(mevfit_data));
+  if (data == 0) {
+    CFL_ERROR_NULL("malloc failed for mevfit_data");
+  }
+
+  iwork = (int *) calloc(n,sizeof(int));
+  if (iwork == 0) {
+    free(data);
+    CFL_ERROR_NULL("calloc failed for iwork");
+
+  lwork = (long *) calloc(n,sizeof(long));
+  if (hd_w_buffer == 0) {
+    free(iwork);
+    free(data);
+    CFL_ERROR_NULL("calloc failed for lwork");
+  }
+
+  data->hd_w_index = (int *) calloc(n,sizeof(int));
+  if (data->hd_w_index == 0) {
+    free(iwork);
+    free(lwork);
+    free(data);
+    CFL_ERROR_NULL("calloc failed for data->hd_w_index");
+  }
+
+  nh = 0;
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      if (j >= nh) {
+        data->hd_w_index[i] = j;
+        lwork[nh] = input_data[i]->h->slabels->hash;
+        iwork[j] = i;
+        nh++;
+        break;
+      }
+      else if (input_data[i]->h->slabels->hash == lwork[j]) {
+        data->hd_w_index[i] = j;
+        break;
+      }
+    }
+  }
+  data->nh = nh;
+ 
+  data->hd_w = (zhd_w **) malloc(nh*sizeof(zhd_w *));
+  if (data->hd_w == 0) {
+    free(data->hd_w_index);
+    free(data);
+    free(iwork);
+    free(lwork);
+    CFL_ERROR_NULL("malloc failed for data->hd_w");
+  }
+  data->h_eval = (double **) malloc(nh*sizeof(double *));
+  if (data->h_eval == 0) {
+    free(data->hd_w_index);
+    free(data->hd_w);
+    free(data);
+    free(iwork);
+    free(lwork);
+    CFL_ERROR_NULL("malloc failed for data->h_eval");
+  }
+
+
+  for (i = 0; i < nh; i++) {
+    data->h_eval[i] = (double *) calloc(input_data[iwork[i]]->h->n*sizeof(double));
+    if (data->h_eval[i] == 0) {
+      for (j = 0; j < i; j++) {
+        free(data->h_eval[j]);
+        free(data->hd_w[j]);
+      }
+      free(data->hd_w_index);
+      free(data);
+      free(iwork);
+      free(lwork);
+      CFL_ERROR_NULL("calloc failed for data->h_eval[i]");
+    }
+    
+    data->hd_w[i] = (zhd_w *) zhd_w_alloc('N', data->h_eval[i], NULL,
+        input_data[iwork[i]]->h);
+    if (data->hd_w[i] == 0) {
+      for (j = 0; j < i; j++) {
+        free(data->h_eval[j]);
+        free(data->hd_w[j]);
+      }
+      free(data->h_eval[i]);
+      free(data->hd_w_index);
+      free(data);
+      free(iwork);
+      free(lwork);
+      CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w[i]");
+    }
+  }
+
+  free(iwork);
+  free(lwork);
+
+  return data;
+}
+
+void mevfit_data_free(mevfit_data *data) {
+  int i;
+  free(data->hd_w_index);
+  for (i = 0; i < data->nh; i++) {
+    free(data->h_eval[i]);
+    free(data->hd_w[i]);
+  }
+  free(data->h_eval);
+  free(data->hd_w);
+  free(data);
+}
+
 /*
  * Alloc data for fitting to both energy levels and spin Hamiltonians.  
  *
@@ -197,13 +321,13 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
     free(data);
     CFL_ERROR_NULL("malloc failed for data->sh_pa");
   }
-  for (i=0; i<sh->ninter; i++) {
+  for (i = 0; i < sh->ninter; i++) {
     data->sh_pa[i] = (complex double *) calloc(9,sizeof(complex double));
     if (data->sh_pa[i] == 0) {
       free(data->h_evect);
       free(data->h_eval);
       zhd_w_free(data->hd_w);
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free(data->sh_pa[j]);
       }
       free(data->shp_w);
@@ -221,7 +345,7 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
       free(data->h_evect);
       free(data->h_eval);
       zhd_w_free(data->hd_w);
-      for (i=0; i<sh->ninter; i++) {
+      for (i = 0; i < sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
       free(data->shp_w);
@@ -234,7 +358,7 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
       free(data->h_evect);
       free(data->h_eval);
       zhd_w_free(data->hd_w);
-      for (i=0; i<sh->ninter; i++) {
+      for (i = 0; i < sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
       free(data->shp_w);
@@ -248,7 +372,7 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
       free(data->h_evect);
       free(data->h_eval);
       zhd_w_free(data->hd_w);
-      for (i=0; i<sh->ninter; i++) {
+      for (i = 0; i < sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
       free(data->shp_w);
@@ -301,7 +425,7 @@ inline double echisq(double *e, ex_data *d) {
   int i;
   double chisq=0;
 
-  for (i=0; i<d->n; i++) {
+  for (i = 0; i < d->n; i++) {
     chisq += pow(e[d->li[i]] - d->e[i], 2);
   }
   
@@ -319,7 +443,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
   int i;
   double chisq=0;
 
-  for (i=0; i<9; i++) {
+  for (i = 0; i < 9; i++) {
     chisq += pow(cabs(pa[i]) - cabs(xpa[i]), 2);
   }
   
@@ -341,7 +465,7 @@ inline void parse_param_data(size_t n_zx, param_type **p, complex double *coeff,
   int i, zi;
   
   i = 0;
-  for(zi=0; zi<n_zx; zi++) {
+  for(zi = 0; zi < n_zx; zi++) {
     if (p[zi]->type == 'c') {
       /* Parameter is a complex number. */
       coeff[p[zi]->index] = x[i]+x[i+1]*I;
@@ -371,6 +495,20 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
   return d->echisq_weight * echisq(d->eval, d->ex);
 }
 
+mevfit_obj(size_t n, double *x, double *grad, void *data) {
+  int i;
+  double chisq;
+  mevfit_data *d = data;
+
+
+  parse_param_data(d->n_zx, d->p, d->coeff, x);
+  
+  chisq = 0;
+  for (i = 0; i < d->nh; i++) {
+
+
+}
+
 /*  Objective function for fit to both energy levels and spin Hamiltonians in
  *  case the complete Hamiltonian is the same as the projection Hamiltonian. */
 double eshfit_obj(size_t n, double *x, double *grad, void *data) {
@@ -387,7 +525,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     zshp(d->sh_pa[i], d->h_evect, i, d->sh, d->shp_w);
     chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
@@ -415,7 +553,7 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     zshp(d->sh_pa[i], d->h_evect, i, d->sh, d->shp_w);
     chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
@@ -448,7 +586,7 @@ void eshfit_chi2(double *x, void *data, double *chi2) {
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     zshp(d->sh_pa[i], d->h_evect, i, d->sh, d->shp_w);
     chi2[i+1] = shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
@@ -471,7 +609,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   zh_set_coeff(d->hpro, d->coeff);
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
   
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     zshp(d->sh_pa[i], d->h_evect, i, d->sh, d->shp_w);
     chi2[i+1] = shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
@@ -644,9 +782,9 @@ inline void covariance_helper(size_t m, size_t n, size_t *shi_index, size_t
   memcpy(cov_d->df_x, x0, n*sizeof(double));
   F.params = cov_d;
   int status;
-  for (i=0; i<n; i++) {
+  for (i = 0; i < n; i++) {
     cov_d->par_index = i;
-    for (j=0; j<m; j++) {
+    for (j = 0; j < m; j++) {
       cov_d->obs_index = j;
       status = gsl_deriv_central(&F, x0[i], COV_DERIV_H, &result, &abserr);
       if (status) {
@@ -661,10 +799,10 @@ inline void covariance_helper(size_t m, size_t n, size_t *shi_index, size_t
   }
 
   /* Calculate a^T a. */
-  for (k=0; k<n; k++) {
-    for (i=0; i<n; i++) {
+  for (k = 0; k < n; k++) {
+    for (i = 0; i < n; i++) {
       cov_inv[i*n+k] = 0;
-      for (j=0; j<m; j++) {
+      for (j = 0; j < m; j++) {
         cov_inv[i*n+k] += (a[j*n+k] * a[j*n+i]);
       }
     }
@@ -729,7 +867,7 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
    * term, except for the quadrupole term which is traceless and thus only
    * contributes 5 observables. */
   m = d->ex->n;
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     if (!strcmp("quadrupole", d->sh->inter[i])) {
       m += 5;
     }
@@ -751,16 +889,16 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
     CFL_ERROR_VOID("malloc failed for cov_d->shel_index");
   }
   obs_i = 0;
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     if (!strcmp("quadrupole", d->sh->inter[i])) {
-      for (j=0; j<5; j++) {
+      for (j = 0; j < 5; j++) {
         shi_index[obs_i] = i;
         shel_index[obs_i] = j;
         obs_i++;
       }
     }
     else {
-      for (j=0; j<6; j++) {
+      for (j = 0; j < 6; j++) {
         shi_index[obs_i] = i;
         shel_index[obs_i] = j;
         obs_i++;
@@ -806,7 +944,7 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
    * term, except for the quadrupole term which is traceless and thus only
    * contributes 5 observables. */
   m = d->ex->n;
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     if (!strcmp("quadrupole", d->sh->inter[i])) {
       m += 5;
     }
@@ -828,16 +966,16 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
     CFL_ERROR_VOID("malloc failed for cov_d->shel_index");
   }
   obs_i = 0;
-  for (i=0; i<d->sh->ninter; i++) {
+  for (i = 0; i < d->sh->ninter; i++) {
     if (!strcmp("quadrupole", d->sh->inter[i])) {
-      for (j=0; j<5; j++) {
+      for (j = 0; j < 5; j++) {
         shi_index[obs_i] = i;
         shel_index[obs_i] = j;
         obs_i++;
       }
     }
     else {
-      for (j=0; j<6; j++) {
+      for (j = 0; j < 6; j++) {
         shi_index[obs_i] = i;
         shel_index[obs_i] = j;
         obs_i++;
