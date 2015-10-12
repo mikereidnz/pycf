@@ -1,18 +1,18 @@
 /*
-    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -128,16 +128,58 @@ void efit_data_free(efit_data *data) {
   free(data);
 }
 
+/**
+ * Alloc data for a single eigenvalue vector to be used in a multiple eigenvalue
+ * vector fit. 
+ *
+ * Parameters
+ * ----------
+ *  h                 Pointer to Hamiltonian.
+ *  weight            The weighting to be applied in the chisq fit w.r.t. the
+ *                    other eigenvalue vectors.
+ *  field_strengths   Array with three entries, specifying the magnetic field
+ *                    strength along the x, y, and z directions, respectively.
+ *                    In case of zero field, set to NULL.
+ *  field_indices     Indices specifying the x, y, and z entries in coeff; these
+ *                    must be the last three entries in coeff.  In case of zero
+ *                    field, set to NULL.
+ */
+mev_data *mev_data_alloc(zh *h, float weight, double *field_strengths, 
+    int *field_indices, ex_data *ex) {
+  mev_data *data;
+
+  data = (mev_data *) malloc(sizeof(mev_data));
+  if (data == 0) {
+    CFL_ERROR_NULL("malloc failed for data");
+  }
+
+  data->h = h;
+  data->weight = weight;
+  data->field_strengths = field_strengths;
+  data->field_indices = field_indices;
+  data->ex = ex;
+
+  return data;
+}
+
+void mev_data_free(mev_data *data) {
+  free(data);
+}
+
 /* Alloc data for fitting to multiple eigenvalue vectors. 
  *
  * Parameters
  * ----------
  *  n           The number of eigenvalue vectors. 
  *  input_data  Array of eigenvalue data structs. 
+ *  coeff       Coefficient array for h.
+ *  n_zx        The number of complex valued parameters to be fit to the
+ *              complete Hamiltonians.
+ *  p           Array of pointers to parameters to be fit.
  */
-mevfit_data *mevfit_data_alloc(int n, mev_data *input_data) {
+mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
+    complex double *coeff, size_t n_zx, param_type **p) {
   int i, j, nh;
-
   mevfit_data *data;
   long *lwork;
   int *iwork;
@@ -151,43 +193,43 @@ mevfit_data *mevfit_data_alloc(int n, mev_data *input_data) {
   if (iwork == 0) {
     free(data);
     CFL_ERROR_NULL("calloc failed for iwork");
+  }
 
   lwork = (long *) calloc(n,sizeof(long));
-  if (hd_w_buffer == 0) {
+  if (lwork == 0) {
     free(iwork);
     free(data);
     CFL_ERROR_NULL("calloc failed for lwork");
   }
 
-  data->hd_w_index = (int *) calloc(n,sizeof(int));
-  if (data->hd_w_index == 0) {
+  data->hi = (int *) calloc(n,sizeof(int));
+  if (data->hi == 0) {
     free(iwork);
     free(lwork);
     free(data);
-    CFL_ERROR_NULL("calloc failed for data->hd_w_index");
+    CFL_ERROR_NULL("calloc failed for data->hi");
   }
 
   nh = 0;
   for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
       if (j >= nh) {
-        data->hd_w_index[i] = j;
+        data->hi[i] = j;
         lwork[nh] = input_data[i]->h->slabels->hash;
         iwork[j] = i;
         nh++;
         break;
       }
       else if (input_data[i]->h->slabels->hash == lwork[j]) {
-        data->hd_w_index[i] = j;
+        data->hi[i] = j;
         break;
       }
     }
   }
-  data->nh = nh;
- 
+
   data->hd_w = (zhd_w **) malloc(nh*sizeof(zhd_w *));
   if (data->hd_w == 0) {
-    free(data->hd_w_index);
+    free(data->hi);
     free(data);
     free(iwork);
     free(lwork);
@@ -195,7 +237,7 @@ mevfit_data *mevfit_data_alloc(int n, mev_data *input_data) {
   }
   data->h_eval = (double **) malloc(nh*sizeof(double *));
   if (data->h_eval == 0) {
-    free(data->hd_w_index);
+    free(data->hi);
     free(data->hd_w);
     free(data);
     free(iwork);
@@ -203,21 +245,20 @@ mevfit_data *mevfit_data_alloc(int n, mev_data *input_data) {
     CFL_ERROR_NULL("malloc failed for data->h_eval");
   }
 
-
   for (i = 0; i < nh; i++) {
-    data->h_eval[i] = (double *) calloc(input_data[iwork[i]]->h->n*sizeof(double));
+    data->h_eval[i] = (double *) calloc(input_data[iwork[i]]->h->n,sizeof(double));
     if (data->h_eval[i] == 0) {
       for (j = 0; j < i; j++) {
         free(data->h_eval[j]);
         free(data->hd_w[j]);
       }
-      free(data->hd_w_index);
+      free(data->hi);
       free(data);
       free(iwork);
       free(lwork);
       CFL_ERROR_NULL("calloc failed for data->h_eval[i]");
     }
-    
+
     data->hd_w[i] = (zhd_w *) zhd_w_alloc('N', data->h_eval[i], NULL,
         input_data[iwork[i]]->h);
     if (data->hd_w[i] == 0) {
@@ -226,7 +267,7 @@ mevfit_data *mevfit_data_alloc(int n, mev_data *input_data) {
         free(data->hd_w[j]);
       }
       free(data->h_eval[i]);
-      free(data->hd_w_index);
+      free(data->hi);
       free(data);
       free(iwork);
       free(lwork);
@@ -237,15 +278,20 @@ mevfit_data *mevfit_data_alloc(int n, mev_data *input_data) {
   free(iwork);
   free(lwork);
 
+  data->nh = nh;
+  data->coeff = coeff;
+  data->n_zx = n_zx;
+  data->p = p;
+
   return data;
 }
 
 void mevfit_data_free(mevfit_data *data) {
   int i;
-  free(data->hd_w_index);
+  free(data->hi);
   for (i = 0; i < data->nh; i++) {
     free(data->h_eval[i]);
-    free(data->hd_w[i]);
+    zhd_w_free(data->hd_w[i]);
   }
   free(data->h_eval);
   free(data->hd_w);
@@ -336,7 +382,7 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
       CFL_ERROR_NULL("calloc failed for data->sh_pa[i]");
     }
   }
-  
+
   /* Only alloc data if we require a separate projection Hamiltonian. */
   if (hpro != NULL) {
     data->hpro_evect = (complex double *) calloc(hpro->n*hpro->n,sizeof(complex
@@ -409,6 +455,9 @@ void eshfit_data_free(eshfit_data *data) {
     zhd_w_free(data->hprod_w);
   }
   zshp_w_free(data->shp_w);
+  for (i = 0; i < data->sh->ninter; i++) {
+    free(data->sh_pa[i]);
+  }
   free(data->sh_pa);
   free(data);
 }
@@ -428,7 +477,7 @@ inline double echisq(double *e, ex_data *d) {
   for (i = 0; i < d->n; i++) {
     chisq += pow(e[d->li[i]] - d->e[i], 2);
   }
-  
+
   return chisq;
 }
 
@@ -446,7 +495,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
   for (i = 0; i < 9; i++) {
     chisq += pow(cabs(pa[i]) - cabs(xpa[i]), 2);
   }
-  
+
   return chisq;
 }
 
@@ -463,7 +512,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
 inline void parse_param_data(size_t n_zx, param_type **p, complex double *coeff,
     double *x) {
   int i, zi;
-  
+
   i = 0;
   for(zi = 0; zi < n_zx; zi++) {
     if (p[zi]->type == 'c') {
@@ -495,18 +544,28 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
   return d->echisq_weight * echisq(d->eval, d->ex);
 }
 
-mevfit_obj(size_t n, double *x, double *grad, void *data) {
-  int i;
+/* Objective function for multi-eigenvalue vector fit. */
+double mevfit_obj(size_t n, double *x, double *grad, void *data) {
+  int i, j, hi;
   double chisq;
   mevfit_data *d = data;
 
-
   parse_param_data(d->n_zx, d->p, d->coeff, x);
-  
+
   chisq = 0;
-  for (i = 0; i < d->nh; i++) {
+  for (i = 0; i < d->n; i++) {
+    if (d->mev_d[i]->field_strengths != NULL) {
+      for (j = 0; j < 3; j++) {
+        d->coeff[d->mev_d[i]->field_indices[j]] = d->mev_d[i]->field_strengths[j];
+      }
+    }
+    hi = d->hi[i];
+    zh_set_coeff(d->mev_d[i]->h, d->coeff);
+    zhd('N', d->h_eval[hi], NULL, d->mev_d[i]->h, d->hd_w[hi]);
+    chisq += d->mev_d[i]->weight * echisq(d->h_eval[hi], d->mev_d[i]->ex);
+  }
 
-
+  return chisq;
 }
 
 /*  Objective function for fit to both energy levels and spin Hamiltonians in
@@ -515,7 +574,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   int i;
   double chisq;
   eshfit_data *d = data;
-  
+
   parse_param_data(d->n_zx, d->p, d->coeff, x);
 
   /* Calculate the energy level chi^2. */
@@ -529,7 +588,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
     zshp(d->sh_pa[i], d->h_evect, i, d->sh, d->shp_w);
     chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
-  
+
   return chisq;
 }
 
@@ -608,7 +667,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
    * and invert the result to obtain the spin Hamiltonian parameters. */
   zh_set_coeff(d->hpro, d->coeff);
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
-  
+
   for (i = 0; i < d->sh->ninter; i++) {
     zshp(d->sh_pa[i], d->h_evect, i, d->sh, d->shp_w);
     chi2[i+1] = shchisq(d->sh_pa[i], d->shx[i]->pa);
@@ -653,7 +712,7 @@ double eshfit_cov_df(double x, void *data) {
   size_t shi, shel;
   cov_data *cov_d = (cov_data *)data;
   eshfit_data *d = cov_d->obj_f_data;
-  
+
   cov_d->df_x[cov_d->par_index] = x;
   parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
   zh_set_coeff(d->h, d->coeff);
@@ -860,7 +919,7 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   double chisq[2] = {0, 0};
   gsl_function F;
   eshfit_data *d = obj->obj_f_data;
-  
+
   /* The number of parameters. */
   n = obj->n;
   /* The number of observables.  We count 6 observables per spin Hamiltonian
@@ -905,14 +964,14 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
       }
     }    
   }
- 
+
   F.function = &eshfit_cov_df;
 
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
    * observables (energy and sh) (pg. 780, Press et al. 3rd edition). */
   eshfit_chi2(x0, d, chisq);
   sigma = sqrt((chisq[0] + chisq[1])/(m-n));
-  
+
   covariance_helper(m, n, shi_index, shel_index, F, x0, d, sigma, cov_inv);
 
   free(shi_index);

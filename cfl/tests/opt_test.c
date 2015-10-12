@@ -509,6 +509,24 @@ int main (void)
   cfl_min_free(efit_min_obj);
   cfl_min_free(efit_lmin_obj);
   efit_data_free(efit_d);
+
+  /* Alloc and free test for mev fit. */
+  mev_data *mev_d1, *mev_d2;
+  mevfit_data *mev_fd;
+  
+  double fs1[3] = {0, 1, 0};
+  double fs2[3] = {1, 0, 1};
+  int fi[3] = {6, 7, 8};
+
+  mev_d1 = mev_data_alloc(h, 1.0, fs1, fi, &ce_ex_data);
+  mev_d2 = mev_data_alloc(h, 0.5, fs2, fi, &ce_ex_data);
+  mev_data *meva[2] = {mev_d1, mev_d2};
+
+  mev_fd = mevfit_data_alloc(2, meva, celiyf4_coeff, 6, p);
+
+  mevfit_data_free(mev_fd);
+  mev_data_free(mev_d1);
+  mev_data_free(mev_d2);
   zh_free(h);
 
   printf("Energy level only fit:\n");
@@ -608,7 +626,7 @@ int main (void)
 
   cfl_min_free(eshfit_min_obj);
   cfl_min_free(eshfit_lmin_obj);
-  eshfit_data_free(eshfit_d);
+
 
   printf("Energy level and spin Hamiltonian fit (eshfit_hpro_obj):\n");
   printf("fmin = %.6f\n", fmin);

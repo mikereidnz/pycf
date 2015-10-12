@@ -82,7 +82,7 @@ typedef struct {
   zhd_w *hd_w;
   /* Eigenvalue array. */
   double *eval;
-  /* Experimental energy level data */
+  /* Experimental energy level data. */
   ex_data *ex;
   /* The number of parameters after conversion to complex type. */
   size_t n_zx;
@@ -98,16 +98,15 @@ typedef struct {
 typedef struct {
   /* Pointer to the Hamiltonian. */
   zh *h;
-  /* Complete cofficient array to be passed to the diagonalization. */
-  complex double *coeff;
   /* Chi^2 weighting factor. */
   float weight;
-  /* Experimental energy level data */
+  /* x, y, and z magnetic field strenghts; NULL for zero field. */
+  double *field_strengths;
+  /* Indices specifying the x, y, and z entries in coeff; these must be the last
+   * three entries in coeff. */
+  int *field_indices;
+  /* Experimental energy level data. */
   ex_data *ex;
-  /* The number of parameters after conversion to complex type. */
-  size_t n_zx;
-  /* Array of pointers to parameter type structs. */
-  param_type **param;
 } mev_data;
 
 /* Data for multi-eigenvalue vector fit. */
@@ -118,12 +117,18 @@ typedef struct {
   mev_data **mev_d;
   /* The number of unique Hamiltonians. */
   int nh;
-  /* Index specifying which hd_w workspace corresponds to which mev_d entry. */
-  int *hd_w_index;
-  /* Array of pointers to Hamiltonian diagonalization workspaces... */
+  /* Complete cofficient array to be passed to the diagonalization. */
+  complex double *coeff;
+  /* Index specifying which hd_w/eval entry corresponds to which mev_d entry. */
+  int *hi;
+  /* Array of pointers to Hamiltonian diagonalization workspaces. */
   zhd_w **hd_w;
   /* Array of eigenvalue arrays. */
-  double **eval;
+  double **h_eval;
+  /* The number of parameters after conversion to complex type. */
+  size_t n_zx;
+  /* Array of pointers to parameter type structs. */
+  param_type **p;
 } mevfit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -150,7 +155,7 @@ typedef struct {
   zshp_w *shp_w;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
   complex double **sh_pa;
-  /* Experimental energy level data */
+  /* Experimental energy level data. */
   ex_data *ex;
   /* Array of pointers to spin Hamiltonian experimental data. */
   shx_data **shx;
@@ -172,6 +177,12 @@ extern "C" {
 efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t
     n_zx, param_type **p);
 void efit_data_free(efit_data *data);
+mev_data *mev_data_alloc(zh *h, float weight, double *field_strengths, 
+    int *field_indices, ex_data *ex);
+void mev_data_free(mev_data *data);
+mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
+    complex double *coeff, size_t n_zx, param_type **p);
+void mevfit_data_free(mevfit_data *data);
 eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
     *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);

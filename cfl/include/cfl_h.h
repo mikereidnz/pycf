@@ -47,10 +47,6 @@ typedef struct {
   zt **t;
   /* Tensor coefficients. */
   complex double *coeff;
-  /* The number of blocks. */
-  int nblocks;
-  /* Array of blocks corresponding to irreducible representations. */
-  zblock **blocks;
 } zh;
 
 /* Workspace for LAPACKE_zheevr. */
@@ -97,6 +93,8 @@ typedef struct {
   int *w_perm;
   /* The number of blocks. */
   int nblocks;
+  /* Array of blocks corresponding to irreducible representations. */
+  zblock **blocks;
   /* Eigenvectors of blocks; only available if eigevector evaluation is
    * requested. */
   complex double **zb;
