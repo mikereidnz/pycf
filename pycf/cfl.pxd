@@ -157,11 +157,21 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct efit_data:
         pass
 
+    ctypedef struct mev_data:
+        pass
+
+    ctypedef struct mevfit_data:
+        pass
+
     ctypedef struct eshfit_data:
         pass
 
     efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t n_zx, param_type **p)
     void efit_data_free(efit_data *data)
+    mev_data *mev_data_alloc(zh *h, float weight, double *field_strengths, int *field_indices, ex_data *ex)
+    void mev_data_free(mev_data *data)
+    mevfit_data *mevfit_data_alloc(int n, mev_data **input_data, double complex *coeff, size_t n_zx, param_type **p)
+    void mevfit_data_free(mevfit_data *data)
     eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, double complex *coeff, ex_data *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)

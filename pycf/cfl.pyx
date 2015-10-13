@@ -993,6 +993,296 @@ cdef class EFitRunner(object):
         return(coeff, fmin)
 
 
+class MevFitVector(object):
+    r"""
+
+    Parameters
+    ----------
+    h : Hamiltonian
+        The Hamiltonian to be fit to this set of energy levels. 
+    ex : np.ndarray
+        2 by n dimensional array, with n the number of available experimental
+        energy levels. The first column contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
+    fs : list, optional
+        Keyword argument specifying the magnetic field strength for the x, y,
+        and z orientation, respectively; must be specified if h contains Zeeman
+        tensors.
+    weight : double, optional
+        Keyword argument specifying the weighting to be applied to the chi
+        square value; defaults to 1.
+    """
+    cdef public Hamiltonian h
+    cdef public np.ndarray fs
+    cdef cfl.ex_data *ex_data
+    cdef np.ndarray[double, ndim=1, mode="c"] ex_e
+    cdef np.ndarray[int, ndim=1, mode="c"] ex_li
+    cdef np.ndarray[int, ndim=1, mode="c"] fi
+    cdef np.ndarray[double, ndim=1, mode="c"] fs
+    cdef cfl.mev_data cfl_mev
+    cdef public object mev_cap
+
+    def __init__(self, h, ex, **kwargs):
+        cdef np.ndarray[double, ndim=1, mode="c"] ex_e
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_li
+        cdef np.ndarray[int, ndim=1, mode="c"] fi
+        cdef np.ndarray[double, ndim=1, mode="c"] fs
+        cdef int weight
+
+        if h.coeff_dict == None:
+            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
+        self.h = h
+
+        m_list = ['MAGX', 'MAGX', 'MAGZ']
+        if any([m in h for m in m_list]):
+            try:
+                fi_list = [h.index(m) for m in m_list]
+            except:
+                raise ValueError("If matrix elements of either MAGX, MAGY, or "\
+                        "MAGZ are specified all three are required.")
+
+
+            if any([i < nt-3 for i in fi_list]):
+                raise ValueError("For a Hamiltonian to be used in a mev fit, "\
+                        "Zeeman tensors must be the last three tensors of H.")
+            if 'fs' not in kwargs:
+                raise ValueError("The provided Hamiltonian contains magnetic" \
+                        "field matrix elements, but the fs kwarg specifying " \
+                        "the field orientation was not provided.")
+            if not isinstance(kwargs['fs'], list):
+                raise TypeError("fs must be a list of length three, specifying" \
+                        "the x, y, and z magnetic field components, " \
+                        "respectively")
+            elif len(kwargs['fs']) != 3:
+                raise ValueError("fs must be a list of length three, specifying" \
+                        "the x, y, and z magnetic field components, " \
+                        "respectively")
+
+            self.fi = np.array(fi_list, dtype=np.int32)
+            self.fs = np.array(kwargs['fs'], dtype=np.float64)
+
+            if 'HYP' in h:
+                if 'QUAD' in h:
+                    if h.index('QUAD') != h.n - 4:
+                        raise ValueError("Incorrect tensor ordering; QUAD " \
+                                "must be the 4th tensor from the end if " \
+                                "Zeeman tensors are specified.")
+                    elif h.index('HYP') != h.n - 5:
+                        raise ValueError("Incorrect tensor ordering; HYP must "\
+                                "be the 5th tensor from the end if Zeeman " \
+                                "tensors and the QUAD tensor are specified.")
+                elif h.index('HYP') != h.n - 4:
+                    raise ValueError("Incorrect tensor ordering; HYP must be " \
+                            "the 4th tensor from the end if Zeeman tensors " \
+                            "are specified.")
+
+        else:
+            self.fi = NULL
+            self.fs = NULL
+
+        fi = <np.ndarray[double, ndim=1, mode="c"]> self.fi
+        fs = <np.ndarray[int, ndim=1, mode="c"]> self.fs
+
+        # Prepare experimental energy level data
+        self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
+        # Subtract one, since we need an index starting at zero, whereas ex
+        # levels start at 1. 
+        self.ex_li = np.ascontiguousarray(ex[:,0]-1, dtype=np.int32)
+       
+        ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
+        ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
+        self.ex_data = <cfl.ex_data *>malloc(cython.sizeof(cfl.ex_data))
+        if self.ex_data == NULL:
+            raise MemoryError("ex_data alloc failed")
+        self.ex_data.n = len(ex)
+        self.ex_data.e = &ex_e[0]
+        self.ex_data.li = &ex_li[0]
+
+        if 'weight' in kwargs:
+            weight = kwargs['weight']
+        else:
+            weight = 1
+        
+        self.cfl_mev = cfl.mev_data_alloc(h, weight, fi, fs, self.ex_data);
+        if self.cfl_mev == NULL:
+            free(self.ex_data)
+            raise MemoryError("mev_d alloc failed")
+        else:
+            self.mev_cap = PyCapsule_New(<void *>self.cfl_mev, "pycfl.MevFitVector", NULL)
+
+    def __dealloc__(self):
+        if self.cfl_mev != NULL:
+            cfl.zh_free(self.cfl_mev)
+        if self.ex_data != NULL:
+            free(self.ex_data)
+
+
+cdef class MevFitRunner(object):
+    r"""
+    Class used to store data required by, and to run, a crystal field fit using
+    multiple eigenvalue vectors.  Typically, this would consist of one vector of
+    energy levels at zero field without hyperfine or quadrupole interactions,
+    complemented by a set of eigenvalue vectors at linearly independent magnetic
+    field orientations and possibly containing hyperfine interactions.  These
+    additional eigenvalues can either be measured or synthetically calculated
+    for specific crystal field levels from spin Hamiltonian data.  
+
+    The Hamiltonian must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when they are set also determines whether they are fit as real
+    or complex parameters. 
+
+    Parameters
+    ----------
+    parameters : list
+        A list of tensor objects for which to vary the prefactor. 
+    h_list : list
+        A list of Hamiltonians, each containing the interactions required to
+        match the provided experimental energy level data.
+    ex_list : list
+        A list of 2 by n dimensional arrays, with n the number of available
+        experimental energy levels for each corresponding Hamiltonian in h_list.
+        The first column of each element contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
+    """
+
+    cdef int n_p
+    cdef public list parameters
+    cpdef public int n_p_real
+    cpdef public list param_list
+    cpdef public list param_types
+    cdef cfl.param_type **param_array
+    cdef np.ndarray p0_real
+    cdef np.ndarray coeff
+    cdef cfl.efit_data *efit_data
+    cpdef public object obj_f_cap
+    cpdef public object cov_f_cap
+    cpdef public object fit_data_cap
+    
+    def __init__(self, parameters, mevfit_list):
+        cdef cfl.param_type *param_type_ptr
+        cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+        
+        self.n_p = len(parameters)
+        self.parameters = parameters
+        
+        pp = parse_param_helper(parameters, h)
+        self.n_p_real = pp['n_p_real']
+        self.param_list = pp['param_list']
+        self.param_types = pp['param_types']
+
+        if self.n_p_real > len(ex):
+            raise ValueError("The total (real and imaginary) number of parameters exceeds "
+                    "the number of observables.")
+        elif ex.shape[1] != 2:
+            raise ValueError("Incorrect ex shape; expected a two column array.")
+
+        # We assign pointers to self to make sure a reference exists for as long
+        # as the object, and consequently prevent the GC from freeing the
+        # pointers until after __dealloc__ is called.
+        self.coeff = np.ascontiguousarray(h.coeff, dtype=np.complex128)
+        coeff = <np.ndarray[double, ndim=1, mode="c"]> self.coeff     
+
+        # Prepare array of pointers to parameter data structs.
+        self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
+        param_array = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
+        if param_array == NULL:
+            free(self.ex_data)
+            raise MemoryError("param_array alloc failed")
+        
+        ip_real = 0
+        for i in range(self.n_p):
+            param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
+            if param_array[i] is NULL:
+                for j in range(i-1):
+                    free(param_array[j])
+                free(self.ex_data)
+                free(self.param_array)
+                raise MemoryError("param_array[{}] alloc failed".format(i))
+            
+            param_array[i].type = cfl.atoi(self.param_types[i])
+            param_array[i].index = h.index(parameters[i])
+
+            if self.param_types[i] == 'c':
+                self.p0_real[ip_real] = np.real(self.param_list[i])
+                self.p0_real[ip_real+1] = np.imag(self.param_list[i])
+                ip_real += 2
+            else:
+                self.p0_real[ip_real] = self.param_list[i]
+                ip_real += 1
+
+        self.param_array = param_array 
+
+        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
+                &coeff[0], self.ex_data, self.n_p, self.param_array);
+        self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
+        self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
+        self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
+        
+        # Run eshfit_chi2 so that the initial chi^2 weighting is set.
+        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
+
+    def __dealloc__(self):
+        if self.param_array != NULL:
+            for i in range(self.n_p):
+                if self.param_array[i] != NULL:
+                    free(self.param_array[i])
+            free(self.param_array)
+        if self.efit_data != NULL:
+            cfl.efit_data_free(self.efit_data)
+
+    def __iter__(self):
+        for p in self.parameters:
+            yield p
+    
+    def fit(self, min_object):
+        r"""
+        Run the fit using the provided minimization object.
+
+        Parameters
+        ----------
+        min_object : CFLMin
+            The minimization object to be used, which sets the optimization
+            algorithm, bounds and other settings as applicable to the selected
+            algorithm.
+
+        Returns
+        -------
+        result : tuple
+            The first element is a np.ndarray containing complex coefficients
+            while the second entry contains the final value of the objective
+            function.
+        """
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef sigma = 0
+
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+
+        fmin = min_object.minimize(self, x)
+        
+        coeff = self.coeff 
+        ri = 0
+        
+        for i,p in enumerate(self):
+            if (self.param_types[i] == 'c'): 
+                coeff[self.h.index(p)] = np.complex(x[ri], x[ri+1])
+                ri += 2
+            else:
+                coeff[self.h.index(p)] = x[ri]
+                ri += 1
+        
+        return(coeff, fmin)
+
+
+
+
+
 
 cdef class ESHFitRunner(object):
     r"""
