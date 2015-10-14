@@ -497,7 +497,7 @@ int main (void)
   efit_data *efit_d;
   cfl_min_obj *efit_lmin_obj, *efit_min_obj;
   
-  efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
+  efit_d = efit_data_alloc(h, &ce_ex_data, 6, p);
   efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, &efit_cov, 6, efit_d, gsl_vector_bfgs2);
   efit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, efit_lmin_obj);
 
@@ -511,22 +511,16 @@ int main (void)
   efit_data_free(efit_d);
 
   /* Alloc and free test for mev fit. */
-  mev_data *mev_d1, *mev_d2;
   mevfit_data *mev_fd;
   
-  double fs1[3] = {0, 1, 0};
-  double fs2[3] = {1, 0, 1};
-  int fi[3] = {6, 7, 8};
+  param_type **pa[2] = {p, p};
+  zh *ha[2] = {h, h};
+  double weights[2] = {1.0, 1.0};
+  ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
 
-  mev_d1 = mev_data_alloc(h, 1.0, fs1, fi, &ce_ex_data);
-  mev_d2 = mev_data_alloc(h, 0.5, fs2, fi, &ce_ex_data);
-  mev_data *meva[2] = {mev_d1, mev_d2};
-
-  mev_fd = mevfit_data_alloc(2, meva, celiyf4_coeff, 6, p);
+  mev_fd = mevfit_data_alloc(2, ha, weights, exa, 6, pa);
 
   mevfit_data_free(mev_fd);
-  mev_data_free(mev_d1);
-  mev_data_free(mev_d2);
   zh_free(h);
 
   printf("Energy level only fit:\n");
@@ -558,8 +552,7 @@ int main (void)
 
   ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
   zsh_set_pro(ce_sh, shpro_tensors, 0);
-  eshfit_d = eshfit_data_alloc(h, NULL, sh_celiyf4_coeff, &ce_ex_data, ce_sh,
-      shx, 6, p);
+  eshfit_d = eshfit_data_alloc(h, NULL, &ce_ex_data, ce_sh, shx, 6, p);
   eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, &eshfit_cov, 6, eshfit_d,
       gsl_vector_bfgs2);
   eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);

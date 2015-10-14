@@ -80,6 +80,7 @@ zh *zh_alloc(int n, int nt, zt **t) {
   h->n = n;
   h->nt = nt;
   h->t = t;
+  h->coeff = NULL;
 
   return h;
 }

@@ -88,37 +88,24 @@ typedef struct {
   size_t n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
-  /* Complete cofficient array to be passed to the diagonalization. */
-  complex double *coeff;
   /* chi^2 weighting for energy levels. */
   double echisq_weight;
 } efit_data;
-
-/* Data for a single eigenvalue vector used in multi-eigenvalue vector fit. */
-typedef struct {
-  /* Pointer to the Hamiltonian. */
-  zh *h;
-  /* Chi^2 weighting factor. */
-  float weight;
-  /* x, y, and z magnetic field strenghts; NULL for zero field. */
-  double *field_strengths;
-  /* Indices specifying the x, y, and z entries in coeff; these must be the last
-   * three entries in coeff. */
-  int *field_indices;
-  /* Experimental energy level data. */
-  ex_data *ex;
-} mev_data;
 
 /* Data for multi-eigenvalue vector fit. */
 typedef struct {
   /* The number of eigenvalue vectors. */
   int n;
-  /* Array of fitting data for individual eigenvalue vector fits. */
-  mev_data **mev_d;
+  /* Array of length n containing pointers to Hamiltonians for each eigenvalue
+   * vector. */
+  zh **ha;
+  /* Array of length n with each entry specifying the chi^2 weighting of the
+   * corresponding ha entry. */
+  double *weights;
+  /* Array of pointers to experimental energy level data. */
+  ex_data **exa;
   /* The number of unique Hamiltonians. */
   int nh;
-  /* Complete cofficient array to be passed to the diagonalization. */
-  complex double *coeff;
   /* Index specifying which hd_w/eval entry corresponds to which mev_d entry. */
   int *hi;
   /* Array of pointers to Hamiltonian diagonalization workspaces. */
@@ -127,8 +114,10 @@ typedef struct {
   double **h_eval;
   /* The number of parameters after conversion to complex type. */
   size_t n_zx;
-  /* Array of pointers to parameter type structs. */
-  param_type **p;
+  /* Array of length n to arrays of pointers to parameter type structs. */
+  param_type ***p;
+  /* chi^2 weighting for first energy level vector. */
+  double echisq_weight;
 } mevfit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -163,8 +152,6 @@ typedef struct {
   size_t n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
-  /* Complete cofficient array to be passed to the diagonalization. */
-  complex double *coeff;
   /* chi^2 weighting for energy levels. */
   double echisq_weight;
 } eshfit_data;
@@ -174,29 +161,28 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t
-    n_zx, param_type **p);
+efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx, param_type **p);
 void efit_data_free(efit_data *data);
-mev_data *mev_data_alloc(zh *h, float weight, double *field_strengths, 
-    int *field_indices, ex_data *ex);
-void mev_data_free(mev_data *data);
-mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
-    complex double *coeff, size_t n_zx, param_type **p);
+mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa,
+    size_t n_zx, param_type ***p);
 void mevfit_data_free(mevfit_data *data);
-eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
-    *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p); 
+eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+    shx_data **shx, size_t n_zx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
     cfl_min_obj *min_obj);
 int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
     *bounds, cfl_min_obj *min_obj); 
 double efit_obj(size_t n, double *x, double *grad, void *data);
+double mevfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
 void efit_chi2(double *x, void *data, double *chi2);
+void mevfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
 void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
+void mevfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj); 
 #ifdef __cplusplus

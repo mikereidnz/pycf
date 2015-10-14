@@ -85,15 +85,18 @@
  * Parameters
  * ----------
  *  h       Pointer to the Hamiltonian.  
- *  coeff   Coefficient array for h.
  *  ex      Experimental energy level data. 
  *  n_zx    The number of complex valued parameters to be fit to the Hamiltonian
  *  p       Array of pointers to parameters to be fit.
  */
-efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t n_zx,
+efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx,
     param_type **p) {
   efit_data *data;
-
+  
+  if (h->coeff == NULL) {
+    CFL_ERROR_NULL("h is missing coefficients; set with zh_set_coeff prior to" \
+        "calling efit_data_alloc");
+  }
   data = (efit_data *) malloc(sizeof(efit_data));
   if (data == 0) {
     CFL_ERROR_NULL("malloc failed for data");
@@ -113,7 +116,6 @@ efit_data *efit_data_alloc(zh *h, complex double *coeff, ex_data *ex, size_t n_z
   }
 
   data->h = h;
-  data->coeff = coeff;
   data->ex = ex;
   data->n_zx = n_zx;
   data->p = p;
@@ -128,57 +130,24 @@ void efit_data_free(efit_data *data) {
   free(data);
 }
 
-/**
- * Alloc data for a single eigenvalue vector to be used in a multiple eigenvalue
- * vector fit. 
- *
- * Parameters
- * ----------
- *  h                 Pointer to Hamiltonian.
- *  weight            The weighting to be applied in the chisq fit w.r.t. the
- *                    other eigenvalue vectors.
- *  field_strengths   Array with three entries, specifying the magnetic field
- *                    strength along the x, y, and z directions, respectively.
- *                    In case of zero field, set to NULL.
- *  field_indices     Indices specifying the x, y, and z entries in coeff; these
- *                    must be the last three entries in coeff.  In case of zero
- *                    field, set to NULL.
- */
-mev_data *mev_data_alloc(zh *h, float weight, double *field_strengths, 
-    int *field_indices, ex_data *ex) {
-  mev_data *data;
-
-  data = (mev_data *) malloc(sizeof(mev_data));
-  if (data == 0) {
-    CFL_ERROR_NULL("malloc failed for data");
-  }
-
-  data->h = h;
-  data->weight = weight;
-  data->field_strengths = field_strengths;
-  data->field_indices = field_indices;
-  data->ex = ex;
-
-  return data;
-}
-
-void mev_data_free(mev_data *data) {
-  free(data);
-}
-
 /* Alloc data for fitting to multiple eigenvalue vectors. 
  *
  * Parameters
  * ----------
  *  n           The number of eigenvalue vectors. 
  *  input_data  Array of eigenvalue data structs. 
- *  coeff       Coefficient array for h.
+ *  ha          Array of length n containing pointers to Hamiltonians for each
+ *              eigenvalue vector.
+ *  weights     Array of length n with each entry specifying the chi^2 weighting
+ *              of the corresponding ha entry.
+ *  exa         Array of pointers to experimental energy level data. 
  *  n_zx        The number of complex valued parameters to be fit to the
  *              complete Hamiltonians.
- *  p           Array of pointers to parameters to be fit.
+ *  p           Array of length n to arrays of pointers to parameter type
+ *              structs. 
  */
-mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
-    complex double *coeff, size_t n_zx, param_type **p) {
+mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa,
+    size_t n_zx, param_type ***p) {
   int i, j, nh;
   mevfit_data *data;
   long *lwork;
@@ -215,12 +184,12 @@ mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
     for (j = 0; j < n; j++) {
       if (j >= nh) {
         data->hi[i] = j;
-        lwork[nh] = input_data[i]->h->slabels->hash;
+        lwork[nh] = ha[i]->slabels->hash;
         iwork[j] = i;
         nh++;
         break;
       }
-      else if (input_data[i]->h->slabels->hash == lwork[j]) {
+      else if (ha[i]->slabels->hash == lwork[j]) {
         data->hi[i] = j;
         break;
       }
@@ -246,7 +215,7 @@ mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
   }
 
   for (i = 0; i < nh; i++) {
-    data->h_eval[i] = (double *) calloc(input_data[iwork[i]]->h->n,sizeof(double));
+    data->h_eval[i] = (double *) calloc(ha[iwork[i]]->n,sizeof(double));
     if (data->h_eval[i] == 0) {
       for (j = 0; j < i; j++) {
         free(data->h_eval[j]);
@@ -260,7 +229,7 @@ mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
     }
 
     data->hd_w[i] = (zhd_w *) zhd_w_alloc('N', data->h_eval[i], NULL,
-        input_data[iwork[i]]->h);
+        ha[iwork[i]]);
     if (data->hd_w[i] == 0) {
       for (j = 0; j < i; j++) {
         free(data->h_eval[j]);
@@ -278,8 +247,10 @@ mevfit_data *mevfit_data_alloc(int n, mev_data **input_data,
   free(iwork);
   free(lwork);
 
+  data->ha = ha;
+  data->weights = weights;
+  data->exa = exa;
   data->nh = nh;
-  data->coeff = coeff;
   data->n_zx = n_zx;
   data->p = p;
 
@@ -310,8 +281,12 @@ void mevfit_data_free(mevfit_data *data) {
  * ----------
  *  h       Pointer to the complete Hamiltonian.  
  *  hpro    Pointer to the projection Hamiltonian; can be NULL if identical to
- *          h.
- *  coeff   Tensor coefficient array.
+ *          h.  The tensor order of hpro must match the tensor order of h, since
+ *          they share the same coefficent array; hpro will ignore any
+ *          coefficients that are soley required by h.  Furthermore, if the
+ *          caller has set hpro->coeff, the caller must retain a copy of this
+ *          pointer, since eshfit_data_alloc will alias hpro->coeff with
+ *          h->coeff.  
  *  ex      Experimental energy level data.  
  *  sh      Pointer to spin Hamiltonian.    
  *  shx     Array of pointers to spin Hamiltonian experimental data.  These must
@@ -322,12 +297,16 @@ void mevfit_data_free(mevfit_data *data) {
  *          Hamiltonian h.
  *  p       Array of pointers to parameters to be fit.
  */
-eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
-    *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p) {
+eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+    shx_data **shx, size_t n_zx, param_type **p) {
   int i,j;
   size_t ninv;
   eshfit_data *data;
 
+  if (h->coeff == NULL) {
+    CFL_ERROR_NULL("h is missing coefficients; set with zh_set_coeff prior to" \
+        "calling eshfit_data_alloc");
+  }
   data = (eshfit_data *) malloc(sizeof(eshfit_data));
   if (data == 0) {
     CFL_ERROR_NULL("malloc failed for eshfit_data");
@@ -428,11 +407,12 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, complex double *coeff, ex_data
       free(data);
       CFL_ERROR_NULL("zhd_w_alloc failed for data->hprod_w");
     }
+    /* Alias the coeff ptrs of h and hpro. */
+    hpro->coeff = h->coeff;
   }
 
   data->h = h;
   data->hpro = hpro;
-  data->coeff = coeff;
   data->ex = ex;
   data->sh = sh;
   data->shx = shx;
@@ -537,8 +517,7 @@ inline void parse_param_data(size_t n_zx, param_type **p, complex double *coeff,
 double efit_obj(size_t n, double *x, double *grad, void *data) {
   efit_data *d = data;
 
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
-  zh_set_coeff(d->h, d->coeff);
+  parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('N', d->eval, NULL, d->h, d->hd_w);
 
   return d->echisq_weight * echisq(d->eval, d->ex);
@@ -546,23 +525,16 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
 
 /* Objective function for multi-eigenvalue vector fit. */
 double mevfit_obj(size_t n, double *x, double *grad, void *data) {
-  int i, j, hi;
+  int i, hi;
   double chisq;
   mevfit_data *d = data;
 
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
-
   chisq = 0;
   for (i = 0; i < d->n; i++) {
-    if (d->mev_d[i]->field_strengths != NULL) {
-      for (j = 0; j < 3; j++) {
-        d->coeff[d->mev_d[i]->field_indices[j]] = d->mev_d[i]->field_strengths[j];
-      }
-    }
     hi = d->hi[i];
-    zh_set_coeff(d->mev_d[i]->h, d->coeff);
-    zhd('N', d->h_eval[hi], NULL, d->mev_d[i]->h, d->hd_w[hi]);
-    chisq += d->mev_d[i]->weight * echisq(d->h_eval[hi], d->mev_d[i]->ex);
+    parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
+    zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
+    chisq += d->weights[i] * echisq(d->h_eval[hi], d->exa[i]);
   }
 
   return chisq;
@@ -575,10 +547,9 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   double chisq;
   eshfit_data *d = data;
 
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
+  parse_param_data(d->n_zx, d->p, d->h->coeff, x);
 
   /* Calculate the energy level chi^2. */
-  zh_set_coeff(d->h, d->coeff);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chisq = d->echisq_weight * echisq(d->h_eval, d->ex);
 
@@ -598,16 +569,15 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   double chisq;
   eshfit_data *d = data;
 
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
+  /* Sets both h and hpro coeffs, since ptrs are aliased. */
+  parse_param_data(d->n_zx, d->p, d->h->coeff, x);
 
   /* Calculate the energy level chi^2. */
-  zh_set_coeff(d->h, d->coeff);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chisq = d->echisq_weight * echisq(d->h_eval, d->ex);
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
-  zh_set_coeff(d->hpro, d->coeff);
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
@@ -624,11 +594,27 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
 void efit_chi2(double *x, void *data, double *chi2) {
   efit_data *d = data;
 
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
-  zh_set_coeff(d->h, d->coeff);
+  parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('N', d->eval, NULL, d->h, d->hd_w);
-  chi2[0] = echisq(d->eval, d->ex);
-  d->echisq_weight = 1/chi2[0];
+  *chi2 = echisq(d->eval, d->ex);
+  d->echisq_weight = 1/(*chi2);
+}
+
+/*  Function used to get an initial estimate of chi^2 values, for
+ *  multi-eigenvalue vector fit. */
+void mevfit_chi2(double *x, void *data, double *chi2) {
+  int i, hi;
+  double chisq;
+  mevfit_data *d = data;
+
+  *chi2 = 0;
+  for (i = 0; i < d->n; i++) {
+    hi = d->hi[i];
+    parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
+    zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
+    *chi2 += d->weights[i] * echisq(d->h_eval[hi], d->exa[i]);
+  }
+  d->echisq_weight = 1/(*chi2);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, in scenario where
@@ -637,11 +623,10 @@ void eshfit_chi2(double *x, void *data, double *chi2) {
   int i, j, sh_index;
   eshfit_data *d = data;
 
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
-  zh_set_coeff(d->h, d->coeff);
+  parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
-  chi2[0] = echisq(d->h_eval, d->ex);
-  d->echisq_weight = 1/chi2[0];
+  *chi2 = echisq(d->h_eval, d->ex);
+  d->echisq_weight = 1/(*chi2);
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
@@ -657,15 +642,14 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   int i, j, sh_index;
   eshfit_data *d = data;
 
-  parse_param_data(d->n_zx, d->p, d->coeff, x);
-  zh_set_coeff(d->h, d->coeff);
+  /* Sets both h and hpro coeffs, since ptrs are aliased. */
+  parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chi2[0] = echisq(d->h_eval, d->ex);
   d->echisq_weight = 1/chi2[0];
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
-  zh_set_coeff(d->hpro, d->coeff);
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   for (i = 0; i < d->sh->ninter; i++) {
@@ -676,7 +660,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
 
 /* Function for evaluating the covariance matrix for an energy level fit.
  *
- * Returns the value of a single observable given the parameter x, which
+ * Returns the value of a single observable given the parameter x, where x
  * corresponds to the value of the par_index entry of the real valued tensor
  * coefficient array.  The observable is specified using data->cov_d->obs_index.
  * The function arguments are choosen s.t. the function can be directly passed
@@ -688,19 +672,52 @@ double efit_cov_df(double x, void *data) {
   efit_data *d = cov_d->obj_f_data;
 
   cov_d->df_x[cov_d->par_index] = x;
-  parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
-  zh_set_coeff(d->h, d->coeff);
+  parse_param_data(d->n_zx, d->p, d->h->coeff, cov_d->df_x);
   zhd('N', d->eval, NULL, d->h, d->hd_w);
 
   /* Return the value of the specified energy level. */
   return d->eval[d->ex->li[cov_d->obs_index]];
 }
 
+/* Function for evaluating the covariance matrix for a multi-eigenvalue vector
+ * fit. 
+ *
+ * Returns the value of a single observable given the parameter x, where x
+ * corresponds to the value of the par_index entry of the real valued tensor
+ * coefficient array.  The observable is specified using data->cov_d->obs_index.
+ * The function arguments are choosen s.t. the function can be directly passed
+ * to the gsl derivative routines, allowing one to calculate the derivative of
+ * each observable w.r.t. each parameter, thus yielding the covariance matrix.
+ */
+double mevfit_cov_df(double x, void *data) {
+  int i, hi, ex_n;
+  double chisq;
+  cov_data *cov_d = (cov_data *)data;
+  mevfit_data *d = cov_d->obj_f_data;
+
+  i = 0;
+  ex_n = 0;
+  do {
+    ex_n += d->exa[i]->n;
+    i++;
+  } while (cov_d->obs_index > ex_n);
+  i--;
+  ex_n -= d->exa[i]->n;
+
+  hi = d->hi[i];
+
+  cov_d->df_x[cov_d->par_index] = x;
+  parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, cov_d->df_x);
+  zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
+  
+  return d->h_eval[hi][d->exa[i]->li[cov_d->obs_index-ex_n]];
+}
+
 /* Function for evaluating the covariance matrix for an energy level and spin
  * Hamiltonian fit in the scenario where the complete Hamiltonian is the same as
  * the projection Hamiltonian. 
  *
- * Returns the value of a single observable given the parameter x, which
+ * Returns the value of a single observable given the parameter x, where x
  * corresponds to the value of the par_index entry of the real valued tensor
  * coefficient array.  The observable is specified using data->cov_d->obs_index.
  * The function arguments are choosen s.t. the function can be directly passed
@@ -714,8 +731,7 @@ double eshfit_cov_df(double x, void *data) {
   eshfit_data *d = cov_d->obj_f_data;
 
   cov_d->df_x[cov_d->par_index] = x;
-  parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
-  zh_set_coeff(d->h, d->coeff);
+  parse_param_data(d->n_zx, d->p, d->h->coeff, cov_d->df_x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
 
   if (cov_d->obs_index >= d->ex->n) {
@@ -734,7 +750,7 @@ double eshfit_cov_df(double x, void *data) {
       return d->sh_pa[i][shel];
     }
     else if (shel < 5) {
-      /* Second row; diagonal is starts at 1. */
+      /* Second row; diagonal starts at 1. */
       return d->sh_pa[i][shel+1];
     }
     else {
@@ -767,13 +783,12 @@ double eshfit_hpro_cov_df(double x, void *data) {
   eshfit_data *d = cov_d->obj_f_data;
 
   cov_d->df_x[cov_d->par_index] = x;
-  parse_param_data(d->n_zx, d->p, d->coeff, cov_d->df_x);
-  zh_set_coeff(d->h, d->coeff);
+  /* Sets both h and hpro coeffs, since ptrs are aliased. */
+  parse_param_data(d->n_zx, d->p, d->h->coeff, cov_d->df_x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
-  zh_set_coeff(d->hpro, d->coeff);
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   if (cov_d->obs_index >= d->ex->n) {
@@ -792,7 +807,7 @@ double eshfit_hpro_cov_df(double x, void *data) {
       return d->sh_pa[i][shel];
     }
     else if (shel < 5) {
-      /* Second row; diagonal is starts at 1. */
+      /* Second row; diagonal starts at 1. */
       return d->sh_pa[i][shel+1];
     }
     else {
@@ -872,6 +887,7 @@ inline void covariance_helper(size_t m, size_t n, size_t *shi_index, size_t
   free(cov_d);
 }
 
+
 /* Estimate the covariance matrix for an energy level fit. 
  *
  * Parameters
@@ -897,6 +913,41 @@ void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
    * energy levels (pg. 780, Press et al. 3rd edition). */
   efit_chi2(x0, d, &chisq);
+  sigma = sqrt(chisq/(m-n));
+
+  covariance_helper(m, n, NULL, NULL, F, x0, d, sigma, cov_inv);
+}
+
+
+/* Estimate the covariance matrix for a for a multi-eigenvalue vector fit. 
+ *
+ * Parameters
+ * ----------
+ *  x0      The parameters found by the minimization.
+ *  cov_inv Pointer to space that will be overwritten with the inverse
+ *          covariance matrix. 
+ *  obj     The cfl_min_obj for which the minimization was run.
+ */
+void mevfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
+  int i;
+  size_t m, n;
+  double sigma, chisq;
+  gsl_function F;
+  mevfit_data *d = obj->obj_f_data;
+
+  /* The number of parameters. */
+  n = obj->n;
+  /* The number of observables. */
+  m = 0;
+  for (i = 0; i < d->n; i++) {
+    m += d->exa[i]->n;
+  }
+
+  F.function = &mevfit_cov_df;
+
+  /* Estimate the uncertainty, assuming model fit and the same sigma for all
+   * energy levels (pg. 780, Press et al. 3rd edition). */
+  mevfit_chi2(x0, d, &chisq);
   sigma = sqrt(chisq/(m-n));
 
   covariance_helper(m, n, NULL, NULL, F, x0, d, sigma, cov_inv);
