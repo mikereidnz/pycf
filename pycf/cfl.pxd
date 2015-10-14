@@ -166,22 +166,23 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
-    efit_data *efit_data_alloc(zh *h, double complex *coeff, ex_data *ex, size_t n_zx, param_type **p)
+    efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mev_data *mev_data_alloc(zh *h, float weight, double *field_strengths, int *field_indices, ex_data *ex)
-    void mev_data_free(mev_data *data)
-    mevfit_data *mevfit_data_alloc(int n, mev_data **input_data, double complex *coeff, size_t n_zx, param_type **p)
+    mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa, size_t n_zx, param_type ***p)
     void mevfit_data_free(mevfit_data *data)
-    eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, double complex *coeff, ex_data *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p)
+    eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
     int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj) 
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
+    double mevfit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil 
     double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil 
     void efit_chi2(double *x, void *data, double *chi2) nogil
+    void mevfit_chi2(double *x, void *data, double *chi2) nogil 
     void eshfit_chi2(double *x, void *data, double *chi2) nogil
     void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil 
     void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil 
+    void mevfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
