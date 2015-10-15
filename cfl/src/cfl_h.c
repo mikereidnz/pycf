@@ -308,6 +308,8 @@ inline void zh_parse_ev(complex double *z, complex double **zb, int n,
       for (j=0; j<blocks[bi]->dim; j++) {
         ii = w_perm[bri+i];
         jj = w_perm[bri+j];
+//        ii = bri+i;
+//        jj = bri+j;
         z[ii*n+jj] = zb[bi][i*blocks[bi]->dim+j]; 
       }
     }
@@ -506,7 +508,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   }
   zhcrs2zcrs(coeff_w[hd_w->lcoeff_w-1], zcrs_h);
 
-  RCM_FUNC(genrcmi)(zcrs_h->n, RCM_NO_SORT, zcrs_h->row_ptr, zcrs_h->col_in, tmp_perm,
+  RCM_FUNC(genrcmi)(zcrs_h->n, RCM_NO_REVERSE, zcrs_h->row_ptr, zcrs_h->col_in, tmp_perm,
       node_mask, node_deg, &nblocks, block_dim);
 
   //FIXME: don't need tmp_perm if I change the permutation in col and row swap...?

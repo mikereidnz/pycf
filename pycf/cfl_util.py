@@ -237,7 +237,7 @@ def gen_sh_summary(param, sh, shx=None, sigma=None):
 
     return s
 
-def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
+def gen_fit_summary(coeff, fit_obj, h, method, fmin, sigma=None, **kwargs):
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
 
@@ -245,9 +245,12 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     ----------
     coeff : np.ndarray
         Contains the fitted interaction coefficients.
-    fit_obj : EFitRunner or ESHFitRunner
+    fit_obj : EFitRunner, MevFitRunner, or ESHFitRunner
         Must have __iter__ method that iterates over tensors corresponding to
-        parameters and have h attribute corresponding to the Hamiltonian.
+        parameters.
+    h : Hamiltonian
+        The Hamiltonian used to generate the fitting parameters; required to
+        look up the coeff index given using parameter names.
     method : str
         The optimization algorithm used for the fit.
     sigma : float, optional
@@ -277,7 +280,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
 
     s += uline_char(heading)
     for i,p in enumerate(fit_obj):
-        co = coeff[fit_obj.h.index(p)]
+        co = coeff[h.index(p)]
         if co.imag == 0:
             co = co.real
         s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(p.name+":",

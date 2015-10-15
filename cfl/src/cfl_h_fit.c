@@ -247,6 +247,7 @@ mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa,
   free(iwork);
   free(lwork);
 
+  data->n = n;
   data->ha = ha;
   data->weights = weights;
   data->exa = exa;
@@ -597,7 +598,7 @@ void efit_chi2(double *x, void *data, double *chi2) {
   parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('N', d->eval, NULL, d->h, d->hd_w);
   *chi2 = echisq(d->eval, d->ex);
-  d->echisq_weight = 1/(*chi2);
+  d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, for
@@ -614,7 +615,7 @@ void mevfit_chi2(double *x, void *data, double *chi2) {
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
     *chi2 += d->weights[i] * echisq(d->h_eval[hi], d->exa[i]);
   }
-  d->echisq_weight = 1/(*chi2);
+  d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, in scenario where
@@ -626,7 +627,7 @@ void eshfit_chi2(double *x, void *data, double *chi2) {
   parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   *chi2 = echisq(d->h_eval, d->ex);
-  d->echisq_weight = 1/(*chi2);
+  d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
@@ -646,7 +647,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   chi2[0] = echisq(d->h_eval, d->ex);
-  d->echisq_weight = 1/chi2[0];
+  d->echisq_weight = CFL_MIN_START_CHI2/chi2[0];
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */

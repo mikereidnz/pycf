@@ -510,8 +510,9 @@ int main (void)
   cfl_min_free(efit_lmin_obj);
   efit_data_free(efit_d);
 
-  /* Alloc and free test for mev fit. */
+  /* Mev fit test. */
   mevfit_data *mev_fd;
+  cfl_min_obj *mevfit_lmin_obj, *mevfit_min_obj;
   
   param_type **pa[2] = {p, p};
   zh *ha[2] = {h, h};
@@ -519,7 +520,13 @@ int main (void)
   ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
 
   mev_fd = mevfit_data_alloc(2, ha, weights, exa, 6, pa);
+  mevfit_lmin_obj = cfl_gsl_min_setup(&mevfit_obj, NULL, 6, mev_fd, gsl_vector_bfgs2);
+  mevfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mevfit_lmin_obj);
 
+  status = cfl_min(ce_x0, &fmin, NULL, mevfit_min_obj);
+
+  cfl_min_free(mevfit_min_obj);
+  cfl_min_free(mevfit_lmin_obj);
   mevfit_data_free(mev_fd);
   zh_free(h);
 

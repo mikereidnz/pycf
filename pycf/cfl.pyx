@@ -218,7 +218,7 @@ cdef class Hamiltonian:
     cdef cfl.zh *cfl_zh
     cdef cfl.zt **tensor_array
     cdef public int n
-    cdef int nt
+    cdef public int nt
     cdef public list tensors
     cdef public dict coeff_dict
     cdef public np.ndarray coeff
@@ -998,10 +998,10 @@ cdef class MevFitRunner(object):
     additional eigenvalues can either be measured or synthetically calculated
     for specific crystal field levels from spin Hamiltonian data.  
 
-    The Hamiltonian must have coefficients set with set_coeff, since these are
+    The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
     coefficients when they are set also determines whether they are fit as real
-    or complex parameters. 
+    or complex parameters, thus they must be consistent among each Hamiltonian.  
 
     Parameters
     ----------
@@ -1009,7 +1009,10 @@ cdef class MevFitRunner(object):
         A list of tensor objects for which to vary the prefactor. 
     h_list : list
         A list of Hamiltonians, each containing the interactions required to
-        match the provided experimental energy level data.
+        match the corresponing experimental energy level data.
+    weights_list : list
+        A list of floating point weights that determine the weighting added to
+        the chi^2 contribution of each eigenvalue vector.
     ex_list : list
         A list of 2 by n dimensional arrays, with n the number of available
         experimental energy levels for each corresponding Hamiltonian in h_list.
@@ -1019,8 +1022,10 @@ cdef class MevFitRunner(object):
     """
     cdef int n_h
     cdef int n_p
+    cpdef public list h_list
     cdef cfl.zh **ha
     cdef np.ndarray weights
+    cdef public int pp_h_index
     cdef list ex_e_list
     cdef list ex_li_list
     cdef cfl.ex_data **ex_data
@@ -1046,7 +1051,8 @@ cdef class MevFitRunner(object):
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
-        # Verify that the tensor order in all Hamiltonians is the same.
+        # Verify that the tensor order and coefficient type is the same in all
+        # Hamiltonians.
         for i,t in enumerate(h_list[0]):
             for j,h in enumerate(h_list[1:]):
                 try:
@@ -1054,14 +1060,29 @@ cdef class MevFitRunner(object):
                         raise ValueError("The tensor order of the %ith " \
                                 "Hamiltonian does not match the tensor order "\
                                 "of the 0th Hamiltonian." % j)
+
+                    if not isinstance(h.coeff_dict[t], type(h_list[0].coeff_dict[t])):
+                            raise ValueError("The coefficient type of the %ith " \
+                                    "Hamiltonian does not match the corresponding "\
+                                    "coefficient type of the 0th Hamiltonian" % j)
                 except:
                     continue
 
+        # Determine which Hamiltonian has the complete set of tensors.
+        total_nt = 0
+        pp_h_index = 0
+        for i,h in enumerate(h_list):
+            if h.nt > total_nt:
+                total_nt = h.nt
+                pp_h_index = i
+
         self.n_h = len(h_list)
         self.n_p = len(parameters)
+        self.pp_h_index = pp_h_index
+        self.h_list = h_list
         self.parameters = parameters
         
-        pp = parse_param_helper(parameters, h)
+        pp = parse_param_helper(parameters, h_list[pp_h_index])
         self.n_p_real = pp['n_p_real']
         self.param_list = pp['param_list']
         self.param_types = pp['param_types']
@@ -1220,15 +1241,15 @@ cdef class MevFitRunner(object):
 
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff 
+        coeff = self.h_list[self.pp_h_index].coeff 
         ri = 0
         
         for i,p in enumerate(self):
             if (self.param_types[i] == 'c'): 
-                coeff[self.h.index(p)] = np.complex(x[ri], x[ri+1])
+                coeff[self.h_list[self.pp_h_index].index(p)] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[self.h.index(p)] = x[ri]
+                coeff[self.h_list[self.pp_h_index].index(p)] = x[ri]
                 ri += 1
         
         return(coeff, fmin)
@@ -1558,6 +1579,7 @@ cdef class ESHFitRunner(object):
                 ri += 1
 
         return(coeff, fmin)
+
 
 cdef class CFLMin:
     r"""
@@ -1900,7 +1922,68 @@ def e_fit(parameters, h, ex, cfl_min):
     summary += gen_pycf_summary()
     summary += efit.h.gen_summary(ex=ex, sigma=e_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit, efit.h, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+
+    return {'fmin': fmin, 'coeff': x, 'summary': summary}
+
+
+
+def mev_fit(parameters, h_list, weights_list, ex_list, cfl_min):
+    r"""
+    Class used to store data required by, and to run, a crystal field fit using
+    multiple eigenvalue vectors.  Typically, this would consist of one vector of
+    energy levels at zero field without hyperfine or quadrupole interactions,
+    complemented by a set of eigenvalue vectors at linearly independent magnetic
+    field orientations and possibly containing hyperfine interactions.  These
+    additional eigenvalues can either be measured or synthetically calculated
+    for specific crystal field levels from spin Hamiltonian data.  
+
+    The Hamiltonians must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when they are set also determines whether they are fit as real
+    or complex parameters, thus they must be consistent among each Hamiltonian.  
+
+    Parameters
+    ----------
+    parameters : list
+        A list of tensor objects for which to vary the prefactor. 
+    h_list : list
+        A list of Hamiltonians, each containing the interactions required to
+        match the corresponing experimental energy level data.
+    weights_list : list
+        A list of floating point weights that determine the weighting added to
+        the chi^2 contribution of each eigenvalue vector.
+    ex_list : list
+        A list of 2 by n dimensional arrays, with n the number of available
+        experimental energy levels for each corresponding Hamiltonian in h_list.
+        The first column of each element contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
+    """
+    mevfit = MevFitRunner(parameters, h_list, weights_list, ex_list)
+    (x, fmin) = mevfit.fit(cfl_min)
+
+    summary = "=============\n"
+    summary+= "mev_fit summary\n"
+    summary+= "=============\n"
+    summary += gen_pycf_summary()
+
+    # The number of degrees of freedom of the chi-squared distribution
+    ndof = 0
+    for e in ex_list:
+        ndof += len(e)
+    ndof -= len(parameters)
+
+    for i,h in enumerate(mevfit.h_list):
+        h.coeff = x
+        (w, z) = h.diag()
+
+        e_sigma = e_fit_sigma(w, ex_list[i], ndof)
+        summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
+        summary += "\n"
+
+    summary += gen_fit_summary(x, mevfit, mevfit.h_list[mevfit.pp_h_index],
+            cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
@@ -1945,6 +2028,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
         corresponding options.
     """
     eshfit = ESHFitRunner(parameters, sh_tensors, h, sh, ex, shx, weights)
+    print("Alloc exit")
     (x, fmin) = eshfit.fit(cfl_min)
     eshfit.h.coeff = x
     (w, z) = eshfit.h.diag()
@@ -1964,7 +2048,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     summary += "\n"
     summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit, eshfit.h, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
