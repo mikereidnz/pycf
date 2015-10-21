@@ -447,7 +447,7 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
           pr_i = j;
         }
       }
-      printf("i=%i, pr_i=%i, pr=%f, label=%i\n", i, pr_i, cabs(hz[col_offset+pr_i]), sh->pt_slabels->labels[pr_i][shp_p_w->iz_i]);  
+      //printf("i=%i, pr_i=%i, pr=%f, label=%i\n", i, pr_i, cabs(hz[col_offset+pr_i]), sh->pt_slabels->labels[pr_i][shp_p_w->iz_i]);  
       /* The i index will enumerate all unique spin Hamiltonian states.  We record
        * each i and the associated iz label of the corresponding principal
        * component. */
@@ -465,10 +465,10 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       (sh_sort[i])->index = i;
     }
   }
-  printf("after iz sort:\n");
-  for (i=0; i<sh->dim; i++) {
-    printf("%i\n", sh_sort[i]->index);
-  }
+  //printf("after iz sort:\n");
+  //for (i=0; i<sh->dim; i++) {
+  //  printf("%i\n", sh_sort[i]->index);
+  //}
 #if 0
   /* If the spin Hamiltonian depends on sz, sort according to it (pro_i != -1).
    * When sorting, we assume sz = 1, so sz degenerate blocks will be 2 by 2.  We
@@ -491,10 +491,10 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
     }
   }
 #endif
-  printf("after sz sort:\n");
-  for (i=0; i<sh->dim; i++) {
-    printf("%i\n", sh_sort[i]->index);
-  }
+  //printf("after sz sort:\n");
+  //for (i=0; i<sh->dim; i++) {
+  //  printf("%i\n", sh_sort[i]->index);
+  //}
 }
 
 /*
@@ -529,14 +529,14 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
     }
     //printf("\n");
   }
-  for (i=0; i<sh_dim; i++) {
-    for (j=0; j<sh_dim; j++) {
-      printf("%f+%fI ", creal(shp_p_w->b[i*sh_dim + j]), cimag(shp_p_w->b[i*sh_dim + j]) );
-    }
-    printf("\n");
-  }
+  //for (i=0; i<sh_dim; i++) {
+  //  for (j=0; j<sh_dim; j++) {
+  //    printf("%f+%fI ", creal(shp_p_w->b[i*sh_dim + j]), cimag(shp_p_w->b[i*sh_dim + j]) );
+  //  }
+  //  printf("\n");
+  //}
 
-  printf("\n");
+  //printf("\n");
 }
 
 

@@ -21,6 +21,12 @@
  *    distribution.
  */
 
+/*
+ * Modified by Sebastian Horvath, October 08, 2015 for use in CFL. Added two
+ * arguments to GENRCM for returning the total number of connected blocks found,
+ * and the individual dimension of each block. 
+ */
+
 /**
  * @file rcm.h
  *
@@ -280,12 +286,21 @@ extern "C" {
      *               Storage used for the degrees of the nodes in the graph.
      *               On output @a deg[@a p] will contain the degree of
      *               node @a p.
+     *
+     * @param[out] nblocks
+     *               The number of blocks. Added by SPH for use with CFL.
+     *
+     * @param[out] block_dim
+     *               Array specifying the dimension of each block; must be
+     *               greater or equal to the maximum number of blocks. Added by
+     *               SPH for use with CFL.
      */
     extern
     void RCM_FUNC(genrcmi)(const int n , const int flags,
                            const int *xadj, const int *adj,
                            int *perm,
-                           signed char *mask, int *deg);
+                           signed char *mask, int *deg, 
+                           int *nblocks, int *block_dim);
 
     /**
      * @brief Version of @c genrcmi() for @c long data.

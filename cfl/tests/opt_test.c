@@ -439,8 +439,8 @@ int main (void)
   /* Check diagonalization routine. */
   h = zh_alloc(nstates, 7, tensors);
   zh_set_coeff(h, celiyf4_coeff);
-  hd_w = zhd_w_alloc(h);
-  zhd(w, z, h, hd_w);
+  hd_w = zhd_w_alloc('N', w, z, h);
+  //zhd(w, z, h, hd_w);
   zhd_w_free(hd_w);
 
   printf("Ce:LiYF4 diagonalization:\n");
@@ -497,7 +497,7 @@ int main (void)
   efit_data *efit_d;
   cfl_min_obj *efit_lmin_obj, *efit_min_obj;
   
-  efit_d = efit_data_alloc(h, celiyf4_coeff, &ce_ex_data, 6, p);
+  efit_d = efit_data_alloc(h, &ce_ex_data, 6, p);
   efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, &efit_cov, 6, efit_d, gsl_vector_bfgs2);
   efit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, efit_lmin_obj);
 
@@ -509,6 +509,26 @@ int main (void)
   cfl_min_free(efit_min_obj);
   cfl_min_free(efit_lmin_obj);
   efit_data_free(efit_d);
+
+  /* Mev fit test. */
+  mevfit_data *mev_fd;
+  cfl_min_obj *mevfit_lmin_obj, *mevfit_min_obj;
+  
+  param_type **pa[2] = {p, p};
+  zh *ha[2] = {h, h};
+  double weights[2] = {1.0, 1.0};
+  int bc_blockdim[2] = {0, 0};
+  ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
+
+  mev_fd = mevfit_data_alloc(2, ha, weights, bc_blockdim, exa, 6, pa);
+  mevfit_lmin_obj = cfl_gsl_min_setup(&mevfit_obj, NULL, 6, mev_fd, gsl_vector_bfgs2);
+  mevfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mevfit_lmin_obj);
+
+  status = cfl_min(ce_x0, &fmin, NULL, mevfit_min_obj);
+
+  cfl_min_free(mevfit_min_obj);
+  cfl_min_free(mevfit_lmin_obj);
+  mevfit_data_free(mev_fd);
   zh_free(h);
 
   printf("Energy level only fit:\n");
@@ -540,8 +560,7 @@ int main (void)
 
   ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
   zsh_set_pro(ce_sh, shpro_tensors, 0);
-  eshfit_d = eshfit_data_alloc(h, NULL, sh_celiyf4_coeff, &ce_ex_data, ce_sh,
-      shx, 6, p);
+  eshfit_d = eshfit_data_alloc(h, NULL, &ce_ex_data, ce_sh, shx, 6, p);
   eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, &eshfit_cov, 6, eshfit_d,
       gsl_vector_bfgs2);
   eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
@@ -608,7 +627,7 @@ int main (void)
 
   cfl_min_free(eshfit_min_obj);
   cfl_min_free(eshfit_lmin_obj);
-  eshfit_data_free(eshfit_d);
+
 
   printf("Energy level and spin Hamiltonian fit (eshfit_hpro_obj):\n");
   printf("fmin = %.6f\n", fmin);

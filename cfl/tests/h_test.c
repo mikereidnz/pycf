@@ -176,14 +176,15 @@ int main (void)
 
   h = zh_alloc(4, 2, tens);
   zh_set_coeff(h, coeff);
-  hd_w = zhd_w_alloc(h);
-  zhd(w, z, h, hd_w);
+  hd_w = zhd_w_alloc('V', w, z, h);
+ 
+  zhd('V', w, z, h, hd_w);
   zhd_w_free(hd_w);
  
   printf("hdiag multiple tensors:\n");
   dequ_chk(hdiag_res, w, 4);
 
-#if 1
+#if 0
   /* Test diagonalization of Hamiltonian with a single tensor. */
   zt *tens2[1];
   complex double coeff2[1];
@@ -195,8 +196,9 @@ int main (void)
   
   h2 = zh_alloc(4, 1, tens2);
   zh_set_coeff(h2, coeff2);
-  hd_w2 = zhd_w_alloc(h2);
-  zhd(w, z, h2, hd_w2);
+  hd_w2 = zhd_w_alloc('V', w, z, h2);
+  printf("h2 alloc done\n");
+  zhd('V', w, z, h2, hd_w2);
   zhd_w_free(hd_w2);
 
   printf("hdiag single tensor:\n");
@@ -220,7 +222,7 @@ int main (void)
   for (i=0; i<4; i++) {
     free(l[i]);
   }
-#if 0  
+#if 1  
   /*=========================================================================*/
   /* Spin Hamiltonian projection test.                                       */
   /*=========================================================================*/
@@ -296,8 +298,8 @@ int main (void)
   coeff[1] = 5;
   h = zh_alloc(14, 2, tens);
   zh_set_coeff(h, coeff);
-  hd_w = zhd_w_alloc(h);
-  zhd(w, z, h, hd_w);
+  hd_w = zhd_w_alloc('V', w, z, h);
+  zhd('V', w, z, h, hd_w);
   zhd_w_free(hd_w);
 
   //sh = zsh_alloc(2, "ce test");
@@ -320,6 +322,8 @@ int main (void)
   for (i=0; i<14; i++) {
     free(ce_l[i]);
   }
+#endif
+#if 0
   /*=========================================================================*/
   /* Spin Hamiltonian inversion test.                                        */
   /*=========================================================================*/

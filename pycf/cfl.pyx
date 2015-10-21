@@ -218,7 +218,7 @@ cdef class Hamiltonian:
     cdef cfl.zh *cfl_zh
     cdef cfl.zt **tensor_array
     cdef public int n
-    cdef int nt
+    cdef public int nt
     cdef public list tensors
     cdef public dict coeff_dict
     cdef public np.ndarray coeff
@@ -322,21 +322,21 @@ cdef class Hamiltonian:
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] z
         
-        if self.coeff_dict == None:
-            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
-        hd_w = cfl.zhd_w_alloc(self.cfl_zh)
-        if hd_w is NULL:
-            free(self.tensor_array)
-            cfl.zh_free(self.cfl_zh)
-            raise MemoryError("hd_w alloc failed")
-
         self.w = np.ascontiguousarray(np.zeros(self.n), dtype=np.float64)
         self.z = np.asfortranarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
         z = <np.ndarray[double complex, ndim=2, mode="fortran"]> self.z
+
+        if self.coeff_dict == None:
+            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
+        hd_w = cfl.zhd_w_alloc('V', &w[0], &z[0,0], self.cfl_zh)
+        if hd_w is NULL:
+            free(self.tensor_array)
+            cfl.zh_free(self.cfl_zh)
+            raise MemoryError("hd_w alloc failed")
         
         with nogil:
-            cfl.zhd(&w[0], &z[0,0], h, hd_w)
+            cfl.zhd('V', &w[0], &z[0,0], h, hd_w)
         
         cfl.zhd_w_free(hd_w)
         self.diag_run = 1
@@ -845,7 +845,6 @@ cdef class EFitRunner(object):
     cdef np.ndarray ex_e
     cdef np.ndarray ex_li
     cdef np.ndarray p0_real
-    cdef np.ndarray coeff
     cdef cfl.efit_data *efit_data
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
@@ -853,7 +852,6 @@ cdef class EFitRunner(object):
     
     def __init__(self, parameters, h, ex):
         cdef cfl.param_type *param_type_ptr
-        cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
@@ -880,8 +878,6 @@ cdef class EFitRunner(object):
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.coeff = np.ascontiguousarray(h.coeff, dtype=np.complex128)
-        coeff = <np.ndarray[double, ndim=1, mode="c"]> self.coeff     
 
         # Prepare experimental energy level data
         self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
@@ -909,7 +905,7 @@ cdef class EFitRunner(object):
         for i in range(self.n_p):
             param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
             if param_array[i] is NULL:
-                for j in range(i-1):
+                for j in range(i):
                     free(param_array[j])
                 free(self.ex_data)
                 free(self.param_array)
@@ -928,13 +924,13 @@ cdef class EFitRunner(object):
 
         self.param_array = param_array 
 
-        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"),
-                &coeff[0], self.ex_data, self.n_p, self.param_array);
+        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), 
+                self.ex_data, self.n_p, self.param_array);
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
         
-        # Run eshfit_chi2 so that the initial chi^2 weighting is set.
+        # Run efit_chi2 so that the initial chi^2 weighting is set.
         chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
         cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
@@ -944,8 +940,7 @@ cdef class EFitRunner(object):
             free(self.ex_data)
         if self.param_array != NULL:
             for i in range(self.n_p):
-                if self.param_array[i] != NULL:
-                    free(self.param_array[i])
+                free(self.param_array[i])
             free(self.param_array)
         if self.efit_data != NULL:
             cfl.efit_data_free(self.efit_data)
@@ -979,7 +974,7 @@ cdef class EFitRunner(object):
 
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff 
+        coeff = self.h.coeff 
         ri = 0
         
         for i,p in enumerate(self):
@@ -992,6 +987,285 @@ cdef class EFitRunner(object):
         
         return(coeff, fmin)
 
+
+cdef class MevFitRunner(object):
+    r"""
+    Class used to store data required by, and to run, a crystal field fit using
+    multiple eigenvalue vectors.  Typically, this would consist of one vector of
+    energy levels at zero field without hyperfine or quadrupole interactions,
+    complemented by a set of eigenvalue vectors at linearly independent magnetic
+    field orientations and possibly containing hyperfine interactions.  These
+    additional eigenvalues can either be measured or synthetically calculated
+    for specific crystal field levels from spin Hamiltonian data.  
+
+    The Hamiltonians must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when they are set also determines whether they are fit as real
+    or complex parameters, thus they must be consistent among each Hamiltonian.  
+
+    Parameters
+    ----------
+    parameters : list
+        A list of tensor objects for which to vary the prefactor. 
+    h_list : list
+        A list of Hamiltonians, each containing the interactions required to
+        match the corresponing experimental energy level data.
+    weights_list : list
+        A list of floating point weights that determine the weighting added to
+        the chi^2 contribution of each eigenvalue vector.
+    bc_blockdim_list : list
+        The barycenter block dimension for each corresponding h_list entry.  If
+        0, no barycenter shift is applied.  For entries of value n, the
+        barycenter shift for n dimensional blocks of energy levels is calculated
+        and subtracted from the theoretical eigenvalues prior to the chi^2
+        evaluation.  This is useful for ensuring that magnetic or hyperfine data
+        available for a subset of CF levels is not dominated by a shift of the
+        entire multiplet.  If non-zero, the experimental data must be in blocks
+        of the specified size with no missing levels. 
+    ex_list : list
+        A list of 2 by n dimensional arrays, with n the number of available
+        experimental energy levels for each corresponding Hamiltonian in h_list.
+        The first column of each element contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
+    """
+    cdef int n_h
+    cdef int n_p
+    cpdef public list h_list
+    cdef cfl.zh **ha
+    cdef np.ndarray weights
+    cdef np.ndarray bc_blockdim
+    cdef public int pp_h_index
+    cdef list ex_e_list
+    cdef list ex_li_list
+    cdef cfl.ex_data **ex_data
+    cdef public list parameters
+    cpdef public int n_p_real
+    cpdef public list param_list
+    cpdef public list param_types
+    cdef cfl.param_type ***param_arrays
+    cdef np.ndarray p0_real
+    cdef cfl.mevfit_data *mevfit_data
+    cpdef public object obj_f_cap
+    cpdef public object cov_f_cap
+    cpdef public object fit_data_cap
+    
+    def __init__(self, parameters, h_list, weights_list, bc_blockdim_list, ex_list):
+        cdef cfl.zh *zh_ptr
+        cdef cfl.ex_data *ex_data_ptr
+        cdef cfl.param_type *param_type_ptr
+        cdef cfl.param_type **param_type_ptr_ptr
+        cdef np.ndarray[double, ndim=1, mode="c"] ex_e
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_li
+        cdef np.ndarray[double, ndim=1, mode="c"] weights
+        cdef np.ndarray[int, ndim=1, mode="c"] bc_blockdim
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+
+        # Verify that the tensor order and coefficient type is the same in all
+        # Hamiltonians.
+        for i,t in enumerate(h_list[0]):
+            for j,h in enumerate(h_list[1:]):
+                try:
+                    if h.index(t) != i:
+                        raise ValueError("The tensor order of the %ith " \
+                                "Hamiltonian does not match the tensor order "\
+                                "of the 0th Hamiltonian." % j)
+
+                    if not isinstance(h.coeff_dict[t], type(h_list[0].coeff_dict[t])):
+                            raise ValueError("The coefficient type of the %ith " \
+                                    "Hamiltonian does not match the corresponding "\
+                                    "coefficient type of the 0th Hamiltonian" % j)
+                except:
+                    continue
+
+        # Determine which Hamiltonian has the complete set of tensors.
+        total_nt = 0
+        pp_h_index = 0
+        for i,h in enumerate(h_list):
+            if h.nt > total_nt:
+                total_nt = h.nt
+                pp_h_index = i
+
+        self.n_h = len(h_list)
+        self.n_p = len(parameters)
+        self.pp_h_index = pp_h_index
+        self.h_list = h_list
+        self.parameters = parameters
+        
+        pp = parse_param_helper(parameters, h_list[pp_h_index])
+        self.n_p_real = pp['n_p_real']
+        self.param_list = pp['param_list']
+        self.param_types = pp['param_types']
+
+        n_ex = ex_list[0].shape[0]
+        for ex in ex_list:
+            n_ex += ex.shape[0]
+        if self.n_p_real > n_ex:
+            raise ValueError("The total (real and imaginary) number of parameters exceeds "
+                    "the number of observables.")
+
+        self.ha = <cfl.zh **>malloc(self.n_h*cython.sizeof(zh_ptr))
+        if self.ha == NULL:
+            raise MemoryError("ha alloc failed")
+
+        for i in range(self.n_h):
+            self.ha[i] = <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian")
+
+        self.ex_data = <cfl.ex_data **>malloc(self.n_h*cython.sizeof(ex_data_ptr))
+        if self.ex_data == NULL:
+            free(self.ha)
+            raise MemoryError("exa alloc failed")
+
+        self.ex_e_list = []
+        self.ex_li_list = []
+        for i in range(self.n_h):
+            # Prepare experimental energy level data
+            self.ex_e_list += [np.ascontiguousarray(ex_list[i][:,1], dtype=np.float64)]
+            # Subtract one, since we need an index starting at zero, whereas ex
+            # levels start at 1. 
+            self.ex_li_list += [np.ascontiguousarray(ex_list[i][:,0]-1, dtype=np.int32)]
+       
+            ex_e = self.ex_e_list[i]
+            ex_li = self.ex_li_list[i]
+            self.ex_data[i] = <cfl.ex_data *>malloc(cython.sizeof(cfl.ex_data))
+            if self.ex_data[i] == NULL:
+                for j in range(i):
+                    free(self.ex_data[j])
+                free(self.ex_data)
+                free(self.ha)
+                raise MemoryError("ex_data alloc failed")
+            self.ex_data[i].n = len(ex)
+            self.ex_data[i].e = &ex_e[0]
+            self.ex_data[i].li = &ex_li[0]
+
+        self.weights = np.array(weights_list, dtype=np.float64)
+        weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
+        self.bc_blockdim = np.array(bc_blockdim_list, dtype=np.int32)
+        bc_blockdim = <np.ndarray[int, ndim=1, mode="c"]> self.bc_blockdim
+
+        # Prepare array of pointers to parameter data structs.
+        self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
+        param_arrays = <cfl.param_type ***>malloc(self.n_h*cython.sizeof(param_type_ptr_ptr))
+        if param_arrays == NULL:
+            for i in range(self.n_h):
+                free(self.ex_data[i])
+            free(self.ex_data)
+            free(self.ha)
+            raise MemoryError("param_arrays alloc failed")
+
+        for i in range(self.n_h):
+            param_arrays[i] = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
+            if param_arrays[i] == NULL:
+                for j in range(i):
+                    free(param_arrays[j])
+                free(param_arrays)
+                for j in range(self.n_h):
+                    free(self.ex_data[j])
+                free(self.ex_data)
+                free(self.ha)
+                raise MemoryError("param_arrays[{}] alloc failed".format(i))
+        
+        for hi,h in enumerate(h_list):
+            ip_real = 0
+            for i in range(self.n_p):
+                param_arrays[hi][i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
+                if param_arrays[hi][i] is NULL:
+                    for hj in range(hi):
+                        for j in range(self.n_p):
+                            free(param_arrays[hj][j])
+                    for j in range(i):
+                        free(param_arrays[hi][j])
+                    for hj in range(self.n_h):
+                        free(param_arrays[hj])
+                    free(self.param_arrays)
+                    for j in range(self.n_h):
+                        free(self.ex_data[j])
+                    free(self.ex_data)
+                    free(self.ha)
+                    raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
+                
+                param_arrays[hi][i].type = cfl.atoi(self.param_types[i])
+                param_arrays[hi][i].index = h.index(parameters[i])
+
+                if self.param_types[i] == 'c':
+                    self.p0_real[ip_real] = np.real(self.param_list[i])
+                    self.p0_real[ip_real+1] = np.imag(self.param_list[i])
+                    ip_real += 2
+                else:
+                    self.p0_real[ip_real] = self.param_list[i]
+                    ip_real += 1
+
+        self.param_arrays = param_arrays 
+        
+        self.mevfit_data = mevfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, self.n_p, self.param_arrays)
+
+        self.fit_data_cap = PyCapsule_New(<void *>self.mevfit_data, "pycfl.MinData", NULL)
+        self.obj_f_cap = PyCapsule_New(<void *>&cfl.mevfit_obj, "pycfl.MinObjF", NULL)
+        self.cov_f_cap = PyCapsule_New(<void *>&cfl.mevfit_cov, "pycfl.MinCovF", NULL)
+        
+        # Run mevfit_chi2 so that the initial chi^2 weighting is set.
+        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        cfl.mevfit_chi2(&x[0], self.mevfit_data, &chi2[0])
+
+    def __dealloc__(self):
+        if self.ha != NULL:
+            free(self.ha)
+        if self.ex_data != NULL:
+            for i in range(self.n_h):
+                free(self.ex_data[i])
+            free(self.ex_data)
+        if self.param_arrays != NULL:
+            for hi in range(self.n_h):
+                for i in range(self.n_p):
+                    free(self.param_arrays[hi][i])
+                free(self.param_arrays[hi])
+            free(self.param_arrays)
+        if self.mevfit_data != NULL:
+            cfl.mevfit_data_free(self.mevfit_data)
+
+    def __iter__(self):
+        for p in self.parameters:
+            yield p
+    
+    def fit(self, min_object):
+        r"""
+        Run the fit using the provided minimization object.
+
+        Parameters
+        ----------
+        min_object : CFLMin
+            The minimization object to be used, which sets the optimization
+            algorithm, bounds and other settings as applicable to the selected
+            algorithm.
+
+        Returns
+        -------
+        result : tuple
+            The first element is a np.ndarray containing complex coefficients
+            while the second entry contains the final value of the objective
+            function.
+        """
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef sigma = 0
+
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+
+        fmin = min_object.minimize(self, x)
+        
+        coeff = self.h_list[self.pp_h_index].coeff 
+        ri = 0
+        
+        for i,p in enumerate(self):
+            if (self.param_types[i] == 'c'): 
+                coeff[self.h_list[self.pp_h_index].index(p)] = np.complex(x[ri], x[ri+1])
+                ri += 2
+            else:
+                coeff[self.h_list[self.pp_h_index].index(p)] = x[ri]
+                ri += 1
+        
+        return(coeff, fmin)
 
 
 cdef class ESHFitRunner(object):
@@ -1045,7 +1319,6 @@ cdef class ESHFitRunner(object):
     cdef list shx_list
     cdef dict weights
     cdef np.ndarray p0_real
-    cdef np.ndarray coeff
     cdef cfl.eshfit_data *eshfit_data
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
@@ -1058,7 +1331,6 @@ cdef class ESHFitRunner(object):
     def __init__(self, parameters, sh_tensors, h, sh, ex, shx, weights):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.shx_data *shx_data_ptr
-        cdef np.ndarray[double complex, ndim=1, mode="c"] coeff
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double complex, ndim=1, mode="c"] shx_pa
@@ -1122,8 +1394,6 @@ cdef class ESHFitRunner(object):
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.coeff = np.ascontiguousarray(self.h.coeff, dtype=np.complex128)
-        coeff = <np.ndarray[double, ndim=1, mode="c"]> self.coeff
        
         # Prepare experimental energy level data
         self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
@@ -1152,7 +1422,7 @@ cdef class ESHFitRunner(object):
         for i in range(self.n_p):
             param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
             if param_array[i] is NULL:
-                for j in range(i-1):
+                for j in range(i):
                     free(param_array[j])
                 free(self.ex_data)
                 free(self.param_array)
@@ -1216,7 +1486,7 @@ cdef class ESHFitRunner(object):
             
             shx_array[i] = <cfl.shx_data *>malloc(cython.sizeof(cfl.shx_data))
             if shx_array[i] == NULL:
-                for j in range(i-1):
+                for j in range(i):
                     free(shx_array[j])
                 for j in range(self.n_p):
                     free(param_array[i])
@@ -1234,7 +1504,7 @@ cdef class ESHFitRunner(object):
         if (self.hpro != None):
             self.eshfit_data = eshfit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                 <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
-                &coeff[0], self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                 shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_cov, "pycfl.MinCovF", NULL)
@@ -1244,7 +1514,7 @@ cdef class ESHFitRunner(object):
 
         else:
             self.eshfit_data = eshfit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
-                NULL, &coeff[0], self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                 shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
@@ -1273,13 +1543,11 @@ cdef class ESHFitRunner(object):
             free(self.ex_data)
         if self.param_array != NULL:
             for i in range(self.n_p):
-                if self.param_array[i] != NULL:
-                    free(self.param_array[i])
+                free(self.param_array[i])
             free(self.param_array)
         if self.shx_array != NULL:
             for i in range(len(self.sh.interactions)):
-                if self.shx_array[i] != NULL:
-                    free(self.shx_array[i])
+                free(self.shx_array[i])
             free(self.shx_array)
         if self.eshfit_data != NULL:
             cfl.eshfit_data_free(self.eshfit_data)
@@ -1313,7 +1581,7 @@ cdef class ESHFitRunner(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff 
+        coeff = self.h.coeff 
         ri = 0
         for i,p in enumerate(self):
             if (self.param_types[i] == 'c'): 
@@ -1324,6 +1592,7 @@ cdef class ESHFitRunner(object):
                 ri += 1
 
         return(coeff, fmin)
+
 
 cdef class CFLMin:
     r"""
@@ -1666,7 +1935,77 @@ def e_fit(parameters, h, ex, cfl_min):
     summary += gen_pycf_summary()
     summary += efit.h.gen_summary(ex=ex, sigma=e_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit, efit.h, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+
+    return {'fmin': fmin, 'coeff': x, 'summary': summary}
+
+
+
+def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min):
+    r"""
+    Class used to store data required by, and to run, a crystal field fit using
+    multiple eigenvalue vectors.  Typically, this would consist of one vector of
+    energy levels at zero field without hyperfine or quadrupole interactions,
+    complemented by a set of eigenvalue vectors at linearly independent magnetic
+    field orientations and possibly containing hyperfine interactions.  These
+    additional eigenvalues can either be measured or synthetically calculated
+    for specific crystal field levels from spin Hamiltonian data.  
+
+    The Hamiltonians must have coefficients set with set_coeff, since these are
+    used as initial estimates for the parameters to-be-fit.  The type of
+    coefficients when they are set also determines whether they are fit as real
+    or complex parameters, thus they must be consistent among each Hamiltonian.  
+
+    Parameters
+    ----------
+    parameters : list
+        A list of tensor objects for which to vary the prefactor. 
+    h_list : list
+        A list of Hamiltonians, each containing the interactions required to
+        match the corresponing experimental energy level data.
+    weights_list : list
+        A list of floating point weights that determine the weighting added to
+        the chi^2 contribution of each eigenvalue vector.
+    bc_blockdim_list : list
+        The barycenter block dimension for each corresponding h_list entry.  If
+        0, no barycenter shift is applied.  For entries of value n, the
+        barycenter shift for n dimensional blocks of energy levels is calculated
+        and subtracted from the theoretical eigenvalues prior to the chi^2
+        evaluation.  This is useful for ensuring that magnetic or hyperfine data
+        available for a subset of CF levels is not dominated by a shift of the
+        entire multiplet.  If non-zero, the experimental data must be in blocks
+        of the specified size with no missing levels. 
+    ex_list : list
+        A list of 2 by n dimensional arrays, with n the number of available
+        experimental energy levels for each corresponding Hamiltonian in h_list.
+        The first column of each element contains energy level indices starting
+        at 1, and the second column contains corresponding experimental energy
+        level values. 
+    """
+    mevfit = MevFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list)
+    (x, fmin) = mevfit.fit(cfl_min)
+
+    summary = "=============\n"
+    summary+= "mev_fit summary\n"
+    summary+= "=============\n"
+    summary += gen_pycf_summary()
+
+    # The number of degrees of freedom of the chi-squared distribution
+    ndof = 0
+    for e in ex_list:
+        ndof += len(e)
+    ndof -= len(parameters)
+
+    for i,h in enumerate(mevfit.h_list):
+        h.coeff = x
+        (w, z) = h.diag()
+
+        e_sigma = e_fit_sigma(w, ex_list[i], ndof)
+        summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
+        summary += "\n"
+
+    summary += gen_fit_summary(x, mevfit, mevfit.h_list[mevfit.pp_h_index],
+            cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
@@ -1711,6 +2050,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
         corresponding options.
     """
     eshfit = ESHFitRunner(parameters, sh_tensors, h, sh, ex, shx, weights)
+    print("Alloc exit")
     (x, fmin) = eshfit.fit(cfl_min)
     eshfit.h.coeff = x
     (w, z) = eshfit.h.diag()
@@ -1730,7 +2070,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     summary += "\n"
     summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit, eshfit.h, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
