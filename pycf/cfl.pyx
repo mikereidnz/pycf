@@ -1031,11 +1031,11 @@ cdef class MevFitRunner(object):
     """
     cdef int n_h
     cdef int n_p
+    cdef public Hamiltonian h
     cpdef public list h_list
     cdef cfl.zh **ha
     cdef np.ndarray weights
     cdef np.ndarray bc_blockdim
-    cdef public int pp_h_index
     cdef list ex_e_list
     cdef list ex_li_list
     cdef cfl.ex_data **ex_data
@@ -1089,7 +1089,7 @@ cdef class MevFitRunner(object):
 
         self.n_h = len(h_list)
         self.n_p = len(parameters)
-        self.pp_h_index = pp_h_index
+        self.h = h_list[pp_h_index]
         self.h_list = h_list
         self.parameters = parameters
         
@@ -1254,15 +1254,15 @@ cdef class MevFitRunner(object):
 
         fmin = min_object.minimize(self, x)
         
-        coeff = self.h_list[self.pp_h_index].coeff 
+        coeff = self.h.coeff 
         ri = 0
         
         for i,p in enumerate(self):
             if (self.param_types[i] == 'c'): 
-                coeff[self.h_list[self.pp_h_index].index(p)] = np.complex(x[ri], x[ri+1])
+                coeff[self.h.index(p)] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[self.h_list[self.pp_h_index].index(p)] = x[ri]
+                coeff[self.h.index(p)] = x[ri]
                 ri += 1
         
         return(coeff, fmin)
@@ -1935,7 +1935,7 @@ def e_fit(parameters, h, ex, cfl_min):
     summary += gen_pycf_summary()
     summary += efit.h.gen_summary(ex=ex, sigma=e_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, efit, efit.h, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
@@ -2004,8 +2004,7 @@ def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min
         summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
         summary += "\n"
 
-    summary += gen_fit_summary(x, mevfit, mevfit.h_list[mevfit.pp_h_index],
-            cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, mevfit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
@@ -2070,7 +2069,7 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
     summary += "\n"
     summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
     summary += "\n"
-    summary += gen_fit_summary(x, eshfit, eshfit.h, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
