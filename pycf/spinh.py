@@ -610,10 +610,18 @@ class SpinHamiltonian(object):
         r"""
         Calculate the full Hamiltonian and return the result.
         """
+
+        # Bohr magnetion in MHz/T
+        # http://physics.nist.gov/cgi-bin/cuu/Value?mubshhz|search_for=bohr+magneton
+        mu_b = 13.996245042e3
+
         H = np.complex(0, 0)
         for t in self.t_list:
             try:
-                H += self.terms[t]
+                if t == 'bgs':
+                    H += self.terms[t]*mu_b
+                else:
+                    H += self.terms[t]
             except KeyError:
                 raise ValueError("This object does not have data for the {} "
                     "term.  Have you run the 'add_term' method?".format(t))

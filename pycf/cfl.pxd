@@ -168,7 +168,7 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
 
     efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa, size_t n_zx, param_type ***p)
+    mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p)
     void mevfit_data_free(mevfit_data *data)
     eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)

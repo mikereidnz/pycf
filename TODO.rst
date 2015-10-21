@@ -3,7 +3,8 @@ TODO
 
   * ImportSLJM should parse and create crs tensors one at a time (at least the
     step that populate the dense matrix), to avoid unreasonable memory use for
-    large matrices. 
+    large matrices. Also, import as scipy.sparse then convert to cfl_sparse by
+    throwing out lower diag.  
   * Think about a complex tensor-prefactor... since a standard multiplication by
     a complex number will not preserve the hermiticity of a matrix. Presumably,
     we multiply by the complex conjugate on the lower-diagonal?
@@ -12,11 +13,6 @@ TODO
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
-  * There is a disagreement between the state admixtures between my calculation
-    and Mike's for Ce:LiYF4. Most probably this is since Mike's program operates
-    on block diagonals and, consequently, in effect chooses a linear combination
-    of eigenvectors. Verify that there exists a linear combination of states 1
-    and 2 that reproduce Mike's state admixtures. 
   * Add weighting to spin Hamiltonian log.
   * Tidy up summary printing.
   * Make sure there is no duplicate information in spin Hamiltonian type given
@@ -24,8 +20,6 @@ TODO
   * Change all small MAGZ values to a macro def.
   * Change ImportSLJM to return a dictionary of tensors... that would make it
     more consistent, and easier to call from a loop?
-  * V^dag H V multiplication should only calculate the minimum necessary matel,
-    and use crs to ignore any zero elements. 
   * make sure that the spin hamiltonian level, l, passed by cython starts at 0.
   * cov_inv in CFLMin is currently a 2 dimensional c type array. Make sure this
     is correct, rather than a fortran style array. 

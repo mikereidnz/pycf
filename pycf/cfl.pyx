@@ -1013,6 +1013,15 @@ cdef class MevFitRunner(object):
     weights_list : list
         A list of floating point weights that determine the weighting added to
         the chi^2 contribution of each eigenvalue vector.
+    bc_blockdim_list : list
+        The barycenter block dimension for each corresponding h_list entry.  If
+        0, no barycenter shift is applied.  For entries of value n, the
+        barycenter shift for n dimensional blocks of energy levels is calculated
+        and subtracted from the theoretical eigenvalues prior to the chi^2
+        evaluation.  This is useful for ensuring that magnetic or hyperfine data
+        available for a subset of CF levels is not dominated by a shift of the
+        entire multiplet.  If non-zero, the experimental data must be in blocks
+        of the specified size with no missing levels. 
     ex_list : list
         A list of 2 by n dimensional arrays, with n the number of available
         experimental energy levels for each corresponding Hamiltonian in h_list.
@@ -1025,6 +1034,7 @@ cdef class MevFitRunner(object):
     cpdef public list h_list
     cdef cfl.zh **ha
     cdef np.ndarray weights
+    cdef np.ndarray bc_blockdim
     cdef public int pp_h_index
     cdef list ex_e_list
     cdef list ex_li_list
@@ -1040,7 +1050,7 @@ cdef class MevFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     
-    def __init__(self, parameters, h_list, weights_list, ex_list):
+    def __init__(self, parameters, h_list, weights_list, bc_blockdim_list, ex_list):
         cdef cfl.zh *zh_ptr
         cdef cfl.ex_data *ex_data_ptr
         cdef cfl.param_type *param_type_ptr
@@ -1048,6 +1058,7 @@ cdef class MevFitRunner(object):
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double, ndim=1, mode="c"] weights
+        cdef np.ndarray[int, ndim=1, mode="c"] bc_blockdim
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
@@ -1130,6 +1141,8 @@ cdef class MevFitRunner(object):
 
         self.weights = np.array(weights_list, dtype=np.float64)
         weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
+        self.bc_blockdim = np.array(bc_blockdim_list, dtype=np.int32)
+        bc_blockdim = <np.ndarray[int, ndim=1, mode="c"]> self.bc_blockdim
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
@@ -1185,7 +1198,7 @@ cdef class MevFitRunner(object):
 
         self.param_arrays = param_arrays 
         
-        self.mevfit_data = mevfit_data_alloc(self.n_h, self.ha, &weights[0], self.ex_data, self.n_p, self.param_arrays)
+        self.mevfit_data = mevfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, self.n_p, self.param_arrays)
 
         self.fit_data_cap = PyCapsule_New(<void *>self.mevfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mevfit_obj, "pycfl.MinObjF", NULL)
@@ -1928,7 +1941,7 @@ def e_fit(parameters, h, ex, cfl_min):
 
 
 
-def mev_fit(parameters, h_list, weights_list, ex_list, cfl_min):
+def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     multiple eigenvalue vectors.  Typically, this would consist of one vector of
@@ -1953,6 +1966,15 @@ def mev_fit(parameters, h_list, weights_list, ex_list, cfl_min):
     weights_list : list
         A list of floating point weights that determine the weighting added to
         the chi^2 contribution of each eigenvalue vector.
+    bc_blockdim_list : list
+        The barycenter block dimension for each corresponding h_list entry.  If
+        0, no barycenter shift is applied.  For entries of value n, the
+        barycenter shift for n dimensional blocks of energy levels is calculated
+        and subtracted from the theoretical eigenvalues prior to the chi^2
+        evaluation.  This is useful for ensuring that magnetic or hyperfine data
+        available for a subset of CF levels is not dominated by a shift of the
+        entire multiplet.  If non-zero, the experimental data must be in blocks
+        of the specified size with no missing levels. 
     ex_list : list
         A list of 2 by n dimensional arrays, with n the number of available
         experimental energy levels for each corresponding Hamiltonian in h_list.
@@ -1960,7 +1982,7 @@ def mev_fit(parameters, h_list, weights_list, ex_list, cfl_min):
         at 1, and the second column contains corresponding experimental energy
         level values. 
     """
-    mevfit = MevFitRunner(parameters, h_list, weights_list, ex_list)
+    mevfit = MevFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list)
     (x, fmin) = mevfit.fit(cfl_min)
 
     summary = "=============\n"

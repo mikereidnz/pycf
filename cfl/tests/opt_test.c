@@ -517,9 +517,10 @@ int main (void)
   param_type **pa[2] = {p, p};
   zh *ha[2] = {h, h};
   double weights[2] = {1.0, 1.0};
+  int bc_blockdim[2] = {0, 0};
   ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
 
-  mev_fd = mevfit_data_alloc(2, ha, weights, exa, 6, pa);
+  mev_fd = mevfit_data_alloc(2, ha, weights, bc_blockdim, exa, 6, pa);
   mevfit_lmin_obj = cfl_gsl_min_setup(&mevfit_obj, NULL, 6, mev_fd, gsl_vector_bfgs2);
   mevfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mevfit_lmin_obj);
 

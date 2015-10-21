@@ -102,6 +102,8 @@ typedef struct {
   /* Array of length n with each entry specifying the chi^2 weighting of the
    * corresponding ha entry. */
   double *weights;
+  /* The barycenter block dimension for each corresponding ha entry. */
+  int *bc_blockdim;
   /* Array of pointers to experimental energy level data. */
   ex_data **exa;
   /* The number of unique Hamiltonians. */
@@ -163,8 +165,8 @@ extern "C" {
 #endif /* __cplusplus */
 efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx, param_type **p);
 void efit_data_free(efit_data *data);
-mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa,
-    size_t n_zx, param_type ***p);
+mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, 
+    int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p); 
 void mevfit_data_free(mevfit_data *data);
 eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, size_t n_zx, param_type **p); 

@@ -438,3 +438,7 @@ def print_as_c_array(a):
 def MHz2cm1(val):
     r"Convert MHz to cm$^{-1}$."
     return (1.0/29979.2458)*val
+
+def cm12MHz(val):
+    r"Convert cm$^{-1}$ to MHz."
+    return 29979.2458*val

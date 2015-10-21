@@ -140,14 +140,23 @@ void efit_data_free(efit_data *data) {
  *              eigenvalue vector.
  *  weights     Array of length n with each entry specifying the chi^2 weighting
  *              of the corresponding ha entry.
+ *  bc_blockdim The barycenter block dimension for each corresponding ha entry.
+ *              If 0, no barycenter shift is applied.  For entries of value n,
+ *              the barycenter shift for n dimensional blocks of energy levels
+ *              is calculated and subtracted from the theoretical eigenvalues
+ *              prior to the chi^2 evaluation.  This is useful for ensuring that
+ *              magnetic or hyperfine data available for a subset of CF levels
+ *              is not dominated by a shift of the entire multiplet.  If
+ *              non-zero, the experimental data must be in blocks of the
+ *              specified size with no missing levels. 
  *  exa         Array of pointers to experimental energy level data. 
  *  n_zx        The number of complex valued parameters to be fit to the
  *              complete Hamiltonians.
  *  p           Array of length n to arrays of pointers to parameter type
  *              structs. 
  */
-mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa,
-    size_t n_zx, param_type ***p) {
+mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, 
+    int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p) {
   int i, j, nh;
   mevfit_data *data;
   long *lwork;
@@ -250,6 +259,7 @@ mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa,
   data->n = n;
   data->ha = ha;
   data->weights = weights;
+  data->bc_blockdim = bc_blockdim;
   data->exa = exa;
   data->nh = nh;
   data->n_zx = n_zx;
@@ -453,14 +463,52 @@ void eshfit_data_free(eshfit_data *data) {
  */
 inline double echisq(double *e, ex_data *d) {
   int i;
-  double chisq=0;
-
+  double chisq;
+    
+  chisq = 0;
   for (i = 0; i < d->n; i++) {
-    chisq += pow(e[d->li[i]] - d->e[i], 2);
+    chisq += pow(d->e[i] - e[d->li[i]], 2);
   }
 
   return chisq;
 }
+
+/* Chi^2 for multi-eigenvector fit.  Optionally accounts for barycenter shifts
+ * between blocks of experimental data. 
+ *
+ * Parameters
+ * ----------
+ *  e           The theoretical energy array.
+ *  ex_data     Pointer to the experimental data struct.
+ *  bc_blockdim The barycenter block dimension for this set of ex_data. 
+ */
+inline double mevchisq(double *e, ex_data *d, int bc_blockdim) {
+  int i, j;
+  double chisq, bc_shift;
+  
+  chisq = 0;
+  if (bc_blockdim != 0) {
+    bc_shift = 0;
+    for (i = 0; i < d->n; i++) {
+      if (i % bc_blockdim == 0) {
+        bc_shift = 0;
+        for (j = i; j < i+bc_blockdim; j++) {
+          bc_shift += d->e[j] - e[d->li[j]];
+        }
+        bc_shift /= bc_blockdim;
+      }
+      chisq += pow(d->e[i] - (e[d->li[i]] + bc_shift), 2);
+    }
+  }
+  else {
+    for (i = 0; i < d->n; i++) {
+      chisq += pow(d->e[i] - e[d->li[i]], 2);
+    }
+  }
+
+  return chisq;
+}
+
 
 /* Chi^2 for spin Hamiltonian data. 
  *
@@ -471,8 +519,9 @@ inline double echisq(double *e, ex_data *d) {
  */
 inline double shchisq(complex double *pa, complex double *xpa) {
   int i;
-  double chisq=0;
-
+  double chisq;
+  
+  chisq = 0;
   for (i = 0; i < 9; i++) {
     chisq += pow(cabs(pa[i]) - cabs(xpa[i]), 2);
   }
@@ -535,7 +584,7 @@ double mevfit_obj(size_t n, double *x, double *grad, void *data) {
     hi = d->hi[i];
     parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-    chisq += d->weights[i] * echisq(d->h_eval[hi], d->exa[i]);
+    chisq += d->weights[i]*mevchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
   }
 
   return chisq;
@@ -613,7 +662,7 @@ void mevfit_chi2(double *x, void *data, double *chi2) {
     hi = d->hi[i];
     parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-    *chi2 += d->weights[i] * echisq(d->h_eval[hi], d->exa[i]);
+    *chi2 += d->weights[i]*mevchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
   }
   d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
 }
