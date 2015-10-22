@@ -57,8 +57,8 @@ zhcrs *zhcrs_alloc(complex double a[], int n) {
    * of a. Since we only check columns j >= i, all inspected elements may turn
    * out to be zero; consequently, we add one to nnz in such cases to avoid the
    * row from being dropped. */
-  for (i=0; i<n; i++) {
-    for (j=i; j<n; j++) {
+  for (i = 0; i < n; i++) {
+    for (j = i; j < n; j++) {
       if (cabs(a[i*n+j]) != 0) {
         nnz++;
         zrow = 0;
@@ -100,8 +100,8 @@ zhcrs *zhcrs_alloc(complex double a[], int n) {
    * and, since we're only checking the upper-triangular half, we include a
    * single zero entry in the last column to prevent such rows from being
    * dropped. */
-  for (i=0; i<n; i++) {
-    for (j=i; j<n; j++) {
+  for (i = 0; i < n; i++) {
+    for (j = i; j < n; j++) {
       if (cabs(a[i*n + j]) != 0) {
         val[vi] = a[i*n + j];
         col_in[vi] = j;
@@ -111,7 +111,7 @@ zhcrs *zhcrs_alloc(complex double a[], int n) {
         }
         vi++;
       }
-      else if(j==(n-1) && ri==i) {
+      else if(j == (n-1) && ri == i) {
         val[vi] = 0;
         col_in[vi] = j;
         row_ptr[ri] = vi;
@@ -160,7 +160,7 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
   /* Determine the number of non-zero diagonal elements. */
   nnzd = 0;
   nnzz = 0;
-  for (i=0; i<n; i++) {
+  for (i = 0; i < n; i++) {
     if (hcrs_m->col_in[hcrs_m->row_ptr[i]] == i) {
       nnzd++;
     }
@@ -184,12 +184,12 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
   }
 
   vi = 0;
-  for (i=0; i<n; i++) {
+  for (i = 0; i < n; i++) {
     row_ptr[i] = vi; 
 
     /* Fill lower-triangular values (excluding diagonal). */
-    for (j=0; j<i; j++) {
-      for (k=hcrs_m->row_ptr[j]; k<hcrs_m->row_ptr[j+1]; k++) {
+    for (j = 0; j < i; j++) {
+      for (k = hcrs_m->row_ptr[j]; k < hcrs_m->row_ptr[j+1]; k++) {
         if (hcrs_m->col_in[k] == i) {
           if (hcrs_m->val[k] == 0) {
             continue;
@@ -207,7 +207,7 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
     }
 
     /* Fill the upper-triangular values; these match the original matrix. */
-    for (j=hcrs_m->row_ptr[i]; j<hcrs_m->row_ptr[i+1]; j++) {
+    for (j = hcrs_m->row_ptr[i]; j < hcrs_m->row_ptr[i+1]; j++) {
       if (hcrs_m->val[j] != 0) {
         /* Ensure all placeholder "non-zero" zeros are removed, since we don't
          * require them if we store the lower diagonal. */
@@ -266,11 +266,12 @@ void zhcrs2zcrs(zhcrs *hcrs_m, zcrs *crs_m) {
   int hvi, row;
 
   row = 0;
-  for (i=0; i<crs_m->nnz; i++) {
+  for (i = 0; i < crs_m->nnz; i++) {
     if (crs_m->col_in[i] < row) {
       /* The lower-triangular part; we need to seek the val index of hcrs_m that
        * corresponds to the current column. */
-      for(j=hcrs_m->row_ptr[crs_m->col_in[i]]; j<hcrs_m->row_ptr[crs_m->col_in[i]+1]; j++) {
+      for(j = hcrs_m->row_ptr[crs_m->col_in[i]]; 
+          j < hcrs_m->row_ptr[crs_m->col_in[i]+1]; j++) {
         if (hcrs_m->col_in[j] == row) {
           crs_m->val[i] = conj(hcrs_m->val[j]);
           break;
@@ -283,7 +284,7 @@ void zhcrs2zcrs(zhcrs *hcrs_m, zcrs *crs_m) {
        * of sync due to "non-zero zeros" that have been dropped from
        * crs_m->row_ptr. */
       hvi = hcrs_m->row_ptr[row]; 
-      for (; i<crs_m->row_ptr[row+1]; i++) {
+      for (; i < crs_m->row_ptr[row+1]; i++) {
         crs_m->val[i] = hcrs_m->val[hvi];
         hvi++;
       }
@@ -316,8 +317,8 @@ void zhcrs2zhpa(zhcrs *hcrs_m, complex double *ap) {
    * input arrays were correctly arranged in column-major form, the resulting
    * packed matrix AP will also be in column-major form and can be passed to
    * LAPACK without transposing. */
-  for (i=0; i<n; i++) {
-    for (j=i; j<n; j++) {
+  for (i = 0; i < n; i++) {
+    for (j = i; j < n; j++) {
       /* Ensure we're matching column indices on the current row. */
       if (vi == hcrs_m->row_ptr[i+1]) {
         ap[j+i*(2*n-(i+1))/2] = 0;
@@ -347,8 +348,8 @@ void zhcrs2zha(zhcrs *hcrs_m, complex double *a) {
   int vi = 0;
   int n = hcrs_m->n;
 
-  for (i=0; i<n; i++) {
-    for (j=0; j<n; j++) {
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
       if (i>j) {
         a[i*n+j] = conj(a[j*n+i]);
       }
@@ -381,8 +382,8 @@ void zcrs2zha(zcrs *crs_m, complex double *a) {
   int vi = 0;
   int n = crs_m->n;
 
-  for (i=0; i<n; i++) {
-    for (j=0; j<n; j++) {
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
       /* Ensure we're matching column indices on the current row. */
       if (vi == crs_m->row_ptr[i+1]) {
         a[i*n+j] = 0;
@@ -439,7 +440,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
    * match below, which will subtract one irrespectively. */
   phz_count = 0;
   row_ptr[0] = 0;
-  for (i=0; i<n; i++) {
+  for (i = 0;  i < n; i++) {
     if (a->val[a->row_ptr[i]] == 0) {
       if (b->val[b->row_ptr[i]] == 0) {
         row_ptr[i+1] = phz_count;
@@ -469,10 +470,10 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
    * worry whether a or b has the first entry. */ 
   match=0;
   row_ptr[0] = 0;
-  for (i=0; i<n; i++) {
+  for (i = 0; i < n; i++) {
     row_ptr[i] += a->row_ptr[i]+b->row_ptr[i]-match;
-    for (j=a->row_ptr[i]; j<a->row_ptr[i+1]; j++) {
-      for (k=b->row_ptr[i]; k<b->row_ptr[i+1]; k++) {
+    for (j = a->row_ptr[i]; j < a->row_ptr[i+1]; j++) {
+      for (k = b->row_ptr[i]; k < b->row_ptr[i+1]; k++) {
         if (a->col_in[j]==b->col_in[k]) {
           match++;
           break;
@@ -492,7 +493,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
   }
 
   /* Fill in the column index. */
-  for (i=0; i<n; i++) {
+  for (i = 0; i < n; i++) {
     /* The first two cases correspond to no further elements for either b or a
      * on the current row, respectively.  The next two cases correspond to
      * further elements for both a and b on the current row, yet one has a lower
@@ -504,7 +505,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
      * entries. */
     ai = a->row_ptr[i];
     bi = b->row_ptr[i];
-    for (j=row_ptr[i]; j<row_ptr[i+1]; j++) {
+    for (j = row_ptr[i]; j < row_ptr[i+1]; j++) {
       if (bi == b->row_ptr[i+1]) {
         col_in[j] = a->col_in[ai];
         ai++;
@@ -579,10 +580,10 @@ void zhcrssam(zhcrs *a, zhcrs *b, zhcrs *c, complex double alpha, double
    * the column indices of both a and b match for the current row, hence we have
    * a matching entry. */
 
-  for (i=0; i<c->n; i++) {
+  for (i = 0; i < c->n; i++) {
     ai = a->row_ptr[i];
     bi = b->row_ptr[i];
-    for (j=c->row_ptr[i]; j<c->row_ptr[i+1]; j++) {
+    for (j = c->row_ptr[i]; j < c->row_ptr[i+1]; j++) {
       if (bi == b->row_ptr[i+1]) {
         c->val[j] = alpha * a->val[ai];
         ai++;
@@ -644,9 +645,9 @@ zhcrs *zhcrssm_alloc(zhcrs *hcrs_m) {
   }
 
   /* Identical row and column pointers. */
-  for (i=0; i<hcrs_m->nnz; i++) 
+  for (i = 0; i < hcrs_m->nnz; i++) 
     col_in[i] = hcrs_m->col_in[i];
-  for (i=0; i<hcrs_m->n+1; i++)
+  for (i = 0; i < hcrs_m->n+1; i++)
     row_ptr[i] = hcrs_m->row_ptr[i];
 
   hcrs_sm->n = hcrs_m->n;
@@ -671,7 +672,7 @@ zhcrs *zhcrssm_alloc(zhcrs *hcrs_m) {
 void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s) {
   int i;
 
-  for (i=0; i<hcrs_m->nnz; i++) {
+  for (i = 0; i < hcrs_m->nnz; i++) {
     hcrs_sm->val[i] = s * hcrs_m->val[i];
   }
 }
@@ -717,7 +718,7 @@ void ivperm(int n, int *ix, int *perm) {
     }
   }
   /* Restore positive valued permutation vector. */
-  for (j=0; j<n; j++) {
+  for (j = 0; j < n; j++) {
     perm[j] += n;
   }
 }
@@ -761,21 +762,21 @@ zcrs *zcrs_row_perm_alloc(zcrs *m, int *p) {
   }
 
   /* Determine the number of elements per row. */
-  for (j=0; j<m->n; j++) {
+  for (j = 0; j < m->n; j++) {
     i = p[j];
     pm->row_ptr[i+1] = m->row_ptr[j+1] - m->row_ptr[j];
   }
 
   /* Calculate the permuted row_ptr. */
   pm->row_ptr[0] = 0;
-  for (j=0; j<m->n; j++) {
+  for (j = 0; j < m->n; j++) {
     pm->row_ptr[j+1] = pm->row_ptr[j+1] + pm->row_ptr[j];
   }
 
   /* Assign the permuted column indices. */
-  for (i=0; i<m->n; i++) {
+  for (i = 0; i < m->n; i++) {
     pk = pm->row_ptr[p[i]];
-    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+    for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
       pm->col_in[pk] = m->col_in[k];
       pk++;
     }
@@ -803,9 +804,9 @@ zcrs *zcrs_row_perm_alloc(zcrs *m, int *p) {
 void zcrs_row_perm(zcrs *m, zcrs *pm, int *p) {
   int i, k, pk; 
 
-  for (i=0; i<m->n; i++) {
+  for (i = 0; i < m->n; i++) {
     pk = pm->row_ptr[p[i]];
-    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+    for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
       pm->val[pk] = m->val[k];
       pk++;
     }
@@ -864,7 +865,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
   }
 
   /* Permute the column indices. */
-  for (k=0; k<nnz; k++) {
+  for (k = 0; k < nnz; k++) {
     pm->col_in[k] = p[m->col_in[k]];
   }
 
@@ -872,24 +873,24 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
 
   /* Compute the column pointers of the matrix; first count the number of
    * elements per column, then add them. */
-  for (j=0; j<m->n; j++) {
+  for (j = 0; j < m->n; j++) {
     pj[j+1] = 0;
   }
-  for (i=0; i<m->n; i++) {
-    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+  for (i = 0; i < m->n; i++) {
+    for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
       j = pm->col_in[k];
       pj[j+1] += 1;
     }
   }
   pj[0] = 0;
-  for (i=0; i<m->n; i++) {
+  for (i = 0; i < m->n; i++) {
     pj[i+1] = pj[i] + pj[i+1];
   }
 
   /* pj starts off as the CCS col_ptr, but as we step through we increment
    * entries to step through all non-zero elements of each column. */
-  for (i=0; i<m->n; i++) {
-    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+  for (i = 0; i < m->n; i++) {
+    for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
       /* j = the unsorted index of the kth permuted column. */
       j = pm->col_in[k];
       /* next = the index of the next element of the jth column. */
@@ -901,13 +902,13 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
   }
 
   /* Record which row each nz element is in. */
-  for (i=0; i<m->n; i++) {
-    for (k=m->row_ptr[i]; k<m->row_ptr[i+1]; k++) {
+  for (i = 0; i < m->n; i++) {
+    for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
       pj[k] = i;
     }
   }
 
-  for (k=0; k<nnz; k++) {
+  for (k = 0; k < nnz; k++) {
     /* The permuted k index. */
     pk = iwork[k];
     /* The row index of the current nz element. */
@@ -921,7 +922,7 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
   }
 
   /* Reshift the row pointers of the original matrix. */
-  for (i=m->n-1; i>=0; i--) {
+  for (i = m->n-1; i >= 0; i--) {
     m->row_ptr[i+1] = m->row_ptr[i];
   }
   m->row_ptr[0] = 0;
@@ -953,7 +954,56 @@ zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj) {
 void zcrs_col_perm(zcrs *m, zcrs *pm, int *p, int *pj) {
   int i, j, pk;
 
-  for (i=0; i<m->nnz; i++) {
+  for (i = 0; i < m->nnz; i++) {
     pm->val[pj[i]] = m->val[i];
   }
+}
+
+/* 
+ * Find the connected components of a symmetric crs matrix.  Algorithm follows
+ * Scipy _connected_components_undirected implementation.
+ *
+ * Parameters
+ * ----------
+ *  m       The matrix for which to find the connected components.
+ *  labels  Array of length n which will be overwritten with the connected
+ *          component index of each row. 
+ */
+int zcrs_cc(zcrs *m, int *labels) {
+  int i, j, k, label, s_top, *s;
+
+  /* Initialize to -1, designating an unvisited vertice. */
+  for (i = 0; i < m->n; i++) {
+    labels[i] = -1;
+  }
+  /* Alias s and labels pointers, since labels are only set after a specific
+   * node has been popped from the stack. */
+  s = labels;
+
+  label = 0;
+  /* Top of stack set to -2 indicates the end of the current connected
+   * component. */
+  for (i = 0; i< m->n; i++) {
+    if (labels[i] == -1) {
+      s_top = i;
+      s[i] = -2;
+
+      while (s_top != -2) {
+        i = s_top;
+        s_top = s[i];
+
+        labels[i] = label;
+
+        for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
+          j = m->col_in[k];
+          if (s[j] == -1) {
+            s[j] = s_top;
+            s_top = j;
+          }
+        }
+      }
+      label++;
+    }
+  }
+  return label;
 }

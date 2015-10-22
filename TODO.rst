@@ -6,6 +6,9 @@ TODO
   * ImportSLJM should parse and create crs tensors one at a time (at least the
     step that populate the dense matrix), to avoid unreasonable memory use for
     large matrices. 
+  * Remove principal component state-label sorting from sh projection... since
+    with al=0 all states are degenerate in I, there's no point in finding the
+    principal component.
   * Extra "seniority equivalent" label is currently added with label key T when
     imported, but there's no mechanism to print this upon return... so, sort out
     the handling of the seniority label in the printing of results

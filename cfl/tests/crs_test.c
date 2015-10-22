@@ -3,6 +3,7 @@
 #include <math.h>
 #include <complex.h>
 
+#include "cfl_config.h"
 #include "cfl_crs.h"
 #include "rcm.h"
 #include "cfl_h.h"
@@ -260,11 +261,19 @@ int main (void) {
     20, 18, 21, 19, 24, 22, 25, 23, 26, 27};
   signed char mask[n];
   int deg[n];
+  int nblocks;
+  int block_dim[CFL_MAX_BLOCK_NUM];
 
   printf("rcm test:\n");
-  RCM_FUNC(genrcmi)(n, 0, c20_zm->row_ptr, c20_zm->col_in, p, mask, deg);
+  RCM_FUNC(genrcmi)(n, 0, c20_zm->row_ptr, c20_zm->col_in, p, mask, deg, &nblocks, block_dim);
   int_equ_chk(p, pa, n);
 
+  int cc_a[28] = {0,  1,  2,  3,  2,  3,  4,  5,  4,  5,  6,  7,  6,  7,  8,  9,
+    8,  9, 10, 11, 10, 11, 12, 13, 12, 13, 14, 15};
+  int labels[28];
+  nblocks = zcrs_cc(c20_zm, labels);
+  printf("zcrs_cc test:\n");
+  int_equ_chk(cc_a, labels, n);
 
   int ix[9] = {5, 9, 4, 7, 8, 1, 2, 6, 3};
   int ix_perm[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};

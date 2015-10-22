@@ -69,11 +69,11 @@ void zhcrssam(zhcrs *a, zhcrs *b, zhcrs *c, complex double alpha, double
 zhcrs *zhcrssm_alloc(zhcrs *hcrs_m);
 void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s);
 void ivperm(int n, int *ix, int *perm);
-
 zcrs *zcrs_row_perm_alloc(zcrs *m, int *p);
 void zcrs_row_perm(zcrs *m, zcrs *pm, int *p);
 zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj);
 void zcrs_col_perm(zcrs *m, zcrs *pm, int *p, int *pj);
+int zcrs_cc(zcrs *m, int *labels);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
