@@ -378,20 +378,16 @@ void dvperm(int n, double *dx, int *perm) {
  * ----------
  *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
  *          'V' then both eigenvalues and eigenvectors are computed.
- *  w       Pointer to double valued array of length n to which eigenvalues
- *          will be written upon exit.  
- *  z       Pointer to complex double valued array of length n^2 to which the
- *          eigenvectors will be written.
  *  h       The Hamiltonian to be diagonalized.
  */
-zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
+zhd_w *zhd_w_alloc(char job, zh *h) {
   int i, j, k;
   zcrs *zcrs_h;
   int **lptr;
   int *labels;
   int nblocks, max_bdim;
   int *block_dim;
-  double **wptr;
+
   zhcrs **coeff_w;
   zhd_w *hd_w;
 
@@ -764,45 +760,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     free(hd_w);
     CFL_ERROR_NULL("zheevd_w_alloc failed for hd_w->diag_w");
   }
-
-  zh_parse_blocks(nblocks, hd_w->blocks, hd_w->blk_cp_h);
-  zh_diag_blocks(job, w, hd_w->zb, nblocks, hd_w->blocks, hd_w->diag_w, hd_w->abstol);
-
-  /* Determine the permutation required to sort eigenvalues from smallest to
-   * largest. */
-  wptr = (double **) malloc(zcrs_h->n*sizeof(double *));
-  if (wptr == 0) {
-    for (j = 0; j < nblocks; j++) {
-      free(hd_w->blocks[j]->a);
-      free(hd_w->blocks[j]);
-    }
-    free(hd_w->blocks);
-    for (j = 0; j < hd_w->lcoeff_w; j++) {
-      zhcrs_free(hd_w->coeff_w[j]);
-    }
-    zcrs_free(zcrs_h);
-    free(hd_w->blk_perm);
-    zcrs_free(hd_w->blk_rp_h);
-    zcrs_free(hd_w->blk_cp_h);
-    free(hd_w->blk_pj);
-    free(hd_w->coeff_w);
-    if (job == 'V') {
-      for (j = 0; j < nblocks; j++) {
-        free(hd_w->zb[j]);
-      }
-      free(hd_w->zb);
-      free(hd_w->crd_blk_perm);
-    }
-    zheevd_w_free(hd_w->diag_w);
-    free(hd_w);
-    CFL_ERROR_NULL("zheevd_w_alloc failed for hd_w->diag_w");
-  }
-
-  for (i = 0; i < zcrs_h->n; i++) {
-    wptr[i] = &w[i];
-  }
-  qsort(wptr, zcrs_h->n, sizeof(double *), dptr_cmp);
-
+  
   hd_w->w_perm = (int *) calloc(zcrs_h->n, sizeof(int));
   if (hd_w->w_perm == 0) {
     for (j = 0; j < nblocks; j++) {
@@ -828,22 +786,11 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     }
     zheevd_w_free(hd_w->diag_w);
     free(hd_w);
-    free(wptr);
     CFL_ERROR_NULL("calloc failed for hd_w->w_perm");
   }
-  for (i = 0; i < zcrs_h->n; i++) {
-    hd_w->w_perm[wptr[i] - w] = i;
-  }
-  free(wptr);
-
-  /* Permute the eigenvalue vector. */ 
-  dvperm(zcrs_h->n, w, hd_w->w_perm);
-
-  /* Permute and parse eigenvectors, if requested. */
-  if (job == 'V') {
-    zh_parse_ev(z, hd_w->zb, zcrs_h->n, nblocks, hd_w->blocks,
-        hd_w->crd_blk_perm, hd_w->w_perm);
-  }
+  /* We set the first element to -1, to allow zhd to check whether a previous
+   * evaluation has found the w_perm array. */
+  hd_w->w_perm[0] = -1;
 
   return hd_w;
 }
@@ -894,6 +841,7 @@ void zhd_w_free(zhd_w *hd_w) {
  */
 void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
   int i;
+  double **wptr;
 
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
    * result is stored in hd_w->coeff_w[i], where i is the number of tensors -1.
@@ -919,6 +867,25 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
   zh_parse_blocks(hd_w->nblocks, hd_w->blocks, hd_w->blk_cp_h);
   zh_diag_blocks(job, w, hd_w->zb, hd_w->nblocks, hd_w->blocks, hd_w->diag_w,
       hd_w->abstol);
+
+  /* Check whether we have to determine the permutation required to sort
+   * eigenvalues from smallest to largest. */
+  if (hd_w->w_perm[0] == -1) {
+    wptr = (double **) malloc(h->n*sizeof(double *));
+    if (wptr == 0) {
+      CFL_ERROR_VOID("malloc failed for wptr");
+    }
+
+    for (i = 0; i < h->n; i++) {
+      wptr[i] = &w[i];
+    }
+    qsort(wptr, h->n, sizeof(double *), dptr_cmp);
+
+    for (i = 0; i < h->n; i++) {
+      hd_w->w_perm[wptr[i] - w] = i;
+    }
+    free(wptr);
+  }
 
   /* Permute the eigenvalue vector. */ 
   dvperm(h->n, w, hd_w->w_perm);

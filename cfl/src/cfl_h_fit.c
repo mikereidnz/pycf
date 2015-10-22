@@ -108,7 +108,7 @@ efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx,
     CFL_ERROR_NULL("calloc failed for data->eval");
   }
 
-  data->hd_w = zhd_w_alloc('N', data->eval, NULL, h);
+  data->hd_w = zhd_w_alloc('N', h);
   if (data->hd_w == 0) {
     free(data->eval);
     free(data);
@@ -237,8 +237,7 @@ mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights,
       CFL_ERROR_NULL("calloc failed for data->h_eval[i]");
     }
 
-    data->hd_w[i] = (zhd_w *) zhd_w_alloc('N', data->h_eval[i], NULL,
-        ha[iwork[i]]);
+    data->hd_w[i] = (zhd_w *) zhd_w_alloc('N', ha[iwork[i]]);
     if (data->hd_w[i] == 0) {
       for (j = 0; j < i; j++) {
         free(data->h_eval[j]);
@@ -333,7 +332,7 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh,
     free(data);
     CFL_ERROR_NULL("calloc failed for data->h_eval");
   }
-  data->hd_w = zhd_w_alloc('V', data->h_eval, data->h_evect, h);
+  data->hd_w = zhd_w_alloc('V', h);
   if (data->hd_w == 0) {
     free(data->h_evect);
     free(data->h_eval);
@@ -403,7 +402,7 @@ eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh,
       free(data);
       CFL_ERROR_NULL("calloc failed for data->hpro_eval");
     }
-    data->hprod_w = zhd_w_alloc('V', data->hpro_eval, data->hpro_evect, hpro);
+    data->hprod_w = zhd_w_alloc('V', hpro);
     if (data->hprod_w == 0) {
       free(data->h_evect);
       free(data->h_eval);

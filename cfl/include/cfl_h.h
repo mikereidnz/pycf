@@ -112,7 +112,7 @@ extern "C" {
 zh *zh_alloc(int n, int nt, zt **t); 
 void zh_free(zh *h);
 void zh_set_coeff(zh *h, complex double *coeff);
-zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h);
+zhd_w *zhd_w_alloc(char job, zh *h);
 void zhd_w_free(zhd_w *hd_w);
 void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w);
 #ifdef __cplusplus

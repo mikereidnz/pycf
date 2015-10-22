@@ -176,7 +176,7 @@ int main (void)
 
   h = zh_alloc(4, 2, tens);
   zh_set_coeff(h, coeff);
-  hd_w = zhd_w_alloc('V', w, z, h);
+  hd_w = zhd_w_alloc('V', h);
  
   zhd('V', w, z, h, hd_w);
   zhd_w_free(hd_w);
@@ -196,7 +196,7 @@ int main (void)
   
   h2 = zh_alloc(4, 1, tens2);
   zh_set_coeff(h2, coeff2);
-  hd_w2 = zhd_w_alloc('V', w, z, h2);
+  hd_w2 = zhd_w_alloc('V', h2);
   printf("h2 alloc done\n");
   zhd('V', w, z, h2, hd_w2);
   zhd_w_free(hd_w2);
@@ -298,7 +298,7 @@ int main (void)
   coeff[1] = 5;
   h = zh_alloc(14, 2, tens);
   zh_set_coeff(h, coeff);
-  hd_w = zhd_w_alloc('V', w, z, h);
+  hd_w = zhd_w_alloc('V', h);
   zhd('V', w, z, h, hd_w);
   zhd_w_free(hd_w);
 

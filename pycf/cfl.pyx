@@ -329,7 +329,7 @@ cdef class Hamiltonian:
 
         if self.coeff_dict == None:
             raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
-        hd_w = cfl.zhd_w_alloc('V', &w[0], &z[0,0], self.cfl_zh)
+        hd_w = cfl.zhd_w_alloc('V', self.cfl_zh)
         if hd_w is NULL:
             free(self.tensor_array)
             cfl.zh_free(self.cfl_zh)

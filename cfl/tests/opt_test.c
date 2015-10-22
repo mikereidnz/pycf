@@ -439,7 +439,7 @@ int main (void)
   /* Check diagonalization routine. */
   h = zh_alloc(nstates, 7, tensors);
   zh_set_coeff(h, celiyf4_coeff);
-  hd_w = zhd_w_alloc('N', w, z, h);
+  hd_w = zhd_w_alloc('N', h);
   //zhd(w, z, h, hd_w);
   zhd_w_free(hd_w);
 

@@ -703,8 +703,8 @@ int main (void) {
   /* Check diagonalization routine. */
   h = zh_alloc(nstates, 8, tensors);
   zh_set_coeff(h, celiyf4_coeff);
-  hd_w = zhd_w_alloc(h);
-  zhd(w, z, h, hd_w);
+  hd_w = zhd_w_alloc('V', h);
+  zhd('V', w, z, h, hd_w);
   zhd_w_free(hd_w);
   
   printf("w:\n");

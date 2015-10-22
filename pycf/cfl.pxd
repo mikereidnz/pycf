@@ -65,7 +65,7 @@ cdef extern from "../../cfl/include/cfl_h.h":
     zh *zh_alloc(int n, int nt, zt **t) 
     void zh_free(zh *h)
     void zh_set_coeff(zh *h, double complex *coeff)
-    zhd_w *zhd_w_alloc(char job, double *w, double complex *z, zh *h)
+    zhd_w *zhd_w_alloc(char job, zh *h)
     void zhd_w_free(zhd_w *hd_w)
     void zhd(char job, double *w, double complex *z, zh *h, zhd_w *hd_w) nogil
 
