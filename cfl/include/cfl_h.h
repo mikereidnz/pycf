@@ -79,6 +79,9 @@ typedef struct {
   zcrs *zcrs_h;
   /* Permutation to obtain block-diagonalized ordering of the Hamiltonian. */
   int *blk_perm;
+  /* The block-diagonalization permutation in coordinate form; used for
+   * reconstructing eigenvectors after diagonalization. */
+  int *crd_blk_perm;
   /* The block_perm ordering row permuted Hamiltonian. */
   zcrs *blk_rp_h;
   /* Storage for value array permutation required for block_perm cperm. */

@@ -78,7 +78,7 @@ zh *zh_alloc(int n, int nt, zt **t) {
   }
 
   /* Ensure all tensors have matching state labels. */
-  for (i=1; i<nt; i++) {
+  for (i = 1; i < nt; i++) {
     if (t[0]->slabels->hash != t[i]->slabels->hash) {
       CFL_ERROR_NULL("Tensors have mismatching state labels")
     }
@@ -207,10 +207,10 @@ inline void zh_parse_blocks(int nblocks, zblock **blocks, zcrs *crs_m) {
   vi = 0;     /* Value index. */
   bi = 0;     /* Block index. */
   bri = 0;    /* Index of first row of current block. */
-  for (bi=0; bi<nblocks; bi++) {
+  for (bi = 0; bi < nblocks; bi++) {
     bd = blocks[bi]->dim;             /* Current block dimension. */
-    for (i=0; i<bd; i++) {
-      for (j=0; j<bd; j++) {
+    for (i = 0; i < bd; i++) {
+      for (j = 0; j < bd; j++) {
         ii = bri+i;                   /* Complete array row index. */
         jj = bri+j;                   /* Complete array col index. */
         /* Ensure we're matching column indices on the current row. */
@@ -255,7 +255,7 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
 
   bri = 0; /* Index of first row of current block. */
   if (job == 'V') {
-    for (bi=0; bi<nblocks; bi++) {
+    for (bi = 0; bi < nblocks; bi++) {
       n = blocks[bi]->dim;
       lda = blocks[bi]->dim;
       ldz = blocks[bi]->dim;
@@ -267,7 +267,7 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
     }
   }
   else {
-    for (bi=0; bi<nblocks; bi++) {
+    for (bi = 0; bi < nblocks; bi++) {
       n = blocks[bi]->dim;
       lda = blocks[bi]->dim;
       ldz = blocks[bi]->dim;
@@ -291,31 +291,33 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
  *
  * Parameters
  * ----------
- *  z       Pointer to complex double valued array of length n^2 to which the
- *          eigenvectors will be written.
- *  zb      Pointer to array of length nblocks containing pointers to complex
- *          double valued arrays containing the eigenvectors of each block.
- *  n       The dimension of the complete Hamiltonian. 
- *  nblocks The number of blocks. 
- *  blocks  Array of zblock structures.
- *  w_perm  Permutation required to sort eigenvalues.
+ *  z             Pointer to complex double valued array of length n^2 to which
+ *                the eigenvectors will be written.
+ *  zb            Pointer to array of length nblocks containing pointers to
+ *                complex double valued arrays containing the eigenvectors of
+ *                each block.
+ *  n             The dimension of the complete Hamiltonian. 
+ *  nblocks       The number of blocks. 
+ *  blocks        Array of zblock structures.
+ *  crd_blk_perm  Block diagonalization permutation in coordinate form.  
+ *  w_perm        Permutation required to sort eigenvalues.
  */
 inline void zh_parse_ev(complex double *z, complex double **zb, int n, 
-    int nblocks, zblock **blocks, int *w_perm) {
+    int nblocks, zblock **blocks, int *crd_blk_perm, int *w_perm) {
   int bi, bri, i, ii, j, jj;
 
   //FIXME: looping to return z to 0... either memset, or some index array that
   //records the nz elements and only touches them...
-  for (i=0; i<n*n; i++) {
+  for (i = 0; i < n*n; i++) {
     z[i] = 0;
   }
 
   bri = 0;   /* Index of first row of current block. */
-  for (bi=0; bi<nblocks; bi++) {
-    for (i=0; i<blocks[bi]->dim; i++) {
-      for (j=0; j<blocks[bi]->dim; j++) {
+  for (bi = 0; bi < nblocks; bi++) {
+    for (i = 0; i < blocks[bi]->dim; i++) {
+      for (j = 0; j < blocks[bi]->dim; j++) {
         ii = w_perm[bri+i];
-        jj = bri+j;
+        jj = crd_blk_perm[bri+j];
         z[ii*n+jj] = zb[bi][i*blocks[bi]->dim+j]; 
       }
     }
@@ -363,7 +365,7 @@ void dvperm(int n, double *dx, int *perm) {
     }
   }
   /* Restore positive valued permutation vector. */
-  for (j=0; j<n; j++) {
+  for (j = 0; j < n; j++) {
     perm[j] += n;
   }
 }
@@ -432,12 +434,12 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     }
     zhcrssam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], h->coeff[0],
         h->coeff[1]);
-    for (i=1; i<h->nt-1; i++) {
+    for (i = 1; i < h->nt-1; i++) {
       coeff_w[i] = zhcrssam_alloc(coeff_w[i-1], (h->t[i+1])->matel);
       if (coeff_w[i] == 0) {
         free(hd_w);
         free(coeff_w);
-        for (j=0; j<i; j++) {
+        for (j = 0; j < i; j++) {
           zhcrs_free(coeff_w[j]);
         }
         CFL_ERROR_NULL("alloc failed for coeff_w");
@@ -459,7 +461,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   /* Find the connected components of the Hamiltonian. */
   zcrs_h = zhcrs2zcrs_alloc(coeff_w[hd_w->lcoeff_w-1]);
   if (zcrs_h == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     free(hd_w->coeff_w);
@@ -470,7 +472,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
 
   hd_w->blk_perm = (int *) calloc(zcrs_h->n, sizeof(int));
   if (hd_w->blk_perm == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     zcrs_free(zcrs_h);
@@ -480,7 +482,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   }
   labels = (int *) malloc(zcrs_h->n*sizeof(int));
   if (labels == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     zcrs_free(zcrs_h);
@@ -495,7 +497,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
 
   block_dim = (int *) calloc(nblocks, sizeof(int));
   if (block_dim == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     zcrs_free(zcrs_h);
@@ -520,13 +522,13 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     CFL_ERROR_NULL("malloc failed for lptr");
   }
 
-  for (i=0; i<zcrs_h->n; i++) {
+  for (i = 0; i < zcrs_h->n; i++) {
     block_dim[labels[i]] += 1;
     lptr[i] = &labels[i];
   }
   qsort(lptr, zcrs_h->n, sizeof(int *), iptr_cmp);
 
-  for (i=0; i<zcrs_h->n; i++) {
+  for (i = 0; i < zcrs_h->n; i++) {
     hd_w->blk_perm[lptr[i] - labels] = i;
   }
 
@@ -535,7 +537,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
 
   hd_w->blk_pj = (int *) calloc(hd_w->zcrs_h->nnz+1, sizeof(int));
   if (hd_w->blk_pj == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     zcrs_free(zcrs_h);
@@ -547,7 +549,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   }
   hd_w->blk_rp_h = (zcrs *) zcrs_row_perm_alloc(hd_w->zcrs_h, hd_w->blk_perm);
   if (hd_w->blk_rp_h == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     zcrs_free(zcrs_h);
@@ -561,7 +563,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   hd_w->blk_cp_h = (zcrs *) zcrs_col_perm_alloc(hd_w->blk_rp_h,
       hd_w->blk_perm, hd_w->blk_pj);
   if (hd_w->blk_cp_h == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     zcrs_free(zcrs_h);
@@ -582,7 +584,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   hd_w->nblocks = nblocks;
   hd_w->blocks = (zblock **) malloc(nblocks*sizeof(zblock *));
   if (hd_w->blocks == 0) {
-    for (i=0; i<hd_w->lcoeff_w; i++) {
+    for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcrs_free(hd_w->coeff_w[i]);
     }
     zcrs_free(zcrs_h);
@@ -598,7 +600,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   if (job == 'V') {
     hd_w->zb = (complex double **) malloc(nblocks*sizeof(complex double *));
     if (hd_w->zb == 0) {
-      for (i=0; i<hd_w->lcoeff_w; i++) {
+      for (i = 0; i < hd_w->lcoeff_w; i++) {
         zhcrs_free(hd_w->coeff_w[i]);
       }
       zcrs_free(zcrs_h);
@@ -611,21 +613,42 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       free(block_dim);
       CFL_ERROR_NULL("malloc failed for hd_w->zb");
     }
+    hd_w->crd_blk_perm = (int *) malloc(zcrs_h->n*sizeof(int));
+    if (hd_w->crd_blk_perm == 0) {
+      for (i = 0; i < hd_w->lcoeff_w; i++) {
+        zhcrs_free(hd_w->coeff_w[i]);
+      }
+      zcrs_free(zcrs_h);
+      free(hd_w->blk_perm);
+      zcrs_free(hd_w->blk_rp_h);
+      zcrs_free(hd_w->blk_cp_h);
+      free(hd_w->blk_pj);
+      free(hd_w->coeff_w);
+      free(hd_w->zb);
+      free(hd_w);
+      free(block_dim);
+      CFL_ERROR_NULL("malloc failed for hd_w->crd_blk_perm");
+    }
+    /* Find the block permutation in coordinate form. */
+    for (i = 0; i < zcrs_h->n; i++) {
+      hd_w->crd_blk_perm[hd_w->blk_perm[i]] = i;
+    }
   } 
   else {
     hd_w->zb = NULL;
+    hd_w->crd_blk_perm = NULL;
   }
 
   k=0;
-  for (i=0; i<nblocks; i++) {
+  for (i = 0; i < nblocks; i++) {
     hd_w->blocks[i] = (zblock *) malloc(sizeof(zblock));
     if (hd_w->blocks[i] == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free(hd_w->blocks[j]->a);
         free(hd_w->blocks[j]);
       }
       free(hd_w->blocks);
-      for (j=0; j<hd_w->lcoeff_w; j++) {
+      for (j = 0; j < hd_w->lcoeff_w; j++) {
         zhcrs_free(hd_w->coeff_w[j]);
       }
       zcrs_free(zcrs_h);
@@ -636,6 +659,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       free(hd_w->coeff_w);
       if (job == 'V') {
         free(hd_w->zb);
+        free(hd_w->crd_blk_perm);
       }
       free(hd_w);
       free(block_dim);
@@ -647,13 +671,13 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     hd_w->blocks[i]->a = (complex double *) calloc(block_dim[i]*block_dim[i],
         sizeof(complex double));
     if (hd_w->blocks[i]->a == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free(hd_w->blocks[j]->a);
         free(hd_w->blocks[j]);
       }
       free(hd_w->blocks[i]);
       free(hd_w->blocks);
-      for (j=0; j<hd_w->lcoeff_w; j++) {
+      for (j = 0; j < hd_w->lcoeff_w; j++) {
         zhcrs_free(hd_w->coeff_w[j]);
       }
       zcrs_free(zcrs_h);
@@ -664,6 +688,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       free(hd_w->coeff_w);
       if (job == 'V') {
         free(hd_w->zb);
+        free(hd_w->crd_blk_perm);
       }
       free(hd_w);
       free(block_dim);
@@ -673,7 +698,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
       hd_w->zb[i] = (complex double *) calloc(block_dim[i]*block_dim[i],
           sizeof(complex double));
       if (hd_w->zb[i] == 0) { 
-        for (j=0; j<i; j++) {
+        for (j = 0; j < i; j++) {
           free(hd_w->blocks[j]->a);
           free(hd_w->blocks[j]);
           free(hd_w->zb[i]);
@@ -681,7 +706,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
         free(hd_w->blocks[i]->a);
         free(hd_w->blocks[i]);
         free(hd_w->blocks);
-        for (j=0; j<hd_w->lcoeff_w; j++) {
+        for (j = 0; j < hd_w->lcoeff_w; j++) {
           zhcrs_free(hd_w->coeff_w[j]);
         }
         zcrs_free(zcrs_h);
@@ -691,6 +716,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
         free(hd_w->blk_pj);
         free(hd_w->coeff_w);
         free(hd_w->zb);
+        free(hd_w->crd_blk_perm);
         free(hd_w);
         free(block_dim);
         CFL_ERROR_NULL("calloc failed for hd_w->zb[i]");
@@ -705,7 +731,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
   /* Allocate single workspace for all diagonalizations, with the size
    * determined by the maximum block size. */
   max_bdim = 0;
-  for (i=0; i<nblocks; i++) {
+  for (i = 0; i < nblocks; i++) {
     if (hd_w->blocks[i]->dim > max_bdim) {
       max_bdim = block_dim[i];
     }
@@ -714,12 +740,12 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
 
   hd_w->diag_w = (zheevd_w *) zheevd_w_alloc(job, max_bdim, hd_w->abstol); 
   if (hd_w->diag_w == 0) {
-    for (j=0; j<nblocks; j++) {
+    for (j = 0; j < nblocks; j++) {
       free(hd_w->blocks[j]->a);
       free(hd_w->blocks[j]);
     }
     free(hd_w->blocks);
-    for (j=0; j<hd_w->lcoeff_w; j++) {
+    for (j = 0; j < hd_w->lcoeff_w; j++) {
       zhcrs_free(hd_w->coeff_w[j]);
     }
     zcrs_free(zcrs_h);
@@ -729,10 +755,11 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     free(hd_w->blk_pj);
     free(hd_w->coeff_w);
     if (job == 'V') {
-      for (j=0; j<nblocks; j++) {
+      for (j = 0; j < nblocks; j++) {
         free(hd_w->zb[j]);
       }
       free(hd_w->zb);
+      free(hd_w->crd_blk_perm);
     }
     free(hd_w);
     CFL_ERROR_NULL("zheevd_w_alloc failed for hd_w->diag_w");
@@ -745,12 +772,12 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
    * largest. */
   wptr = (double **) malloc(zcrs_h->n*sizeof(double *));
   if (wptr == 0) {
-    for (j=0; j<nblocks; j++) {
+    for (j = 0; j < nblocks; j++) {
       free(hd_w->blocks[j]->a);
       free(hd_w->blocks[j]);
     }
     free(hd_w->blocks);
-    for (j=0; j<hd_w->lcoeff_w; j++) {
+    for (j = 0; j < hd_w->lcoeff_w; j++) {
       zhcrs_free(hd_w->coeff_w[j]);
     }
     zcrs_free(zcrs_h);
@@ -760,29 +787,30 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     free(hd_w->blk_pj);
     free(hd_w->coeff_w);
     if (job == 'V') {
-      for (j=0; j<nblocks; j++) {
+      for (j = 0; j < nblocks; j++) {
         free(hd_w->zb[j]);
       }
       free(hd_w->zb);
+      free(hd_w->crd_blk_perm);
     }
     zheevd_w_free(hd_w->diag_w);
     free(hd_w);
     CFL_ERROR_NULL("zheevd_w_alloc failed for hd_w->diag_w");
   }
 
-  for (i=0; i<zcrs_h->n; i++) {
+  for (i = 0; i < zcrs_h->n; i++) {
     wptr[i] = &w[i];
   }
   qsort(wptr, zcrs_h->n, sizeof(double *), dptr_cmp);
 
   hd_w->w_perm = (int *) calloc(zcrs_h->n, sizeof(int));
   if (hd_w->w_perm == 0) {
-    for (j=0; j<nblocks; j++) {
+    for (j = 0; j < nblocks; j++) {
       free(hd_w->blocks[j]->a);
       free(hd_w->blocks[j]);
     }
     free(hd_w->blocks);
-    for (j=0; j<hd_w->lcoeff_w; j++) {
+    for (j = 0; j < hd_w->lcoeff_w; j++) {
       zhcrs_free(hd_w->coeff_w[j]);
     }
     zcrs_free(zcrs_h);
@@ -792,17 +820,18 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
     free(hd_w->blk_pj);
     free(hd_w->coeff_w);
     if (job == 'V') {
-      for (j=0; j<nblocks; j++) {
+      for (j = 0; j < nblocks; j++) {
         free(hd_w->zb[j]);
       }
       free(hd_w->zb);
+      free(hd_w->crd_blk_perm);
     }
     zheevd_w_free(hd_w->diag_w);
     free(hd_w);
     free(wptr);
     CFL_ERROR_NULL("calloc failed for hd_w->w_perm");
   }
-  for (i=0; i<zcrs_h->n; i++) {
+  for (i = 0; i < zcrs_h->n; i++) {
     hd_w->w_perm[wptr[i] - w] = i;
   }
   free(wptr);
@@ -812,7 +841,8 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
 
   /* Permute and parse eigenvectors, if requested. */
   if (job == 'V') {
-    zh_parse_ev(z, hd_w->zb, zcrs_h->n, nblocks, hd_w->blocks, hd_w->w_perm);
+    zh_parse_ev(z, hd_w->zb, zcrs_h->n, nblocks, hd_w->blocks,
+        hd_w->crd_blk_perm, hd_w->w_perm);
   }
 
   return hd_w;
@@ -821,7 +851,7 @@ zhd_w *zhd_w_alloc(char job, double *w, complex double *z, zh *h) {
 void zhd_w_free(zhd_w *hd_w) {
   int i;
 
-  for (i=0; i<hd_w->lcoeff_w; i++) {
+  for (i = 0; i < hd_w->lcoeff_w; i++) {
     zhcrs_free(hd_w->coeff_w[i]);
   }
   zcrs_free(hd_w->zcrs_h);
@@ -831,16 +861,17 @@ void zhd_w_free(zhd_w *hd_w) {
   zcrs_free(hd_w->blk_cp_h);
   free(hd_w->coeff_w);
   zheevd_w_free(hd_w->diag_w);
-  for (i=0; i<hd_w->nblocks; i++) {
+  for (i = 0; i < hd_w->nblocks; i++) {
     free(hd_w->blocks[i]->a);
     free(hd_w->blocks[i]);
   }
   free(hd_w->blocks);
   if (hd_w->zb != NULL) {
-    for (i=0; i<hd_w->nblocks; i++) {
+    for (i = 0; i < hd_w->nblocks; i++) {
       free(hd_w->zb[i]);
     }
     free(hd_w->zb);
+    free(hd_w->crd_blk_perm);
   }
   free(hd_w->w_perm);
   free(hd_w);
@@ -870,7 +901,7 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
   if (h->nt>1) {
     zhcrssam((h->t[0])->matel, (h->t[1])->matel, hd_w->coeff_w[0], h->coeff[0],
         h->coeff[1]);
-    for (i=1; i<hd_w->lcoeff_w; i++) {
+    for (i = 1; i < hd_w->lcoeff_w; i++) {
       zhcrssam(hd_w->coeff_w[i-1], (h->t[i+1])->matel, hd_w->coeff_w[i], 1,
           h->coeff[i+1]);
     }
@@ -894,6 +925,7 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
 
   /* Permute and parse eigenvectors, if requested. */
   if (job == 'V') {
-    zh_parse_ev(z, hd_w->zb, h->n, hd_w->nblocks, hd_w->blocks, hd_w->w_perm);
+    zh_parse_ev(z, hd_w->zb, h->n, hd_w->nblocks, hd_w->blocks,
+        hd_w->crd_blk_perm, hd_w->w_perm);
   }
 }
