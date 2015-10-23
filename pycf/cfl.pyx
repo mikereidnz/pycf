@@ -120,22 +120,21 @@ cdef class Tensor:
     cdef public str tmp_name
     cpdef public int n
     cdef public StateLabels states
-    
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __cinit__(self, char *name, np.ndarray[double complex, ndim=2, mode='fortran']a, states,
-            object data_tuple=None):
+    def __cinit__(self, char *name, np.ndarray[int, ndim=1, mode='c'] row_ptr, 
+            np.ndarray[int, ndim=1, mode='c'] col_in, np.ndarray[double complex, ndim=1, mode='c'] val, 
+            states, object data_tuple=None):
         cdef cfl.zt *t
         cdef cfl.zt *t1
         cdef cfl.zt *t2
-
         self.name = <str> name
         self.states = states
-
+        
         if (data_tuple == None):
-            n = a.shape[0]
+            n = len(row_ptr)-1
             self.n = n
-            t = cfl.zt_alloc(name, &a[0,0], n, <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
+            t = cfl.zt_crs_alloc(name, n, &row_ptr[0], &col_in[0], &val[0], <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
             
         elif (len(data_tuple)==3):
             # Addition or subtraction of tensors.
@@ -165,26 +164,26 @@ cdef class Tensor:
             raise TypeError("Only objects of type Tensor can be added to Tensors")
         t1.tmp_name = "{0}+{1}".format(t1.name, t2.name)
         d = (t1, t2, 1)
-        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), t1.states, data_tuple=d) 
+        return Tensor(<char *>t1.tmp_name, None, None, None, t1.states, data_tuple=d) 
 
     def __sub__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
             raise TypeError("Only objects of type Tensor can be added to Tensors")
         t1.tmp_name = "{0}-{1}".format(t1.name, t2.name)
         d = (t1, t2, -1)
-        return Tensor(<char *>t1.tmp_name, np.array([[]],dtype=np.complex128), t1.states, data_tuple=d) 
+        return Tensor(<char *>t1.tmp_name, None, None, None, t1.states, data_tuple=d) 
 
     def __mul__(x, y):
         if isinstance(x, Number):
             if isinstance(y, Tensor):
                 y.tmp_name = "{0:.2f}x{1}".format(x, y.name)
                 d = (y, x)
-                return Tensor(<char *>y.tmp_name, np.array([[]],dtype=np.complex128), y.states, data_tuple=d)
+                return Tensor(<char *>y.tmp_name, None, None, None, y.states, data_tuple=d)
         elif isinstance(x, Tensor):
             if isinstance(y, Number):
                 x.tmp_name = "{0:.2f}x{1}".format(y, x.name)
                 d = (x, y)
-                return Tensor(<char *>x.tmp_name, np.array([[]],dtype=np.complex128), x.states, data_tuple=d)
+                return Tensor(<char *>x.tmp_name, None, None, None, x.states, data_tuple=d)
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
 

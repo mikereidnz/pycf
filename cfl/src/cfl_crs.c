@@ -149,30 +149,26 @@ zhcrs *zhcrs_gen(complex double *a, int n) {
 zhcrs *zhcrs_alloc(int n, int *row_ptr, int *col_in, complex double *val) {
   int i, k, vi, nnzd, nnzz, hnnz, zrow;
   zhcrs *m;
-  
-  /* The number of non-zero elements on the diagonal. */
-  nnzd = 0;   
-  /* The number of "non-zero zeros", placeholders required if there are no
-   * non-zero elements on the upper diag part for a given row. */
-  nnzz = 0;  
+
+  /* The number of non-zeros for the Hermitian CSR matrix. */
+  hnnz = 0;
   for (i = 0; i < n; i++) {
     /* Check whether there's a non-zero element in the upper diagonal. */
-    for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
-      if (col_in[k] == i) {
-        nnzd++;
-        break;
-      }
-      else if (col_in[k] > i) {
-        break;
-      }
-      else if (row_ptr[i+1] == k+1) {
-        nnzz++;
+    if (row_ptr[i] == row_ptr[i+1]) {
+      /* Scipy style indptr compatibility. */
+      hnnz++;
+    }
+    else {
+      for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
+        if (col_in[k] >= i) {
+          hnnz++;
+        }
+        else if (row_ptr[i+1] == k+1) {
+          hnnz++;
+        }
       }
     }
   }
-
-  /* The number of non-zeros for the Hermitian CSR matrix. */
-  hnnz = (row_ptr[n] - nnzd)/2 + nnzd + nnzz;
 
   m = (zhcrs *) malloc(sizeof(zhcrs));
   if (m == 0) {
