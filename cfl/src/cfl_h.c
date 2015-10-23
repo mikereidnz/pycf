@@ -112,7 +112,10 @@ void zh_set_coeff(zh *h, complex double *coeff) {
  *
  * Parameters
  * ----------
- *
+ *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
+ *          'V' then both eigenvalues and eigenvectors are computed.
+ *  n       The dimension of matrix to be diagonalized; assumed to be symmetric.
+ *  abstol  The absolute error tolerance to which each eigenvector is required.
  */
 zheevd_w *zheevd_w_alloc(char job, int n, double abstol) {
   int lda = n, ldz = n, il, iu, info;
@@ -138,11 +141,9 @@ zheevd_w *zheevd_w_alloc(char job, int n, double abstol) {
   lrwork = -1;
   liwork = -1;
 
-  //FIXME: changed h->a to NULL... if lapack throws errors, that is probably
-  //why.
-  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', n, NULL, lda, vl, vu, il, iu,
-      abstol, &(heevd_w->m), NULL, NULL, ldz, heevd_w->isuppz, &wquery,
-      lwork, &rwquery, lrwork, &iwquery, liwork);
+  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', n, NULL, lda, vl,
+      vu, il, iu, abstol, &(heevd_w->m), NULL, NULL, ldz, heevd_w->isuppz,
+      &wquery, lwork, &rwquery, lrwork, &iwquery, liwork);
   if (info != 0) {
     free(heevd_w->isuppz);
     free(heevd_w);

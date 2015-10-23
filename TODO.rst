@@ -3,9 +3,6 @@ TODO
   * Add macro that sets the d->echisq_weight factor... probably should be
     something at the upper limit possible given precision, since we'll
     necessarily minimize... 
-  * ImportSLJM should parse and create crs tensors one at a time (at least the
-    step that populate the dense matrix), to avoid unreasonable memory use for
-    large matrices. 
   * Remove principal component state-label sorting from sh projection... since
     with al=0 all states are degenerate in I, there's no point in finding the
     principal component.
@@ -14,9 +11,6 @@ TODO
     the handling of the seniority label in the printing of results
     large matrices. Also, import as scipy.sparse then convert to cfl_sparse by
     throwing out lower diag.  
-  * Think about a complex tensor-prefactor... since a standard multiplication by
-    a complex number will not preserve the hermiticity of a matrix. Presumably,
-    we multiply by the complex conjugate on the lower-diagonal?
   * When passing a void * type argument, does the function call have to cast to
     void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
   * Fit to multiple spin Hamiltonians
