@@ -32,7 +32,7 @@
 #include <math.h>
 #include <complex.h>
 #include <cfl_error.h>
-#include <cfl_crs.h>
+#include <cfl_csr.h>
 #include <cfl_tensor.h>
 
 /*
@@ -145,7 +145,7 @@ void sl_free(sl *l) {
  */
 zt *zt_alloc(char *name, complex double *a, int n, sl *slabels) {
   int sl_len;
-  zhcrs *ma;
+  zhcsr *ma;
   zt *t;
 
   t = (zt *) malloc(sizeof(zt));
@@ -153,10 +153,10 @@ zt *zt_alloc(char *name, complex double *a, int n, sl *slabels) {
     CFL_ERROR_NULL("malloc failed for zt");
   }
 
-  ma = zhcrs_gen(a, n);
+  ma = zhcsr_gen(a, n);
   if (ma == 0) {
     free(t);
-    CFL_ERROR_NULL("alloc failed for zhcrs");
+    CFL_ERROR_NULL("alloc failed for zhcsr");
   }
 
   t->name = name;
@@ -181,20 +181,20 @@ zt *zt_alloc(char *name, complex double *a, int n, sl *slabels) {
  *  val       Array containing the values of the non-zero elements.
  *  slabels   Pointer to state labels struct.
  */
-zt *zt_crs_alloc(char *name, int n, int *row_ptr, int *col_in, 
+zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in, 
     complex double *val, sl *slabels) {
   int sl_len;
-  zhcrs *ma;
+  zhcsr *ma;
   zt *t;
 
   t = (zt *) malloc(sizeof(zt));
   if (t == 0) {
     CFL_ERROR_NULL("malloc failed for zt");
   }
-  ma = zhcrs_alloc(n, row_ptr, col_in, val);
+  ma = zhcsr_alloc(n, row_ptr, col_in, val);
   if (ma == 0) {
     free(t);
-    CFL_ERROR_NULL("alloc failed for zhcrs");
+    CFL_ERROR_NULL("alloc failed for zhcsr");
   }
 
   t->name = name;
@@ -207,7 +207,7 @@ zt *zt_crs_alloc(char *name, int n, int *row_ptr, int *col_in,
 
 
 void zt_free(zt *t) {
-  zhcrs_free(t->matel);
+  zhcsr_free(t->matel);
   free(t);
 }
 
@@ -239,12 +239,12 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
     CFL_ERROR_NULL("malloc failed for zt");
   }
 
-  t->matel = zhcrssam_alloc(t1->matel, t2->matel);
+  t->matel = zhcsrsam_alloc(t1->matel, t2->matel);
   if (t == 0) {
     free(t);
     CFL_ERROR_NULL("failed to alloc t");
   }
-  zhcrssam(t1->matel, t2->matel, t->matel, s1, s2);
+  zhcsrsam(t1->matel, t2->matel, t->matel, s1, s2);
 
   t->name = name;
   t->n = t1->n;
@@ -271,12 +271,12 @@ zt *zt_s(char *name, zt *t, complex double s) {
     CFL_ERROR_NULL("malloc failed for zt");
   }
 
-  ts->matel = zhcrssm_alloc(t->matel);
+  ts->matel = zhcsrsm_alloc(t->matel);
   if (ts == 0) {
     free(ts);
     CFL_ERROR_NULL("alloc failed for ts");
   }
-  zhcrssm(t->matel, ts->matel, s);
+  zhcsrsm(t->matel, ts->matel, s);
 
   ts->name = name;
   ts->n = t->n;

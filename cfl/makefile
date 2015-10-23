@@ -35,18 +35,18 @@ test: $(TESTS)
 debug: CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke 
 debug: all
 
-libcfl.a: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o cfl_error.h 
+libcfl.a: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
 	$(AR) $(ARFLAGS) $@ $^
 
-opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o cfl_error.h rcm.o
+opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h rcm.o
 
-sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o 
+sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o 
 
-sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o rcm.o
+sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o rcm.o
 
-h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_crs.o rcm.o
+h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o rcm.o
 
-crs_test: cfl_h.o cfl_crs.o rcm.o
+csr_test: cfl_h.o cfl_csr.o rcm.o
 
 cfl_h_fit.o: basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_h_fit.h cfl_error.h
 
@@ -58,9 +58,9 @@ cfl_sh.o: cfl_tensor.o cfl_sh.h cfl_error.h
 
 cfl_h.o: cfl_tensor.o cfl_h.h cfl_error.h cfl_config.h
 
-cfl_tensor.o: cfl_crs.o cfl_tensor.h cfl_error.h
+cfl_tensor.o: cfl_csr.o cfl_tensor.h cfl_error.h
 
-cfl_crs.o: cfl_crs.h cfl_error.h
+cfl_csr.o: cfl_csr.h cfl_error.h
 
 rcm.o: rcm.h
 

@@ -25,7 +25,7 @@
 #define _CFL_H_H_
 
 #include <complex.h>
-#include "cfl_crs.h"
+#include "cfl_csr.h"
 #include "cfl_tensor.h"
 
 typedef struct {
@@ -72,22 +72,22 @@ typedef struct {
 /* Workspace type declaration for Hamiltonian diagonalization. */
 typedef struct {
   /* Workspace for summing the tensors for currently set coefficents. */
-  zhcrs **coeff_w;
+  zhcsr **coeff_w;
   /* Length of coeff_w array. */
   int lcoeff_w;
   /* Storage for non-Hermitian CRS representation; used for generating RCM. */
-  zcrs *zcrs_h;
+  zcsr *zcsr_h;
   /* Permutation to obtain block-diagonalized ordering of the Hamiltonian. */
   int *blk_perm;
   /* The block-diagonalization permutation in coordinate form; used for
    * reconstructing eigenvectors after diagonalization. */
   int *crd_blk_perm;
   /* The block_perm ordering row permuted Hamiltonian. */
-  zcrs *blk_rp_h;
+  zcsr *blk_rp_h;
   /* Storage for value array permutation required for block_perm cperm. */
   int *blk_pj;
   /* The block_perm column permuted Hamiltonian. */
-  zcrs *blk_cp_h;
+  zcsr *blk_cp_h;
   /* The absolute error tolerance to which each eigenvector is required. */
   double abstol;
   /* LAPACKE_zheevr diagonalization workspace. */

@@ -19,7 +19,7 @@
 #ifndef _CFL_TENSOR_H_
 #define _CFL_TENSOR_H_
 
-#include <cfl_crs.h>
+#include <cfl_csr.h>
 
 /* State label type. */
 typedef struct {
@@ -43,7 +43,7 @@ typedef struct {
   /* State labels of the tensor. */
   sl *slabels;
   /* Pointer to the matrix elements stored in CRS form. */
-  zhcrs *matel;
+  zhcsr *matel;
 } zt; 
 
 /* Function prototypes. */
@@ -54,7 +54,7 @@ extern "C" {
 sl *sl_alloc(int n, char *key, int **labels);
 void sl_free(sl *l);
 zt *zt_alloc(char *name, complex double *a, int n, sl *slabels);
-zt *zt_crs_alloc(char *name, int n, int *row_ptr, int *col_in, 
+zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in, 
     complex double *val, sl *slabels);
 void zt_free(zt *t);
 zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2);

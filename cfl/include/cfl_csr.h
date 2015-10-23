@@ -34,7 +34,7 @@ typedef struct {
   /* Pointer to row pointer array of length n+1, with the last element
    * corresponding to nnz for use in row-by-row comparisons. */
   int *row_ptr;
-} zhcrs;
+} zhcsr;
 
 /* Compressed row storage matrix for complex valued sparse matrices. */
 typedef struct {
@@ -49,32 +49,32 @@ typedef struct {
   /* Pointer to row pointer array of length n+1, with the last element
    * corresponding to nnz for use in row-by-row comparisons. */
   int *row_ptr;
-} zcrs;
+} zcsr;
 
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
 
-zhcrs *zhcrs_gen(complex double *a, int n);
-zhcrs *zhcrs_alloc(int n, int *row_ptr, int *col_in, complex double *val);
-void zhcrs_free(zhcrs *m);
-zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m);
-void zhcrs2zcrs(zhcrs *hcrs_m, zcrs *crs_m);
-void zcrs_free(zcrs *m); 
-void zhcrs2zhpa(zhcrs *hcrs_m, complex double *ap);
-void zhcrs2zha(zhcrs *hcrs_m, complex double *a);
-void zcrs2zha(zcrs *crs_m, complex double *a);
-zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b);
-void zhcrssam(zhcrs *a, zhcrs *b, zhcrs *c, complex double alpha, double
+zhcsr *zhcsr_gen(complex double *a, int n);
+zhcsr *zhcsr_alloc(int n, int *row_ptr, int *col_in, complex double *val);
+void zhcsr_free(zhcsr *m);
+zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m);
+void zhcsr2zcsr(zhcsr *hcsr_m, zcsr *csr_m);
+void zcsr_free(zcsr *m); 
+void zhcsr2zhpa(zhcsr *hcsr_m, complex double *ap);
+void zhcsr2zha(zhcsr *hcsr_m, complex double *a);
+void zcsr2zha(zcsr *csr_m, complex double *a);
+zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b);
+void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
     complex beta);
-zhcrs *zhcrssm_alloc(zhcrs *hcrs_m);
-void zhcrssm(zhcrs *hcrs_m, zhcrs *hcrs_sm, complex double s);
+zhcsr *zhcsrsm_alloc(zhcsr *hcsr_m);
+void zhcsrsm(zhcsr *hcsr_m, zhcsr *hcsr_sm, complex double s);
 void ivperm(int n, int *ix, int *perm);
-zcrs *zcrs_row_perm_alloc(zcrs *m, int *p);
-void zcrs_row_perm(zcrs *m, zcrs *pm, int *p);
-zcrs *zcrs_col_perm_alloc(zcrs *m, int *p, int *pj);
-void zcrs_col_perm(zcrs *m, zcrs *pm, int *p, int *pj);
-int zcrs_cc(zcrs *m, int *labels);
+zcsr *zcsr_row_perm_alloc(zcsr *m, int *p);
+void zcsr_row_perm(zcsr *m, zcsr *pm, int *p);
+zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj);
+void zcsr_col_perm(zcsr *m, zcsr *pm, int *p, int *pj);
+int zcsr_cc(zcsr *m, int *labels);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

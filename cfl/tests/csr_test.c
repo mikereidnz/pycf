@@ -4,7 +4,7 @@
 #include <complex.h>
 
 #include "cfl_config.h"
-#include "cfl_crs.h"
+#include "cfl_csr.h"
 #include "rcm.h"
 #include "cfl_h.h"
 
@@ -61,51 +61,51 @@ int main (void) {
   complex double b[16] = {0, 0+I, 0, 0, 0-I, 0, 1+2*I, 0, 0, 1-2*I, 0, 2+3*I, 0,
     0, 2-3*I, 0};
 
-  /* Allocs used by multiple crs tests. */
-  zhcrs *ma = zhcrs_gen(a, 4);
-  zhcrs *mb = zhcrs_gen(b, 4);
+  /* Allocs used by multiple csr tests. */
+  zhcsr *ma = zhcsr_gen(a, 4);
+  zhcsr *mb = zhcsr_gen(b, 4);
 
-  /* zhcrs2zha test. */
+  /* zhcsr2zha test. */
   complex double *aa;
   aa = (complex double *) calloc(16,sizeof(complex double));
   if (aa==0) {
     printf("Error; failed to calloc aa");
   }
-  zhcrs2zha(ma, aa);
-  printf("zhcrs2zha:\n");
+  zhcsr2zha(ma, aa);
+  printf("zhcsr2zha:\n");
   equ_chk(a, aa, 16);
 
-  /* zhcrs2zcrs test. */
-  zcrs *mac = zhcrs2zcrs_alloc(ma);
-  zhcrs2zcrs(ma, mac);
-  zcrs2zha(mac, aa);
+  /* zhcsr2zcsr test. */
+  zcsr *mac = zhcsr2zcsr_alloc(ma);
+  zhcsr2zcsr(ma, mac);
+  zcsr2zha(mac, aa);
 
-  printf("zhcrs2zcrs (depends on zcrs2zha):\n");
+  printf("zhcsr2zcsr (depends on zcsr2zha):\n");
   equ_chk(a, aa, 16);
 
-  /* zhcrs_alloc test. */
-  zhcrs *maa;
-  maa = zhcrs_alloc(mac->n, mac->row_ptr, mac->col_in, mac->val);
-  zcrs *maac = zhcrs2zcrs_alloc(maa);
-  zhcrs2zcrs(ma, maac);
-  zcrs2zha(maac, aa);
+  /* zhcsr_alloc test. */
+  zhcsr *maa;
+  maa = zhcsr_alloc(mac->n, mac->row_ptr, mac->col_in, mac->val);
+  zcsr *maac = zhcsr2zcsr_alloc(maa);
+  zhcsr2zcsr(ma, maac);
+  zcsr2zha(maac, aa);
 
-  printf("zhcrs_alloc (depends on zcrs2zha and zhcrs2zcrs):\n");
+  printf("zhcsr_alloc (depends on zcsr2zha and zhcsr2zcsr):\n");
   equ_chk(a, aa, 16);
-  zhcrs_free(maa);
-  zcrs_free(maac); 
+  zhcsr_free(maa);
+  zcsr_free(maac); 
   
-  /* zhcrs2zhpa test. */
+  /* zhcsr2zhpa test. */
   complex double bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
   complex double *bbp;
   bbp = (complex double *) calloc(10,sizeof(complex double));
-  zhcrs2zhpa(mb, bbp);
+  zhcsr2zhpa(mb, bbp);
 
-  printf("zhcrs2zhpa:\n");
+  printf("zhcsr2zhpa:\n");
   equ_chk(bp, bbp, 10);
   free(bbp);
 
-  /* zhcrssam test. */
+  /* zhcsrsam test. */
   complex double zhsam_res[16] = {0, 0+3*I, 0+2*I, 0+3*I, 0-3*I, 1, 3+6*I,
     1+3*I, 0-2*I, 3-6*I, 2+0*I, 6+9*I, 0-3*I, 1-3*I, 6-9*I, 3};
   complex double *c;
@@ -117,19 +117,19 @@ int main (void) {
     printf("Error; failed to calloc c.");
   }
 
-  zhcrs *mc = zhcrssam_alloc(ma, mb);
-  zhcrssam(ma, mb, mc, alpha, beta);
-  zhcrs2zha(mc, c);
+  zhcsr *mc = zhcsrsam_alloc(ma, mb);
+  zhcsrsam(ma, mb, mc, alpha, beta);
+  zhcsr2zha(mc, c);
 
-  printf("zhcrssam (depends on zhcrs2zha):\n");
+  printf("zhcsrsam (depends on zhcsr2zha):\n");
   equ_chk(c, zhsam_res, 16);
 
-  zhcrs_free(mc);
+  zhcsr_free(mc);
   free(c);
-  zcrs_free(mac);
+  zcsr_free(mac);
   free(aa);
 
-  /* Cerium EAVG + C44 zhcrssam test. */
+  /* Cerium EAVG + C44 zhcsrsam test. */
   complex double eavg_a[196] = {1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0,
@@ -172,24 +172,24 @@ int main (void) {
   complex double ce_beta = 1;
   complex double *ce_res_a;
 
-  zhcrs *ce_eavg = zhcrs_gen(eavg_a, 14);
-  zhcrs *ce_c44 = zhcrs_gen(c44_a, 14);
+  zhcsr *ce_eavg = zhcsr_gen(eavg_a, 14);
+  zhcsr *ce_c44 = zhcsr_gen(c44_a, 14);
 
-  zhcrs *ce_res = zhcrssam_alloc(ce_eavg, ce_c44);
-  zhcrssam(ce_eavg, ce_c44, ce_res, ce_alpha, ce_beta);
+  zhcsr *ce_res = zhcsrsam_alloc(ce_eavg, ce_c44);
+  zhcsrsam(ce_eavg, ce_c44, ce_res, ce_alpha, ce_beta);
 
   ce_res_a = (complex double *) calloc(196,sizeof(complex double));
 
-  zhcrs2zha(ce_res, ce_res_a);
+  zhcsr2zha(ce_res, ce_res_a);
 
   printf("ce zhsam:\n");
   equ_chk(ce_res_a, ce_zhsam_res, 196);
-  zhcrs_free(ce_eavg);
-  zhcrs_free(ce_c44);
-  zhcrs_free(ce_res);
+  zhcsr_free(ce_eavg);
+  zhcsr_free(ce_c44);
+  zhcsr_free(ce_res);
   free(ce_res_a);
 
-  /* zhcrssm test. */
+  /* zhcsrsm test. */
   complex double zhsm_res[16] = {0, 0+2*I, 0+4*I, 0+6*I, 0-2*I, 2, 2+4*I, 2+6*I,
     0-4*I, 2-4*I, 4, 4+6*I, 0-6*I, 2-6*I, 4-6*I, 6};
   complex double *d;
@@ -199,19 +199,19 @@ int main (void) {
     printf("Error; failed to calloc d.");
   }
 
-  zhcrs *md = zhcrssm_alloc(ma);
-  zhcrssm(ma, md, beta);
-  zhcrs2zha(md, d);
+  zhcsr *md = zhcsrsm_alloc(ma);
+  zhcsrsm(ma, md, beta);
+  zhcsr2zha(md, d);
 
-  printf("zhcrssm (depends on zhcrs2zha):\n");
+  printf("zhcsrsm (depends on zhcsr2zha):\n");
   equ_chk(d, zhsm_res, 16);
 
-  zhcrs_free(md);
+  zhcsr_free(md);
   free(d);
 
   /* Remaining frees. */
-  zhcrs_free(ma);
-  zhcrs_free(mb);
+  zhcsr_free(ma);
+  zhcsr_free(mb);
 
   complex double ce_C20_a[784] = {-0.333333308417, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.333333308417, 0, 0,
@@ -258,25 +258,27 @@ int main (void) {
     -0.333333308417};
 
   int n = 28;
-  zhcrs *c20_zhm = zhcrs_gen(ce_C20_a, n);
-  zcrs *c20_zm = zhcrs2zcrs_alloc(c20_zhm);
-  zhcrs2zcrs(c20_zhm, c20_zm);
+  zhcsr *c20_zhm = zhcsr_gen(ce_C20_a, n);
+  zcsr *c20_zm = zhcsr2zcsr_alloc(c20_zhm);
+  zhcsr2zcsr(c20_zhm, c20_zm);
 
   complex double ce_C20_aa[784];
-  zcrs2zha(c20_zm, ce_C20_aa);
-  printf("zhcrs2zcrs with I=1/2 Ce C20 (depends on zcrs2zha):\n");
+  zcsr2zha(c20_zm, ce_C20_aa);
+  printf("zhcsr2zcsr with I=1/2 Ce C20 (depends on zcsr2zha):\n");
   equ_chk(ce_C20_a, ce_C20_aa, n);
 
 
-  /* zhcrs_alloc test. */
-  zhcrs *c20_zhmm = zhcrs_alloc(c20_zm->n, c20_zm->row_ptr, c20_zm->col_in, c20_zm->val);
-  zcrs *c20_zmm = zhcrs2zcrs_alloc(c20_zhmm);
-  zhcrs2zcrs(c20_zhmm, c20_zmm);
+  /* zhcsr_alloc test. */
+  zhcsr *c20_zhmm = zhcsr_alloc(c20_zm->n, c20_zm->row_ptr, c20_zm->col_in, c20_zm->val);
+  zcsr *c20_zmm = zhcsr2zcsr_alloc(c20_zhmm);
+  zhcsr2zcsr(c20_zhmm, c20_zmm);
 
-  zcrs2zha(c20_zmm, ce_C20_aa);
-  printf("zhcrs_alloc with I=1/2 Ce C20 (depends on zcrs2zha and zhcrs2zcrs):\n");
+  zcsr2zha(c20_zmm, ce_C20_aa);
+  printf("zhcsr_alloc with I=1/2 Ce C20 (depends on zcsr2zha and zhcsr2zcsr):\n");
   equ_chk(ce_C20_a, ce_C20_aa, n);
 
+  zhcsr_free(c20_zhmm);
+  zcsr_free(c20_zmm);
 
   /* RCM sort test. */
   int p[n];
@@ -294,8 +296,8 @@ int main (void) {
   int cc_a[28] = {0,  1,  2,  3,  2,  3,  4,  5,  4,  5,  6,  7,  6,  7,  8,  9,
     8,  9, 10, 11, 10, 11, 12, 13, 12, 13, 14, 15};
   int labels[28];
-  nblocks = zcrs_cc(c20_zm, labels);
-  printf("zcrs_cc test:\n");
+  nblocks = zcsr_cc(c20_zm, labels);
+  printf("zcsr_cc test:\n");
   int_equ_chk(cc_a, labels, n);
 
   int ix[9] = {5, 9, 4, 7, 8, 1, 2, 6, 3};
@@ -312,35 +314,35 @@ int main (void) {
   complex double pma[16] = {1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 1, 4, 0, 0, 4, 1};
   complex double pmaa[16] = {1, 2, 0, 0, 2, 1, 0, 4, 0, 0, 1, 0, 0, 4, 0, 1};
   int pm_p[4] = {0, 2, 1, 3}; 
-  zhcrs *pmh;
-  zcrs *cpm, *rpm;
+  zhcsr *pmh;
+  zcsr *cpm, *rpm;
   int *pmj;
 
-  pmh = zhcrs_gen(pma, 4);
-  zcrs *pm = zhcrs2zcrs_alloc(pmh);
-  zhcrs2zcrs(pmh, pm);
+  pmh = zhcsr_gen(pma, 4);
+  zcsr *pm = zhcsr2zcsr_alloc(pmh);
+  zhcsr2zcsr(pmh, pm);
 
   pmj = (int *) calloc(pm->nnz+1, sizeof(int));
-  cpm = (zcrs *) zcrs_col_perm_alloc(pm, pm_p, pmj);
-  rpm = (zcrs *) zcrs_row_perm_alloc(cpm, pm_p);
+  cpm = (zcsr *) zcsr_col_perm_alloc(pm, pm_p, pmj);
+  rpm = (zcsr *) zcsr_row_perm_alloc(cpm, pm_p);
 
-  zcrs_col_perm(pm, cpm, pm_p, pmj);
-  zcrs_row_perm(cpm, rpm, pm_p);
-  zcrs_col_perm(pm, cpm, pm_p, pmj);
-  zcrs_row_perm(cpm, rpm, pm_p);
-  zcrs2zha(rpm, pma);
+  zcsr_col_perm(pm, cpm, pm_p, pmj);
+  zcsr_row_perm(cpm, rpm, pm_p);
+  zcsr_col_perm(pm, cpm, pm_p, pmj);
+  zcsr_row_perm(cpm, rpm, pm_p);
+  zcsr2zha(rpm, pma);
 
   printf("cpm and rpm:\n");
   equ_chk(pma, pmaa, 16);
 
-  zhcrs_free(pmh);
-  zcrs_free(pm);
+  zhcsr_free(pmh);
+  zcsr_free(pm);
 
   free(pmj);
-  zcrs_free(cpm);
-  zcrs_free(rpm);
+  zcsr_free(cpm);
+  zcsr_free(rpm);
 
-  zcrs *c20_cpm, *c20_rpm;
+  zcsr *c20_cpm, *c20_rpm;
   int *pj;
 
   pj = (int *) calloc(c20_zm->nnz+1, sizeof(int));
@@ -351,21 +353,21 @@ int main (void) {
   for (i=0; i<c20_zm->n; i++) {
     pi[p[i]] = i;
   }
-  c20_rpm = (zcrs *) zcrs_row_perm_alloc(c20_zm, pi);
-  c20_cpm = (zcrs *) zcrs_col_perm_alloc(c20_rpm, pi, pj);
+  c20_rpm = (zcsr *) zcsr_row_perm_alloc(c20_zm, pi);
+  c20_cpm = (zcsr *) zcsr_col_perm_alloc(c20_rpm, pi, pj);
   
-  zcrs_row_perm(c20_zm, c20_rpm, pi);
-  zcrs_col_perm(c20_rpm, c20_cpm, pi, pj);
+  zcsr_row_perm(c20_zm, c20_rpm, pi);
+  zcsr_col_perm(c20_rpm, c20_cpm, pi, pj);
 
   complex double *c20_a = (complex double *) calloc( c20_zm->n*c20_zm->n, sizeof(complex double));
-  zcrs2zha(c20_cpm, c20_a);
+  zcsr2zha(c20_cpm, c20_a);
 
   free(pi);
   free(pj);
-  zcrs_free(c20_rpm);
-  zcrs_free(c20_cpm);
-  zhcrs_free(c20_zhm);
-  zcrs_free(c20_zm);
+  zcsr_free(c20_rpm);
+  zcsr_free(c20_cpm);
+  zhcsr_free(c20_zhm);
+  zcsr_free(c20_zm);
   free(c20_a);
 
   return 0;

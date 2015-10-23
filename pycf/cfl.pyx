@@ -134,7 +134,7 @@ cdef class Tensor:
         if (data_tuple == None):
             n = len(row_ptr)-1
             self.n = n
-            t = cfl.zt_crs_alloc(name, n, &row_ptr[0], &col_in[0], &val[0], <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
+            t = cfl.zt_csr_alloc(name, n, &row_ptr[0], &col_in[0], &val[0], <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
             
         elif (len(data_tuple)==3):
             # Addition or subtraction of tensors.
