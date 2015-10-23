@@ -24,7 +24,7 @@
 /* State label type. */
 typedef struct {
   /* The number of states. */
-  size_t n;
+  int n;
   /* String identifying the type of label.  Valid characters are S, L, J, M, and
    * I, and their position in key specifies the location in each label. */
   char *key;
@@ -51,9 +51,11 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-sl *sl_alloc(size_t n, char *key, int **labels);
+sl *sl_alloc(int n, char *key, int **labels);
 void sl_free(sl *l);
-zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels);
+zt *zt_alloc(char *name, complex double *a, int n, sl *slabels);
+zt *zt_crs_alloc(char *name, int n, int *row_ptr, int *col_in, 
+    complex double *val, sl *slabels);
 void zt_free(zt *t);
 zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2);
 zt *zt_s(char *name, zt *t, complex double s);

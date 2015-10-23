@@ -62,8 +62,8 @@ int main (void) {
     0, 2-3*I, 0};
 
   /* Allocs used by multiple crs tests. */
-  zhcrs *ma = zhcrs_alloc(a, 4);
-  zhcrs *mb = zhcrs_alloc(b, 4);
+  zhcrs *ma = zhcrs_gen(a, 4);
+  zhcrs *mb = zhcrs_gen(b, 4);
 
   /* zhcrs2zha test. */
   complex double *aa;
@@ -83,6 +83,18 @@ int main (void) {
   printf("zhcrs2zcrs (depends on zcrs2zha):\n");
   equ_chk(a, aa, 16);
 
+  /* zhcrs_alloc test. */
+  zhcrs *maa;
+  maa = zhcrs_alloc(mac->n, mac->row_ptr, mac->col_in, mac->val);
+  zcrs *maac = zhcrs2zcrs_alloc(maa);
+  zhcrs2zcrs(ma, maac);
+  zcrs2zha(maac, aa);
+
+  printf("zhcrs_alloc (depends on zcrs2zha and zhcrs2zcrs):\n");
+  equ_chk(a, aa, 16);
+  zhcrs_free(maa);
+  zcrs_free(maac); 
+  
   /* zhcrs2zhpa test. */
   complex double bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
   complex double *bbp;
@@ -160,8 +172,8 @@ int main (void) {
   complex double ce_beta = 1;
   complex double *ce_res_a;
 
-  zhcrs *ce_eavg = zhcrs_alloc(eavg_a, 14);
-  zhcrs *ce_c44 = zhcrs_alloc(c44_a, 14);
+  zhcrs *ce_eavg = zhcrs_gen(eavg_a, 14);
+  zhcrs *ce_c44 = zhcrs_gen(c44_a, 14);
 
   zhcrs *ce_res = zhcrssam_alloc(ce_eavg, ce_c44);
   zhcrssam(ce_eavg, ce_c44, ce_res, ce_alpha, ce_beta);
@@ -201,7 +213,6 @@ int main (void) {
   zhcrs_free(ma);
   zhcrs_free(mb);
 
-  /* RCM sort test. */
   complex double ce_C20_a[784] = {-0.333333308417, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.333333308417, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -247,7 +258,7 @@ int main (void) {
     -0.333333308417};
 
   int n = 28;
-  zhcrs *c20_zhm = zhcrs_alloc(ce_C20_a, n);
+  zhcrs *c20_zhm = zhcrs_gen(ce_C20_a, n);
   zcrs *c20_zm = zhcrs2zcrs_alloc(c20_zhm);
   zhcrs2zcrs(c20_zhm, c20_zm);
 
@@ -256,6 +267,18 @@ int main (void) {
   printf("zhcrs2zcrs with I=1/2 Ce C20 (depends on zcrs2zha):\n");
   equ_chk(ce_C20_a, ce_C20_aa, n);
 
+
+  /* zhcrs_alloc test. */
+  zhcrs *c20_zhmm = zhcrs_alloc(c20_zm->n, c20_zm->row_ptr, c20_zm->col_in, c20_zm->val);
+  zcrs *c20_zmm = zhcrs2zcrs_alloc(c20_zhmm);
+  zhcrs2zcrs(c20_zhmm, c20_zmm);
+
+  zcrs2zha(c20_zmm, ce_C20_aa);
+  printf("zhcrs_alloc with I=1/2 Ce C20 (depends on zcrs2zha and zhcrs2zcrs):\n");
+  equ_chk(ce_C20_a, ce_C20_aa, n);
+
+
+  /* RCM sort test. */
   int p[n];
   int pa[28] = {0, 1, 4, 2, 5, 3, 8, 6, 9, 7, 12, 10, 13, 11, 16, 14, 17, 15,
     20, 18, 21, 19, 24, 22, 25, 23, 26, 27};
@@ -293,7 +316,7 @@ int main (void) {
   zcrs *cpm, *rpm;
   int *pmj;
 
-  pmh = zhcrs_alloc(pma, 4);
+  pmh = zhcrs_gen(pma, 4);
   zcrs *pm = zhcrs2zcrs_alloc(pmh);
   zhcrs2zcrs(pmh, pm);
 

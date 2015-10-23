@@ -34,29 +34,29 @@
 #include "cfl_crs.h"
 
 /*
- * Allocate storage and fill in values of a Hermitian sparse matrix in
- * upper-triangular compressed row storage format for double valued complex
- * entries.
+ * Allocate storage, generate the sparsity pattern, and fill in the values of a
+ * Hermitian sparse matrix in upper-triangular compressed sparse row format.
  *
  * Parameters
  * ----------
  * a    An n by n dense matrix stored as a one dimensional array.
  * n    The number of columns and rows of a. 
  */
-zhcrs *zhcrs_alloc(complex double a[], int n) {
-  int i,j;
-  int vi = 0;
-  int ri = 0;
-  int nnz = 0;
-  int zrow = 1;
-  zhcrs *m;
+zhcrs *zhcrs_gen(complex double *a, int n) {
+  int i,j, vi, ri, nnz, zrow;
   complex double *val;
   int *col_in;
   int *row_ptr;
+
+  zhcrs *m;
+  
   /* Determining the number of non-zero entries in the upper-triangular portion
    * of a. Since we only check columns j >= i, all inspected elements may turn
    * out to be zero; consequently, we add one to nnz in such cases to avoid the
    * row from being dropped. */
+
+  nnz = 0;    /* The number of non-zero elements. */
+  zrow = 1;   /* Indicator whether we're on a placeholder zero row. */
   for (i = 0; i < n; i++) {
     for (j = i; j < n; j++) {
       if (cabs(a[i*n+j]) != 0) {
@@ -100,6 +100,8 @@ zhcrs *zhcrs_alloc(complex double a[], int n) {
    * and, since we're only checking the upper-triangular half, we include a
    * single zero entry in the last column to prevent such rows from being
    * dropped. */
+  vi = 0;   /* Value index for the Hermitian CSR matrix. */
+  ri = 0;   /* The row index for the Hermitian CSR matrix. */
   for (i = 0; i < n; i++) {
     for (j = i; j < n; j++) {
       if (cabs(a[i*n + j]) != 0) {
@@ -129,8 +131,104 @@ zhcrs *zhcrs_alloc(complex double a[], int n) {
   m->val = val;
   m->col_in = col_in;
   m->row_ptr = row_ptr;
+
   return m;
 }
+
+
+/* Allocate storage and generate Hermitian CSR matrix from non-Hermitian CSR
+ * matrix. 
+ *
+ * Parameters
+ * ----------
+ *  n         The matrix dimension. 
+ *  row_ptr   The row pointer array.
+ *  col_in    The column index array. 
+ *  val       Array containing the values of the non-zero elements.
+ */
+zhcrs *zhcrs_alloc(int n, int *row_ptr, int *col_in, complex double *val) {
+  int i, k, vi, nnzd, nnzz, hnnz, zrow;
+  zhcrs *m;
+  
+  /* The number of non-zero elements on the diagonal. */
+  nnzd = 0;   
+  /* The number of "non-zero zeros", placeholders required if there are no
+   * non-zero elements on the upper diag part for a given row. */
+  nnzz = 0;  
+  for (i = 0; i < n; i++) {
+    /* Check whether there's a non-zero element in the upper diagonal. */
+    for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
+      if (col_in[k] == i) {
+        nnzd++;
+        break;
+      }
+      else if (col_in[k] > i) {
+        break;
+      }
+      else if (row_ptr[i+1] == k+1) {
+        nnzz++;
+      }
+    }
+  }
+
+  /* The number of non-zeros for the Hermitian CSR matrix. */
+  hnnz = (row_ptr[n] - nnzd)/2 + nnzd + nnzz;
+
+  m = (zhcrs *) malloc(sizeof(zhcrs));
+  if (m == 0) {
+    CFL_ERROR_NULL("malloc failed for m");
+  }
+  m->val = (complex double *) calloc(hnnz, sizeof(complex double));
+  if (m->val == 0) {
+    free(m);
+    CFL_ERROR_NULL("calloc failed for m->val");
+  }
+  m->col_in = (int *) malloc(hnnz*sizeof(int));
+  if (m->col_in == 0) {
+    free(m->val);
+    free(m);
+    CFL_ERROR_NULL("malloc failed for m->col_in");
+  }
+  m->row_ptr = (int *) calloc((n+1),sizeof(int));
+  if (m->row_ptr == 0) {
+    free(m->val);
+    free(m->col_in);
+    free(m);
+    CFL_ERROR_NULL("calloc failed for m->row_ptr");
+  }
+  m->n = n;
+  m->nnz = hnnz;
+
+  vi = 0;     /* Value index for the Hermitian CSR matrix. */
+  zrow = 1;   /* Indicator whether we're on a placeholder zero row. */
+  for (i = 0; i < n; i++) {
+    for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
+      if (col_in[k] >= i) {
+        if (m->row_ptr[i] == 0) {
+          /* First element in upper-diag of this row. */
+          m->row_ptr[i] = vi;
+        }
+        m->col_in[vi] = col_in[k];
+        m->val[vi] = val[k];
+        zrow = 0;
+        vi++;
+      }
+    }
+    if (zrow) {
+      m->row_ptr[i] = vi;
+      m->col_in[vi] = n-1;
+      m->val[vi] = 0;
+      vi++;
+    }
+    zrow = 1;
+  }
+  /* Restore first row_ptr element. */
+  m->row_ptr[0] = 0;
+  m->row_ptr[n] = hnnz;
+
+  return m;
+}
+
 
 void zhcrs_free(zhcrs *m) {
   free(m->val);
@@ -166,12 +264,12 @@ zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m) {
     }
     if (hcrs_m->val[hcrs_m->row_ptr[i]] == 0) {
       /* Record the number of placeholder "non-zero" zeros required for
-       * Hermitian CRS (see zhcrs_alloc for details).*/
+       * Hermitian CRS (see zhcrs_gen for details).*/
       nnzz++;
     }
   }
   nnz = hcrs_m->nnz*2-nnzd-nnzz*2;
-  
+
   row_ptr = (int *) calloc((n+1),sizeof(int));
   if (row_ptr == 0) {
     CFL_ERROR_NULL("calloc failed for row_ptr");
@@ -433,7 +531,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
   }
 
   /* Determine the number of non-zero elements and the row pointer of C.  We
-   * start by counting the number of zero place-holders (see zhcrs_alloc for
+   * start by counting the number of zero place-holders (see zhcrs_gen for
    * details) that are no longer required after summing a and b.  This is
    * recorded per row.  If a placeholder occurs at a non-zero entry of matrix to
    * be added, then we don't subtract 1 from phz_count, since it count as a
@@ -481,7 +579,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
       }
     }
   }
-  
+
   nnz = a->nnz + b->nnz - match + phz_count;
   row_ptr[n] = nnz;
 
@@ -529,7 +627,7 @@ zhcrs *zhcrssam_alloc(zhcrs *a, zhcrs *b) {
       }
     }
   }
-  
+
   hcrs_m = (zhcrs *) malloc(sizeof(zhcrs));
   if (hcrs_m == 0) {
     free(row_ptr);

@@ -55,7 +55,8 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-zhcrs *zhcrs_alloc(complex double a[], int n);
+zhcrs *zhcrs_gen(complex double *a, int n);
+zhcrs *zhcrs_alloc(int n, int *row_ptr, int *col_in, complex double *val);
 void zhcrs_free(zhcrs *m);
 zcrs *zhcrs2zcrs_alloc(zhcrs *hcrs_m);
 void zhcrs2zcrs(zhcrs *hcrs_m, zcrs *crs_m);

@@ -47,13 +47,13 @@
  *  nc        The length of the int arrays.
  *  a         Array of int arrays to hash. 
  */
-long state_hash(size_t n, size_t nc, int **a) {
+long state_hash(int n, int nc, int **a) {
   unsigned long hash = 5381;
   char c;
   int i, j;
    
-  for (i=0; i<n; i++) {
-    for (j=0; j<nc; j++) {
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < nc; j++) {
       c = (char ) a[i][j];
       hash = ((hash << 5) + hash) + c;
     }
@@ -76,10 +76,10 @@ long state_hash(size_t n, size_t nc, int **a) {
  *            label arrays are not strings, since 0 is a perfectly valid state
  *            label yet would yield a premature string termination. 
  */
-sl *sl_alloc(size_t n, char *key, int **labels) {
+sl *sl_alloc(int n, char *key, int **labels) {
   sl *l;
   int i, j;
-  size_t nl;
+  int nl;
 
   l = (sl *) malloc(sizeof(sl));
   if (l == 0) {
@@ -101,10 +101,10 @@ sl *sl_alloc(size_t n, char *key, int **labels) {
     CFL_ERROR_NULL("malloc failed for l.labels");
   }
 
-  for (i=0; i<n; i++) {
+  for (i = 0; i < n; i++) {
     l->labels[i] = (int *) malloc(nl*sizeof(int));
     if (l->labels[i] == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free(l->labels[j]);
       }
       free(l->key);
@@ -124,13 +124,14 @@ sl *sl_alloc(size_t n, char *key, int **labels) {
 void sl_free(sl *l) {
   int i;
 
-  for (i=0; i<l->n; i++) {
+  for (i = 0; i < l->n; i++) {
     free(l->labels[i]);
   }
   free(l->key);
   free(l->labels);
   free(l);
 }
+
 
 /*
  * Allocate storage for complex valued tensors. 
@@ -142,15 +143,17 @@ void sl_free(sl *l) {
  *  n       The dimension of the matrix element matrix.
  *  slabels Pointer to state labels struct.
  */
-zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels) {
+zt *zt_alloc(char *name, complex double *a, int n, sl *slabels) {
+  int sl_len;
+  zhcrs *ma;
   zt *t;
-  size_t sl_len;
+
   t = (zt *) malloc(sizeof(zt));
   if (t == 0) {
     CFL_ERROR_NULL("malloc failed for zt");
   }
 
-  zhcrs *ma = zhcrs_alloc(a, n);
+  ma = zhcrs_gen(a, n);
   if (ma == 0) {
     free(t);
     CFL_ERROR_NULL("alloc failed for zhcrs");
@@ -163,6 +166,45 @@ zt *zt_alloc(char *name, complex double *a, size_t n, sl *slabels) {
   
   return t;
 }
+
+
+/*
+ * Allocate storage for complex valued tensors for matrix elements stored in CSR
+ * form. 
+ *
+ * Parameters
+ * ----------
+ *  name      A unique identifier of the tensor. 
+ *  n         The dimension of the matrix element matrix.
+ *  row_ptr   The CSR row pointer. 
+ *  col_in    The CSR column index array. 
+ *  val       Array containing the values of the non-zero elements.
+ *  slabels   Pointer to state labels struct.
+ */
+zt *zt_crs_alloc(char *name, int n, int *row_ptr, int *col_in, 
+    complex double *val, sl *slabels) {
+  int sl_len;
+  zhcrs *ma;
+  zt *t;
+
+  t = (zt *) malloc(sizeof(zt));
+  if (t == 0) {
+    CFL_ERROR_NULL("malloc failed for zt");
+  }
+  ma = zhcrs_alloc(n, row_ptr, col_in, val);
+  if (ma == 0) {
+    free(t);
+    CFL_ERROR_NULL("alloc failed for zhcrs");
+  }
+
+  t->name = name;
+  t->n = n;
+  t->slabels = slabels;
+  t->matel = ma;
+  
+  return t;
+}
+
 
 void zt_free(zt *t) {
   zhcrs_free(t->matel);
