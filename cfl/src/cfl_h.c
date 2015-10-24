@@ -255,12 +255,13 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
   char lapack_err[] = "LAPACKE_zhpeevr failed with error code: 0";
 
   bri = 0; /* Index of first row of current block. */
+  info = 0;
   if (job == 'V') {
     for (bi = 0; bi < nblocks; bi++) {
       n = blocks[bi]->dim;
       lda = blocks[bi]->dim;
       ldz = blocks[bi]->dim;
-      info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, blocks[bi]->a, lda,
+      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, blocks[bi]->a, lda,
           vl, vu, il, iu, abstol, &(diag_w->m), &w[bri], zb[bi], ldz, diag_w->isuppz,
           diag_w->work, diag_w->lwork, diag_w->rwork, diag_w->lrwork, diag_w->iwork,
           diag_w->liwork);
@@ -272,7 +273,7 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
       n = blocks[bi]->dim;
       lda = blocks[bi]->dim;
       ldz = blocks[bi]->dim;
-      info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'N', 'A', 'U', n, blocks[bi]->a, lda,
+      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'N', 'A', 'U', n, blocks[bi]->a, lda,
           vl, vu, il, iu, abstol, &(diag_w->m), &w[bri], NULL, ldz, diag_w->isuppz,
           diag_w->work, diag_w->lwork, diag_w->rwork, diag_w->lrwork, diag_w->iwork,
           diag_w->liwork);

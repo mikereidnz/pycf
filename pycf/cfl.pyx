@@ -743,7 +743,7 @@ cdef class SpinHamiltonian:
             if 'HYPS' not in h.coeff_dict:
                 for t in self.tensors:
                     if t.name == 'HYP':
-                        hyps = 0.001 * t
+                        hyps = 0.00 * t
                         hyps.name = 'HYPS'
 
             #if 'EQHYPS' not in h.coeff_dict:
@@ -753,7 +753,7 @@ cdef class SpinHamiltonian:
             #            eqhyps.name = 'EQHYPS'
 
             tmp_h_coeff = h.coeff_dict
-            tmp_h_coeff['HYPS'] = 1
+            tmp_h_coeff['HYPS'] = 0
             #tmp_h_coeff['EQHYPS'] = 1
             #h = Hamiltonian([hyps, eqhyps] + h.tensors)
             h = Hamiltonian([hyps] + h.tensors)

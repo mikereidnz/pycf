@@ -16,10 +16,6 @@
 
 */
 
-/*
- * @file    cfl_sh.h
- * @brief   Spin Hamiltonian routines.
- */
 
 #ifndef _CFL_SH_H_
 #define _CFL_SH_H_

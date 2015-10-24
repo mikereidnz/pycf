@@ -529,14 +529,14 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
     }
     //printf("\n");
   }
-  //for (i=0; i<sh_dim; i++) {
-  //  for (j=0; j<sh_dim; j++) {
-  //    printf("%f+%fI ", creal(shp_p_w->b[i*sh_dim + j]), cimag(shp_p_w->b[i*sh_dim + j]) );
-  //  }
-  //  printf("\n");
-  //}
+  for (i=0; i<sh_dim; i++) {
+    for (j=0; j<sh_dim; j++) {
+      printf("%f+%fI ", creal(shp_p_w->b[i*sh_dim + j]), cimag(shp_p_w->b[i*sh_dim + j]) );
+    }
+    printf("\n");
+  }
 
-  //printf("\n");
+  printf("\n");
 }
 
 
