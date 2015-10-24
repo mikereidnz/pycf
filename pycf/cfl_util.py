@@ -346,7 +346,6 @@ def e_fit_sigma(e, ex, ndof):
     ex_li = np.array(ex[:,0], dtype=int)-1
     try:
         sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
-        print("chisq = {}".format(np.sum((e[ex_li] - ex[:,1])**2)))
     except:
         raise IndexError("Level index in experimental energies file is out of range.")
     
