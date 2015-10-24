@@ -92,7 +92,7 @@
 efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx,
     param_type **p) {
   efit_data *data;
-  
+
   if (h->coeff == NULL) {
     CFL_ERROR_NULL("h is missing coefficients; set with zh_set_coeff prior to" \
         "calling efit_data_alloc");
@@ -463,7 +463,7 @@ void eshfit_data_free(eshfit_data *data) {
 inline double echisq(double *e, ex_data *d) {
   int i;
   double chisq;
-    
+
   chisq = 0;
   for (i = 0; i < d->n; i++) {
     chisq += pow(d->e[i] - e[d->li[i]], 2);
@@ -484,7 +484,7 @@ inline double echisq(double *e, ex_data *d) {
 inline double mevchisq(double *e, ex_data *d, int bc_blockdim) {
   int i, j;
   double chisq, bc_shift;
-  
+
   chisq = 0;
   if (bc_blockdim != 0) {
     bc_shift = 0;
@@ -519,7 +519,7 @@ inline double mevchisq(double *e, ex_data *d, int bc_blockdim) {
 inline double shchisq(complex double *pa, complex double *xpa) {
   int i;
   double chisq;
-  
+
   chisq = 0;
   for (i = 0; i < 9; i++) {
     chisq += pow(cabs(pa[i]) - cabs(xpa[i]), 2);
@@ -646,7 +646,7 @@ void efit_chi2(double *x, void *data, double *chi2) {
   parse_param_data(d->n_zx, d->p, d->h->coeff, x);
   zhd('N', d->eval, NULL, d->h, d->hd_w);
   *chi2 = echisq(d->eval, d->ex);
-  d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
+  d->echisq_weight = 1; //CFL_MIN_START_CHI2/(*chi2);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, for
@@ -758,7 +758,7 @@ double mevfit_cov_df(double x, void *data) {
   cov_d->df_x[cov_d->par_index] = x;
   parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, cov_d->df_x);
   zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-  
+
   return d->h_eval[hi][d->exa[i]->li[cov_d->obs_index-ex_n]];
 }
 

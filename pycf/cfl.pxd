@@ -23,10 +23,6 @@ cdef extern from "complex.h":
     double complexI
 
 
-cdef extern from "stdlib.h":
-    int atoi(const char *str)
-
-
 cdef extern from "../../cfl/include/cfl_csr.h":
     ctypedef struct csr_zhm:
         pass
@@ -143,7 +139,7 @@ cdef extern from "../../cfl/include/basinhopping.h":
 
 cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct param_type:
-        int type
+        char type
         size_t index
 
     ctypedef struct ex_data:

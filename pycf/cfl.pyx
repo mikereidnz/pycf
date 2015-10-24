@@ -799,10 +799,10 @@ def parse_param_helper(parameters, h):
         # The parameter type is recorded such that any complex parameters
         # can be split into two real parameters.
         if isinstance(h.coeff_dict[p.name], complex):
-            param_types.append('c')
+            param_types.append("c")
             n_p_real += 2
         else:
-            param_types.append('r')
+            param_types.append("r")
             n_p_real += 1
         
         param_list += [h.coeff_dict[p.name]]
@@ -901,6 +901,7 @@ cdef class EFitRunner(object):
             raise MemoryError("param_array alloc failed")
         
         ip_real = 0
+        param_enc = {'r': 114, 'i': 105, 'c': 99}
         for i in range(self.n_p):
             param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
             if param_array[i] is NULL:
@@ -910,7 +911,7 @@ cdef class EFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
-            param_array[i].type = cfl.atoi(self.param_types[i])
+            param_array[i].type = param_enc[self.param_types[i]]
             param_array[i].index = h.index(parameters[i])
 
             if self.param_types[i] == 'c':
@@ -1164,7 +1165,8 @@ cdef class MevFitRunner(object):
                 free(self.ex_data)
                 free(self.ha)
                 raise MemoryError("param_arrays[{}] alloc failed".format(i))
-        
+       
+        param_enc = {'r': 114, 'i': 105, 'c': 99}
         for hi,h in enumerate(h_list):
             ip_real = 0
             for i in range(self.n_p):
@@ -1184,7 +1186,7 @@ cdef class MevFitRunner(object):
                     free(self.ha)
                     raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
                 
-                param_arrays[hi][i].type = cfl.atoi(self.param_types[i])
+                param_arrays[hi][i].type = param_enc[self.param_types[i]]
                 param_arrays[hi][i].index = h.index(parameters[i])
 
                 if self.param_types[i] == 'c':
@@ -1418,6 +1420,8 @@ cdef class ESHFitRunner(object):
         self.param_array = param_array 
        
         ip_real = 0
+
+        param_enc = {'r': 114, 'i': 105, 'c': 99}
         for i in range(self.n_p):
             param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
             if param_array[i] is NULL:
@@ -1427,7 +1431,7 @@ cdef class ESHFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
 
-            param_array[i].type = cfl.atoi(self.param_types[i])
+            param_array[i].type = param_enc[self.param_types[i]]
             param_array[i].index = self.h.index(parameters[i])
 
             if self.param_types[i] == 'c':
@@ -1984,9 +1988,9 @@ def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min
     mevfit = MevFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list)
     (x, fmin) = mevfit.fit(cfl_min)
 
-    summary = "=============\n"
+    summary = "===============\n"
     summary+= "mev_fit summary\n"
-    summary+= "=============\n"
+    summary+= "===============\n"
     summary += gen_pycf_summary()
 
     # The number of degrees of freedom of the chi-squared distribution
@@ -2048,7 +2052,6 @@ def esh_fit(parameters, sh_tensors, h, sh, ex, shx, weights, cfl_min):
         corresponding options.
     """
     eshfit = ESHFitRunner(parameters, sh_tensors, h, sh, ex, shx, weights)
-    print("Alloc exit")
     (x, fmin) = eshfit.fit(cfl_min)
     eshfit.h.coeff = x
     (w, z) = eshfit.h.diag()

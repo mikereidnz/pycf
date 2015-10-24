@@ -32,7 +32,7 @@
  * diagonalization. */
 typedef struct {
   /* Indicator whether parameter is real, purely imaginary, or complex. */
-  int type;
+  char type;
   /* Complex (resultant) parameter array index. */
   size_t index;
 } param_type;
