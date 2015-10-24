@@ -1803,11 +1803,8 @@ cdef class CFLMin:
             if 'stepsize' in self.kwargs:
                 cstepsize = np.zeros(fit_obj.n_p_real)
                 rpi = 0
-                if len(fit_obj.param_list) != len(self.kwargs['stepsize']):
-                    raise ValueError("The of elements of stepsize does not match the "
-                            "number of provided parameters.")
+                
                 stepsize = self.kwargs['stepsize']
-
                 for i,p in enumerate(fit_obj.parameters):
                     if fit_obj.param_types[i] == 'c':
                         try:
