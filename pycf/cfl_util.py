@@ -165,7 +165,7 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
         sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
     heading = "Lev.  " + ("Percentage                 " + "State" + " "*(len(fmt_label(0, labels))-4))*nstates + "       Theory"
     if ex != None:
-        heading += "     Experiment     Difference \n"
+        heading += "     Experiment    Difference\n"
     else:
         heading += " \n"
     
@@ -181,11 +181,11 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
         s += line + " {: >12.4f}".format(w[i])
         if ex != None:
             if ex[ex_i,0] == i+1:
-                s += "   {: >12.4f}   {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
+                s += "   {: >12.4f}  {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
                 if ex_i != len(ex)-1:
                     ex_i += 1
             else:
-                s += "         --             --\n"
+                s += "         --            --\n"
         else:
             s += "\n"
 
@@ -271,9 +271,9 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
         cov = np.linalg.inv(kwargs['cov_inv'])
         heading += "    Uncertainty"
     if 'bounds' in kwargs:
-        heading += "        Lower bounds         Upper bounds"
+        heading += "      Lower bounds       Upper bounds"
     if 'stepsize' in kwargs:
-        heading += "  Specified stepsize"
+        heading += "          Stepsize"
     heading += "\n"
 
     s += uline_char(heading)
@@ -286,10 +286,10 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
         if kwargs['cov']:
             s += "{0: >15.0f}".format(np.sqrt(np.abs(cov[i,i]))*sigma)
         if 'bounds' in kwargs:
-            s += "{0: >20.0f} {1: >20.0f}".format(kwargs['bounds'][p.name][0],
+            s += "{0: >18.0f} {1: >18.0f}".format(kwargs['bounds'][p.name][0],
                     kwargs['bounds'][p.name][1])
         if 'stepsize' in kwargs:
-            s += "{0: >20.0f}".format(kwargs['stepsize'][p.name])
+            s += "{0: >18.0f}".format(kwargs['stepsize'][p.name])
         s += "\n"
 
     if 'bounds' in kwargs:
