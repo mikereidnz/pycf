@@ -101,8 +101,7 @@ class ImportSLJM(object):
                     sl += [(int(l[0]), term2L(l[1]), int(l[3]), int(l[4]), int(l[5]), tl)]
                 label_key = "SLJMIT"
             else:
-                sl = [(int(l[0]), term2L(l[1]), int(l[3]), int(l[4]), int(l[5]))
-                        for l in state_labels]
+                sl = [(int(l[0]), term2L(l[1]), int(l[3]), int(l[4]), int(l[5])) for l in state_labels]
                 label_key = "SLJMI"
         elif state_labels[0][4]:
             if t_label:

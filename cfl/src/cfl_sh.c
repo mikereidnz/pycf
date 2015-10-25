@@ -94,10 +94,10 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a) 
     CFL_ERROR_NULL("malloc failed for inv_data array");
   }
   
-  for (i=0; i<ninter; i++) {
+  for (i = 0; i < ninter; i++) {
     inv_data[i] = (zsh_inv_data *) malloc(sizeof(zsh_inv_data));
     if (inv_data[i] == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free((inv_data[j])->b);
         free(inv_data[j]);
       }
@@ -127,7 +127,7 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a) 
     (inv_data[i])->a = a[i];
     (inv_data[i])->b = (complex double *) calloc(m, sizeof(complex double));
     if ((inv_data[i])->b == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free((inv_data[j])->b);
         free(inv_data[j]);
       }
@@ -155,13 +155,13 @@ void zsh_free(zsh *sh) {
   int i;
 
   if (sh->ntensors != 0) {
-    for (i=0; i<sh->ntensors; i++) {
+    for (i = 0; i < sh->ntensors; i++) {
       free((sh->pro_data[i])->pt);
       free(sh->pro_data[i]);
     }
     free(sh->pro_data);
   }
-  for (i=0; i<sh->ninter; i++) {
+  for (i = 0; i < sh->ninter; i++) {
     free((sh->inv_data[i])->b);
     free(sh->inv_data[i]);
   }
@@ -184,7 +184,7 @@ void zsh_free(zsh *sh) {
 void zsh_set_inv(zsh *sh, complex double *b, char *inter) {
   int i;
 
-  for (i=0; i<sh->ninter; i++) {
+  for (i = 0; i < sh->ninter; i++) {
     if (!strcmp(sh->inter[i], inter)) {
       memcpy((sh->inv_data[i])->b, b, (sh->inv_data[i])->m*sizeof(complex double));
     }
@@ -218,7 +218,7 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
   /* Check for zeeman interaction, in which case we expect tensors for three
    * magnetic field directions. */
   ntensors = sh->ninter;
-  for (i=0; i<sh->ninter; i++) {
+  for (i = 0; i < sh->ninter; i++) {
     if (!strcmp("zeeman", sh->inter[i])) {
       ntensors += 2;
     }
@@ -247,10 +247,10 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
   zeeman_index = 0;
   zeeman_term = 0;
   thash = (t[0])->slabels->hash;
-  for (i=0; i<ntensors; i++) {
+  for (i = 0; i < ntensors; i++) {
     sh->pro_data[i] = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
     if (sh->pro_data[i] == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free((sh->pro_data[j])->pt);
         free(sh->pro_data[j]);
       }
@@ -260,7 +260,7 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
     (sh->pro_data[i])->pt = (complex double *)
       calloc((t[i])->n*(t[i])->n, sizeof(complex double));
     if ((sh->pro_data[i])->pt == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free((sh->pro_data[j])->pt);
         free(sh->pro_data[j]);
       }
@@ -269,7 +269,7 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
       CFL_ERROR_VAL("malloc failed for pro_data[i]->pt", ENOMEM);
     }
     else if (thash != (t[i])->slabels->hash) {
-      for (j=0; j=i; j++) {
+      for (j = 0; j = i; j++) {
         free((sh->pro_data[j])->pt);
         free(sh->pro_data[j]);
       }
@@ -338,14 +338,12 @@ zshp_p_w *zshp_p_w_alloc(zsh *sh) {
   }
 
   a = (complex double *) calloc(n*sh->dim, sizeof(complex double));
-  //a = (complex double *) calloc(n*n, sizeof(complex double));
   if (a == 0) {
     free(shp_p_w);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
   b = (complex double *) calloc(sh->dim*sh->dim,sizeof(complex double));
-  //b = (complex double *) calloc(n*n,sizeof(complex double));
   if (b == 0) {
     free(shp_p_w);
     free(a);
@@ -361,10 +359,10 @@ zshp_p_w *zshp_p_w_alloc(zsh *sh) {
     free(b);
     CFL_ERROR_NULL("malloc failed for sh_sort");
   }
-  for (i=0; i<sh->dim; i++) {
+  for (i = 0; i < sh->dim; i++) {
     sh_sort[i] = (zsh_sort_t *) malloc(sizeof(zsh_sort_t));
     if (sh_sort[i] == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free(sh_sort[j]);
       }
       free(sh_sort);
@@ -399,7 +397,7 @@ void zshp_p_w_free(zshp_p_w *shp_p_w) {
 
   free(shp_p_w->a);
   free(shp_p_w->b);
-  for (i=0; i<shp_p_w->sh_dim; i++) {
+  for (i = 0; i < shp_p_w->sh_dim; i++) {
     free(shp_p_w->sh_sort[i]);
   }
   free(shp_p_w->sh_sort);
@@ -424,35 +422,36 @@ int zshp_state_cmp(const void *a, const void *b) {
  * ----------
  *  hz      Pointer to array containing the eigenvectors that diagonalize the
  *          Hamiltonian containing free-ion and crystal-field interactions.
- *  pro_i   The projection index of the tensor according to which to sort Sz.
- *          If sh does not depend on Sz labels, set to -1. 
+ *  pro_i   The projection index of the tensor according to which to sort Sz,
+ *          specifically, magz.  If sh does not depend on Sz labels, set to -1. 
  *  sh      The spin Hamiltonian object.
  *  shp_p_w The projection workspace, allocated with zshp_p_w_alloc.
  */
 void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
-  int i, j, col_offset, edi, odi, temp_i, pr_i;
+  int i, j, col_offset, edi, odi, temp_i, nz_i;
   zsh_sort_t **sh_sort;
   sh_sort = shp_p_w->sh_sort;
 
   if (sh->iz != 0) {
-    for (i=0; i<sh->dim; i++) {
-      /* The principal component index. */
-      pr_i = 0;
+    for (i = 0; i < sh->dim; i++) {
+      /* The index of a non-zero eigenvector component. */
+      nz_i = 0;
+      
       /* hz is packed column wise; col_offset is the index of the first element
        * of the current column. */
       col_offset = (sh->l+i)*sh->pt_dim;
        
-      for (j=0; j<sh->pt_dim; j++) {
-        if (cabs(hz[col_offset+j]) > cabs(hz[col_offset+pr_i])) {
-          pr_i = j;
+      for (j = 0; j < sh->pt_dim; j++) {
+        if (cabs(hz[col_offset+j]) != 0) {
+          nz_i = j;
+          break;
         }
       }
-      //printf("i=%i, pr_i=%i, pr=%f, label=%i\n", i, pr_i, cabs(hz[col_offset+pr_i]), sh->pt_slabels->labels[pr_i][shp_p_w->iz_i]);  
-      /* The i index will enumerate all unique spin Hamiltonian states.  We record
-       * each i and the associated iz label of the corresponding principal
-       * component. */
+      /* We record the nuclear spin label, iz, for each spin Hamiltonian state.
+       * Since there's no hyp/quad interaction, each state will be degenerate in
+       * iz, and we can take use the label of any non-zero eigenvector entry. */ 
       (sh_sort[i])->index = i;
-      (sh_sort[i])->iz = sh->pt_slabels->labels[pr_i][shp_p_w->iz_i];
+      (sh_sort[i])->iz = sh->pt_slabels->labels[nz_i][shp_p_w->iz_i];
     }
 
     /* Sort according to the nuclear spin label, iz. */
@@ -461,19 +460,15 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
   else {
     /* No nuclear spin; we still need to sort according to sz, so we assign only
      * the index to the sort structs. */
-    for (i=0; i<sh->dim; i++) {
+    for (i = 0; i < sh->dim; i++) {
       (sh_sort[i])->index = i;
     }
   }
-  //printf("after iz sort:\n");
-  //for (i=0; i<sh->dim; i++) {
-  //  printf("%i\n", sh_sort[i]->index);
-  //}
-#if 0
+  
   /* If the spin Hamiltonian depends on sz, sort according to it (pro_i != -1).
    * When sorting, we assume sz = 1, so sz degenerate blocks will be 2 by 2.  We
    * step through projected magz matrix elements and sort according to diagonal
-   * values, from largest to smallest.
+   * values.
    */
   if (pro_i != -1) {
     for (i=0; i<sh->dim/2; i++) {
@@ -481,8 +476,8 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       edi = sh->dim*(sh_sort[i*2]->index)+sh_sort[i*2]->index;
       /* Index of odd diagonal elements. */
       odi = sh->dim*(sh_sort[i*2+1]->index)+sh_sort[i*2+1]->index;
-
-      if (cabs(shp_p_w->b[edi]) < cabs(shp_p_w->b[odi])) {
+      
+      if (creal(shp_p_w->b[edi]) > creal(shp_p_w->b[odi])) {
         /* Swap index states for the current block in the sh_sort data. */
         temp_i = sh_sort[i*2]->index;
         sh_sort[i*2]->index = sh_sort[i*2+1]->index;
@@ -490,11 +485,6 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       }
     }
   }
-#endif
-  //printf("after sz sort:\n");
-  //for (i=0; i<sh->dim; i++) {
-  //  printf("%i\n", sh_sort[i]->index);
-  //}
 }
 
 /*
@@ -512,7 +502,7 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
  *          matrix elements.
  */
 void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
-  int i, j, shi_dim, sh_dim;
+  int i, ii, j, jj, shi_dim, sh_dim;
 
   shi_dim = sh->pro_data[pro_i]->shi_dim;
   sh_dim = sh->dim;
@@ -522,21 +512,13 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
    * nuclear spin projection, and, secondly, spin projection.  This ensures that
    * when we go to invert the resulting array to calculate the spin Hamiltonian
    * parameters, our matrix element state labels match those calculated here. */
-  for (i=0; i<shi_dim; i++) {
-    for (j=0; j<shi_dim; j++) {
-      a[i*shi_dim+j] = shp_p_w->b[(shp_p_w->sh_sort[i]->index)*sh_dim + j];
-      //printf("%f ", a[i*shi_dim+j]);
+  for (i = 0; i < shi_dim; i++) {
+    for (j = 0; j < shi_dim; j++) {
+      ii = shp_p_w->sh_sort[i]->index;
+      jj = shp_p_w->sh_sort[j]->index;
+      a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj];
     }
-    //printf("\n");
   }
-  for (i=0; i<sh_dim; i++) {
-    for (j=0; j<sh_dim; j++) {
-      printf("%f+%fI ", creal(shp_p_w->b[i*sh_dim + j]), cimag(shp_p_w->b[i*sh_dim + j]) );
-    }
-    printf("\n");
-  }
-
-  printf("\n");
 }
 
 
@@ -585,14 +567,6 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
       &hz[(sh->l)*d], d, &zero, shp_p_w->a, d);
   cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, sh->dim, sh->dim, d,
       &one, &hz[(sh->l)*d], d, shp_p_w->a, d, &zero, shp_p_w->b, sh->dim);
-
-
-///* Calculate H V. */
-  //cblas_zhemm(CblasColMajor, CblasLeft, CblasUpper, d, d, &one, pd->pt, d, hz,
-  //    d, &zero, shp_p_w->a, d);
-  ///* Calculate V^dag (HV). */
-  //cblas_zgemm(CblasColMajor, CblasConjTrans, CblasNoTrans, d, d, d, &one, hz, d,
-  //    shp_p_w->a, d, &zero, shp_p_w->b, d);
 }
 
 /*
@@ -683,7 +657,7 @@ void zshi(complex double *a, zshi_w *w) {
     sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
-  for (i=0; i<9; i++) {
+  for (i = 0; i < 9; i++) {
     a[i] = w->data->b[i];
   }
 }
@@ -727,10 +701,10 @@ zshp_w *zshp_w_alloc(zsh *sh) {
    * hence we initialize here. */
   w->msz = -1;
   w->magz_i = -1;
-  for (i=0; i<sh->ninter; i++) {
+  for (i = 0; i < sh->ninter; i++) {
     w->shi_w[i] = zshi_w_alloc(sh->inv_data[i]);
     if (w->shi_w[i] == 0) {
-      for (j=0; j<i; j++) {
+      for (j = 0; j < i; j++) {
         free(w->shi_w[i]);
       }
       free(w->shp_p_w);
@@ -760,7 +734,7 @@ void zshp_w_free(zshp_w *w) {
   int i;
 
   zshp_p_w_free(w->shp_p_w);
-  for (i=0; i<w->ninter; i++) {
+  for (i = 0; i < w->ninter; i++) {
     zshi_w_free(w->shi_w[i]);
   }
   free(w->shi_w);
@@ -812,7 +786,7 @@ void zshp(complex double *a, complex double *hz, int int_i, zsh *sh, zshp_w *w) 
   }
 
   if (!strcmp("zeeman", sh->inter[int_i])) {
-    for (i=0; i<2; i++) {
+    for (i = 0; i < 2; i++) {
       zshp_p(hz, sh, int_i+i, w->shp_p_w);
       zshp_parse(&((sh->inv_data[int_i])->b[i*w->msz]), sh, int_i+2,
           w->shp_p_w);

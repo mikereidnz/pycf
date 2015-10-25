@@ -600,7 +600,10 @@ cdef class SpinHamiltonian:
 
             if inter == 'hyperfine':
                 dh = 2*self.Sz+1 + 2*self.Iz+1
-                self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.I_matel, self.S_matel), dtype=np.complex128)]
+                # The ordering of S_matel and I_matel is opposite to what makes
+                # intuitive sense here... should probably figure this out
+                # sometime.
+                self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.S_matel, self.I_matel), dtype=np.complex128)]
                 self.nsh += 1
                 # Three hyperfine values plus three Euler rotation parameters.
                 self.nobs += 6
@@ -653,7 +656,7 @@ cdef class SpinHamiltonian:
             every interaction specified when the SpinHamiltonian was created.
             These must have the following name attributes: 'MAGX', 'MAGY', and
             'MAGZ' for Zeeman interactions; 'HYP' for hyperfine interactions;
-            'QUAD' for quadrupole interactions.  Finally, even if the
+            'EQHYP' for quadrupole interactions.  Finally, even if the
             SpinHamiltonian does not describe Zeeman interactions the 'MAGZ'
             tensor must be provided for state-label sorting. 
         """
@@ -705,31 +708,13 @@ cdef class SpinHamiltonian:
         if not self.pro_data_set:
             raise ValueError("The spin Hamiltonian interaction is missing projection data.")
 
-        # Check whether the provided Hamiltonian contains Zeeman interaction
-        # matrix elements, in which case we create a separate Hamiltonian to
-        # perform the spin Hamiltonian projection which has these matrix
-        # elements removed.  This is done since we use built-in field-strengths
-        # for magx, magy, and magz. 
-        zeeman_tensors = ['MAGX', 'MAGY', 'MAGZ']
-        pro_h_tensors = []
-        create_pro_h = False
-        for t in h:
-            if t.name not in zeeman_tensors:
-                pro_h_tensors += [t]
-            else:
-                create_pro_h = True
-        
-        if create_pro_h:
-            tmp_coeff = h.coeff_dict
-            h = Hamiltonian(pro_h_tensors)
-            h.set_coeff(tmp_coeff)
 
         # If not present, add small magnetic field to Hamiltonian to order
         # states.
         if 'MAGZS' not in h.coeff_dict:
             for t in self.tensors:
                 if t.name == 'MAGZ':
-                    magzs = 0.001 * t
+                    magzs = 0.0001 * t
                     magzs.name = 'MAGZS'
             
             tmp_h_coeff = h.coeff_dict
@@ -737,29 +722,25 @@ cdef class SpinHamiltonian:
             h = Hamiltonian([magzs] + h.tensors)
             h.set_coeff(tmp_h_coeff)
 
-        if self.Iz != 0:
-            # If not present, add small hyperfine interaction to break
-            # degeneracy. 
-            if 'HYPS' not in h.coeff_dict:
-                for t in self.tensors:
-                    if t.name == 'HYP':
-                        hyps = 0.00 * t
-                        hyps.name = 'HYPS'
 
-            #if 'EQHYPS' not in h.coeff_dict:
-            #    for t in self.tensors:
-            #        if t.name == 'EQHYP':
-            #            eqhyps = 0.01 * t
-            #            eqhyps.name = 'EQHYPS'
+        # Check whether the provided Hamiltonian contains spin Hamiltonian
+        # interaction matrix elements, in which case we create a separate
+        # Hamiltonian to perform the spin Hamiltonian projection which has these
+        # matrix elements removed.  
+        pro_tensor_list = ['MAGX', 'MAGY', 'MAGZ', 'HYP', 'EQHYP']
+        pro_h_tensors = []
+        create_pro_h = False
+        for t in h:
+            if t.name not in pro_tensor_list:
+                pro_h_tensors += [t]
+            else:
+                create_pro_h = True
 
-            tmp_h_coeff = h.coeff_dict
-            tmp_h_coeff['HYPS'] = 0
-            #tmp_h_coeff['EQHYPS'] = 1
-            #h = Hamiltonian([hyps, eqhyps] + h.tensors)
-            h = Hamiltonian([hyps] + h.tensors)
-            h.set_coeff(tmp_h_coeff)
+        if create_pro_h:
+            tmp_coeff = h.coeff_dict
+            h = Hamiltonian(pro_h_tensors)
+            h.set_coeff(tmp_coeff)
 
-        
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=2, mode="fortran"]> z
         shp_w = zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"));
@@ -1345,26 +1326,6 @@ cdef class ESHFitRunner(object):
 
         sh.set_pro_data(sh_tensors)
 
-        # Check whether the provided Hamiltonian contains Zeeman interaction
-        # matrix elements, in which case we create a separate Hamiltonian to
-        # perform the spin Hamiltonian projection which has these matrix
-        # elements removed.  This is done since we use built-in field-strengths
-        # for magx, magy, and magz. 
-        zeeman_tensors = ['MAGX', 'MAGY', 'MAGZ']
-        pro_h_tensors = []
-        create_pro_h = False
-        for t in h:
-            if t.name not in zeeman_tensors:
-                pro_h_tensors += [t]
-            else:
-                create_pro_h = True
-        
-        if create_pro_h:
-            self.hpro = Hamiltonian(pro_h_tensors)
-            self.hpro.set_coeff(self.h.coeff_dict)
-        else:
-            self.hpro = None
-
         # If not present, add small magnetic field to Hamiltonian to order
         # states.
         magzs = None
@@ -1380,6 +1341,25 @@ cdef class ESHFitRunner(object):
             tmp_h_coeff['MAGZS'] = 1
             h = Hamiltonian([magzs] + h.tensors)
             h.set_coeff(tmp_h_coeff)
+
+        # Check whether the provided Hamiltonian contains spin Hamiltonian
+        # interaction matrix elements, in which case we create a separate
+        # Hamiltonian to perform the spin Hamiltonian projection which has these
+        # matrix elements removed.  
+        pro_tensor_list = ['MAGX', 'MAGY', 'MAGZ', 'HYP', 'EQHYP']
+        pro_h_tensors = []
+        create_pro_h = False
+        for t in h:
+            if t.name not in pro_tensor_list:
+                pro_h_tensors += [t]
+            else:
+                create_pro_h = True
+        
+        if create_pro_h:
+            self.hpro = Hamiltonian(pro_h_tensors)
+            self.hpro.set_coeff(self.h.coeff_dict)
+        else:
+            self.hpro = None
 
         if self.n_p_real > len(ex) + sh.nsh:
             raise ValueError("The total (real and imaginary) number of parameters "
