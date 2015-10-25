@@ -5,19 +5,18 @@
 #include <complex.h>
 #include <gsl/gsl_cblas.h>
 
-#include <cfl_crs.h>
+#include "cfl_csr.h"
 
-#include "rcm.h"
-#include <cfl_tensor.h>
-#include <cfl_h.h>
-#include <cfl_sh.h>
+#include "cfl_tensor.h"
+#include "cfl_h.h"
+#include "cfl_sh.h"
 
 /* This file contains tests for:
  *  * tensor allocation and scaling/addition functions
  *  * hamiltonian allocation, and diagonalization
  *  * spin hamiltonian allocation and projection
  *
- * Tests in this file depend on a functional crs implementation, so run crs_test
+ * Tests in this file depend on a functional csr implementation, so run csr_test
  * as a prerequisite. 
  */
 
@@ -136,7 +135,7 @@ int main (void)
 
   zt *t3;
   t3 = zt_sa("cten", t1, t2, alpha, beta);
-  zhcrs2zha(t3->matel, c);
+  zhcsr2zha(t3->matel, c);
 
   printf("zt_sa:\n");
   zequ_chk(ztsa_res, c, 16);
@@ -147,7 +146,7 @@ int main (void)
     2-4*I, 4, 4+6*I, -6*I, 2-6*I, 4-6*I, 6};
 
   t3 = zt_s("cten", t1, alpha);
-  zhcrs2zha(t3->matel, c);
+  zhcsr2zha(t3->matel, c);
 
   printf("zt_s:\n");
   zequ_chk(zts_res, c, 16);

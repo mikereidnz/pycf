@@ -41,9 +41,6 @@
  * diagonalization (see LAPACK zheevr for detailed description). */
 #define ZHEEVR_ABSTOL         -1.0
 
-/* The maximum number of blocks per Hamiltonian. */
-#define CFL_MAX_BLOCK_NUM     20
-
 /* The starting value of the chi^2 fit that each Hamiltonian/Spin Hamiltonian
  * contribution to the total chi^2 is normalized to. */
 #define CFL_MIN_START_CHI2    1e5

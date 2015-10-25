@@ -5,7 +5,6 @@
 
 #include "cfl_config.h"
 #include "cfl_csr.h"
-#include "rcm.h"
 #include "cfl_h.h"
 
 void equ_chk(complex double *a, complex double *b, size_t n) {
@@ -280,18 +279,9 @@ int main (void) {
   zhcsr_free(c20_zhmm);
   zcsr_free(c20_zmm);
 
-  /* RCM sort test. */
+  /* Connected components test. */
   int p[n];
-  int pa[28] = {0, 1, 4, 2, 5, 3, 8, 6, 9, 7, 12, 10, 13, 11, 16, 14, 17, 15,
-    20, 18, 21, 19, 24, 22, 25, 23, 26, 27};
-  signed char mask[n];
-  int deg[n];
   int nblocks;
-  int block_dim[CFL_MAX_BLOCK_NUM];
-
-  printf("rcm test:\n");
-  RCM_FUNC(genrcmi)(n, 0, c20_zm->row_ptr, c20_zm->col_in, p, mask, deg, &nblocks, block_dim);
-  int_equ_chk(p, pa, n);
 
   int cc_a[28] = {0,  1,  2,  3,  2,  3,  4,  5,  4,  5,  6,  7,  6,  7,  8,  9,
     8,  9, 10, 11, 10, 11, 12, 13, 12, 13, 14, 15};

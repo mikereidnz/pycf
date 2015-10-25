@@ -11,7 +11,6 @@
 #include "cfl_h.h"
 #include "cfl_sh.h"
 
-#include "rcm.h"
 #include "cfl_min.h"
 #include "basinhopping.h"
 #include "cfl_h_fit.h"

@@ -194,17 +194,33 @@ void zheevd_w_free(zheevd_w *heevd_w) {
   free(heevd_w);
 }
 
-/* Read RCM ordered CRS matrix into pre-allocated blocks. 
+/* 
+ * Read block-diag ordered CSR matrix into pre-allocated blocks and diagonalize
+ * them. 
  *
  * Parameters
  * ----------
- *  nblocks     The number of blocks.
- *  blocks      Array of zblock structures to be filled. 
- *  csr_m       The block diagonalized CRS matrix. 
+ *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
+ *          'V' then both eigenvalues and eigenvectors are computed.
+ *  w       Pointer to double valued array of length n to which eigenvalues
+ *          will be written upon exit.  
+ *  zb      Pointer to array of length nblocks containing pointers to complex
+ *          double valued arrays of length n*n with n the length of the
+ *          respective block.
+ *  nblocks The number of blocks.
+ *  blocks  Array of zblock structures.
+ *  csr_m       The block diagonalized CSR matrix. 
+ *  diag_w  The diagonalization workspace.
+ *  abstol  The absolute error tolerance to which each eigenvector is required.
  */
-inline void zh_parse_blocks(int nblocks, zblock **blocks, zcsr *csr_m) {
+inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks, 
+    zblock **blocks, zcsr *csr_m, zheevd_w *diag_w, double abstol) {
   int i, ii, j, jj, vi, bi, bd, bri;
+  int lda, ldz, il, iu, info;
+  double vl, vu;
+  char lapack_err[] = "LAPACKE_zhpeevr failed with error code: 0";
 
+  info = 0;   /* LAPACK return value. */
   vi = 0;     /* Value index. */
   bi = 0;     /* Block index. */
   bri = 0;    /* Index of first row of current block. */
@@ -227,58 +243,22 @@ inline void zh_parse_blocks(int nblocks, zblock **blocks, zcsr *csr_m) {
         }
       }
     }
+
+    lda = bd;
+    ldz = bd;
+    if (job == 'V') {
+      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', bd,
+          blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w->m), &w[bri],
+          zb[bi], ldz, diag_w->isuppz, diag_w->work, diag_w->lwork,
+          diag_w->rwork, diag_w->lrwork, diag_w->iwork, diag_w->liwork);
+    }
+    else {
+      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'N', 'A', 'U', bd,
+          blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w->m), &w[bri],
+          NULL, ldz, diag_w->isuppz, diag_w->work, diag_w->lwork,
+          diag_w->rwork, diag_w->lrwork, diag_w->iwork, diag_w->liwork);
+    }
     bri += bd;
-  }
-}
-
-/* Diagonalize blocks of RCM ordered Hamiltonian. 
- *
- * Parameters
- * ----------
- *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
- *          'V' then both eigenvalues and eigenvectors are computed.
- *  w       Pointer to double valued array of length n to which eigenvalues
- *          will be written upon exit.  
- *  zb      Pointer to array of length nblocks containing pointers to complex
- *          double valued arrays of length n*n with n the length of the
- *          respective block.
- *  nblocks The number of blocks.
- *  blocks  Array of zblock structures.
- *  diag_w  The diagonalization workspace.
- *  abstol  The absolute error tolerance to which each eigenvector is required.
- */
-inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks, 
-    zblock **blocks, zheevd_w *diag_w, double abstol) {
-  int i, bri, bi;
-  int n, lda, ldz, il, iu, info;
-  double vl, vu;
-  char lapack_err[] = "LAPACKE_zhpeevr failed with error code: 0";
-
-  bri = 0; /* Index of first row of current block. */
-  info = 0;
-  if (job == 'V') {
-    for (bi = 0; bi < nblocks; bi++) {
-      n = blocks[bi]->dim;
-      lda = blocks[bi]->dim;
-      ldz = blocks[bi]->dim;
-      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', n, blocks[bi]->a, lda,
-          vl, vu, il, iu, abstol, &(diag_w->m), &w[bri], zb[bi], ldz, diag_w->isuppz,
-          diag_w->work, diag_w->lwork, diag_w->rwork, diag_w->lrwork, diag_w->iwork,
-          diag_w->liwork);
-      bri += blocks[bi]->dim;
-    }
-  }
-  else {
-    for (bi = 0; bi < nblocks; bi++) {
-      n = blocks[bi]->dim;
-      lda = blocks[bi]->dim;
-      ldz = blocks[bi]->dim;
-      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'N', 'A', 'U', n, blocks[bi]->a, lda,
-          vl, vu, il, iu, abstol, &(diag_w->m), &w[bri], NULL, ldz, diag_w->isuppz,
-          diag_w->work, diag_w->lwork, diag_w->rwork, diag_w->lrwork, diag_w->iwork,
-          diag_w->liwork);
-      bri += blocks[bi]->dim;
-    }
   }
 
   if (info != 0) {
@@ -307,12 +287,6 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
 inline void zh_parse_ev(complex double *z, complex double **zb, int n, 
     int nblocks, zblock **blocks, int *crd_blk_perm, int *w_perm) {
   int bi, bri, i, ii, j, jj;
-
-  //FIXME: looping to return z to 0... either memset, or some index array that
-  //records the nz elements and only touches them...
-  for (i = 0; i < n*n; i++) {
-    z[i] = 0;
-  }
 
   bri = 0;   /* Index of first row of current block. */
   for (bi = 0; bi < nblocks; bi++) {
@@ -413,7 +387,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
   }
 
   /* Allocation for summing matrix elements of tensors.  The zhsam function
-   * calculates C for C = alpha A + beta C, for A, B, and C CRS matrices and
+   * calculates C for C = alpha A + beta C, for A, B, and C CSR matrices and
    * alpha and beta complex scalars.  The first two matrix elements are summed
    * directly with respective coefficients set for alpha and beta.  Further
    * matrix elements are then iteratively added to the previous result.  Since
@@ -762,7 +736,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     free(hd_w);
     CFL_ERROR_NULL("zheevd_w_alloc failed for hd_w->diag_w");
   }
-  
+
   hd_w->w_perm = (int *) calloc(zcsr_h->n, sizeof(int));
   if (hd_w->w_perm == 0) {
     for (j = 0; j < nblocks; j++) {
@@ -859,16 +833,15 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
   else
     zhcsrsm((h->t[0])->matel, hd_w->coeff_w[0], h->coeff[0]);
 
-  /* Convert the Hamiltonian from Hermitian CRS to standard CRS, then apply RCM
-   * permutation, and finally convert to dense storage. */
+  /* Convert the Hamiltonian from Hermitian CSR to standard CSR, then apply
+   * block-diag permutation, and finally convert to dense storage. */
   zhcsr2zcsr(hd_w->coeff_w[hd_w->lcoeff_w-1], hd_w->zcsr_h);
 
   zcsr_row_perm(hd_w->zcsr_h, hd_w->blk_rp_h, hd_w->blk_perm);
   zcsr_col_perm(hd_w->blk_rp_h, hd_w->blk_cp_h, hd_w->blk_perm, hd_w->blk_pj);
 
-  zh_parse_blocks(hd_w->nblocks, hd_w->blocks, hd_w->blk_cp_h);
-  zh_diag_blocks(job, w, hd_w->zb, hd_w->nblocks, hd_w->blocks, hd_w->diag_w,
-      hd_w->abstol);
+  zh_diag_blocks(job, w, hd_w->zb, hd_w->nblocks, hd_w->blocks, hd_w->blk_cp_h,
+      hd_w->diag_w, hd_w->abstol);
 
   /* Check whether we have to determine the permutation required to sort
    * eigenvalues from smallest to largest. */
@@ -887,6 +860,15 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
       hd_w->w_perm[wptr[i] - w] = i;
     }
     free(wptr);
+    
+    if (job == 'V') {
+      /* zh_parse_ev only ever touches the same elements; so we set z to zero
+       * during the first zhd call. */
+      for (i = 0; i < h->n*h->n; i++) {
+        z[i] = 0;
+      }
+    }
+
   }
 
   /* Permute the eigenvalue vector. */ 
