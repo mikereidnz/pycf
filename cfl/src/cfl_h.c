@@ -220,9 +220,7 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
   double vl, vu;
   char lapack_err[] = "LAPACKE_zhpeevr failed with error code: 0";
 
-  info = 0;   /* LAPACK return value. */
   vi = 0;     /* Value index. */
-  bi = 0;     /* Block index. */
   bri = 0;    /* Index of first row of current block. */
   for (bi = 0; bi < nblocks; bi++) {
     bd = blocks[bi]->dim;             /* Current block dimension. */
@@ -243,24 +241,38 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
         }
       }
     }
+    bri += bd;
+  }
 
-    lda = bd;
-    ldz = bd;
-    if (job == 'V') {
+  info = 0;   /* LAPACK return value. */
+  bri = 0;    /* Index of first row of current block. */
+  if (job == 'V') {
+    //#pragma omp parallel for private(bi) schedule(dynamic)
+    for (bi = 0; bi < nblocks; bi++) {
+      bd = blocks[bi]->dim;            
+      lda = bd;
+      ldz = bd;
       info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', bd,
           blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w[bi]->m), &w[bri],
           zb[bi], ldz, diag_w[bi]->isuppz, diag_w[bi]->work, diag_w[bi]->lwork,
           diag_w[bi]->rwork, diag_w[bi]->lrwork, diag_w[bi]->iwork,
           diag_w[bi]->liwork);
+    bri += bd;
     }
-    else {
+  }
+  else {
+    //#pragma omp parallel for private(bi) schedule(dynamic)
+    for (bi = 0; bi < nblocks; bi++) {
+      bd = blocks[bi]->dim;
+      lda = bd;
+      ldz = bd;
       info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'N', 'A', 'U', bd,
           blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w[bi]->m), &w[bri],
           NULL, ldz, diag_w[bi]->isuppz, diag_w[bi]->work, diag_w[bi]->lwork,
           diag_w[bi]->rwork, diag_w[bi]->lrwork, diag_w[bi]->iwork,
           diag_w[bi]->liwork);
-    }
     bri += bd;
+    }
   }
 
   if (info != 0) {
