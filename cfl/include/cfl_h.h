@@ -91,7 +91,7 @@ typedef struct {
   /* The absolute error tolerance to which each eigenvector is required. */
   double abstol;
   /* LAPACKE_zheevr diagonalization workspace. */
-  zheevd_w *diag_w;
+  zheevd_w **diag_w;
   /* Permutation required to sort eigenvalues. */
   int *w_perm;
   /* The number of blocks. */

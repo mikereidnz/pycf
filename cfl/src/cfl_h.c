@@ -210,11 +210,11 @@ void zheevd_w_free(zheevd_w *heevd_w) {
  *  nblocks The number of blocks.
  *  blocks  Array of zblock structures.
  *  csr_m       The block diagonalized CSR matrix. 
- *  diag_w  The diagonalization workspace.
+ *  diag_w  Array of diagonalization workspaces.
  *  abstol  The absolute error tolerance to which each eigenvector is required.
  */
 inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks, 
-    zblock **blocks, zcsr *csr_m, zheevd_w *diag_w, double abstol) {
+    zblock **blocks, zcsr *csr_m, zheevd_w **diag_w, double abstol) {
   int i, ii, j, jj, vi, bi, bd, bri;
   int lda, ldz, il, iu, info;
   double vl, vu;
@@ -248,15 +248,17 @@ inline void zh_diag_blocks(char job, double *w, complex double **zb, int nblocks
     ldz = bd;
     if (job == 'V') {
       info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'V', 'A', 'U', bd,
-          blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w->m), &w[bri],
-          zb[bi], ldz, diag_w->isuppz, diag_w->work, diag_w->lwork,
-          diag_w->rwork, diag_w->lrwork, diag_w->iwork, diag_w->liwork);
+          blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w[bi]->m), &w[bri],
+          zb[bi], ldz, diag_w[bi]->isuppz, diag_w[bi]->work, diag_w[bi]->lwork,
+          diag_w[bi]->rwork, diag_w[bi]->lrwork, diag_w[bi]->iwork,
+          diag_w[bi]->liwork);
     }
     else {
       info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, 'N', 'A', 'U', bd,
-          blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w->m), &w[bri],
-          NULL, ldz, diag_w->isuppz, diag_w->work, diag_w->lwork,
-          diag_w->rwork, diag_w->lrwork, diag_w->iwork, diag_w->liwork);
+          blocks[bi]->a, lda, vl, vu, il, iu, abstol, &(diag_w[bi]->m), &w[bri],
+          NULL, ldz, diag_w[bi]->isuppz, diag_w[bi]->work, diag_w[bi]->lwork,
+          diag_w[bi]->rwork, diag_w[bi]->lrwork, diag_w[bi]->iwork,
+          diag_w[bi]->liwork);
     }
     bri += bd;
   }
@@ -357,12 +359,9 @@ void dvperm(int n, double *dx, int *perm) {
  *  h       The Hamiltonian to be diagonalized.
  */
 zhd_w *zhd_w_alloc(char job, zh *h) {
-  int i, j, k;
+  int i, j, k, nblocks;
   zcsr *zcsr_h;
-  int **lptr;
-  int *labels;
-  int nblocks, max_bdim;
-  int *block_dim;
+  int **lptr, *labels, *block_dim;
 
   zhcsr **coeff_w;
   zhd_w *hd_w;
@@ -480,7 +479,9 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     CFL_ERROR_NULL("calloc failed for block_dim");
   }
 
-  lptr = (int **) malloc(zcsr_h->n*sizeof(double *));
+  /* Pointer used to determine coordinates that sort the connected-components
+   * labels, and thus block-diag the Hamiltonian.  */
+  lptr = (int **) malloc(zcsr_h->n*sizeof(int *));
   if (lptr == 0) {
     for (i = 0; i < hd_w->lcoeff_w; i++) {
       zhcsr_free(hd_w->coeff_w[i]);
@@ -507,6 +508,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
   free(lptr);
   free(labels);
 
+  /* Alloc the row and column permuted csr matrices, and assosciated arrays,
+   * used for block-diagonalizing the Hamiltonian. */
   hd_w->blk_pj = (int *) calloc(hd_w->zcsr_h->nnz+1, sizeof(int));
   if (hd_w->blk_pj == 0) {
     for (i = 0; i < hd_w->lcoeff_w; i++) {
@@ -585,6 +588,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
       free(block_dim);
       CFL_ERROR_NULL("malloc failed for hd_w->zb");
     }
+
+    /* Find the block permutation in coordinate form. */
     hd_w->crd_blk_perm = (int *) malloc(zcsr_h->n*sizeof(int));
     if (hd_w->crd_blk_perm == 0) {
       for (i = 0; i < hd_w->lcoeff_w; i++) {
@@ -601,7 +606,6 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
       free(block_dim);
       CFL_ERROR_NULL("malloc failed for hd_w->crd_blk_perm");
     }
-    /* Find the block permutation in coordinate form. */
     for (i = 0; i < zcsr_h->n; i++) {
       hd_w->crd_blk_perm[hd_w->blk_perm[i]] = i;
     }
@@ -700,17 +704,9 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
    * required to the safe minimum machine precision. */
   hd_w->abstol = LAPACKE_dlamch('S');
 
-  /* Allocate single workspace for all diagonalizations, with the size
-   * determined by the maximum block size. */
-  max_bdim = 0;
-  for (i = 0; i < nblocks; i++) {
-    if (hd_w->blocks[i]->dim > max_bdim) {
-      max_bdim = block_dim[i];
-    }
-  }
-  free(block_dim);
-
-  hd_w->diag_w = (zheevd_w *) zheevd_w_alloc(job, max_bdim, hd_w->abstol); 
+  /* Allocate individual diag workspaces for each block.  While extravagant in
+   * memory use, it allows for easy parallel diagonalization.  */
+  hd_w->diag_w = (zheevd_w **) malloc(nblocks*sizeof(zheevd_w *));
   if (hd_w->diag_w == 0) {
     for (j = 0; j < nblocks; j++) {
       free(hd_w->blocks[j]->a);
@@ -737,13 +733,50 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     CFL_ERROR_NULL("zheevd_w_alloc failed for hd_w->diag_w");
   }
 
+  for (i = 0; i < nblocks; i++) {
+    hd_w->diag_w[i] = (zheevd_w *) zheevd_w_alloc(job, block_dim[i],
+        hd_w->abstol); 
+    if (hd_w->diag_w[i] == 0) {
+      for (j = 0; j < i; j++) {
+        zheevd_w_free(hd_w->diag_w[j]);
+      }
+      free(hd_w->diag_w);
+      for (j = 0; j < nblocks; j++) {
+        free(hd_w->blocks[j]->a);
+        free(hd_w->blocks[j]);
+      }
+      free(hd_w->blocks);
+      for (j = 0; j < hd_w->lcoeff_w; j++) {
+        zhcsr_free(hd_w->coeff_w[j]);
+      }
+      zcsr_free(zcsr_h);
+      free(hd_w->blk_perm);
+      zcsr_free(hd_w->blk_rp_h);
+      zcsr_free(hd_w->blk_cp_h);
+      free(hd_w->blk_pj);
+      free(hd_w->coeff_w);
+      if (job == 'V') {
+        for (j = 0; j < nblocks; j++) {
+          free(hd_w->zb[j]);
+        }
+        free(hd_w->zb);
+        free(hd_w->crd_blk_perm);
+      }
+      free(hd_w);
+      CFL_ERROR_NULL("zheevd_w_alloc failed for hd_w->diag_w[i]");
+    }
+  }
+  free(block_dim);
+
   hd_w->w_perm = (int *) calloc(zcsr_h->n, sizeof(int));
   if (hd_w->w_perm == 0) {
     for (j = 0; j < nblocks; j++) {
       free(hd_w->blocks[j]->a);
       free(hd_w->blocks[j]);
+      zheevd_w_free(hd_w->diag_w[j]);
     }
     free(hd_w->blocks);
+    free(hd_w->diag_w);
     for (j = 0; j < hd_w->lcoeff_w; j++) {
       zhcsr_free(hd_w->coeff_w[j]);
     }
@@ -760,7 +793,6 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
       free(hd_w->zb);
       free(hd_w->crd_blk_perm);
     }
-    zheevd_w_free(hd_w->diag_w);
     free(hd_w);
     CFL_ERROR_NULL("calloc failed for hd_w->w_perm");
   }
@@ -783,12 +815,13 @@ void zhd_w_free(zhd_w *hd_w) {
   free(hd_w->blk_pj);
   zcsr_free(hd_w->blk_cp_h);
   free(hd_w->coeff_w);
-  zheevd_w_free(hd_w->diag_w);
   for (i = 0; i < hd_w->nblocks; i++) {
     free(hd_w->blocks[i]->a);
     free(hd_w->blocks[i]);
+    zheevd_w_free(hd_w->diag_w[i]);
   }
   free(hd_w->blocks);
+  free(hd_w->diag_w);
   if (hd_w->zb != NULL) {
     for (i = 0; i < hd_w->nblocks; i++) {
       free(hd_w->zb[i]);
@@ -868,7 +901,6 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
         z[i] = 0;
       }
     }
-
   }
 
   /* Permute the eigenvalue vector. */ 
