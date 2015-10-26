@@ -1066,6 +1066,12 @@ void zcsr_col_perm(zcsr *m, zcsr *pm, int *p, int *pj) {
  */
 int zcsr_cc(zcsr *m, int *labels) {
   int i, j, k, label, s_top, *s;
+  for (i = 0; i < m->nnz; i++) {
+    if (cabs(m->val[i]) == 0) {
+      printf("nzz detected\n");
+    }
+  }
+
 
   /* Initialize to -1, designating an unvisited vertex. */
   for (i = 0; i < m->n; i++) {
@@ -1100,5 +1106,12 @@ int zcsr_cc(zcsr *m, int *labels) {
       label++;
     }
   }
+  
+  printf("label:\n");
+  /* Initialize to -1, designating an unvisited vertex. */
+  for (i = 0; i < m->n; i++) {
+    printf("%i ", labels[i]);
+  }
+  printf("\n");
   return label;
 }

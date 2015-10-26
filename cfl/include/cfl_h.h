@@ -96,6 +96,8 @@ typedef struct {
   int *w_perm;
   /* The number of blocks. */
   int nblocks;
+  /* The index of the first row of each block. */
+  int *bri;
   /* Array of blocks corresponding to irreducible representations. */
   zblock **blocks;
   /* Eigenvectors of blocks; only available if eigevector evaluation is
