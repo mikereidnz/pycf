@@ -47,6 +47,12 @@ typedef struct {
   zt **t;
   /* Tensor coefficients. */
   complex double *coeff;
+#ifdef _OPENMP
+  /* Allows the zhd_w_alloc caller to specify the number of cores available for
+   * diagonalization of this Hamiltonian.  If not modified by the caller,
+   * zhd_w_alloc will default to all cores available to the program. */
+  int num_procs;
+#endif /* _OPENMP */
 } zh;
 
 /* Workspace for LAPACKE_zheevr. */
@@ -61,13 +67,13 @@ typedef struct {
   double *rwork;
   /* Dimensions of LAPACKE_zheevr rwork. */
   int lrwork;
-  /* LAPACKE_zheevd IWORK. */
+  /* LAPACKE_zheevr IWORK. */
   int *iwork;
   /* Dimensions of LAPACKE_zheevr iwork. */
   int liwork;
   /* The total number of eigenvalues found by zheevr. */
   int m;
-} zheevd_w;
+} zheevr_w;
 
 /* Workspace type declaration for Hamiltonian diagonalization. */
 typedef struct {
@@ -91,18 +97,25 @@ typedef struct {
   /* The absolute error tolerance to which each eigenvector is required. */
   double abstol;
   /* LAPACKE_zheevr diagonalization workspace. */
-  zheevd_w **diag_w;
+  zheevr_w **diag_w;
   /* Permutation required to sort eigenvalues. */
   int *w_perm;
   /* The number of blocks. */
   int nblocks;
   /* The index of the first row of each block. */
   int *bri;
-  /* Array of blocks corresponding to irreducible representations. */
+  /* Array of blocks. */
   zblock **blocks;
   /* Eigenvectors of blocks; only available if eigevector evaluation is
    * requested. */
   complex double **zb;
+#ifdef _OPENMP
+  /* The parallelization limiting factor is the number of processors, not the
+   * number of blocks. */
+  int proc_limited;
+  /* The number of diagonalization workspaces. */
+  int ndiag_w;
+#endif
 } zhd_w;
 
 

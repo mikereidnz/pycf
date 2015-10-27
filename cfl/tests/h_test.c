@@ -297,8 +297,8 @@ int main (void)
   coeff[1] = 5;
   h = zh_alloc(14, 2, tens);
   zh_set_coeff(h, coeff);
-  hd_w = zhd_w_alloc('V', h);
-  zhd('V', w, z, h, hd_w);
+  hd_w = zhd_w_alloc('N', h);
+  zhd('N', w, z, h, hd_w);
   zhd_w_free(hd_w);
 
   //sh = zsh_alloc(2, "ce test");
