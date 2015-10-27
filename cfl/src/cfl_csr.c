@@ -37,6 +37,7 @@
 /*
  * Allocate storage, generate the sparsity pattern, and fill in the values of a
  * Hermitian sparse matrix in upper-triangular compressed sparse row format.
+ * Only the upper diagonal of the array a is inspected. 
  *
  * Parameters
  * ----------
@@ -44,31 +45,20 @@
  * n    The number of columns and rows of a. 
  */
 zhcsr *zhcsr_gen(complex double *a, int n) {
-  int i,j, vi, ri, nnz, zrow;
+  int i,j, vi, nnz;
   complex double *val;
   int *col_in;
   int *row_ptr;
 
   zhcsr *m;
-  
-  /* Determining the number of non-zero entries in the upper-triangular portion
-   * of a. Since we only check columns j >= i, all inspected elements may turn
-   * out to be zero; consequently, we add one to nnz in such cases to avoid the
-   * row from being dropped. */
 
   nnz = 0;    /* The number of non-zero elements. */
-  zrow = 1;   /* Indicator whether we're on a placeholder zero row. */
   for (i = 0; i < n; i++) {
     for (j = i; j < n; j++) {
       if (cabs(a[i*n+j]) != 0) {
         nnz++;
-        zrow = 0;
-      }
-      else if (j==(n-1) && zrow) {
-        nnz++;
       }
     }
-    zrow = 1;
   }
 
   m = (zhcsr *) malloc(sizeof(zhcsr));
@@ -97,34 +87,30 @@ zhcsr *zhcsr_gen(complex double *a, int n) {
   /* col_in is an array containing the column index of all non-zero entries of
    * m.  row_ptr is an array containing the entry number, that is the number
    * of non-zero entries that precede it, for each first non-zero entry of a
-   * given row.  Some rows only contain elements in the lower-triangular part
-   * and, since we're only checking the upper-triangular half, we include a
-   * single zero entry in the last column to prevent such rows from being
-   * dropped. */
+   * given row.  For matrices with a zero row, we still maintain an entry in
+   * row_ptr. */
   vi = 0;   /* Value index for the Hermitian CSR matrix. */
-  ri = 0;   /* The row index for the Hermitian CSR matrix. */
   for (i = 0; i < n; i++) {
     for (j = i; j < n; j++) {
       if (cabs(a[i*n + j]) != 0) {
+        if (row_ptr[i] == 0) {
+          /* First non-zero element in upper-diag of this row. */
+          row_ptr[i] = vi;
+        }
         val[vi] = a[i*n + j];
         col_in[vi] = j;
-        if (ri == i) {
-          row_ptr[ri] = vi;
-          ri++;
-        }
-        vi++;
-      }
-      else if(j == (n-1) && ri == i) {
-        val[vi] = 0;
-        col_in[vi] = j;
-        row_ptr[ri] = vi;
-        ri++;
         vi++;
       }
     }
+    if (row_ptr[i] == 0) {
+      /* End of current row, and we haven't found a non-zero entry; add value
+       * index to row_ptr and proceed. */
+      row_ptr[i] = vi;
+    }
   }
-  /* CSR by convention sets the n+1 value of row_ptr to nnz, since this allows
-   * for convenient looping through values row by row. */
+  /* Restore first row_ptr element. */
+  row_ptr[0] = 0;
+  /* CSR by convention sets the n+1 value of row_ptr to nnz */
   row_ptr[n] = nnz;
 
   m->n = n;
@@ -138,7 +124,7 @@ zhcsr *zhcsr_gen(complex double *a, int n) {
 
 
 /* Allocate storage and generate Hermitian CSR matrix from non-Hermitian CSR
- * matrix. 
+ * matrix.  Only upper diagonal values are added.  
  *
  * Parameters
  * ----------
@@ -148,25 +134,16 @@ zhcsr *zhcsr_gen(complex double *a, int n) {
  *  val       Array containing the values of the non-zero elements.
  */
 zhcsr *zhcsr_alloc(int n, int *row_ptr, int *col_in, complex double *val) {
-  int i, k, vi, nnzd, nnzz, hnnz, zrow;
+  int i, k, vi, nnz;
   zhcsr *m;
 
-  /* The number of non-zeros for the Hermitian CSR matrix. */
-  hnnz = 0;
+  /* The number of non-zero values for the Hermitian CSR matrix. */
+  nnz = 0;
   for (i = 0; i < n; i++) {
     /* Check whether there's a non-zero element in the upper diagonal. */
-    if (row_ptr[i] == row_ptr[i+1]) {
-      /* Scipy style indptr compatibility. */
-      hnnz++;
-    }
-    else {
-      for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
-        if (col_in[k] >= i) {
-          hnnz++;
-        }
-        else if (row_ptr[i+1] == k+1) {
-          hnnz++;
-        }
+    for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
+      if (col_in[k] >= i) {
+        nnz++;
       }
     }
   }
@@ -175,12 +152,12 @@ zhcsr *zhcsr_alloc(int n, int *row_ptr, int *col_in, complex double *val) {
   if (m == 0) {
     CFL_ERROR_NULL("malloc failed for m");
   }
-  m->val = (complex double *) calloc(hnnz, sizeof(complex double));
+  m->val = (complex double *) calloc(nnz, sizeof(complex double));
   if (m->val == 0) {
     free(m);
     CFL_ERROR_NULL("calloc failed for m->val");
   }
-  m->col_in = (int *) malloc(hnnz*sizeof(int));
+  m->col_in = (int *) malloc(nnz*sizeof(int));
   if (m->col_in == 0) {
     free(m->val);
     free(m);
@@ -193,35 +170,31 @@ zhcsr *zhcsr_alloc(int n, int *row_ptr, int *col_in, complex double *val) {
     free(m);
     CFL_ERROR_NULL("calloc failed for m->row_ptr");
   }
-  m->n = n;
-  m->nnz = hnnz;
 
   vi = 0;     /* Value index for the Hermitian CSR matrix. */
-  zrow = 1;   /* Indicator whether we're on a placeholder zero row. */
   for (i = 0; i < n; i++) {
     for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
       if (col_in[k] >= i) {
         if (m->row_ptr[i] == 0) {
-          /* First element in upper-diag of this row. */
+          /* First non-zero element in upper-diag of this row. */
           m->row_ptr[i] = vi;
         }
         m->col_in[vi] = col_in[k];
         m->val[vi] = val[k];
-        zrow = 0;
         vi++;
       }
     }
-    if (zrow) {
+    if (m->row_ptr[i] == 0) {
+      /* End of current row, and we haven't found a non-zero entry; add value
+       * index to row_ptr and proceed. */
       m->row_ptr[i] = vi;
-      m->col_in[vi] = n-1;
-      m->val[vi] = 0;
-      vi++;
     }
-    zrow = 1;
   }
-  /* Restore first row_ptr element. */
+  /* Restore first row_ptr element; set last row_ptr element. */
   m->row_ptr[0] = 0;
-  m->row_ptr[n] = hnnz;
+  m->row_ptr[n] = nnz;
+  m->n = n;
+  m->nnz = nnz;
 
   return m;
 }
@@ -244,7 +217,7 @@ void zhcsr_free(zhcsr *m) {
  */
 zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
   int i,j,k;
-  int n, nnz, nnzd, nnzz, vi;
+  int n, nnz, vi;
   complex double *val;
   int *col_in;
   int *row_ptr;
@@ -253,19 +226,13 @@ zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
   n = hcsr_m->n;
 
   /* Determine the number of non-zero diagonal elements. */
-  nnzd = 0;
-  nnzz = 0;
+  nnz = 0;
   for (i = 0; i < n; i++) {
     if (hcsr_m->col_in[hcsr_m->row_ptr[i]] == i) {
-      nnzd++;
-    }
-    if (hcsr_m->val[hcsr_m->row_ptr[i]] == 0) {
-      /* Record the number of placeholder "non-zero" zeros required for
-       * Hermitian CSR (see zhcsr_gen for details).*/
-      nnzz++;
+      nnz++;
     }
   }
-  nnz = hcsr_m->nnz*2-nnzd-nnzz*2;
+  nnz = hcsr_m->nnz*2-nnz;
 
   row_ptr = (int *) calloc((n+1),sizeof(int));
   if (row_ptr == 0) {
@@ -281,19 +248,14 @@ zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
   vi = 0;
   for (i = 0; i < n; i++) {
     row_ptr[i] = vi; 
-
-    /* Fill lower-triangular values (excluding diagonal). */
+    /* The lower-triangular part; we need to seek through the column index of
+     * hcsr_m that corresponds to the current row. */
     for (j = 0; j < i; j++) {
       for (k = hcsr_m->row_ptr[j]; k < hcsr_m->row_ptr[j+1]; k++) {
         if (hcsr_m->col_in[k] == i) {
-          if (hcsr_m->val[k] == 0) {
-            continue;
-          }
-          else {
-            col_in[vi] = j;
-            vi++;
-            break;
-          }
+          col_in[vi] = j;
+          vi++;
+          break;
         }
         else if (hcsr_m->col_in[k] > i) {
           break;
@@ -303,14 +265,9 @@ zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
 
     /* Fill the upper-triangular values; these match the original matrix. */
     for (j = hcsr_m->row_ptr[i]; j < hcsr_m->row_ptr[i+1]; j++) {
-      if (hcsr_m->val[j] != 0) {
-        /* Ensure all placeholder "non-zero" zeros are removed, since we don't
-         * require them if we store the lower diagonal. */
-        col_in[vi] = hcsr_m->col_in[j];
-        vi++;
-      }
+      col_in[vi] = hcsr_m->col_in[j];
+      vi++;
     }
-
   }
   row_ptr[n] = nnz;
 
@@ -358,13 +315,14 @@ void zcsr_free(zcsr *m) {
  */
 void zhcsr2zcsr(zhcsr *hcsr_m, zcsr *csr_m) {
   int i, j;
-  int hvi, row;
+  int row, utvi;
 
-  row = 0;
+  row = 0;  /* Index of the current row. */
+  utvi = 0;  /* Value index of the upper-triangular portion. */
   for (i = 0; i < csr_m->nnz; i++) {
     if (csr_m->col_in[i] < row) {
-      /* The lower-triangular part; we need to seek the val index of hcsr_m that
-       * corresponds to the current column. */
+      /* The lower-triangular part; we need to seek through the column index of
+       * hcsr_m that corresponds to the current row. */
       for(j = hcsr_m->row_ptr[csr_m->col_in[i]]; 
           j < hcsr_m->row_ptr[csr_m->col_in[i]+1]; j++) {
         if (hcsr_m->col_in[j] == row) {
@@ -374,14 +332,10 @@ void zhcsr2zcsr(zhcsr *hcsr_m, zcsr *csr_m) {
       }
     }
     else {
-      /* Process the upper-triangular portion of the current row.  We have to
-       * update hvi for the current row in case the hermitian value index is out
-       * of sync due to "non-zero zeros" that have been dropped from
-       * csr_m->row_ptr. */
-      hvi = hcsr_m->row_ptr[row]; 
+      /* Process the upper-triangular portion of the current row. */
       for (; i < csr_m->row_ptr[row+1]; i++) {
-        csr_m->val[i] = hcsr_m->val[hvi];
-        hvi++;
+        csr_m->val[i] = hcsr_m->val[utvi];
+        utvi++;
       }
       row++;
       i--;
@@ -507,69 +461,34 @@ void zcsr2zha(zcsr *csr_m, complex double *a) {
  * n    The number of rows of A, B, and C. 
  */
 zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
-  int i,j,k;
-  int ai, bi;
-  int nnz, nnzz;
+  int i, j, k, ai, bi;
+  int n, nnz, match;
   complex double *val;
   int *col_in;
   int *row_ptr;
   zhcsr *hcsr_m;
-  int n;
-  int match, phz_count;
+
 
   if (a->n != b->n) {
     CFL_ERROR_NULL("matrix dimensions don't match");
   }
-  else
+  else {
     n = a->n;
+  }
   row_ptr = (int *) malloc((n+1)*sizeof(int));
   if (row_ptr == 0) {
     CFL_ERROR_NULL("malloc failed for row_ptr");
   }
 
-  /* Determine the number of non-zero elements and the row pointer of C.  We
-   * start by counting the number of zero place-holders (see zhcsr_gen for
-   * details) that are no longer required after summing a and b.  This is
-   * recorded per row.  If a placeholder occurs at a non-zero entry of matrix to
-   * be added, then we don't subtract 1 from phz_count, since it count as a
-   * match below, which will subtract one irrespectively. */
-  phz_count = 0;
-  row_ptr[0] = 0;
-  for (i = 0;  i < n; i++) {
-    if (a->val[a->row_ptr[i]] == 0) {
-      if (b->val[b->row_ptr[i]] == 0) {
-        row_ptr[i+1] = phz_count;
-      }
-      else if (b->col_in[b->row_ptr[i]] == a->col_in[a->row_ptr[i]]) {
-        row_ptr[i+1] = phz_count;
-      }
-      else {
-        phz_count--;
-        row_ptr[i+1] = phz_count;
-      }
-    } 
-    else if (b->val[b->row_ptr[i]] == 0) {
-      if (a->col_in[a->row_ptr[i]] == b->col_in[b->row_ptr[i]]) {
-        row_ptr[i+1] = phz_count;
-      }
-      else {
-        phz_count--;
-        row_ptr[i+1] = phz_count;
-      }
-    }
-    else {
-      row_ptr[i+1] = phz_count;
-    }
-  }
-  /* The row pointer of the first row is always zero, hence we do not need to
-   * worry whether a or b has the first entry. */ 
+  /* Match always calculates the i+1 number of matching col_in entries of a and
+   * b, which is subtracted from the c row_ptr during the next iteration.*/ 
   match=0;
   row_ptr[0] = 0;
   for (i = 0; i < n; i++) {
-    row_ptr[i] += a->row_ptr[i]+b->row_ptr[i]-match;
+    row_ptr[i] = a->row_ptr[i] + b->row_ptr[i] - match;
     for (j = a->row_ptr[i]; j < a->row_ptr[i+1]; j++) {
       for (k = b->row_ptr[i]; k < b->row_ptr[i+1]; k++) {
-        if (a->col_in[j]==b->col_in[k]) {
+        if (a->col_in[j] == b->col_in[k]) {
           match++;
           break;
         }
@@ -577,7 +496,7 @@ zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
     }
   }
 
-  nnz = a->nnz + b->nnz - match + phz_count;
+  nnz = a->nnz + b->nnz - match;
   row_ptr[n] = nnz;
 
   col_in = (int *) calloc(nnz,sizeof(int));
@@ -587,19 +506,15 @@ zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
     CFL_ERROR_NULL("calloc failed for col_in");
   }
 
-  /* Fill in the column index. */
+  /* The first two cases correspond to no further elements for either b or a on
+   * the current row, respectively.  The next two cases correspond to further
+   * elements for both a and b on the current row, yet one has a lower column
+   * index and hence comes first.  Finally, the only option that remains is that
+   * the column indices of both a and b match for the current row, hence we have
+   * a matching entry. */
+  ai = 0; 
+  bi = 0;
   for (i = 0; i < n; i++) {
-    /* The first two cases correspond to no further elements for either b or a
-     * on the current row, respectively.  The next two cases correspond to
-     * further elements for both a and b on the current row, yet one has a lower
-     * column index and hence comes first.  Finally, the only option that
-     * remains is that the column indices of both a and b match for the current
-     * row, hence we have a matching entry.  By resetting the ai and bi counters
-     * for each row, we automatically drop zero entries, since they are always
-     * at the end of a row and j only counts up to the required number of
-     * entries. */
-    ai = a->row_ptr[i];
-    bi = b->row_ptr[i];
     for (j = row_ptr[i]; j < row_ptr[i+1]; j++) {
       if (bi == b->row_ptr[i+1]) {
         col_in[j] = a->col_in[ai];
@@ -631,7 +546,7 @@ zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
     free(col_in);
     CFL_ERROR_NULL("malloc failed for hcsr_m");
   }
-  val = (complex double *) calloc(nnz,sizeof(complex double));
+  val = (complex double *) calloc(nnz, sizeof(complex double));
   if (val == 0) {
     free(row_ptr);
     free(col_in);
@@ -664,9 +579,7 @@ zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
  */
 void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
     complex beta) {
-  int i, j;
-  int ai = 0;
-  int bi = 0;
+  int i, j, ai, bi;
 
   /* The first two cases correspond to no further elements for either b or a on
    * the current row, respectively.  The next two cases correspond to further
@@ -674,10 +587,9 @@ void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
    * index and hence comes first.  Finally, the only option that remains is that
    * the column indices of both a and b match for the current row, hence we have
    * a matching entry. */
-
+  ai = 0;
+  bi = 0;
   for (i = 0; i < c->n; i++) {
-    ai = a->row_ptr[i];
-    bi = b->row_ptr[i];
     for (j = c->row_ptr[i]; j < c->row_ptr[i+1]; j++) {
       if (bi == b->row_ptr[i+1]) {
         c->val[j] = alpha * a->val[ai];
@@ -700,6 +612,7 @@ void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
     }
   }
 }
+
 
 /*
  * Allocate storage for multiplication of Hermitian CSR matrix by a double
@@ -1065,13 +978,7 @@ void zcsr_col_perm(zcsr *m, zcsr *pm, int *p, int *pj) {
  *          component index of each row. 
  */
 int zcsr_cc(zcsr *m, int *labels) {
-  int i, j, k, label, s_top, *s;
-  for (i = 0; i < m->nnz; i++) {
-    if (cabs(m->val[i]) == 0) {
-      printf("nzz detected\n");
-    }
-  }
-
+  int i, ii, j, k, label, s_top, *s;
 
   /* Initialize to -1, designating an unvisited vertex. */
   for (i = 0; i < m->n; i++) {
@@ -1084,18 +991,18 @@ int zcsr_cc(zcsr *m, int *labels) {
   label = 0;
   /* Top of stack set to -2 indicates the end of the current connected
    * component. */
-  for (i = 0; i< m->n; i++) {
+  for (i = 0; i < m->n; i++) {
     if (labels[i] == -1) {
       s_top = i;
       s[i] = -2;
 
       while (s_top != -2) {
-        i = s_top;
-        s_top = s[i];
+        ii = s_top;
+        s_top = s[ii];
 
-        labels[i] = label;
+        labels[ii] = label;
 
-        for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
+        for (k = m->row_ptr[ii]; k < m->row_ptr[ii+1]; k++) {
           j = m->col_in[k];
           if (s[j] == -1) {
             s[j] = s_top;
@@ -1106,12 +1013,6 @@ int zcsr_cc(zcsr *m, int *labels) {
       label++;
     }
   }
-  
-  printf("label:\n");
-  /* Initialize to -1, designating an unvisited vertex. */
-  for (i = 0; i < m->n; i++) {
-    printf("%i ", labels[i]);
-  }
-  printf("\n");
+
   return label;
 }
