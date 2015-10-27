@@ -1,23 +1,17 @@
 TODO
 ====
-  * Add macro that sets the d->echisq_weight factor... probably should be
-    something at the upper limit possible given precision, since we'll
-    necessarily minimize... 
-  * Remove principal component state-label sorting from sh projection... since
-    with al=0 all states are degenerate in I, there's no point in finding the
-    principal component.
+  * Think about the efit/eshfit->chisq weight factor... should all (spin)
+    hamiltonians be normalized, or only the principal one?
   * Extra "seniority equivalent" label is currently added with label key T when
-    imported, but there's no mechanism to print this upon return... so, sort out
-    the handling of the seniority label in the printing of results
-    large matrices. Also, import as scipy.sparse then convert to cfl_sparse by
-    throwing out lower diag.  
+    imported, but there's no mechanism to print this upon return... 
   * When passing a void * type argument, does the function call have to cast to
     void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
   * Add weighting to spin Hamiltonian log.
-  * Tidy up summary printing.
+  * Print all parameters, even static ones, in a fit summary... Maybe add a
+    generic input section? 
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.

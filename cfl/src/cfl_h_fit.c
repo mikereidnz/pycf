@@ -35,11 +35,12 @@
  * Overview:
  * =========
  *
- * cfl_h_fit.c provides three objective functions for fitting crystal field
+ * cfl_h_fit.c provides several objective functions for fitting crystal field
  * parameters to energy levels and spin Hamiltonian data.  These are: efit_obj,
- * eshfit_obj, and eshfit_hpro_obj, which are, respectively, used for fitting
- * to:
+ * mevfit_obj, eshfit_obj, and eshfit_hpro_obj, which are, respectively, used
+ * for fitting to:
  *    + energy levels; 
+ *    + energy levels of multiple, distinct, Hamiltonians;
  *    + energy levels in addition to spin Hamiltonian data for cases where the
  *      complete Hamiltonian does not contain any terms that also occur in the
  *      spin Hamiltonian;
