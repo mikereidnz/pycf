@@ -510,9 +510,9 @@ int main (void)
   cfl_min_free(efit_lmin_obj);
   efit_data_free(efit_d);
 
-  /* Mev fit test. */
-  mevfit_data *mev_fd;
-  cfl_min_obj *mevfit_lmin_obj, *mevfit_min_obj;
+  /* Multi-Hamiltonian fit test. */
+  mhfit_data *mh_fd;
+  cfl_min_obj *mhfit_lmin_obj, *mhfit_min_obj;
   
   param_type **pa[2] = {p, p};
   zh *ha[2] = {h, h};
@@ -520,15 +520,15 @@ int main (void)
   int bc_blockdim[2] = {0, 0};
   ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
 
-  mev_fd = mevfit_data_alloc(2, ha, weights, bc_blockdim, exa, 6, pa);
-  mevfit_lmin_obj = cfl_gsl_min_setup(&mevfit_obj, NULL, 6, mev_fd, gsl_vector_bfgs2);
-  mevfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mevfit_lmin_obj);
+  mh_fd = mhfit_data_alloc(2, ha, weights, bc_blockdim, exa, 6, pa);
+  mhfit_lmin_obj = cfl_gsl_min_setup(&mhfit_obj, NULL, 6, mh_fd, gsl_vector_bfgs2);
+  mhfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mhfit_lmin_obj);
 
-  status = cfl_min(ce_x0, &fmin, NULL, mevfit_min_obj);
+  status = cfl_min(ce_x0, &fmin, NULL, mhfit_min_obj);
 
-  cfl_min_free(mevfit_min_obj);
-  cfl_min_free(mevfit_lmin_obj);
-  mevfit_data_free(mev_fd);
+  cfl_min_free(mhfit_min_obj);
+  cfl_min_free(mhfit_lmin_obj);
+  mhfit_data_free(mh_fd);
   zh_free(h);
 
   printf("Energy level only fit:\n");

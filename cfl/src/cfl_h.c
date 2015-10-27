@@ -123,8 +123,8 @@ void zh_set_coeff(zh *h, complex double *coeff) {
  *
  * Parameters
  * ----------
- *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
- *          'V' then both eigenvalues and eigenvectors are computed.
+ *  job     If 'N', only eigenvalues are computed.  If 'V' then both eigenvalues
+ *          and eigenvectors are computed.
  *  n       The dimension of matrix to be diagonalized; assumed to be symmetric.
  *  abstol  The absolute error tolerance to which each eigenvector is required.
  */
@@ -212,8 +212,9 @@ void zheevr_w_free(zheevr_w *heevr_w) {
  *
  * Parameters
  * ----------
- *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
- *          'V' then both eigenvalues and eigenvectors are computed.
+ *  job     If 'N', only eigenvalues are computed and hd_w->zb is not
+ *          referenced.  If 'V' then both eigenvalues and eigenvectors are
+ *          computed.
  *  w       Pointer to double valued array of length n to which eigenvalues
  *          will be written upon exit.  
  *  csr_m   The block diagonalized CSR matrix. 
@@ -395,8 +396,9 @@ void dvperm(int n, double *dx, int *perm) {
  *
  * Parameters
  * ----------
- *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
- *          'V' then both eigenvalues and eigenvectors are computed.
+ *  job     If 'N', only eigenvalues are computed and z is not referenced during
+ *          the zhd call.  If 'V', then both eigenvalues and eigenvectors are
+ *          computed.
  *  h       The Hamiltonian to be diagonalized.
  */
 zhd_w *zhd_w_alloc(char job, zh *h) {
@@ -412,20 +414,6 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     CFL_ERROR_NULL("malloc failed for hd_w");
   }
 
-  /* Allocation for matrix element scaling and addition. */
-  if (h->nt>1) {
-    coeff_w = (zhcsr **) malloc((h->nt-1)*sizeof(zhcsr *));
-    hd_w->lcoeff_w = h->nt-1;
-  }
-  else {
-    coeff_w = (zhcsr **) malloc((h->nt)*sizeof(zhcsr *));
-    hd_w->lcoeff_w = h->nt;
-  }
-  if (coeff_w == 0) {
-    free(hd_w);
-    CFL_ERROR_NULL("malloc failed for coeff_w");
-  }
-
   /* Allocation for summing matrix elements of tensors.  The zhsam function
    * calculates C for C = alpha A + beta C, for A, B, and C CSR matrices and
    * alpha and beta complex scalars.  The first two matrix elements are summed
@@ -438,11 +426,23 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
    * which we still have to allocate separate memory. 
    */
   if (h->nt>1) {
+    coeff_w = (zhcsr **) malloc((h->nt-1)*sizeof(zhcsr *));
+    hd_w->lcoeff_w = h->nt-1;
+  }
+  else {
+    coeff_w = (zhcsr **) malloc((h->nt)*sizeof(zhcsr *));
+    hd_w->lcoeff_w = h->nt;
+  }
+  if (coeff_w == 0) {
+    free(hd_w);
+    CFL_ERROR_NULL("malloc failed for coeff_w");
+  }
+  if (h->nt>1) {
     coeff_w[0] = zhcsrsam_alloc((h->t[0])->matel, (h->t[1])->matel);
     if (coeff_w[0] == 0) {
       free(hd_w);
       free(coeff_w);
-      CFL_ERROR_NULL("alloc failed for coeff_w");
+      CFL_ERROR_NULL("alloc failed for coeff_w[0]");
     }
     zhcsrsam((h->t[0])->matel, (h->t[1])->matel, coeff_w[0], h->coeff[0],
         h->coeff[1]);
@@ -454,7 +454,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
         for (j = 0; j < i; j++) {
           zhcsr_free(coeff_w[j]);
         }
-        CFL_ERROR_NULL("alloc failed for coeff_w");
+        CFL_ERROR_NULL("alloc failed for coeff_w[i]");
       }
       zhcsrsam(coeff_w[i-1], (h->t[i+1])->matel, coeff_w[i], 1, h->coeff[i+1]);
     }
@@ -464,7 +464,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     if (coeff_w[0] == 0) {
       free(hd_w);
       free(coeff_w);
-      CFL_ERROR_NULL("alloc failed for coeff_w");
+      CFL_ERROR_NULL("alloc failed for coeff_w[0]");
     }
   }
 
@@ -510,7 +510,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     free(labels);
     CFL_ERROR_NULL("calloc failed for hd_w->w_perm");
   }
-  /* We set the first element to -1, to allow zhd to check whether a previous
+  /* We set the first element to -1 to allow zhd to check whether a previous
    * evaluation has found the w_perm array. */
   hd_w->w_perm[0] = -1;
 
@@ -636,8 +636,9 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     }
   }
 
-  /* Allocate diag workspaces; the number of workspaces and size depends whether
-   * openmp is enabled.  If openmp is disabled, we use a single workspace. */
+  /* Allocate diag workspaces; the number of workspaces and size depends on
+   * whether openmp is enabled.  If openmp is disabled, we use a single
+   * workspace. */
   max_block_dim = 0;
   for (i = 0; i < nblocks; i++) {
     if (max_block_dim < block_dim[i]) {
@@ -655,7 +656,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
 
   if (hd_w->ndiag_w >= nblocks) {
     /* The limiting factor is the number of blocks; no point allocating space
-     * for more diagonalizations than there is blocks. */
+     * for more diagonalizations than there are blocks. */
     hd_w->ndiag_w = nblocks;
     hd_w->proc_limited = 0;
   }
@@ -731,8 +732,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     }
   }
 #else
-  /* OpenMP is disabled; we alloc a single diag workspace, with dimension big
-   * enough for the largest block. */
+  /* OpenMP is disabled; we alloc a single diag workspace, which is sufficient
+   * to diagonalize the largest block. */
   hd_w->diag_w[0] = (zheevr_w *) zheevr_w_alloc(job, max_block_dim,
       hd_w->abstol);
   if (hd_w->diag_w[0] == 0) {
@@ -924,8 +925,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     zcsr_col_perm(hd_w->blk_rp_h, hd_w->blk_cp_h, hd_w->blk_perm, hd_w->blk_pj);
 
     if (job == 'V') {
-      /* Find the block permutation in coordinate form, which we need to
-       * rearrange the eigenvectors into the original order after we
+      /* Find the block permutation in coordinate form, which we need for
+       * rearranging the eigenvectors into the original order after we
        * diagonalize. */
       hd_w->crd_blk_perm = (int *) malloc(zcsr_h->n*sizeof(int));
       if (hd_w->crd_blk_perm == 0) {

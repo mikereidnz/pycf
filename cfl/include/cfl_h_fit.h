@@ -108,7 +108,7 @@ typedef struct {
   ex_data **exa;
   /* The number of unique Hamiltonians. */
   int nh;
-  /* Index specifying which hd_w/eval entry corresponds to which mev_d entry. */
+  /* Index specifying which hd_w/eval entry corresponds to which mh_d entry. */
   int *hi;
   /* Array of pointers to Hamiltonian diagonalization workspaces. */
   zhd_w **hd_w;
@@ -120,7 +120,7 @@ typedef struct {
   param_type ***p;
   /* chi^2 weighting for first energy level vector. */
   double echisq_weight;
-} mevfit_data;
+} mhfit_data;
 
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {
@@ -165,9 +165,9 @@ extern "C" {
 #endif /* __cplusplus */
 efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx, param_type **p);
 void efit_data_free(efit_data *data);
-mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, 
+mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
     int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p); 
-void mevfit_data_free(mevfit_data *data);
+void mhfit_data_free(mhfit_data *data);
 eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, size_t n_zx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
@@ -176,15 +176,15 @@ int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bo
 int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
     *bounds, cfl_min_obj *min_obj); 
 double efit_obj(size_t n, double *x, double *grad, void *data);
-double mevfit_obj(size_t n, double *x, double *grad, void *data);
+double mhfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
 void efit_chi2(double *x, void *data, double *chi2);
-void mevfit_chi2(double *x, void *data, double *chi2);
+void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
 void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
-void mevfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
+void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj); 
 #ifdef __cplusplus

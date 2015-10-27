@@ -37,16 +37,16 @@
  *
  * cfl_h_fit.c provides several objective functions for fitting crystal field
  * parameters to energy levels and spin Hamiltonian data.  These are: efit_obj,
- * mevfit_obj, eshfit_obj, and eshfit_hpro_obj, which are, respectively, used
+ * mhfit_obj, eshfit_obj, and eshfit_hpro_obj, which are, respectively, used
  * for fitting to:
  *    + energy levels; 
  *    + energy levels of multiple, distinct, Hamiltonians;
  *    + energy levels in addition to spin Hamiltonian data for cases where the
- *      complete Hamiltonian does not contain any terms that also occur in the
- *      spin Hamiltonian;
+ *      complete Hamiltonian does not contain any interactions that also occur
+ *      in the spin Hamiltonian;
  *    + and energy levels in addition to spin Hamiltonian data for cases
- *      where the complete Hamiltonian contains terms that also occur in the
- *      spin Hamiltonian.
+ *      where the complete Hamiltonian contains interactions that also occur in
+ *      the spin Hamiltonian.
  * Note that in order to correctly fit spin Hamiltonian data the (complete or
  * dedicated projection) Hamiltonian must have a small magnetic field term in
  * the z-direction, since the chi^2 algorithm assumes that the spin projection
@@ -68,7 +68,7 @@
  * relative to the energy level weighting.
  *
  * The covariance matrix is calculated following Press et al, Numerical recipes,
- * 3rd edition, section 15.2.  Sigmas are evaluated by assuming a model fit
+ * 3rd edition, section 15.2.  sigmas are evaluated by assuming a model fit
  * (Press et al, page 780).  All weighting factors are set to unity, since while
  * the weighting is useful to force certain solutions, it cannot affect the
  * quality of the final fit. 
@@ -131,14 +131,13 @@ void efit_data_free(efit_data *data) {
   free(data);
 }
 
-/* Alloc data for fitting to multiple eigenvalue vectors. 
+/* Alloc data for fitting to multiple Hamiltonians. 
  *
  * Parameters
  * ----------
- *  n           The number of eigenvalue vectors. 
+ *  n           The number of Hamiltonians. 
  *  input_data  Array of eigenvalue data structs. 
- *  ha          Array of length n containing pointers to Hamiltonians for each
- *              eigenvalue vector.
+ *  ha          Array of length n containing pointers to Hamiltonians.
  *  weights     Array of length n with each entry specifying the chi^2 weighting
  *              of the corresponding ha entry.
  *  bc_blockdim The barycenter block dimension for each corresponding ha entry.
@@ -156,16 +155,16 @@ void efit_data_free(efit_data *data) {
  *  p           Array of length n to arrays of pointers to parameter type
  *              structs. 
  */
-mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights, 
+mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
     int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p) {
   int i, j, nh;
-  mevfit_data *data;
+  mhfit_data *data;
   long *lwork;
   int *iwork;
 
-  data = (mevfit_data *) malloc(sizeof(mevfit_data));
+  data = (mhfit_data *) malloc(sizeof(mhfit_data));
   if (data == 0) {
-    CFL_ERROR_NULL("malloc failed for mevfit_data");
+    CFL_ERROR_NULL("malloc failed for mhfit_data");
   }
 
   iwork = (int *) calloc(n,sizeof(int));
@@ -268,7 +267,7 @@ mevfit_data *mevfit_data_alloc(int n, zh **ha, double *weights,
   return data;
 }
 
-void mevfit_data_free(mevfit_data *data) {
+void mhfit_data_free(mhfit_data *data) {
   int i;
   free(data->hi);
   for (i = 0; i < data->nh; i++) {
@@ -482,7 +481,7 @@ inline double echisq(double *e, ex_data *d) {
  *  ex_data     Pointer to the experimental data struct.
  *  bc_blockdim The barycenter block dimension for this set of ex_data. 
  */
-inline double mevchisq(double *e, ex_data *d, int bc_blockdim) {
+inline double mhchisq(double *e, ex_data *d, int bc_blockdim) {
   int i, j;
   double chisq, bc_shift;
 
@@ -574,17 +573,17 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
 }
 
 /* Objective function for multi-eigenvalue vector fit. */
-double mevfit_obj(size_t n, double *x, double *grad, void *data) {
+double mhfit_obj(size_t n, double *x, double *grad, void *data) {
   int i, hi;
   double chisq;
-  mevfit_data *d = data;
+  mhfit_data *d = data;
 
   chisq = 0;
   for (i = 0; i < d->n; i++) {
     hi = d->hi[i];
     parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-    chisq += d->weights[i]*mevchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
+    chisq += d->weights[i]*mhchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
   }
 
   return chisq;
@@ -652,17 +651,17 @@ void efit_chi2(double *x, void *data, double *chi2) {
 
 /*  Function used to get an initial estimate of chi^2 values, for
  *  multi-eigenvalue vector fit. */
-void mevfit_chi2(double *x, void *data, double *chi2) {
+void mhfit_chi2(double *x, void *data, double *chi2) {
   int i, hi;
   double chisq;
-  mevfit_data *d = data;
+  mhfit_data *d = data;
 
   *chi2 = 0;
   for (i = 0; i < d->n; i++) {
     hi = d->hi[i];
     parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-    *chi2 += d->weights[i]*mevchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
+    *chi2 += d->weights[i]*mhchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
   }
   d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
 }
@@ -739,11 +738,11 @@ double efit_cov_df(double x, void *data) {
  * to the gsl derivative routines, allowing one to calculate the derivative of
  * each observable w.r.t. each parameter, thus yielding the covariance matrix.
  */
-double mevfit_cov_df(double x, void *data) {
+double mhfit_cov_df(double x, void *data) {
   int i, hi, ex_n;
   double chisq;
   cov_data *cov_d = (cov_data *)data;
-  mevfit_data *d = cov_d->obj_f_data;
+  mhfit_data *d = cov_d->obj_f_data;
 
   i = 0;
   ex_n = 0;
@@ -978,12 +977,12 @@ void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
  *          covariance matrix. 
  *  obj     The cfl_min_obj for which the minimization was run.
  */
-void mevfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
+void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   int i;
   size_t m, n;
   double sigma, chisq;
   gsl_function F;
-  mevfit_data *d = obj->obj_f_data;
+  mhfit_data *d = obj->obj_f_data;
 
   /* The number of parameters. */
   n = obj->n;
@@ -993,11 +992,11 @@ void mevfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
     m += d->exa[i]->n;
   }
 
-  F.function = &mevfit_cov_df;
+  F.function = &mhfit_cov_df;
 
   /* Estimate the uncertainty, assuming model fit and the same sigma for all
    * energy levels (pg. 780, Press et al. 3rd edition). */
-  mevfit_chi2(x0, d, &chisq);
+  mhfit_chi2(x0, d, &chisq);
   sigma = sqrt(chisq/(m-n));
 
   covariance_helper(m, n, NULL, NULL, F, x0, d, sigma, cov_inv);

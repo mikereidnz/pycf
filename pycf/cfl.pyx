@@ -969,15 +969,15 @@ cdef class EFitRunner(object):
         return(coeff, fmin)
 
 
-cdef class MevFitRunner(object):
+cdef class MHFitRunner(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
-    multiple eigenvalue vectors.  Typically, this would consist of one vector of
-    energy levels at zero field without hyperfine or quadrupole interactions,
-    complemented by a set of eigenvalue vectors at linearly independent magnetic
-    field orientations and possibly containing hyperfine interactions.  These
-    additional eigenvalues can either be measured or synthetically calculated
-    for specific crystal field levels from spin Hamiltonian data.  
+    multiple Hamiltonians.  Typically, this would consist of one Hamiltonian at
+    zero field without hyperfine or quadrupole interactions, complemented by a
+    set of Hamiltonians at linearly independent magnetic field orientations and
+    possibly containing hyperfine interactions.  The associated additional
+    eigenvalues can either be measured or synthetically calculated for specific
+    crystal field levels from spin Hamiltonian data.  
 
     The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
@@ -1026,7 +1026,7 @@ cdef class MevFitRunner(object):
     cpdef public list param_types
     cdef cfl.param_type ***param_arrays
     cdef np.ndarray p0_real
-    cdef cfl.mevfit_data *mevfit_data
+    cdef cfl.mhfit_data *mhfit_data
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
@@ -1180,16 +1180,16 @@ cdef class MevFitRunner(object):
 
         self.param_arrays = param_arrays 
         
-        self.mevfit_data = mevfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, self.n_p, self.param_arrays)
+        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, self.n_p, self.param_arrays)
 
-        self.fit_data_cap = PyCapsule_New(<void *>self.mevfit_data, "pycfl.MinData", NULL)
-        self.obj_f_cap = PyCapsule_New(<void *>&cfl.mevfit_obj, "pycfl.MinObjF", NULL)
-        self.cov_f_cap = PyCapsule_New(<void *>&cfl.mevfit_cov, "pycfl.MinCovF", NULL)
+        self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
+        self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
+        self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
         
-        # Run mevfit_chi2 so that the initial chi^2 weighting is set.
+        # Run mhfit_chi2 so that the initial chi^2 weighting is set.
         chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        cfl.mevfit_chi2(&x[0], self.mevfit_data, &chi2[0])
+        cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
 
     def __dealloc__(self):
         if self.ha != NULL:
@@ -1204,8 +1204,8 @@ cdef class MevFitRunner(object):
                     free(self.param_arrays[hi][i])
                 free(self.param_arrays[hi])
             free(self.param_arrays)
-        if self.mevfit_data != NULL:
-            cfl.mevfit_data_free(self.mevfit_data)
+        if self.mhfit_data != NULL:
+            cfl.mhfit_data_free(self.mhfit_data)
 
     def __iter__(self):
         for p in self.parameters:
@@ -1921,7 +1921,7 @@ def e_fit(parameters, h, ex, cfl_min):
 
 
 
-def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min):
+def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     multiple eigenvalue vectors.  Typically, this would consist of one vector of
@@ -1962,12 +1962,12 @@ def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min
         at 1, and the second column contains corresponding experimental energy
         level values. 
     """
-    mevfit = MevFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list)
-    (x, fmin) = mevfit.fit(cfl_min)
+    mhfit = MHFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list)
+    (x, fmin) = mhfit.fit(cfl_min)
 
-    summary = "===============\n"
-    summary+= "mev_fit summary\n"
-    summary+= "===============\n"
+    summary = "==============\n"
+    summary+= "mh_fit summary\n"
+    summary+= "==============\n"
     summary += gen_pycf_summary()
 
     # The number of degrees of freedom of the chi-squared distribution
@@ -1976,7 +1976,7 @@ def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min
         ndof += len(e)
     ndof -= len(parameters)
 
-    for i,h in enumerate(mevfit.h_list):
+    for i,h in enumerate(mhfit.h_list):
         h.coeff = x
         (w, z) = h.diag()
 
@@ -1984,7 +1984,7 @@ def mev_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min
         summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
         summary += "\n"
 
-    summary += gen_fit_summary(x, mevfit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
