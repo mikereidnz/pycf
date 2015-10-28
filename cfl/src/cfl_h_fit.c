@@ -24,6 +24,10 @@
 
 #include <gsl/gsl_deriv.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif /* _OPENMP */
+
 #include "cfl_h.h"
 #include "cfl_sh.h"
 #include "cfl_error.h"
@@ -37,8 +41,8 @@
  *
  * cfl_h_fit.c provides several objective functions for fitting crystal field
  * parameters to energy levels and spin Hamiltonian data.  These are: efit_obj,
- * mhfit_obj, eshfit_obj, and eshfit_hpro_obj, which are, respectively, used
- * for fitting to:
+ * mhfit_obj, eshfit_obj, and eshfit_hpro_obj, which are, respectively, used for
+ * fitting to:
  *    + energy levels; 
  *    + energy levels of multiple, distinct, Hamiltonians;
  *    + energy levels in addition to spin Hamiltonian data for cases where the
@@ -157,7 +161,8 @@ void efit_data_free(efit_data *data) {
  */
 mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
     int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p) {
-  int i, j, nh;
+  int i, j, nhd_w;
+  int num_procs;
   mhfit_data *data;
   long *lwork;
   int *iwork;
@@ -179,7 +184,6 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
     free(data);
     CFL_ERROR_NULL("calloc failed for lwork");
   }
-
   data->hi = (int *) calloc(n,sizeof(int));
   if (data->hi == 0) {
     free(iwork);
@@ -188,14 +192,32 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
     CFL_ERROR_NULL("calloc failed for data->hi");
   }
 
-  nh = 0;
+#ifdef _OPENMP
+  /* If we evaluate Hamiltonians in parallel, we need a workspace for each
+   * Hamiltonian. */
+  nhd_w = n;
+  num_procs = omp_get_num_procs();
+  if (num_procs > nhd_w) {
+    num_procs = num_procs/nhd_w;
+  } 
+  else {
+    num_procs = 1;
+  }
+  for (i = 0; i < n; i++) {
+    iwork[i] = i;
+    data->hi[i] = i;
+    ha[i]->num_procs = num_procs;
+  }
+#else
+  /* We only need a diag workspace for each unique Hamiltonian. */
+  nhd_w = 0;
   for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
-      if (j >= nh) {
+      if (j >= nhd_w) {
         data->hi[i] = j;
-        lwork[nh] = ha[i]->slabels->hash;
+        lwork[nhd_w] = ha[i]->slabels->hash;
         iwork[j] = i;
-        nh++;
+        nhd_w++;
         break;
       }
       else if (ha[i]->slabels->hash == lwork[j]) {
@@ -204,8 +226,9 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
       }
     }
   }
+#endif /* _OPENMP */
 
-  data->hd_w = (zhd_w **) malloc(nh*sizeof(zhd_w *));
+  data->hd_w = (zhd_w **) malloc(nhd_w*sizeof(zhd_w *));
   if (data->hd_w == 0) {
     free(data->hi);
     free(data);
@@ -213,7 +236,7 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
     free(lwork);
     CFL_ERROR_NULL("malloc failed for data->hd_w");
   }
-  data->h_eval = (double **) malloc(nh*sizeof(double *));
+  data->h_eval = (double **) malloc(nhd_w*sizeof(double *));
   if (data->h_eval == 0) {
     free(data->hi);
     free(data->hd_w);
@@ -223,7 +246,7 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
     CFL_ERROR_NULL("malloc failed for data->h_eval");
   }
 
-  for (i = 0; i < nh; i++) {
+  for (i = 0; i < nhd_w; i++) {
     data->h_eval[i] = (double *) calloc(ha[iwork[i]]->n,sizeof(double));
     if (data->h_eval[i] == 0) {
       for (j = 0; j < i; j++) {
@@ -260,17 +283,18 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
   data->weights = weights;
   data->bc_blockdim = bc_blockdim;
   data->exa = exa;
-  data->nh = nh;
+  data->nhd_w = nhd_w;
   data->n_zx = n_zx;
   data->p = p;
-
+  
   return data;
 }
 
 void mhfit_data_free(mhfit_data *data) {
   int i;
+
   free(data->hi);
-  for (i = 0; i < data->nh; i++) {
+  for (i = 0; i < data->nhd_w; i++) {
     free(data->h_eval[i]);
     zhd_w_free(data->hd_w[i]);
   }
@@ -579,6 +603,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
   mhfit_data *d = data;
 
   chisq = 0;
+#pragma omp parallel for private(i, hi) reduction(+:chisq) schedule(static)
   for (i = 0; i < d->n; i++) {
     hi = d->hi[i];
     parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);

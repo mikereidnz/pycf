@@ -256,7 +256,7 @@ inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w) {
 #ifdef _OPENMP
   if (hd_w->proc_limited) {
     /* Each core has a dedicated workspace, enumerated by the thread number. */
-#pragma omp parallel for private(bi) schedule(dynamic)
+#pragma omp parallel for private(bi) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
       tn = omp_get_thread_num();
       bd = hd_w->blocks[bi]->dim;            
@@ -271,7 +271,7 @@ inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w) {
   }
   else {
     /* Each block has a dedicated workspace, enumerated by bi. */
-#pragma omp parallel for private(bi) schedule(dynamic)
+#pragma omp parallel for private(bi) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
       bd = hd_w->blocks[bi]->dim;            
       lda = bd;

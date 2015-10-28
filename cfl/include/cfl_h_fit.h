@@ -106,8 +106,8 @@ typedef struct {
   int *bc_blockdim;
   /* Array of pointers to experimental energy level data. */
   ex_data **exa;
-  /* The number of unique Hamiltonians. */
-  int nh;
+  /* The number of Hamiltonian diagonalization workspaces. */
+  int nhd_w;
   /* Index specifying which hd_w/eval entry corresponds to which mh_d entry. */
   int *hi;
   /* Array of pointers to Hamiltonian diagonalization workspaces. */
