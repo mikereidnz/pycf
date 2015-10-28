@@ -251,7 +251,7 @@ gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
   
   gsl_f->f = gsl_multimin_f_wrapper;
   gsl_f->n = n;
-  gsl_f->params = (void *)gsl_data;
+  gsl_f->params = gsl_data;
 
   v = gsl_vector_alloc(n);
   if (v == 0) {
@@ -362,7 +362,7 @@ gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x,
   gsl_f->df = gsl_multimin_df_wrapper;
   gsl_f->fdf = gsl_multimin_fdf_wrapper;
   gsl_f->n = n;
-  gsl_f->params = (void *)gsl_data;
+  gsl_f->params = gsl_data;
 
   v = gsl_vector_alloc(n);
   if (v == 0) {
@@ -488,11 +488,11 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
   gsl_f->df = gsl_multimin_ndf_wrapper;
   gsl_f->fdf = gsl_multimin_fndf_wrapper;
   gsl_f->n = n;
-  gsl_f->params = (void *)gsl_data;
+  gsl_f->params = gsl_data;
 
   for(i=0; i<n; i++) {
     dfa[i].function = &gsl_numerical_df_wrapper; 
-    dfa[i].params = (void *)gsl_data;
+    dfa[i].params = gsl_data;
   }
 
   v = gsl_vector_alloc(n);
@@ -748,7 +748,7 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
 
   obj->min_f = &nlopt_min_f;
   obj->n = n;
-  obj->min_data = (void *)opt;
+  obj->min_data = opt;
   obj->min_obj_free = nlopt_free;
   obj->obj_f_data = data;
   obj->cov_f = cov_f;
@@ -788,31 +788,31 @@ cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
 
   switch (algorithm) {
     case gsl_nmsimplex2rand:
-      min_data =(void *) gsl_multimin_f_alloc(obj_f, n, data,
+      min_data = gsl_multimin_f_alloc(obj_f, n, data,
           gsl_multimin_fminimizer_nmsimplex2rand);
       min_f = &gsl_multimin_f;
       min_obj_free = gsl_multimin_f_free;
       break;
     case gsl_nmsimplex2:
-      min_data = (void *) gsl_multimin_f_alloc(obj_f, n, data,
+      min_data = gsl_multimin_f_alloc(obj_f, n, data,
           gsl_multimin_fminimizer_nmsimplex2rand);
       min_f = &gsl_multimin_f;
       min_obj_free = gsl_multimin_f_free;
       break;
     case gsl_conjugate_fr:
-      min_data = (void *) gsl_multimin_fndf_alloc(obj_f, n, data,
+      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
           gsl_multimin_fdfminimizer_conjugate_fr);
       min_f = &gsl_multimin_fndf;
       min_obj_free = gsl_multimin_fndf_free;
       break;
     case gsl_conjugate_pr:
-      min_data = (void *) gsl_multimin_fndf_alloc(obj_f, n, data,
+      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
           gsl_multimin_fdfminimizer_conjugate_pr);
       min_f = &gsl_multimin_fndf;
       min_obj_free = gsl_multimin_fndf_free;
       break;
     case gsl_vector_bfgs2:
-      min_data = (void *) gsl_multimin_fndf_alloc(obj_f, n, data,
+      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
           gsl_multimin_fdfminimizer_vector_bfgs2);
       min_f = &gsl_multimin_fndf;
       min_obj_free = gsl_multimin_fndf_free;

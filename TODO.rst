@@ -4,8 +4,6 @@ TODO
     hamiltonians be normalized, or only the principal one?
   * Extra "seniority equivalent" label is currently added with label key T when
     imported, but there's no mechanism to print this upon return... 
-  * When passing a void * type argument, does the function call have to cast to
-    void? Currently, bh_min call in opt_test does not, yet gsl_min calls do.
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
