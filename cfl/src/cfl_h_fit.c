@@ -497,7 +497,7 @@ inline double echisq(double *e, ex_data *d) {
   return chisq;
 }
 
-/* Chi^2 for multi-eigenvector fit.  Optionally accounts for barycenter shifts
+/* Chi^2 for multi Hamiltonian fit.  Optionally accounts for barycenter shifts
  * between blocks of experimental data. 
  *
  * Parameters
@@ -521,7 +521,7 @@ inline double mhchisq(double *e, ex_data *d, int bc_blockdim) {
         }
         bc_shift /= bc_blockdim;
       }
-      chisq += pow(d->e[i] - (e[d->li[i]] + bc_shift), 2);
+      chisq += pow(d->e[i] - (e[d->li[i]] - bc_shift), 2);
     }
   }
   else {
