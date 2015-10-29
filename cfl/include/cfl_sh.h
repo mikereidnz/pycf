@@ -49,6 +49,9 @@ typedef struct {
   int shi_dim;
   /* The matrix elements of the full dimension tensor to project. */
   complex double *pt;
+  /* The coupling coefficient; should be unity for Zeeman, and the nuclear
+   * dipole or nuclear quadrupole coupling strength for HYP and QUAD. */
+  double coupling;
 } zsh_pro_data;
 
 /* Spin Hamiltonian structure definition. */
@@ -77,6 +80,9 @@ typedef struct {
   size_t pt_dim;
   /* Projection data. */
   zsh_pro_data **pro_data;
+  /* The first and second entry points to the **pro_data entries of the
+   * hyperfine and quadrupole interaction, respectively. */
+  int pd_map[2];
   /* The projection tensor state labels. */
   sl *pt_slabels;
 } zsh;
@@ -139,7 +145,7 @@ extern "C" {
 
 zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a);
 void zsh_free(zsh *sh);
-int zsh_set_pro(zsh *sh, zt **t, size_t l);
+int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling);
 void zsh_set_inv(zsh *sh, complex double *b, char *inter);
 zshp_p_w *zshp_p_w_alloc(zsh *sh);
 void zshp_p_w_free(zshp_p_w *shp_p_w);

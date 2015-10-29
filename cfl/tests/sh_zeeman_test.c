@@ -321,11 +321,12 @@ int main (void) {
   zsh *ce_sh;
   zshp_w *ce_shp_w;
   complex double *a = (complex double *) calloc(9,sizeof(complex double));
+  double coupling[1] = {1.0};
   
 
   // zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a)
   ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
-  zsh_set_pro(ce_sh, pro_tensors, 0);
+  zsh_set_pro(ce_sh, pro_tensors, 0, coupling);
   ce_shp_w = zshp_w_alloc(ce_sh);
 
   zshp(a, z, 0, ce_sh, ce_shp_w);

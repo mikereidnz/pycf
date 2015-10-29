@@ -628,6 +628,7 @@ int main (void) {
     sls_l[i] = sls_l_array[i];
   }
   sl *sls_states;
+  double sls_coupling[2] = {1.0, 0.05};
   sls_states = sl_alloc(nstates, sls_label_key, sls_l);
 
   sls_magz = (zt *) zt_alloc("magz", sls_zero, nstates, sls_states);
@@ -635,7 +636,7 @@ int main (void) {
   zt *sls_pro_tensors[2] = {sls_magz, sls_hyp};
 
   sls_sh = zsh_alloc(sls_inter, 1, 1, 1, sls_inv_a);
-  zsh_set_pro(sls_sh, sls_pro_tensors, 4);
+  zsh_set_pro(sls_sh, sls_pro_tensors, 4, sls_coupling);
   sls_shp_p_w = zshp_p_w_alloc(sls_sh);
   
   memcpy(sls_shp_p_w->b, sls_b, 16*sizeof(complex double));
@@ -717,9 +718,10 @@ int main (void) {
   zsh *cehyp_sh;
   zshp_w *cehyp_shp_w;
   complex double *a = (complex double *) calloc(9,sizeof(complex double));
+  double coupling[4] = {1.0, 1.0, 1.0, 0.05};
   
   cehyp_sh = zsh_alloc(inter, 2, 1, 1, inv_a);
-  zsh_set_pro(cehyp_sh, pro_tensors, 0);
+  zsh_set_pro(cehyp_sh, pro_tensors, 0, coupling);
   cehyp_shp_w = zshp_w_alloc(cehyp_sh);
 
   zshp(a, z, 0, cehyp_sh, cehyp_shp_w);

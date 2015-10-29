@@ -63,7 +63,7 @@
  * sz       The spin projection S_z * 2; must be non-zero if inter contains
  *          "zeeman" or "hyperfine".  The factor of 2 ensures we're dealing with
  *          integer values.
- * iz       The nuclear spin projection I_z * 2; must be non-zero of inter
+ * iz       The nuclear spin projection I_z * 2; must be non-zero if inter
  *          contains "hyperfine" or "quadrupole". The factor of 2 ensures we're
  *          dealing with integer values.
  * a        An array of length ninter with entries corresponding to the
@@ -200,18 +200,23 @@ void zsh_set_inv(zsh *sh, complex double *b, char *inter) {
  *
  * Parameters
  * ----------
- *  sh      Pointer to the spin Hamlitonian for which to set pro_data.
- *  t       Pointer to array of tensors for which to project to spin Hamiltonian
- *          space.  The order of tensors in t must match the order of
- *          interactions used to alloc sh; for "zeeman" interactions three
- *          tensors are expected, in the order "magx", "magy", and "magz".  If
- *          no "zeeman" interaction term is present one has to instead add a
- *          tensor with with a small magnetic field along the z-axis, called
- *          magzs.  See the inter argument description of zsh_alloc.  l
- *          Integer specifying the initial level for which to project the spin
- *          Hamiltonian. 
+ *  sh        Pointer to the spin Hamlitonian for which to set pro_data.
+ *  t         Pointer to array of tensors for which to project to spin
+ *            Hamiltonian space.  The order of tensors in t must match the order
+ *            of interactions used to alloc sh; for "zeeman" interactions three
+ *            tensors are expected, in the order "magx", "magy", and "magz".  If
+ *            no "zeeman" interaction term is present one has to instead add a
+ *            tensor with with a small magnetic field along the z-axis, called
+ *            magzs.  See the inter argument description of zsh_alloc.  
+ *  l         Integer specifying the initial level for which to project the spin
+ *            Hamiltonian.
+ *  coupling  Array with order and length matching the order and length of t,
+ *            specifying the coupling constants.  This should be unity for any
+ *            Zeeman terms, and the nuclear dipole and nuclear quadrupole
+ *            coupling constants for 'hyperfine' and 'quadrupole' terms,
+ *            respectively.
  */
-int zsh_set_pro(zsh *sh, zt **t, size_t l) {
+int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
   int i, j, ntensors, zeeman_index, zeeman_term;
   long thash;
 
@@ -294,13 +299,18 @@ int zsh_set_pro(zsh *sh, zt **t, size_t l) {
     }
     else if (!strcmp("hyperfine", sh->inter[i-zeeman_index])) {
       (sh->pro_data[i])->shi_dim = (sh->sz+1)*(sh->iz+1);
+      sh->pd_map[0] = i;
     }
     else if (!strcmp("quadrupole", sh->inter[i-zeeman_index])) {
       (sh->pro_data[i])->shi_dim = (sh->iz+1);
+      sh->pd_map[1] = i;
     }
     else if (!strcmp("magzs", sh->inter[i])) {
       (sh->pro_data[i])->shi_dim = (sh->sz+1);
     }
+
+    /* Set the coupling coefficient. */
+    sh->pro_data[i]->coupling = coupling[i];
   }
   
   sh->ntensors = ntensors;
@@ -503,6 +513,9 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
  */
 void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   int i, ii, j, jj, shi_dim, sh_dim;
+  zsh_pro_data *pd;
+  
+  pd = sh->pro_data[pro_i];
 
   shi_dim = sh->pro_data[pro_i]->shi_dim;
   sh_dim = sh->dim;
@@ -516,7 +529,7 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
     for (j = 0; j < shi_dim; j++) {
       ii = shp_p_w->sh_sort[i]->index;
       jj = shp_p_w->sh_sort[j]->index;
-      a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj];
+      a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj]*pd->coupling;
     }
   }
 }
@@ -728,7 +741,6 @@ zshp_w *zshp_w_alloc(zsh *sh) {
 
   return w;
 }
-
 
 void zshp_w_free(zshp_w *w) {
   int i;

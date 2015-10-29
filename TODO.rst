@@ -10,6 +10,7 @@ TODO
   * Add weighting to spin Hamiltonian log.
   * Print all parameters, even static ones, in a fit summary... Maybe add a
     generic input section? 
+  * Print the number of parameters and the number of observables.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.
@@ -18,6 +19,9 @@ TODO
   * make sure that the spin hamiltonian level, l, passed by cython starts at 0.
   * cov_inv in CFLMin is currently a 2 dimensional c type array. Make sure this
     is correct, rather than a fortran style array. 
+  * Currently, CFLMin passes when it attempts to boundscheck a parameter from
+    the spin Hamltionian, since it gets the original values from h... this
+    should be corrected. 
 
 Notes on col vs row major arrays
 --------------------------------

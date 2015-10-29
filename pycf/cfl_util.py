@@ -244,7 +244,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
 
     Parameters
     ----------
-    coeff : np.ndarray
+    coeff : dict
         Contains the fitted interaction coefficients.
     fit_obj : EFitRunner, MevFitRunner, or ESHFitRunner
         Must have __iter__ method that iterates over tensors corresponding to
@@ -267,7 +267,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     heading = "Tensor name          Fitted coeff        Initial coeff           Difference"
     if kwargs['cov']:
         if sigma == None:
-            raise ValueError("'cov' kwarg is specified as True, but no sigma is not provided.")
+            raise ValueError("'cov' kwarg is specified as True, but sigma is not provided.")
         cov = np.linalg.inv(kwargs['cov_inv'])
         heading += "    Uncertainty"
     if 'bounds' in kwargs:
@@ -278,7 +278,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
 
     s += uline_char(heading)
     for i,p in enumerate(fit_obj):
-        co = coeff[fit_obj.h.index(p)]
+        co = coeff[p.name]
         if co.imag == 0:
             co = co.real
         s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(p.name+":",

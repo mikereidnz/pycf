@@ -85,7 +85,7 @@ typedef struct {
   /* Experimental energy level data. */
   ex_data *ex;
   /* The number of parameters after conversion to complex type. */
-  size_t n_zx;
+  int n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* chi^2 weighting for energy levels. */
@@ -115,7 +115,7 @@ typedef struct {
   /* Array of eigenvalue arrays. */
   double **h_eval;
   /* The number of parameters after conversion to complex type. */
-  size_t n_zx;
+  int n_zx;
   /* Array of length n to arrays of pointers to parameter type structs. */
   param_type ***p;
   /* chi^2 weighting for first energy level vector. */
@@ -151,7 +151,9 @@ typedef struct {
   /* Array of pointers to spin Hamiltonian experimental data. */
   shx_data **shx;
   /* The number of parameters after conversion to complex type. */
-  size_t n_zx;
+  int n_zx;
+  /* The number of parameters that are unique to sh; that is, not in coeff. */
+  int n_ushx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* chi^2 weighting for energy levels. */
@@ -163,13 +165,13 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx, param_type **p);
+efit_data *efit_data_alloc(zh *h, ex_data *ex, int n_zx, param_type **p);
 void efit_data_free(efit_data *data);
 mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
-    int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p); 
+    int *bc_blockdim, ex_data **exa, int n_zx, param_type ***p); 
 void mhfit_data_free(mhfit_data *data);
 eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
-    shx_data **shx, size_t n_zx, param_type **p); 
+    shx_data **shx, int n_zx, int n_ushx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
     cfl_min_obj *min_obj);

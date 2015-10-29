@@ -90,7 +90,7 @@ cdef extern from "../../cfl/include/cfl_sh.h":
 
     zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, double complex **a)
     void zsh_free(zsh *sh)
-    int zsh_set_pro(zsh *sh, zt **t, size_t l)
+    int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) 
     void zsh_set_inv(zsh *sh, double complex *b, char *inter)
     zshp_p_w *zshp_p_w_alloc(zsh *sh)
     void zshp_p_w_free(zshp_p_w *shp_p_w)
@@ -160,11 +160,11 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
-    efit_data *efit_data_alloc(zh *h, ex_data *ex, size_t n_zx, param_type **p)
+    efit_data *efit_data_alloc(zh *h, ex_data *ex, int n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, int *bc_blockdim, ex_data **exa, size_t n_zx, param_type ***p)
+    mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, int *bc_blockdim, ex_data **exa, int n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
-    eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, shx_data **shx, size_t n_zx, param_type **p)
+    eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, shx_data **shx, int n_zx, int n_ushx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
     int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj) 
