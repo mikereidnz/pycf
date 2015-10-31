@@ -349,7 +349,7 @@ inline void zh_parse_ev(complex double *z, int n, zhd_w *hd_w) {
  * dx(perm(j)) :=  dx(j), j=1,2,.., n. */
 void dvperm(int n, double *dx, int *perm) {
   int ii, j, k, init, next; 
-  int tmp, tmp1;
+  double tmp, tmp1;
 
   k=-1; 
   init=-1;
@@ -1097,7 +1097,7 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
       }
     }
   }
-
+ 
   /* Permute the eigenvalue vector. */ 
   dvperm(h->n, w, hd_w->w_perm);
 
