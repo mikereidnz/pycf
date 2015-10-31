@@ -666,8 +666,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
   mhfit_data *d = data;
 
   chisq = 0;
-#pragma omp parallel for private(i, hi) shared(chisq) \
-  reduction(+:chisq) schedule(static)
+#pragma omp parallel for private(i, hi) reduction(+:chisq) schedule(static)
   for (i = 0; i < d->n; i++) {
     hi = d->hi[i];
     parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
