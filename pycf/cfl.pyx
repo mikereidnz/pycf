@@ -267,23 +267,33 @@ cdef class Hamiltonian:
         if self.tensor_array is not NULL:
             free(self.tensor_array)
 
-    def __contains__(self, tensor):
-        if (isinstance(tensor, Tensor)):
-            return tensor in self.tensors
-        elif (isinstance(tensor, str)):
-            return tensor in [t.name for t in self.tensors]
-        else:
-            raise ValueError("Membership test is only available for Tensor type objects and tensor names (strings)")
-
     def __iter__(self):
         for t in self.tensors:
             yield t
 
+    def __contains__(self, tensor):
+        if isinstance(tensor, Tensor):
+            return tensor in self.tensors
+        elif isinstance(tensor, str):
+            return tensor in [t.name for t in self.tensors]
+        else:
+            raise ValueError("Membership test is only available for Tensor type objects and tensor names (strings)")
+
     def index(self, tensor):
-        try:
-            return self.tensors.index(tensor)
-        except ValueError:
-            raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.name))
+        if isinstance(tensor, Tensor):
+            try:
+                return self.tensors.index(tensor)
+            except ValueError:
+                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.name))
+
+        elif isinstance(tensor, str):
+            try:
+                return [t.name for t in self.tensors].index(tensor)
+            except ValueError:
+                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor))
+        else:
+            raise ValueError("The index method is only available for Tensor type objects and tensor names (strings)")
+
             
     cpdef set_coeff(self, coeff):
         r"""
@@ -537,7 +547,7 @@ cdef class SpinHamiltonian:
     cdef public object sh_cap
     cdef public list tensors
     cdef public int pro_data_set
-    cdef public dict coupling_constants
+    cdef public dict coeff_dict
 
     def __init__(self, interactions, **kwargs):
         cdef int csz
@@ -658,6 +668,10 @@ cdef class SpinHamiltonian:
         if self.inter_array != NULL:
             free(self.inter_array)
 
+    def __iter__(self):
+        for t in self.tensors:
+            yield t
+
     def __contains__(self, tensor):
         if (isinstance(tensor, Tensor)):
             return tensor in self.tensors
@@ -666,15 +680,21 @@ cdef class SpinHamiltonian:
         else:
             raise ValueError("Membership test is only available for Tensor type objects and tensor names (strings)")
 
-    def __iter__(self):
-        for t in self.tensors:
-            yield t
-
     def index(self, tensor):
-        try:
-            return self.tensors.index(tensor)
-        except ValueError:
-            raise ValueError("The tensor {} is not an element of this spin Hamiltonian".format(tensor.name))
+        if isinstance(tensor, Tensor):
+            try:
+                return self.tensors.index(tensor)
+            except ValueError:
+                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.name))
+
+        elif isinstance(tensor, str):
+            try:
+                return [t.name for t in self.tensors].index(tensor)
+            except ValueError:
+                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor))
+        else:
+            raise ValueError("The index method is only available for Tensor type objects and tensor names (strings)")
+
     
     def set_pro_data(self, tensors, coupling_constants={}):
         r"""
@@ -725,7 +745,7 @@ cdef class SpinHamiltonian:
                 # Default to unity for Zeeman/magz. 
                 cc_list += [1.0]
        
-        self.coupling_constants = coupling_constants
+        self.coeff_dict = coupling_constants
         cc = np.array(cc_list, dtype=np.float64)
         retval = zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), t_array, self.level, &cc[0])
         
@@ -876,74 +896,6 @@ def parse_param_helper(parameters, h, sh=None):
     return {'n_p_real': n_p_real, 'param_list' : param_list, 'param_types':
             param_types, 'ush_param': ush_param, 'n_ushx': n_ushx}
 
-def parse_param_helper_new(parameters, h, sh=None):
-    r"""
-    In the following, the word parameters is used to refer to tensor
-    coefficients which are varied during the fitting routine.  
-    
-    Create a list of initial parameter values using the coefficients of the
-    provided Hamiltonian, and record their type.  The type determines whether we
-    fit a real or complex parameter. 
-    """
-    param_list = []
-    param_types = []
-    n_p_real = 0
-
-    # Parameters that can be part of a spin Hamiltonian require a dedicated
-    # type.
-    sh_param = ['HYP', 'QUAD']  
-    for i,p in enumerate(parameters):
-        if p not in h:
-            raise ValueError("Tensor %s in parameters not found in h." % p.name)
-        try:
-            if not isinstance(h.coeff_dict[p.name], Number):
-                raise ValueError("Element %s in coefficients is not a number." % p.name)
-        except KeyError:
-            raise ValueError("Missing %s form Hamiltonian coefficients." % p.name)
-
-        # The parameter type is recorded such that any complex parameters
-        # can be split into two real parameters.
-        if isinstance(h.coeff_dict[p.name], complex):
-            param_types.append("c")
-            n_p_real += 2
-        elif p.name == 'HYP':
-            param_types.append("h")
-            n_p_real += 1
-            sh_param.remove('HYP')
-        elif p.name == 'QUAD':
-            param_types.append("q")
-            n_p_real += 1
-            sh_param.remove('QUAD')
-        else:
-            param_types.append("r")
-            n_p_real += 1
-        
-        param_list += [h.coeff_dict[p.name]]
-
-    # If there's a spin Hamiltonian, we add the hyp and quad coupling to the
-    # parameters, provided they have not been added already.  These are
-    # necessarily real, and will be interpreted by cfl as such.  We also record
-    # the parameters unique to the spin Hamiltonian. 
-    n_ushx = 0
-    ush_param = []
-    if sh != None:
-        for t in sh.tensors:
-            if t.name == 'HYP' and t.name in sh_param:
-                param_types.append("h")
-                n_p_real += 1
-                param_list += [sh.coupling_constants[t.name]]
-                n_ushx += 1
-                ush_param += [t]
-            elif t.name == 'QUAD' and t.name in sh_param:
-                param_types.append("q")
-                n_p_real += 1
-                param_list += [sh.coupling_constants[t.name]]
-                n_ushx += 1
-                ush_param += [t]
-
-    return {'n_p_real': n_p_real, 'param_list' : param_list, 'param_types':
-            param_types, 'ush_param': ush_param, 'n_ushx': n_ushx}
-
 
 cdef class EFitRunner(object):
     r"""
@@ -968,11 +920,11 @@ cdef class EFitRunner(object):
         level values. 
     """
     cdef public Hamiltonian h
+    cdef public dict coeff
     cdef int n_p
     cdef public list parameters
     cpdef public int n_p_real
-    cpdef public list param_list
-    cpdef public list param_types
+    cpdef public dict param_types
     cdef cfl.ex_data *ex_data
     cdef cfl.param_type **param_array
     cdef np.ndarray ex_e
@@ -989,18 +941,37 @@ cdef class EFitRunner(object):
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
-        
+
         self.h = h
         self.n_p = len(parameters)
         self.parameters = parameters
         
+        if not all((isinstance(p, str) for p in parameters)):
+            raise TypeError("Parameters must be strings of tensor names.")
+      
+        # Create a local copy of coefficients for each parameter and an array of
+        # arrays specifying the parameters specific to each Hamiltonian. 
         if h.coeff_dict == None:
-            raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
+            raise ValueError("Hamiltonian must have coefficients set prior to efit.")
+        else:
+            self.coeff = h.coeff_dict
 
-        pp = parse_param_helper(parameters, h)
-        self.n_p_real = pp['n_p_real']
-        self.param_list = pp['param_list']
-        self.param_types = pp['param_types']
+        # Determine the type of each parameter. 
+        self.param_types = {}
+        self.n_p_real = 0
+        for p in parameters:
+            if p not in h:
+                raise ValueError("Parameter %s not found in the Hamiltonian." % p)
+            if not isinstance(self.coeff[p], Number):
+                raise ValueError("The coefficient %s was not specfied as a number the Hamiltonian." % p)
+            # The parameter type is recorded such that any complex parameters
+            # can be split into two real parameters.
+            if isinstance(self.coeff[p], complex):
+                self.n_p_real += 2
+                self.param_types[p] = "c"
+            else:
+                self.param_types[p] = "r"
+                self.n_p_real += 1
 
         if self.n_p_real > len(ex):
             raise ValueError("The total (real and imaginary) number of parameters exceeds "
@@ -1036,7 +1007,7 @@ cdef class EFitRunner(object):
         
         ip_real = 0
         param_enc = {'r': 114, 'i': 105, 'c': 99}
-        for i in range(self.n_p):
+        for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
             if param_array[i] is NULL:
                 for j in range(i):
@@ -1045,15 +1016,15 @@ cdef class EFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
-            param_array[i].type = param_enc[self.param_types[i]]
-            param_array[i].index = h.index(parameters[i])
+            param_array[i].type = param_enc[self.param_types[p]]
+            param_array[i].index = h.index(p)
 
-            if self.param_types[i] == 'c':
-                self.p0_real[ip_real] = np.real(self.param_list[i])
-                self.p0_real[ip_real+1] = np.imag(self.param_list[i])
+            if self.param_types[p] == 'c':
+                self.p0_real[ip_real] = np.real(self.coeff[p])
+                self.p0_real[ip_real+1] = np.imag(self.coeff[p])
                 ip_real += 2
             else:
-                self.p0_real[ip_real] = self.param_list[i]
+                self.p0_real[ip_real] = self.coeff[p]
                 ip_real += 1
 
         self.param_array = param_array 
@@ -1108,15 +1079,15 @@ cdef class EFitRunner(object):
 
         fmin = min_object.minimize(self, x)
         
-        coeff = self.h.coeff_dict 
+        coeff = self.coeff 
         ri = 0
         
-        for i,p in enumerate(self):
-            if (self.param_types[i] == 'c'): 
-                coeff[p.name] = np.complex(x[ri], x[ri+1])
+        for p in self:
+            if (self.param_types[p] == 'c'): 
+                coeff[p] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[p.name] = x[ri]
+                coeff[p] = x[ri]
                 ri += 1
         
         return(coeff, fmin)
@@ -1165,19 +1136,19 @@ cdef class MHFitRunner(object):
         level values. 
     """
     cdef int n_h
-    cdef int n_p
     cdef public Hamiltonian h
-    cdef public dict coeff_dict
+    cdef public dict coeff
     cpdef public list h_list
+    cdef int n_p
+    cdef public list parameters
+    cpdef public int n_p_real
+    cpdef public dict param_types
     cdef cfl.zh **ha
     cdef np.ndarray weights
     cdef np.ndarray bc_blockdim
     cdef list ex_e_list
     cdef list ex_li_list
     cdef cfl.ex_data **ex_data
-    cdef public list parameters
-    cpdef public int n_p_real
-    cpdef public list param_types
     cdef cfl.param_type ***param_arrays
     cdef np.ndarray p0_real
     cdef cfl.mhfit_data *mhfit_data
@@ -1197,60 +1168,41 @@ cdef class MHFitRunner(object):
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
-        # Verify that the tensor order in all Hamiltonians matches the order of
-        # parameters provided, and that the type of cofficients matches in each
-        # Hamiltonian. 
-        for i,t in enumerate(parameters):
-            for j,h in enumerate(h_list):
-                try:
-                    if h.index(t) != i:
-                        raise ValueError("The tensor order of the %ith " \
-                                "Hamiltonian does not match the tensor order "\
-                                "of the parameters list." % j)
-
-                    if not isinstance(h.coeff_dict[t], type(h_list[0].coeff_dict[t])):
-                            raise ValueError("The coefficient type of the %ith " \
-                                    "Hamiltonian does not match the corresponding "\
-                                    "coefficient type of the 0th Hamiltonian" % j)
-                except:
-                    continue
-
         self.n_h = len(h_list)
         self.n_p = len(parameters)
         self.h_list = h_list
         self.parameters = parameters
         
-        # Create a an array of the same length and order as parameters,
-        # specifying the parameter type.
-        self.param_types = []
+        if not all((isinstance(p, str) for p in parameters)):
+            raise TypeError("Parameters must be strings of tensor names.")
+      
+        # Create a local copy of coefficients for each parameter and an array of
+        # arrays specifying the parameters specific to each Hamiltonian. 
+        self.coeff = {}
+        h_param_list = []
+        for h in h_list:
+            if h.coeff_dict == None:
+                raise ValueError("Hamiltonian must have coefficients set prior to mhfit.")
+            else:
+                self.coeff.update(h.coeff_dict)
+            h_param_list += [[p for p in parameters if p in h]]
+        
+        # Determine the type of each parameter. 
+        self.param_types = {}
         self.n_p_real = 0
-        for i,p in enumerate(parameters):
-            if all([p not in h for h in h_list]):
+        for p in parameters:
+            if all((p not in h for h in h_list)):
                 raise ValueError("Parameter %s not found in any Hamiltonian." % p)
+            if not isinstance(self.coeff[p], Number):
+                raise ValueError("The coefficient %s was not specfied as a number in one of the Hamiltonians." % p)
             # The parameter type is recorded such that any complex parameters
             # can be split into two real parameters.
-            if isinstance(self.coeff_dict[p], complex):
+            if isinstance(self.coeff[p], complex):
                 self.n_p_real += 2
-                self.param_types.append("c")
+                self.param_types[p] = "c"
             else:
-                self.param_types.append("r")
+                self.param_types[p] = "r"
                 self.n_p_real += 1
-            
-            self.param_list += [self.coeff_dict[p]]
-
-        # We determine arrays for each Hamiltonian that specify the parameters
-        # specific to each Hamiltonian, a list of indices into self.param_types
-        # for each parameter, and initial values for each parameter.
-        self.coeff_dict = {}
-        h_param_list = []
-        param_types_index = [[] for hi in h_list]
-        param_values_list = [[] for hi in h_list]
-        for hi,h in enumerate(h_list):
-            h_param_list += [[p for p in h if p in parameters]]
-            self.coeff_dict.update(h.coeff_dict)
-            for i,p in enumerate(parameters):
-                param_types_index[hi].append(parameters.index(p))
-                param_values_list[hi].append(self.coeff_dict[p])
 
         n_ex = ex_list[0].shape[0]
         for ex in ex_list:
@@ -1322,8 +1274,7 @@ cdef class MHFitRunner(object):
        
         param_enc = {'r': 114, 'i': 105, 'c': 99}
         for hi,h in enumerate(h_list):
-            ip_real = 0
-            for i in range(len(h_param_list[hi])):
+            for i,p in enumerate(h_param_list[hi]):
                 param_arrays[hi][i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
                 if param_arrays[hi][i] is NULL:
                     for hj in range(hi):
@@ -1340,19 +1291,21 @@ cdef class MHFitRunner(object):
                     free(self.ha)
                     raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
                 
-                param_arrays[hi][i].type = param_enc[self.param_types[param_types_index[hi][i]]]
-                param_arrays[hi][i].index = h_list[hi].index(h_param_list[hi][i])
-
-                if param_types[param_types_index[hi][i]] == 'c':
-                    self.p0_real[ip_real] = np.real(param_values_list[hi][i])
-                    self.p0_real[ip_real+1] = np.imag(param_values_list[hi][i])
-                    ip_real += 2
-                else:
-                    self.p0_real[ip_real] = param_values_list[hi][i]
-                    ip_real += 1
-
-        self.param_arrays = param_arrays 
+                param_arrays[hi][i].type = param_enc[self.param_types[p]]
+                param_arrays[hi][i].index = h_list[hi].index(p)
         
+        # Set initial values.
+        ip_real = 0
+        for p in parameters:
+            if self.param_types[p] == 'c':
+                self.p0_real[ip_real] = np.real(self.coeff[p])
+                self.p0_real[ip_real+1] = np.imag(self.coeff[p])
+                ip_real += 2
+            else:
+                self.p0_real[ip_real] = self.coeff[p]
+                ip_real += 1
+        
+        self.param_arrays = param_arrays 
         self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, self.n_p, self.param_arrays)
 
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
@@ -1406,14 +1359,13 @@ cdef class MHFitRunner(object):
         cdef sigma = 0
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff_dict 
+        coeff = self.coeff 
         ri = 0
         
-        for i,p in enumerate(self):
-            if (self.param_types[i] == 'c'): 
+        for p in self:
+            if (self.param_types[p] == 'c'): 
                 coeff[p] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
@@ -1462,12 +1414,12 @@ cdef class ESHFitRunner(object):
     cdef SpinHamiltonian sh
     cdef public Hamiltonian h
     cdef Hamiltonian hpro
+    cpdef public dict coeff
     cdef int n_p
     cdef public list parameters
     cpdef public int n_p_real
     cpdef public int n_ushx
-    cpdef public list param_list
-    cpdef public list param_types
+    cpdef public dict param_types
     cdef cfl.ex_data *ex_data
     cdef cfl.param_type **param_array
     cdef cfl.shx_data **shx_array
@@ -1494,11 +1446,18 @@ cdef class ESHFitRunner(object):
         self.parameters = parameters
         self.sh = sh
 
+        if not all((isinstance(p, str) for p in parameters)):
+            raise TypeError("Parameters must be strings of tensor names.")
+
         if h.coeff_dict == None:
-            raise ValueError("Hamiltonian must have coefficients set prior to esh fit.")
+            raise ValueError("Hamiltonian must have coefficients set prior to eshfit.")
+        else:
+            self.coeff = h.coeff_dict
 
         if not sh.pro_data_set:
-            raise ValueError("Spin Hamiltonian must have projection data set prior to esh fit.")
+            raise ValueError("Spin Hamiltonian must have projection data set prior to eshfit.")
+        else:
+            self.coeff.update(sh.coeff_dict)
 
         # If not present, add small magnetic field to Hamiltonian to order
         # states.
@@ -1535,18 +1494,41 @@ cdef class ESHFitRunner(object):
         else:
             self.hpro = None
 
+        # Determine the type of each parameter. 
+        self.param_types = {}
+        # The number of real parameters. 
+        self.n_p_real = 0
+        # We also record the number of parameters unique to sh.
+        self.n_ushx = 0
+        for i,p in enumerate(parameters):
+            if all((p not in hh for hh in [h, sh])):
+                raise ValueError("Parameter %s not found in any Hamiltonian." % p)
+            if not isinstance(self.coeff[p], Number):
+                raise ValueError("The coefficient %s was not specfied as a number the Hamiltonian." % p)
+            # The parameter type is recorded such that any complex parameters
+            # can be split into two real parameters.
+            if isinstance(self.coeff[p], complex):
+                self.n_p_real += 2
+                self.param_types[p] = "c"
+            elif p == 'HYP':
+                self.n_p_real += 1
+                self.param_types[p] = "h"
+                if p not in h:
+                    self.n_ushx += 1
+            elif p == 'QUAD':
+                self.n_p_real += 1
+                self.param_types[p] = "q"
+                if p not in h:
+                    self.n_ushx += 1
+            else:
+                self.param_types[p] = "r"
+                self.n_p_real += 1
+
         if self.n_p_real > len(ex) + sh.nsh:
             raise ValueError("The total (real and imaginary) number of parameters "
                 "exceeds the number of observables.")
         elif ex.shape[1] != 2:
             raise ValueError("Incorrect ex shape; expected a two column array.")
-
-        pp = parse_param_helper(parameters, self.h, self.sh)
-        self.n_p_real = pp['n_p_real']
-        self.n_ushx = pp['n_ushx']
-        self.n_p += self.n_ushx
-        self.param_list = pp['param_list']
-        self.param_types = pp['param_types']
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
@@ -1578,7 +1560,7 @@ cdef class ESHFitRunner(object):
         ip_real = 0
 
         param_enc = {'r': 114, 'i': 105, 'c': 99, 'h': 104, 'q': 113}
-        for i in range(self.n_p):
+        for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
             if param_array[i] is NULL:
                 for j in range(i):
@@ -1586,26 +1568,19 @@ cdef class ESHFitRunner(object):
                 free(self.ex_data)
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
+            
+            param_array[i].type = param_enc[self.param_types[p]]
+            if (i < self.n_p - self.n_ushx):
+                param_array[i].index = self.h.index(p)
 
-            param_array[i].type = param_enc[self.param_types[i]]
-            try:
-                param_array[i].index = self.h.index(parameters[i])
-            except IndexError:
-                # Spin Hamiltonian parameter; doesn't require index.
-                param_array[i].index = -1
-
-            if self.param_types[i] == 'c':
-                self.p0_real[ip_real] = np.real(self.param_list[i])
-                self.p0_real[ip_real+1] = np.imag(self.param_list[i])
+            if self.param_types[p] == 'c':
+                self.p0_real[ip_real] = np.real(self.coeff[p])
+                self.p0_real[ip_real+1] = np.imag(self.coeff[p])
                 ip_real += 2
             else:
-                self.p0_real[ip_real] =  self.param_list[i]
+                self.p0_real[ip_real] =  self.coeff[p]
                 ip_real += 1
         
-        # Done with the CF Hamiltonian specific parameters; update parameters to
-        # include spin Hamiltonian specific interactions.
-        self.parameters += pp['ush_param']
-
         # Array of experimental spin Hamiltonian data.
         self.weights = weights
         shx_array = <cfl.shx_data **>malloc(len(sh.interactions)*cython.sizeof(shx_data_ptr))
@@ -1748,14 +1723,14 @@ cdef class ESHFitRunner(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
         fmin = min_object.minimize(self, x)
         
-        coeff = self.h.coeff_dict
+        coeff = self.coeff
         ri = 0
-        for i,p in enumerate(self):
-            if (self.param_types[i] == 'c'): 
-                coeff[p.name] = np.complex(x[ri], x[ri+1])
+        for p in self:
+            if (self.param_types[p] == 'c'): 
+                coeff[p] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[p.name] = x[ri]
+                coeff[p] = x[ri]
                 ri += 1
         
         return(coeff, fmin)
@@ -1902,47 +1877,44 @@ cdef class CFLMin:
             rpi = 0
 
             bounds = self.kwargs['bounds']
-            for i,p in enumerate(fit_obj):
-                if fit_obj.param_types[i] == 'c':
+            for p in fit_obj:
+                if fit_obj.param_types[p] == 'c':
                     try:
-                        if not isinstance(bounds[p.name][0], complex) or \
-                                not isinstance(bounds[p.name][1], complex):
+                        if not isinstance(bounds[p][0], complex) or \
+                                not isinstance(bounds[p][1], complex):
                             raise ValueError("%s bounds are not complex, yet the "
-                                    "corresponding coefficient in the Hamiltonian is." % p.name)
+                                    "corresponding coefficient in the Hamiltonian is." % p)
                     except KeyError:
-                        raise KeyError("Missing bounds key %s." % p.name)
-                    lb[rpi] = np.real(bounds[p.name][0])
-                    lb[rpi+1] = np.imag(bounds[p.name][0])
-                    ub[rpi] = np.real(bounds[p.name][1])
-                    ub[rpi+1] = np.imag(bounds[p.name][1])
-                    if np.real(fit_obj.h.coeff_dict[p.name]) < lb[rpi]:
+                        raise KeyError("Missing bounds key %s." % p)
+                    lb[rpi] = np.real(bounds[p][0])
+                    lb[rpi+1] = np.imag(bounds[p][0])
+                    ub[rpi] = np.real(bounds[p][1])
+                    ub[rpi+1] = np.imag(bounds[p][1])
+                    if np.real(fit_obj.coeff[p]) < lb[rpi]:
                         raise ValueError("The real part of the %s coefficient in the Hamiltonian is "
-                                "less than the specified lower bound." % p.name)
-                    elif np.imag(fit_obj.h.coeff_dict[p.name]) < lb[rpi+1]:
+                                "less than the specified lower bound." % p)
+                    elif np.imag(fit_obj.coeff[p]) < lb[rpi+1]:
                         raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is "
-                                "less than the specified lower bound." % p.name)
-                    elif np.real(fit_obj.h.coeff_dict[p.name]) > ub[rpi]:
+                                "less than the specified lower bound." % p)
+                    elif np.real(fit_obj.coeff[p]) > ub[rpi]:
                         raise ValueError("The real part of the %s coefficient in the Hamiltonian is "
-                                "greater than the specified lower bound." % p.name)
-                    elif np.imag(fit_obj.h.coeff_dict[p.name]) > ub[rpi+1]:
+                                "greater than the specified lower bound." % p)
+                    elif np.imag(fit_obj.coeff[p]) > ub[rpi+1]:
                         raise ValueError("The imaginary part of the %s coefficient in the Hamiltonian is "
-                                "greater than the specified lower bound." % p.name)
+                                "greater than the specified lower bound." % p)
                     rpi += 2
                 else:
                     try:
-                        lb[rpi] = np.real(bounds[p.name][0])
-                        ub[rpi] = np.real(bounds[p.name][1])
+                        lb[rpi] = np.real(bounds[p][0])
+                        ub[rpi] = np.real(bounds[p][1])
                     except KeyError:
-                        raise KeyError("Missing bounds key %s." % p.name)
-                    try:
-                        if fit_obj.h.coeff_dict[p.name] < lb[rpi]:
-                            raise ValueError("The %s coefficient in the Hamiltonian is "
-                                    "less than the specified lower bound." % p.name)
-                        elif fit_obj.h.coeff_dict[p.name] > ub[rpi]:
-                            raise ValueError("The %s coefficient in the Hamiltonian is "
-                                    "greater than the specified lower bound." % p.name)
-                    except KeyError:
-                        pass
+                        raise KeyError("Missing bounds key %s." % p)
+                    if fit_obj.coeff[p] < lb[rpi]:
+                        raise ValueError("The %s coefficient in the Hamiltonian is "
+                                "less than the specified lower bound." % p)
+                    elif fit_obj.coeff[p] > ub[rpi]:
+                        raise ValueError("The %s coefficient in the Hamiltonian is "
+                                "greater than the specified lower bound." % p)
                     rpi += 1
 
             cfl_bounds = <cfl.cfl_min_bounds *>malloc(cython.sizeof(cfl.cfl_min_bounds))
@@ -1972,22 +1944,22 @@ cdef class CFLMin:
                 rpi = 0
                 
                 stepsize = self.kwargs['stepsize']
-                for i,p in enumerate(fit_obj.parameters):
-                    if fit_obj.param_types[i] == 'c':
+                for p in fit_obj:
+                    if fit_obj.param_types[p] == 'c':
                         try:
-                            if not isinstance(stepsize[p.name], complex):
+                            if not isinstance(stepsize[p], complex):
                                 raise ValueError("%s stepsize is not complex, yet the "
-                                        "corresponding Hamiltonian coefficient is." % p.name)
+                                        "corresponding Hamiltonian coefficient is." % p)
                         except KeyError:
-                            raise KeyError("Missing stepsize key %s." % p.name)
-                        cstepsize[rpi] = np.real(stepsize[p.name])
-                        cstepsize[rpi+1] = np.imag(stepsize[p.name])
+                            raise KeyError("Missing stepsize key %s." % p)
+                        cstepsize[rpi] = np.real(stepsize[p])
+                        cstepsize[rpi+1] = np.imag(stepsize[p])
                         rpi += 2
                     else:
                         try:
-                            cstepsize[rpi] = np.real(stepsize[p.name])
+                            cstepsize[rpi] = np.real(stepsize[p])
                         except KeyError:
-                            raise KeyError("Missing stepsize key %s." % p.name)
+                            raise KeyError("Missing stepsize key %s." % p)
                         rpi += 1
     
                 stepsize_ptr = &cstepsize[0]

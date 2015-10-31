@@ -247,8 +247,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     coeff : dict
         Contains the fitted interaction coefficients.
     fit_obj : EFitRunner, MevFitRunner, or ESHFitRunner
-        Must have __iter__ method that iterates over tensors corresponding to
-        parameters.
+        Must have __iter__ method that iterates over names of tensors.
     method : str
         The optimization algorithm used for the fit.
     sigma : float, optional
@@ -278,18 +277,16 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
 
     s += uline_char(heading)
     for i,p in enumerate(fit_obj):
-        co = coeff[p.name]
+        co = coeff[p]
         if co.imag == 0:
             co = co.real
-        s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(p.name+":",
-                co, fit_obj.param_list[i], co-fit_obj.param_list[i])
+        s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(p+":", co, coeff[p], co-coeff[p])
         if kwargs['cov']:
             s += "{0: >15.0f}".format(np.sqrt(np.abs(cov[i,i]))*sigma)
         if 'bounds' in kwargs:
-            s += "{0: >18.0f} {1: >18.0f}".format(kwargs['bounds'][p.name][0],
-                    kwargs['bounds'][p.name][1])
+            s += "{0: >18.0f} {1: >18.0f}".format(kwargs['bounds'][p][0], kwargs['bounds'][p][1])
         if 'stepsize' in kwargs:
-            s += "{0: >18.0f}".format(kwargs['stepsize'][p.name])
+            s += "{0: >18.0f}".format(kwargs['stepsize'][p])
         s += "\n"
 
     if 'bounds' in kwargs:
