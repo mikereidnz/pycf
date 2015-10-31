@@ -509,7 +509,7 @@ inline double echisq(double *e, ex_data *d) {
 inline double mhchisq(double *e, ex_data *d, int bc_blockdim) {
   int i, j;
   double chisq, bc_shift;
-
+  
   chisq = 0;
   if (bc_blockdim != 0) {
     bc_shift = 0;
@@ -744,7 +744,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
   int i, hi;
   double chisq;
   mhfit_data *d = data;
-
+  
   *chi2 = 0;
   for (i = 0; i < d->n; i++) {
     hi = d->hi[i];
@@ -752,7 +752,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
     *chi2 += d->weights[i]*mhchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
   }
-  d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
+  d->echisq_weight = 1; //CFL_MIN_START_CHI2/(*chi2);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, in scenario where

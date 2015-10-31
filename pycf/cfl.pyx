@@ -1204,7 +1204,7 @@ cdef class MHFitRunner(object):
                 self.param_types[p] = "r"
                 self.n_p_real += 1
 
-        n_ex = ex_list[0].shape[0]
+        n_ex = 0
         for ex in ex_list:
             n_ex += ex.shape[0]
         if self.n_p_real > n_ex:
@@ -1241,7 +1241,7 @@ cdef class MHFitRunner(object):
                 free(self.ex_data)
                 free(self.ha)
                 raise MemoryError("ex_data alloc failed")
-            self.ex_data[i].n = len(ex)
+            self.ex_data[i].n = len(ex_li)
             self.ex_data[i].e = &ex_e[0]
             self.ex_data[i].li = &ex_li[0]
 
@@ -1307,7 +1307,6 @@ cdef class MHFitRunner(object):
         
         self.param_arrays = param_arrays 
         self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, self.n_p, self.param_arrays)
-
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
@@ -1359,6 +1358,7 @@ cdef class MHFitRunner(object):
         cdef sigma = 0
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        
         fmin = min_object.minimize(self, x)
         
         coeff = self.coeff 

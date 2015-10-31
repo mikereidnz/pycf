@@ -1042,7 +1042,6 @@ void zhd_w_free(zhd_w *hd_w) {
 void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
   int i;
   double **wptr;
-
   /* Multiply the tensor matrix elements by coefficients and sum them.  The
    * result is stored in hd_w->coeff_w[i], where i is the number of tensors -1.
    */
