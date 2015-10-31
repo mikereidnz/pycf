@@ -519,8 +519,9 @@ int main (void)
   double weights[2] = {1.0, 1.0};
   int bc_blockdim[2] = {0, 0};
   ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
+  int n_zx_a[2] = {6, 6};
 
-  mh_fd = mhfit_data_alloc(2, ha, weights, bc_blockdim, exa, 6, pa);
+  mh_fd = mhfit_data_alloc(2, ha, weights, bc_blockdim, exa, n_zx_a, pa);
   mhfit_lmin_obj = cfl_gsl_min_setup(&mhfit_obj, NULL, 6, mh_fd, gsl_vector_bfgs2);
   mhfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mhfit_lmin_obj);
 

@@ -114,8 +114,9 @@ typedef struct {
   zhd_w **hd_w;
   /* Array of eigenvalue arrays. */
   double **h_eval;
-  /* The number of parameters after conversion to complex type. */
-  int n_zx;
+  /* The number of parameters after conversion to complex type for each
+   * Hamiltonian. */
+  int *n_zx;
   /* Array of length n to arrays of pointers to parameter type structs. */
   param_type ***p;
   /* chi^2 weighting for first energy level vector. */
@@ -168,7 +169,7 @@ extern "C" {
 efit_data *efit_data_alloc(zh *h, ex_data *ex, int n_zx, param_type **p);
 void efit_data_free(efit_data *data);
 mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
-    int *bc_blockdim, ex_data **exa, int n_zx, param_type ***p); 
+    int *bc_blockdim, ex_data **exa, int *n_zx, param_type ***p); 
 void mhfit_data_free(mhfit_data *data);
 eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, int n_zx, int n_ushx, param_type **p); 

@@ -153,13 +153,13 @@ void efit_data_free(efit_data *data) {
  *              non-zero, the experimental data must be in blocks of the
  *              specified size with no missing levels. 
  *  exa         Array of pointers to experimental energy level data. 
- *  n_zx        The number of complex valued parameters to be fit to the
- *              complete Hamiltonians.
+ *  n_zx        The number of complex valued parameters to be fit to each of the
+ *              Hamiltonians.
  *  p           Array of length n to arrays of pointers to parameter type
  *              structs. 
  */
 mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
-    int *bc_blockdim, ex_data **exa, int n_zx, param_type ***p) {
+    int *bc_blockdim, ex_data **exa, int *n_zx, param_type ***p) {
   int i, j, nhd_w;
   int num_procs;
   mhfit_data *data;
@@ -285,7 +285,7 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
   data->nhd_w = nhd_w;
   data->n_zx = n_zx;
   data->p = p;
-  
+ 
   return data;
 }
 
@@ -566,7 +566,6 @@ inline double shchisq(complex double *pa, complex double *xpa) {
 inline void parse_param_data(int n_zx, param_type **p, complex double *coeff,
     double *x) {
   int i, ii;
-
   i = 0;
   for(ii = 0; ii < n_zx; ii++) {
     if (p[ii]->type == 'c') {
@@ -669,7 +668,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
 #pragma omp parallel for private(i, hi) reduction(+:chisq) schedule(static)
   for (i = 0; i < d->n; i++) {
     hi = d->hi[i];
-    parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
+    parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
     chisq += d->weights[i]*mhchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
   }
@@ -747,7 +746,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
   *chi2 = 0;
   for (i = 0; i < d->n; i++) {
     hi = d->hi[i];
-    parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, x);
+    parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
     *chi2 += d->weights[i]*mhchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
   }
@@ -842,9 +841,9 @@ double mhfit_cov_df(double x, void *data) {
   ex_n -= d->exa[i]->n;
 
   hi = d->hi[i];
-
+  
   cov_d->df_x[cov_d->par_index] = x;
-  parse_param_data(d->n_zx, d->p[i], d->ha[i]->coeff, cov_d->df_x);
+  parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, cov_d->df_x);
   zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
 
   return d->h_eval[hi][d->exa[i]->li[cov_d->obs_index-ex_n]];

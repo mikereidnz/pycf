@@ -1149,6 +1149,7 @@ cdef class MHFitRunner(object):
     cdef list ex_e_list
     cdef list ex_li_list
     cdef cfl.ex_data **ex_data
+    cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
     cdef np.ndarray p0_real
     cdef cfl.mhfit_data *mhfit_data
@@ -1167,6 +1168,7 @@ cdef class MHFitRunner(object):
         cdef np.ndarray[int, ndim=1, mode="c"] bc_blockdim
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef np.ndarray[int, ndim=1, mode="c"] n_zx
 
         self.n_h = len(h_list)
         self.n_p = len(parameters)
@@ -1180,13 +1182,18 @@ cdef class MHFitRunner(object):
         # arrays specifying the parameters specific to each Hamiltonian. 
         self.coeff = {}
         h_param_list = []
-        for h in h_list:
+        self.n_zx = np.empty(self.n_h, dtype=np.int32)
+        for i,h in enumerate(h_list):
             if h.coeff_dict == None:
                 raise ValueError("Hamiltonian must have coefficients set prior to mhfit.")
             else:
                 self.coeff.update(h.coeff_dict)
             h_param_list += [[p for p in parameters if p in h]]
+            self.n_zx[i] = len(h_param_list[i])
         
+        # The number of complex valued parameters for each Hamiltonian
+        n_zx = <np.ndarray[int, ndim=1, mode="c"]> self.n_zx
+
         # Determine the type of each parameter. 
         self.param_types = {}
         self.n_p_real = 0
@@ -1306,7 +1313,7 @@ cdef class MHFitRunner(object):
                 ip_real += 1
         
         self.param_arrays = param_arrays 
-        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, self.n_p, self.param_arrays)
+        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, &n_zx[0], self.param_arrays)
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
