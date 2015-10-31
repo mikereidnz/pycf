@@ -545,6 +545,7 @@ int main (void)
 
   complex double *inv_a[] = {ce_zeeman_inv};
   char *inter[] = {"zeeman"};
+  double coupling[3] = {1.0, 1.0, 1.0};
   zsh *ce_sh;
   eshfit_data *eshfit_d;
   cfl_min_obj *eshfit_lmin_obj, *eshfit_min_obj;
@@ -559,8 +560,8 @@ int main (void)
   zh_set_coeff(h, sh_celiyf4_coeff);
 
   ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
-  zsh_set_pro(ce_sh, shpro_tensors, 0);
-  eshfit_d = eshfit_data_alloc(h, NULL, &ce_ex_data, ce_sh, shx, 6, p);
+  zsh_set_pro(ce_sh, shpro_tensors, 0, coupling);
+  eshfit_d = eshfit_data_alloc(h, NULL, &ce_ex_data, ce_sh, shx, 6, 0, p);
   eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, &eshfit_cov, 6, eshfit_d,
       gsl_vector_bfgs2);
   eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
