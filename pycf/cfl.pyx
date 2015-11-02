@@ -62,7 +62,6 @@ cdef class StateLabels:
     def __cinit__(self, label_key, labels):
         cdef size_t n
         cdef char *key
-        cdef int *int_ptr
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
         cdef int **l_a
        
@@ -71,7 +70,7 @@ cdef class StateLabels:
 
         n = <size_t> len(labels)
         key = <char *> label_key
-        l_a = <int **>malloc(len(labels)*cython.sizeof(int_ptr))
+        l_a = <int **>malloc(len(labels)*sizeof(int *))
         if l_a == NULL:
             raise MemoryError("l_a malloc failed")
 
@@ -297,7 +296,6 @@ cdef class Hamiltonian:
     cdef public object h_cap
     cdef int diag_run
     def __cinit__(self, tensors):
-        cdef cfl.zt *ten_array_ptr
 
         n = tensors[0].n
         self.n = n
@@ -308,7 +306,7 @@ cdef class Hamiltonian:
                 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function. 
-        tensor_array = <cfl.zt **>malloc(len(tensors)*cython.sizeof(ten_array_ptr))
+        tensor_array = <cfl.zt **>malloc(len(tensors)*sizeof(cfl.zt *))
         if tensor_array is NULL:
             raise MemoryError("tensor_array alloc failed")
         
@@ -617,8 +615,6 @@ cdef class SpinHamiltonian:
     def __init__(self, interactions, **kwargs):
         cdef int csz
         cdef int ciz
-        cdef double complex *doublecomplex_ptr
-        cdef char *char_ptr
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
 
         if not isinstance(interactions, list):
@@ -660,11 +656,11 @@ cdef class SpinHamiltonian:
             # One unspecified interaction, magzs. 
             n_inter += 1
 
-        self.inter_array = <char **>malloc(n_inter*cython.sizeof(char_ptr))
+        self.inter_array = <char **>malloc(n_inter*sizeof(char *))
         if self.inter_array == NULL:
             raise MemoryError("inter_array malloc failed")
 
-        self.inv_data_ptrs = <double complex **>malloc(len(interactions)*cython.sizeof(doublecomplex_ptr))
+        self.inv_data_ptrs = <double complex **>malloc(len(interactions)*sizeof(double complex *))
         if self.inv_data_ptrs == NULL:
             raise MemoryError("inv_data_ptrs malloc failed")
         
@@ -784,7 +780,7 @@ cdef class SpinHamiltonian:
         cdef cfl.zt **t_array
         cdef np.ndarray[double, ndim=1, mode="c"] cc
 
-        t_array = <cfl.zt **>malloc(len(self.required_tensors)*cython.sizeof(cfl.zt))
+        t_array = <cfl.zt **>malloc(len(self.required_tensors)*sizeof(cfl.zt *))
         if t_array == NULL:
             raise MemoryError("t_array malloc failed")
         
@@ -937,7 +933,6 @@ cdef class EFitRunner(object):
     cpdef public object fit_data_cap
     
     def __init__(self, parameters, h, ex, **kwargs):
-        cdef cfl.param_type *param_type_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
@@ -996,7 +991,7 @@ cdef class EFitRunner(object):
        
         ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
         ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
-        self.ex_data = <cfl.ex_data *>malloc(cython.sizeof(cfl.ex_data))
+        self.ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
         if self.ex_data == NULL:
             raise MemoryError("ex_data alloc failed")
         self.ex_data.n = len(ex)
@@ -1005,7 +1000,7 @@ cdef class EFitRunner(object):
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        param_array = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
+        param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
             free(self.ex_data)
             raise MemoryError("param_array alloc failed")
@@ -1013,7 +1008,7 @@ cdef class EFitRunner(object):
         ip_real = 0
         param_enc = {'r': 114, 'i': 105, 'c': 99}
         for i,p in enumerate(parameters):
-            param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
+            param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
             if param_array[i] is NULL:
                 for j in range(i):
                     free(param_array[j])
@@ -1167,10 +1162,6 @@ cdef class MHFitRunner(object):
     cpdef public object fit_data_cap
     
     def __init__(self, parameters, h_list, weights_list, bc_blockdim_list, ex_list, **kwargs):
-        cdef cfl.zh *zh_ptr
-        cdef cfl.ex_data *ex_data_ptr
-        cdef cfl.param_type *param_type_ptr
-        cdef cfl.param_type **param_type_ptr_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double, ndim=1, mode="c"] weights
@@ -1232,14 +1223,14 @@ cdef class MHFitRunner(object):
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
 
-        self.ha = <cfl.zh **>malloc(self.n_h*cython.sizeof(zh_ptr))
+        self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
         if self.ha == NULL:
             raise MemoryError("ha alloc failed")
 
         for i in range(self.n_h):
             self.ha[i] = <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian")
 
-        self.ex_data = <cfl.ex_data **>malloc(self.n_h*cython.sizeof(ex_data_ptr))
+        self.ex_data = <cfl.ex_data **>malloc(self.n_h*sizeof(cfl.ex_data *))
         if self.ex_data == NULL:
             free(self.ha)
             raise MemoryError("exa alloc failed")
@@ -1255,7 +1246,7 @@ cdef class MHFitRunner(object):
        
             ex_e = self.ex_e_list[i]
             ex_li = self.ex_li_list[i]
-            self.ex_data[i] = <cfl.ex_data *>malloc(cython.sizeof(cfl.ex_data))
+            self.ex_data[i] = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
             if self.ex_data[i] == NULL:
                 for j in range(i):
                     free(self.ex_data[j])
@@ -1273,7 +1264,7 @@ cdef class MHFitRunner(object):
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        param_arrays = <cfl.param_type ***>malloc(self.n_h*cython.sizeof(param_type_ptr_ptr))
+        param_arrays = <cfl.param_type ***>malloc(self.n_h*sizeof(cfl.param_type **))
         if param_arrays == NULL:
             for i in range(self.n_h):
                 free(self.ex_data[i])
@@ -1282,7 +1273,7 @@ cdef class MHFitRunner(object):
             raise MemoryError("param_arrays alloc failed")
 
         for i in range(self.n_h):
-            param_arrays[i] = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
+            param_arrays[i] = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
             if param_arrays[i] == NULL:
                 for j in range(i):
                     free(param_arrays[j])
@@ -1296,7 +1287,7 @@ cdef class MHFitRunner(object):
         param_enc = {'r': 114, 'i': 105, 'c': 99}
         for hi,h in enumerate(h_list):
             for i,p in enumerate(h_param_list[hi]):
-                param_arrays[hi][i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
+                param_arrays[hi][i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
                 if param_arrays[hi][i] is NULL:
                     for hj in range(hi):
                         for j in range(self.n_p):
@@ -1458,8 +1449,6 @@ cdef class ESHFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
-        cdef cfl.param_type *param_type_ptr
-        cdef cfl.shx_data *shx_data_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
         cdef np.ndarray[double complex, ndim=1, mode="c"] shx_pa
@@ -1572,7 +1561,7 @@ cdef class ESHFitRunner(object):
        
         ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
         ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
-        self.ex_data = <cfl.ex_data *>malloc(cython.sizeof(cfl.ex_data))
+        self.ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
         if self.ex_data == NULL:
             raise MemoryError("ex_data alloc failed")
         self.ex_data.n = len(ex)
@@ -1581,7 +1570,7 @@ cdef class ESHFitRunner(object):
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        param_array = <cfl.param_type **>malloc(self.n_p*cython.sizeof(param_type_ptr))
+        param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
             free(self.ex_data)
             raise MemoryError("param_array alloc failed")
@@ -1591,7 +1580,7 @@ cdef class ESHFitRunner(object):
 
         param_enc = {'r': 114, 'i': 105, 'c': 99, 'h': 104, 'q': 113}
         for i,p in enumerate(parameters):
-            param_array[i] = <cfl.param_type *> malloc(cython.sizeof(cfl.param_type))
+            param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
             if param_array[i] is NULL:
                 for j in range(i):
                     free(param_array[j])
@@ -1613,7 +1602,7 @@ cdef class ESHFitRunner(object):
         
         # Array of experimental spin Hamiltonian data.
         self.weights = weights
-        shx_array = <cfl.shx_data **>malloc(len(sh.interactions)*cython.sizeof(shx_data_ptr))
+        shx_array = <cfl.shx_data **>malloc(len(sh.interactions)*sizeof(cfl.shx_data *))
         if shx_array == NULL:
             for i in range(self.n_p):
                 free(param_array[i])
@@ -1656,7 +1645,7 @@ cdef class ESHFitRunner(object):
                 free(shx_array)
                 raise ValueError("exp_tensor must either be a (3, 3) or (9, 1) array.")
             
-            shx_array[i] = <cfl.shx_data *>malloc(cython.sizeof(cfl.shx_data))
+            shx_array[i] = <cfl.shx_data *>malloc(sizeof(cfl.shx_data))
             if shx_array[i] == NULL:
                 for j in range(i):
                     free(shx_array[j])
@@ -1947,7 +1936,7 @@ cdef class CFLMin:
                                 "greater than the specified lower bound." % p)
                     rpi += 1
 
-            cfl_bounds = <cfl.cfl_min_bounds *>malloc(cython.sizeof(cfl.cfl_min_bounds))
+            cfl_bounds = <cfl.cfl_min_bounds *>malloc(sizeof(cfl.cfl_min_bounds))
             cfl_bounds.l = &lb[0]
             cfl_bounds.u = &ub[0]
             self.cfl_bounds = cfl_bounds
