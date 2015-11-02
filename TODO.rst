@@ -60,8 +60,8 @@ Turning your code into a pretzel
     assigned to a variable.  If this is unclear, the safest method is to always
     explicitly set Tensor.name attributes, which, if defined, will always take
     precedence.  The current get_name() method checks for uniqueness, and if
-    more than one variable name point to the same Tensor object, the arithmetic
-    tensor name is returned instead.  This should provide safety.
+    more than one variable name point to the same Tensor object, it raises a
+    RuntimeError.
 
 Notes to be included in documentation
 -------------------------------------

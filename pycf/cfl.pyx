@@ -231,7 +231,7 @@ cdef class Tensor:
         """
         Get the name of this Tensor.  If it has not been explicitly named (by
         instantiation or setting of the name attribute post creation by
-        artithmetic), we set the Tensor's name to the name of the variable that
+        arithmetic), we set the Tensor's name to the name of the variable that
         this tensor is assigned to in the __main__ namespace.  This is useful,
         since often new tensors are created by the scaling or addition of other
         Tensors, which, with out recourse to this hack, would require us to
@@ -246,7 +246,17 @@ cdef class Tensor:
             if len(name) == 1:
                 return name[0]
             else:
-                return self.arith_name
+                raise RuntimeError("Found multiple variable names pointing to "\
+                        "the same Tensor.  This occurs when the same Tensor "\
+                        "object is assigned to multiple variables in the "\
+                        "interpreters namespace, which means the "\
+                        "Tensor.get_name() method can no longer guarantee a "\
+                        "unique name for this tensor.  To solve this problem, "\
+                        "either ensure all Tensors are only assigned to a single "\
+                        "variable, or explicitly set the Tensor.name attribute of "\
+                        "all Tensor objects created by Tensor arithmetic.  All "\
+                        "tensors imported with ImportSLJM automatically have "\
+                        "their name attribute set.")
 
 
 cdef class Hamiltonian:
@@ -255,7 +265,7 @@ cdef class Hamiltonian:
     an interface for diagonalizing zh.  Can be used to calculate:
 
         * energy levels given a list of :class:`Tensor`s and corresponding coefficients;
-        * spin Hamiltoian parameters from crystal field parameters;
+        * spin Hamiltonian parameters from crystal field parameters;
         * crystal field parameters by fitting to either energy levels or both
         energy levels and spin Hamiltonian parameters.
 
@@ -1074,7 +1084,7 @@ cdef class EFitRunner(object):
 
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff 
+        coeff = self.coeff.copy()
         ri = 0
         
         for p in self:
@@ -1372,7 +1382,7 @@ cdef class MHFitRunner(object):
         
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff 
+        coeff = self.coeff.copy() 
         ri = 0
         
         for p in self:
@@ -1743,7 +1753,7 @@ cdef class ESHFitRunner(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff
+        coeff = self.coeff.copy()
         ri = 0
         for p in self:
             if (self.param_types[p] == 'c'): 
