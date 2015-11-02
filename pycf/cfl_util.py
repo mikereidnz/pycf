@@ -71,8 +71,10 @@ def term2L(c):
         return 9
     elif c == 'N':
         return 10
+    elif c == 'O':
+        return 11
     else:
-        raise NotImplementedError("L quantum number term symbols beyond N are not supported.")
+        raise NotImplementedError("L quantum number term symbols beyond O are not supported.")
 
 def L2term(i):
     r"""
@@ -105,8 +107,10 @@ def L2term(i):
         return 'M'
     elif i == 10:
         return 'N'
+    elif i == 11:
+        return 'O'
     else:
-        raise NotImplementedError("L quantum number values greater than 10 are not supported.")
+        raise NotImplementedError("L quantum number values greater than 11 are not supported.")
 
 def gen_pycf_summary():
     r"""
