@@ -146,15 +146,14 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
         The standard deviation for the energy level chi^2.
     """
     
-    print(label_key)
     def fmt_label(li, labels):
         if 'F' in label_key:
             for i,l in enumerate(labels[li]):
                 if label_key[i] == 'F':
                     if l:
-                        label = "|(2F )".format(l)
+                        label = "|(2F)".format(l)
                     else:
-                        label = "|     "
+                        label = "|(4F)"
                 elif label_key[i] == "S":
                         label += "{:d}".format(l)
                 elif label_key[i] == "L":
@@ -173,7 +172,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
                     label += L2term(l)
                 elif label_key[i] == "J":
                     label += "{: >2d},".format(l)
-                elif i < len(label_key):
+                elif i < len(label_key)-1:
                     label += "{: >3d},".format(l)
                 else:
                     label += "{: >3d}>".format(l)

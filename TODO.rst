@@ -2,8 +2,6 @@ TODO
 ====
   * Think about the efit/eshfit->chisq weight factor... should all (spin)
     hamiltonians be normalized, or only the principal one?
-  * Extra "seniority equivalent" label is currently added with label key T when
-    imported, but there's no mechanism to print this upon return... 
   * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
@@ -19,9 +17,7 @@ TODO
   * make sure that the spin hamiltonian level, l, passed by cython starts at 0.
   * cov_inv in CFLMin is currently a 2 dimensional c type array. Make sure this
     is correct, rather than a fortran style array. 
-  * Currently, CFLMin passes when it attempts to boundscheck a parameter from
-    the spin Hamltionian, since it gets the original values from h... this
-    should be corrected. 
+
 
 Notes on col vs row major arrays
 --------------------------------
@@ -32,11 +28,40 @@ Notes on col vs row major arrays
     we don't directly pass CRS matrices to LAPACK routines, we apply an exact
     inverse to the CRS parsing transformation to revert to dense matrices.  This
     ensures that the matrix is again stored in a 1 by n dimensional array.
-    Matrices should be passed from cython as fortran contigious arrays, although
+    Matrices should be passed from cython as fortran contiguous arrays, although
     for tensor matrix elements such inconsistencies don't always show up due to
     their hermiticity.  Furthermore, some sometimes 1 dimensional arrays are
     passed as c style arrays, since for these cases they are identical to
-    fortran style arrays. 
+    fortran style arrays.
+
+Turning your code into a pretzel
+--------------------------------
+  * In order to assign names to Tensor objects created by arithmetic (__add__,
+    __sub__, and __mul__ methods) we use the Tensor.get_names() method.  If the
+    name is not explicitly set, this method looks up the name of the variable to
+    which the Tensor object is assigned to in the interpreter namespace. Since
+    namespaces are confined to modules, we have to perform the lookup in the
+    interpreter namespaces, called __global__.__dict__.  This has potential for
+    self referential issues, but proved to be the only way to conveniently use
+    python duck typing with Tensor arithmetic and avoid explicit naming of
+    Tensors created this way.  Tensors can still be explicitly named when they
+    are instantiated, and by setting the Tensor.name attribute.  Furthermore,
+    Tensors created with arithmetic also have a arith_name attribute, which
+    details composition in terms of absolute (explicitly named) tensor names.
+    For a multi Hamiltonian fit with different matrix elements, one still has to
+    explicitly set the name for any tensors created by arithmetic that are to
+    share the same coefficient, since they will obviously have a different name
+    in the global namespace.  
+  * The obvious danger of looking up the variable name in this form is that
+    multiple variable names can point to the same Tensor object, and since the
+    lookup is from a dictionary, it is not possible to predict which name is
+    returned.  Consequently, whenever one relies on this automatic name
+    assignment, it is important that only a single copy of each tensor is
+    assigned to a variable.  If this is unclear, the safest method is to always
+    explicitly set Tensor.name attributes, which, if defined, will always take
+    precedence.  The current get_name() method checks for uniqueness, and if
+    more than one variable name point to the same Tensor object, the arithmetic
+    tensor name is returned instead.  This should provide safety.
 
 Notes to be included in documentation
 -------------------------------------

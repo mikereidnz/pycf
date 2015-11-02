@@ -21,6 +21,7 @@ from __future__ import division
 cimport cfl, cython
 cimport numpy as np
 import numpy as np
+import sys
 from numbers import Number
 from cpython.pycapsule cimport *
 from cpython cimport Py_INCREF, Py_DECREF
@@ -94,7 +95,6 @@ cdef class StateLabels:
         if self.cfl_sl != NULL:
             cfl.sl_free(self.cfl_sl)
 
-
 cdef class Tensor:
     r"""
     The Tensor class provides an interface for the creation of cfl zt objects.
@@ -120,7 +120,7 @@ cdef class Tensor:
     """
     cdef public object t_cap
     cpdef public str name
-    cdef public str tmp_name
+    cpdef public str arith_name
     cpdef public int n
     cdef public StateLabels states
     @cython.boundscheck(False)
@@ -131,32 +131,33 @@ cdef class Tensor:
         cdef cfl.zt *t
         cdef cfl.zt *t1
         cdef cfl.zt *t2
-        self.name = <str> name
         self.states = states
 
-        #for k, v in list(locals().iteritems()):
-        #    if v is self:
-        #        print(k)
-        #print(locals())
-        #[ k for k,v in locals().iteritems() if v is blah][0]
-        
         if (data_tuple == None):
+            self.name = name
+            self.arith_name = None
             n = len(row_ptr)-1
             self.n = n
-            t = cfl.zt_csr_alloc(name, n, &row_ptr[0], &col_in[0], &val[0], <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
+            t = cfl.zt_csr_alloc(name, n, &row_ptr[0], &col_in[0], &val[0], 
+                    <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
             
         elif (len(data_tuple)==3):
-            # Addition or subtraction of tensors.
+            # Addition or subtraction of tensors; we use the arithmetic name for
+            # zt_sa.
+            self.name = None
+            self.arith_name = name
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
             t2 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[1].t_cap, "pycfl.Tensor")
-            t = cfl.zt_sa(<char *>self.name, t1, t2, 1, data_tuple[2])
+            t = cfl.zt_sa(<char *>self.arith_name, t1, t2, 1, data_tuple[2])
 
         else:
-            # Scaling of a tensor.
+            # Scaling of a tensor; we use the arithmetic name for zt_sa.
+            self.name = None
+            self.arith_name = name
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
-            t = cfl.zt_s(<char *>self.name, t1, <double complex> data_tuple[1])
+            t = cfl.zt_s(<char *>self.arith_name, t1, <double complex> data_tuple[1])
 
         if t is NULL:
             self.t_cap = None
@@ -171,31 +172,81 @@ cdef class Tensor:
     def __add__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
             raise TypeError("Only objects of type Tensor can be added to Tensors")
-        t1.tmp_name = "{0}+{1}".format(t1.name, t2.name)
+        # We check whether name has been explicitly set, otherwise use
+        # arithmetic name.
+        if t1.name == None:
+            t1name = t1.arith_name
+        else:
+            t1name = t1.name
+        if t2.name == None:
+            t2name = t2.arith_name
+        else:
+            t2name = t2.name
+        tmp_name = "{0}+{1}".format(t1name, t2name)
         d = (t1, t2, 1)
-        return Tensor(<char *>t1.tmp_name, None, None, None, t1.states, data_tuple=d) 
+        return Tensor(<char *>tmp_name, None, None, None, t1.states, data_tuple=d) 
 
     def __sub__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
             raise TypeError("Only objects of type Tensor can be added to Tensors")
-        t1.tmp_name = "{0}-{1}".format(t1.name, t2.name)
+        # We check whether name has been explicitly set, otherwise use
+        # arithmetic name.
+        if t1.name == None:
+            t1name = t1.arith_name
+        else:
+            t1name = t1.name
+        if t2.name == None:
+            t2name = t2.arith_name
+        else:
+            t2name = t2.name
+        tmp_name = "{0}-{1}".format(t1name, t2name)
         d = (t1, t2, -1)
-        return Tensor(<char *>t1.tmp_name, None, None, None, t1.states, data_tuple=d) 
+        return Tensor(<char *>tmp_name, None, None, None, t1.states, data_tuple=d) 
 
     def __mul__(x, y):
+        # We check whether name has been explicitly set, otherwise use
+        # arithmetic name.
         if isinstance(x, Number):
             if isinstance(y, Tensor):
-                y.tmp_name = "{0:.2f}x{1}".format(x, y.name)
+                if y.name == None:
+                    yname = y.arith_name
+                else:
+                    yname = y.name
+                tmp_name = "{0:.2f}*{1}".format(x, yname)
                 d = (y, x)
-                return Tensor(<char *>y.tmp_name, None, None, None, y.states, data_tuple=d)
+                return Tensor(<char *>tmp_name, None, None, None, y.states, data_tuple=d)
         elif isinstance(x, Tensor):
             if isinstance(y, Number):
-                x.tmp_name = "{0:.2f}x{1}".format(y, x.name)
+                if x.name == None:
+                    xname = x.arith_name
+                else:
+                    xname = x.name
+                tmp_name = "{0:.2f}x{1}".format(y, xname)
                 d = (x, y)
-                return Tensor(<char *>x.tmp_name, None, None, None, x.states, data_tuple=d)
+                return Tensor(<char *>tmp_name, None, None, None, x.states, data_tuple=d)
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
-
+    
+    def get_name(self):
+        """
+        Get the name of this Tensor.  If it has not been explicitly named (by
+        instantiation or setting of the name attribute post creation by
+        artithmetic), we set the Tensor's name to the name of the variable that
+        this tensor is assigned to in the __main__ namespace.  This is useful,
+        since often new tensors are created by the scaling or addition of other
+        Tensors, which, with out recourse to this hack, would require us to
+        explicitly name such tensors after instantiation.  If more than one
+        variable points to this Tensor, we return the tensors arith_name
+        attribute instead. 
+        """
+        if self.name != None:
+            return self.name
+        else:
+            name = [k for k,v in sys.modules['__main__'].__dict__.iteritems() if v is self]
+            if len(name) == 1:
+                return name[0]
+            else:
+                return self.arith_name
 
 
 cdef class Hamiltonian:
@@ -278,7 +329,7 @@ cdef class Hamiltonian:
         if isinstance(tensor, Tensor):
             return tensor in self.tensors
         elif isinstance(tensor, str):
-            return tensor in [t.name for t in self.tensors]
+            return tensor in [t.get_name() for t in self.tensors]
         else:
             raise ValueError("Membership test is only available for Tensor type objects and tensor names (strings)")
 
@@ -287,11 +338,11 @@ cdef class Hamiltonian:
             try:
                 return self.tensors.index(tensor)
             except ValueError:
-                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.name))
+                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.get_name()))
 
         elif isinstance(tensor, str):
             try:
-                return [t.name for t in self.tensors].index(tensor)
+                return [t.get_name() for t in self.tensors].index(tensor)
             except ValueError:
                 raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor))
         else:
@@ -321,9 +372,9 @@ cdef class Hamiltonian:
         self.coeff = np.array([], dtype=np.complex128)
         for t in self.tensors:
             try:
-                self.coeff = np.append(self.coeff, coeff[t.name])
+                self.coeff = np.append(self.coeff, coeff[t.get_name()])
             except KeyError:
-                raise KeyError("Missing coefficient for tensor: %s" % t.name)
+                raise KeyError("Missing coefficient for tensor: %s" % t.get_name())
         
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
@@ -680,7 +731,7 @@ cdef class SpinHamiltonian:
         if (isinstance(tensor, Tensor)):
             return tensor in self.tensors
         elif (isinstance(tensor, str)):
-            return tensor in [t.name for t in self.tensors]
+            return tensor in [t.get_name() for t in self.tensors]
         else:
             raise ValueError("Membership test is only available for Tensor type objects and tensor names (strings)")
 
@@ -689,11 +740,11 @@ cdef class SpinHamiltonian:
             try:
                 return self.tensors.index(tensor)
             except ValueError:
-                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.name))
+                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.get_name()))
 
         elif isinstance(tensor, str):
             try:
-                return [t.name for t in self.tensors].index(tensor)
+                return [t.get_name() for t in self.tensors].index(tensor)
             except ValueError:
                 raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor))
         else:
@@ -732,7 +783,7 @@ cdef class SpinHamiltonian:
         cc_list = []
         for i,rt in enumerate(self.required_tensors):
             try:
-                t_array[i] = <cfl.zt *>PyCapsule_GetPointer(next((t for t in tensors if t.name == rt)).t_cap, "pycfl.Tensor")
+                t_array[i] = <cfl.zt *>PyCapsule_GetPointer(next((t for t in tensors if t.get_name() == rt)).t_cap, "pycfl.Tensor")
             except StopIteration:
                 raise ValueError("Missing tensor %s in tensors list" % rt)
             if rt == 'HYP':
@@ -790,7 +841,7 @@ cdef class SpinHamiltonian:
         # states.
         if 'MAGZS' not in h.coeff_dict:
             for t in self.tensors:
-                if t.name == 'MAGZ':
+                if t.get_name() == 'MAGZ':
                     magzs = 0.0001 * t
                     magzs.name = 'MAGZS'
             
@@ -808,7 +859,7 @@ cdef class SpinHamiltonian:
         pro_h_tensors = []
         create_pro_h = False
         for t in h:
-            if t.name not in pro_tensor_list:
+            if t.get_name() not in pro_tensor_list:
                 pro_h_tensors += [t]
             else:
                 create_pro_h = True
@@ -831,74 +882,6 @@ cdef class SpinHamiltonian:
         zshp_w_free(shp_w);
 
         return result_list
-
-def parse_param_helper(parameters, h, sh=None):
-    r"""
-    In the following, the word parameters is used to refer to tensor
-    coefficients which are varied during the fitting routine.  
-    
-    Create a list of initial parameter values using the coefficients of the
-    provided Hamiltonian, and record their type.  The type determines whether we
-    fit a real or complex parameter. 
-    """
-    param_list = []
-    param_types = []
-    n_p_real = 0
-
-    # Parameters that can be part of a spin Hamiltonian require a dedicated
-    # type.
-    sh_param = ['HYP', 'QUAD']  
-    for i,p in enumerate(parameters):
-        if p not in h:
-            raise ValueError("Tensor %s in parameters not found in h." % p.name)
-        try:
-            if not isinstance(h.coeff_dict[p.name], Number):
-                raise ValueError("Element %s in coefficients is not a number." % p.name)
-        except KeyError:
-            raise ValueError("Missing %s form Hamiltonian coefficients." % p.name)
-
-        # The parameter type is recorded such that any complex parameters
-        # can be split into two real parameters.
-        if isinstance(h.coeff_dict[p.name], complex):
-            param_types.append("c")
-            n_p_real += 2
-        elif p.name == 'HYP':
-            param_types.append("h")
-            n_p_real += 1
-            sh_param.remove('HYP')
-        elif p.name == 'QUAD':
-            param_types.append("q")
-            n_p_real += 1
-            sh_param.remove('QUAD')
-        else:
-            param_types.append("r")
-            n_p_real += 1
-        
-        param_list += [h.coeff_dict[p.name]]
-
-    # If there's a spin Hamiltonian, we add the hyp and quad coupling to the
-    # parameters, provided they have not been added already.  These are
-    # necessarily real, and will be interpreted by cfl as such.  We also record
-    # the parameters unique to the spin Hamiltonian. 
-    n_ushx = 0
-    ush_param = []
-    if sh != None:
-        for t in sh.tensors:
-            if t.name == 'HYP' and t.name in sh_param:
-                param_types.append("h")
-                n_p_real += 1
-                param_list += [sh.coupling_constants[t.name]]
-                n_ushx += 1
-                ush_param += [t]
-            elif t.name == 'QUAD' and t.name in sh_param:
-                param_types.append("q")
-                n_p_real += 1
-                param_list += [sh.coupling_constants[t.name]]
-                n_ushx += 1
-                ush_param += [t]
-
-    return {'n_p_real': n_p_real, 'param_list' : param_list, 'param_types':
-            param_types, 'ush_param': ush_param, 'n_ushx': n_ushx}
 
 
 cdef class EFitRunner(object):
@@ -1493,7 +1476,7 @@ cdef class ESHFitRunner(object):
         magzs = None
         if 'MAGZS' not in h.coeff_dict:
             for t in sh.tensors:
-                if t.name == 'MAGZ':
+                if t.get_name() == 'MAGZ':
                     # Call to sh.set_pro_data ensures MAGZ is present. 
                     magzs = 0.0001 * t
                     magzs.name = 'MAGZS'
@@ -1512,7 +1495,7 @@ cdef class ESHFitRunner(object):
         pro_h_tensors = []
         create_pro_h = False
         for t in h:
-            if t.name not in pro_tensor_list:
+            if t.get_name() not in pro_tensor_list:
                 pro_h_tensors += [t]
             else:
                 create_pro_h = True
