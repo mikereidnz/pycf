@@ -250,7 +250,8 @@ def gen_sh_summary(param, sh, shx=None, sigma=None):
         for j in range(3):
             s += str(np.real(np.abs(param[i])).reshape(3,3)[j,:])
             if shx != None:
-                s += "  " + str(np.abs(shx[inter].reshape(3,3)[j,:])) + "  " + str((np.abs(shx[inter]) - np.abs(np.real(param[i]))).reshape(3,3)[j,:]) + "\n"
+                s += "  " + str(np.abs(shx[inter].reshape(3,3)[j,:])) + "  " + str((np.abs(shx[inter]) 
+                    - np.abs(np.real(param[i]))).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
     
@@ -314,7 +315,6 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
         del kwargs['bounds']
     if 'stepsize' in kwargs:
         del kwargs['stepsize']
- 
 
     np.set_printoptions(formatter={'float': lambda x: '{:15.4f}'.format(x)}, linewidth=200)
     if kwargs['cov']:
@@ -328,6 +328,11 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
         del kwargs['cov_inv']
     
     del kwargs['cov']
+
+    s += "\nNumber of observables: {}\n".format(kwargs['n_obs'])
+    s += "Number of real-valued parameters: {}\n".format(kwargs['n_param'])
+    del kwargs['n_obs']
+    del kwargs['n_param']
 
     if method == 'basinhopping':
         kwargs['naccept'] = kwargs['retval']

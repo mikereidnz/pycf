@@ -914,6 +914,7 @@ cdef class EFitRunner(object):
     cdef int n_p
     cdef public list parameters
     cpdef public int n_p_real
+    cpdef public int n_obs
     cpdef public dict param_types
     cdef cfl.ex_data *ex_data
     cdef cfl.param_type **param_array
@@ -965,8 +966,8 @@ cdef class EFitRunner(object):
         
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-
-        if self.n_p_real > len(ex) and kwargs['ignore_ndof'] != True:
+        self.n_obs = len(ex)
+        if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
@@ -1139,6 +1140,7 @@ cdef class MHFitRunner(object):
     cdef int n_p
     cdef public list parameters
     cpdef public int n_p_real
+    cpdef public int n_obs
     cpdef public dict param_types
     cdef cfl.zh **ha
     cdef np.ndarray weights
@@ -1208,14 +1210,14 @@ cdef class MHFitRunner(object):
                 self.param_types[p] = "r"
                 self.n_p_real += 1
 
-        n_ex = 0
+        self.n_obs = 0
         for ex in ex_list:
-            n_ex += ex.shape[0]
+            self.n_obs += ex.shape[0]
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-
-        if self.n_p_real > n_ex and kwargs['ignore_ndof'] != True:
+        
+        if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
@@ -1430,6 +1432,7 @@ cdef class ESHFitRunner(object):
     cdef int n_p
     cdef public list parameters
     cpdef public int n_p_real
+    cpdef public int n_obs
     cpdef public int n_ushx
     cpdef public dict param_types
     cdef cfl.ex_data *ex_data
@@ -1538,8 +1541,9 @@ cdef class ESHFitRunner(object):
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-
-        if self.n_p_real > len(ex) + sh.nsh and kwargs['ignore_ndof'] != True:
+        
+        self.n_obs = len(ex) + sh.nsh
+        if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
@@ -2045,7 +2049,11 @@ cdef class CFLMin:
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         with nogil:
             retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
+
+        # Assign some kwargs to self for summary printing.
         self.kwargs['retval'] = retval
+        self.kwargs['n_obs'] = fit_obj.n_obs
+        self.kwargs['n_param'] = fit_obj.n_p_real
 
         return fmin
 
