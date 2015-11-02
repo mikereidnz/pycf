@@ -119,7 +119,7 @@ def gen_pycf_summary():
     
     return s
 
-def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
+def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
 
@@ -131,6 +131,10 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
         The eigenvectors in an n by n matrix.
     labels : list
         A list of labels of state labels.
+    label_key : str
+       String identifying the type of label.  Valid characters are S, L, J, M,
+       I, T, and F and their position in label_key specifies the location in
+       each label.  
     ex : np.ndarray, optional
         2 by n dimensional array, with n the number of available experimental
         energy levels. The first column contains energy level indices starting
@@ -141,23 +145,41 @@ def gen_e_summary(w, z, labels, ex=None, nstates=2, sigma=None):
     sigma : float, optional
         The standard deviation for the energy level chi^2.
     """
-
+    
+    print(label_key)
     def fmt_label(li, labels):
-        for i,l in enumerate(labels[li]):
-            if i == 0:
-                label = "|{:d}".format(l)
-            elif i == 1:
-                label += L2term(l)
-            elif i == 2:
-                label += "{: >2d},".format(l)
-            elif i != len(labels[li])-1:
-                label += "{: >3d},".format(l)
-            else:
-                label += "{: >3d}>".format(l)
+        if 'F' in label_key:
+            for i,l in enumerate(labels[li]):
+                if label_key[i] == 'F':
+                    if l:
+                        label = "|(2F )".format(l)
+                    else:
+                        label = "|     "
+                elif label_key[i] == "S":
+                        label += "{:d}".format(l)
+                elif label_key[i] == "L":
+                    label += L2term(l)
+                elif label_key[i] == "J":
+                    label += "{: >2d},".format(l)
+                elif i < len(label_key)-1:
+                    label += "{: >3d},".format(l)
+                else:
+                    label += "{: >3d}>".format(l)
+        else:
+            for i,l in enumerate(labels[li]):
+                if label_key[i] == 'S':
+                    label = "|{:d}".format(l)
+                elif label_key[i] == "L":
+                    label += L2term(l)
+                elif label_key[i] == "J":
+                    label += "{: >2d},".format(l)
+                elif i < len(label_key):
+                    label += "{: >3d},".format(l)
+                else:
+                    label += "{: >3d}>".format(l)
 
         return label
 
-    #z = np.transpose(z) 
     s = "Energy level summary\n"
     s+= "====================\n\n"
     sort_list = []
@@ -458,8 +480,8 @@ def bal_bounds(coeff, bounds):
     """
     bal_b = {}
     for c in bounds:
-        if type(coeff[c]) != type(bounds[c]):
-            raise ValueError("Coefficient %s is of type %s while corresponding bounds element is of type %s" % (c, type(coeff[c]), type(bounds[c])))
+        #if type(coeff[c]) != type(bounds[c]):
+        #    raise ValueError("Coefficient %s is of type %s while corresponding bounds element is of type %s" % (c, type(coeff[c]), type(bounds[c])))
         bal_b[c] = (coeff[c]-bounds[c], coeff[c]+bounds[c])
 
     return bal_b

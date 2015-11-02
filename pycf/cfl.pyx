@@ -46,7 +46,7 @@ cdef class StateLabels:
     label_key : string
         String identifying the type of each state label.  Valid keys are: S, L,
         J, M and I, and the order in which they are listed must correspond to
-        the order used in the state tuples that make up the labels list.
+        the order used in the list for each state in the labels list.
     labels : list
         List of strings, with each string corresponding to a specific state, and
         string elements indicating the respective label values of that state.
@@ -57,12 +57,16 @@ cdef class StateLabels:
     cdef cfl.sl *cfl_sl
     cdef public object sl_cap
     cpdef public list labels
+    cpdef public str label_key
     def __cinit__(self, label_key, labels):
         cdef size_t n
         cdef char *key
         cdef int *int_ptr
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
         cdef int **l_a
+       
+        self.label_key = label_key
+        self.labels = labels
 
         n = <size_t> len(labels)
         key = <char *> label_key
@@ -70,7 +74,6 @@ cdef class StateLabels:
         if l_a == NULL:
             raise MemoryError("l_a malloc failed")
 
-        self.labels = labels
         nplabels = []
         for i,l in enumerate(labels):
             nplabels += [np.ascontiguousarray(np.array(labels[i], dtype=np.int32))]
@@ -381,7 +384,8 @@ cdef class Hamiltonian:
             The standard deviation for the energy level chi^2.
         """
         if self.diag_run:
-            return gen_e_summary(self.w, self.z, self.tensors[0].states.labels, ex, nstates, sigma)
+            return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
+                    self.tensors[0].states.label_key, ex, nstates, sigma)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
 
@@ -918,6 +922,9 @@ cdef class EFitRunner(object):
         energy levels. The first column contains energy level indices starting
         at 1, and the second column contains corresponding experimental energy
         level values. 
+    ignore_ndof : bool, optional
+        Force minimization even if there are fewer observables than parameters;
+        use at your own peril.
     """
     cdef public Hamiltonian h
     cdef public dict coeff
@@ -935,7 +942,7 @@ cdef class EFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     
-    def __init__(self, parameters, h, ex):
+    def __init__(self, parameters, h, ex, **kwargs):
         cdef cfl.param_type *param_type_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_li
@@ -963,7 +970,7 @@ cdef class EFitRunner(object):
             if p not in h:
                 raise ValueError("Parameter %s not found in the Hamiltonian." % p)
             if not isinstance(self.coeff[p], Number):
-                raise ValueError("The coefficient %s was not specfied as a number the Hamiltonian." % p)
+                raise ValueError("The coefficient %s was not specified as a number the Hamiltonian." % p)
             # The parameter type is recorded such that any complex parameters
             # can be split into two real parameters.
             if isinstance(self.coeff[p], complex):
@@ -972,10 +979,14 @@ cdef class EFitRunner(object):
             else:
                 self.param_types[p] = "r"
                 self.n_p_real += 1
+        
+        if 'ignore_ndof' not in kwargs:
+            kwargs['ignore_ndof'] = False
 
-        if self.n_p_real > len(ex):
-            raise ValueError("The total (real and imaginary) number of parameters exceeds "
-                    "the number of observables.")
+        if self.n_p_real > len(ex) and kwargs['ignore_ndof'] != True:
+            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
+                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
+                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
         elif ex.shape[1] != 2:
             raise ValueError("Incorrect ex shape; expected a two column array.")
 
@@ -1134,6 +1145,9 @@ cdef class MHFitRunner(object):
         The first column of each element contains energy level indices starting
         at 1, and the second column contains corresponding experimental energy
         level values. 
+    ignore_ndof : bool, optional
+        Force minimization even if there are fewer observables than parameters;
+        use at your own peril.
     """
     cdef int n_h
     cdef public Hamiltonian h
@@ -1157,7 +1171,7 @@ cdef class MHFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     
-    def __init__(self, parameters, h_list, weights_list, bc_blockdim_list, ex_list):
+    def __init__(self, parameters, h_list, weights_list, bc_blockdim_list, ex_list, **kwargs):
         cdef cfl.zh *zh_ptr
         cdef cfl.ex_data *ex_data_ptr
         cdef cfl.param_type *param_type_ptr
@@ -1214,9 +1228,14 @@ cdef class MHFitRunner(object):
         n_ex = 0
         for ex in ex_list:
             n_ex += ex.shape[0]
-        if self.n_p_real > n_ex:
-            raise ValueError("The total (real and imaginary) number of parameters exceeds "
-                    "the number of observables.")
+
+        if 'ignore_ndof' not in kwargs:
+            kwargs['ignore_ndof'] = False
+
+        if self.n_p_real > n_ex and kwargs['ignore_ndof'] != True:
+            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
+                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
+                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
 
         self.ha = <cfl.zh **>malloc(self.n_h*cython.sizeof(zh_ptr))
         if self.ha == NULL:
@@ -1417,6 +1436,9 @@ cdef class ESHFitRunner(object):
         keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
         corresponding values should be floats.  Any ommited values will be set
         to unity.
+    ignore_ndof : bool, optional
+        Force minimization even if there are fewer observables than parameters;
+        use at your own peril.
     """
     cdef SpinHamiltonian sh
     cdef public Hamiltonian h
@@ -1439,7 +1461,7 @@ cdef class ESHFitRunner(object):
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
-    def __init__(self, parameters, h, sh, ex, shx, weights):
+    def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
         cdef cfl.param_type *param_type_ptr
         cdef cfl.shx_data *shx_data_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
@@ -1531,9 +1553,13 @@ cdef class ESHFitRunner(object):
                 self.param_types[p] = "r"
                 self.n_p_real += 1
 
-        if self.n_p_real > len(ex) + sh.nsh:
-            raise ValueError("The total (real and imaginary) number of parameters "
-                "exceeds the number of observables.")
+        if 'ignore_ndof' not in kwargs:
+            kwargs['ignore_ndof'] = False
+
+        if self.n_p_real > len(ex) + sh.nsh and kwargs['ignore_ndof'] != True:
+            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
+                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
+                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
         elif ex.shape[1] != 2:
             raise ValueError("Incorrect ex shape; expected a two column array.")
 
@@ -2041,7 +2067,7 @@ cdef class CFLMin:
         return fmin
 
 
-def e_fit(parameters, h, ex, cfl_min):
+def e_fit(parameters, h, ex, cfl_min, **kwargs):
     r"""
     Fit parameters to energy level data. 
 
@@ -2064,8 +2090,11 @@ def e_fit(parameters, h, ex, cfl_min):
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    ignore_ndof : bool, optional
+        Force minimization even if there are fewer observables than parameters;
+        use at your own peril.
     """
-    efit = EFitRunner(parameters, h, ex)
+    efit = EFitRunner(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
     h.set_coeff(x)
     (w, z) = h.diag()
@@ -2087,7 +2116,7 @@ def e_fit(parameters, h, ex, cfl_min):
 
 
 
-def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min):
+def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min, **kwargs):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     multiple eigenvalue vectors.  Typically, this would consist of one vector of
@@ -2127,8 +2156,11 @@ def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min)
         The first column of each element contains energy level indices starting
         at 1, and the second column contains corresponding experimental energy
         level values. 
+    ignore_ndof : bool, optional
+        Force minimization even if there are fewer observables than parameters;
+        use at your own peril.
     """
-    mhfit = MHFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list)
+    mhfit = MHFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
 
     summary = "==============\n"
@@ -2155,7 +2187,7 @@ def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min)
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
 
-def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min):
+def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     r"""
     Fit parameters to energy level data. 
 
@@ -2187,12 +2219,14 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min):
         keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
         corresponding values should be floats.  Any ommited values will be set
         to unity.
-
     cfl_min : CFLMin 
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    ignore_ndof : bool, optional
+        Force minimization even if there are fewer observables than parameters;
+        use at your own peril.
     """
-    eshfit = ESHFitRunner(parameters, h, sh, ex, shx, weights)
+    eshfit = ESHFitRunner(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
     h.set_coeff(x)
     (w, z) = h.diag()

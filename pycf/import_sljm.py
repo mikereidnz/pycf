@@ -78,63 +78,52 @@ class ImportSLJM(object):
                 dim = int(d[0])
 
         with open("%s.st_" % name, 'r') as f:
-            state_labels = re.findall(r'[^[]*\[(\d+)(\w)(\d?)\s*(\d+)\s*([\d-]*),?\s*([\d-]*)[)>]', f.read())
+            state_labels = re.findall(r'[^[]*\[(\(?\d?\w?\s*\)?)(\d+)(\w)(\d?)\s*(\d+)\s*([\d-]*),?\s*([\d-]*)[)>]', f.read())
         if dim != len(state_labels):
             raise RuntimeError("Parsing state labels file %s.st_ failed.  This "
                     "is indicative of either a limitation of the parsing regex,"
                     " or a corrupt *.st_ file." % name)
-
-        t_label = False
+       
+        # Index of regex group for each label type.
+        gi = {'S':1, 'L':2, 'J':4, 'M':5, 'I':6, 'T':3, 'F': 0}
+        label_key = ['L', 'J', 'M']
         for l in state_labels:
-            if l[2]:
-                t_label = True
-                break
+            label_key += [k for k in gi if (l[gi[k]] and k not in label_key)]
+                   
+        # Rearrange label key to cannonical order.
+        sort_key = ['F', 'S', 'L', 'J', 'M', 'I', 'T']
+        label_key.sort(key=lambda l: sort_key.index(l))
+        
+        sl = []
+        for l in state_labels:
+            lk = []
+            for k in label_key:
+                # Convert total orbital angular momentum label to numerical
+                # label. 
+                if k == 'L':
+                    label = term2L(l[gi[k]])
+                elif k == 'T':
+                    # Set T labels to zero for states that don't specify it. 
+                    if not l[gi[k]]:
+                        label = 0
+                # Only 2 F states seem to be labeled for F->D, so we set those F
+                # labels to 1, all others to 0. 
+                elif k == 'F':
+                    if l[gi[k]]:
+                        label = 1
+                    else:
+                        label = 0
+                else:
+                    label = int(l[gi[k]])
+                lk += [label]
+            sl += [lk]
 
-        if state_labels[0][5]:
-            if t_label:
-                sl = []
-                for l in state_labels:
-                    if l[2]:
-                        tl = int(l[2])
-                    else:
-                        tl = 0
-                    sl += [(int(l[0]), term2L(l[1]), int(l[3]), int(l[4]), int(l[5]), tl)]
-                label_key = "SLJMIT"
-            else:
-                sl = [(int(l[0]), term2L(l[1]), int(l[3]), int(l[4]), int(l[5])) for l in state_labels]
-                label_key = "SLJMI"
-        elif state_labels[0][4]:
-            if t_label:
-                sl = []
-                for l in state_labels:
-                    if l[2]:
-                        tl = int(l[2])
-                    else:
-                        tl = 0
-                    sl += [(int(l[0]), term2L(l[1]), int(l[3]), int(l[4]), tl)]
-                label_key = "SLJMT"
-            else:
-                sl = [(int(l[0]), term2L(l[1]), int(l[3]), int(l[4])) for l in state_labels]
-                label_key = "SLJM"
-        else:
-            if t_label:
-                sl = []
-                for l in state_labels:
-                    if l[2]:
-                        tl = int(l[2])
-                    else:
-                        tl = 0
-                sl = [(int(l[0]), term2L(l[1]), int(l[3]), tl)] 
-                label_key = "SLJT"
-            else:
-                sl = [(int(l[0]), term2L(l[1]), int(l[2])) for l in state_labels]
-                label_key = "SLJ"
-
-        data = np.loadtxt('%s.txt' % name, skiprows = 2)
+        label_key = "".join(label_key) 
 
         # Generate a dictionary with keys for each tensor and lists of the form
         # [row, col, matel].  These are then used to create Scipy sparse CSR
         # matrices. 
+        data = np.loadtxt('%s.txt' % name, skiprows = 2)
         i = 0
         tensor_elements = {}
         tensor_matrices = {}
