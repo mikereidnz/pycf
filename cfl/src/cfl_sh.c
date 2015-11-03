@@ -757,7 +757,7 @@ void zshp_w_free(zshp_w *w) {
  * Calculate the spin Hamiltonian parameters given a crystal field Hamiltonian.
  * This function wraps the projection, state label sorting, and inversion
  * function calls.  Additionally, the associated alloc and free functions handle
- * all necessary initializations operations and memory allocs/frees. 
+ * all necessary initialization operations and memory allocs/frees. 
  *
  * N.B.: repeat evaluations are fine, provided int_i increases monotonically to
  * ninter and then starts at 0 again. 

@@ -17,7 +17,7 @@
 */
 
 /* Compressed sparse row (CSR) storage routines (also referred to as compressed
- * row storage, or CSR). For a description of CSR, see [1]. 
+ * row storage, or CRS). For a description of CSR, see [1]. 
  *
  * The row and column permutation algorithms, and the associated ivperm and
  * zvperm, were adapted from SPARSKIT2/FORMATS/unary.f, originally written by Y.
