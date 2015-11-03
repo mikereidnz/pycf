@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Filename = spinh.py
 
-# Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
+# Copyright (C) 2013-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the
