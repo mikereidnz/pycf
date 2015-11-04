@@ -122,8 +122,6 @@ cdef class Tensor:
     cpdef public str arith_name
     cpdef public int n
     cdef public StateLabels states
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __cinit__(self, char *name, np.ndarray[int, ndim=1, mode='c'] row_ptr, 
             np.ndarray[int, ndim=1, mode='c'] col_in, np.ndarray[double complex, ndim=1, mode='c'] val, 
             states, object data_tuple=None):
@@ -235,8 +233,8 @@ cdef class Tensor:
         since often new tensors are created by the scaling or addition of other
         Tensors, which, with out recourse to this hack, would require us to
         explicitly name such tensors after instantiation.  If more than one
-        variable points to this Tensor, we return the tensors arith_name
-        attribute instead. 
+        variable points to the same Tensor object, get_name cannot guarantee a
+        unique name and will raise a RuntimeError.
         """
         if self.name != None:
             return self.name
@@ -389,6 +387,7 @@ cdef class Hamiltonian:
 
         return None
 
+    @cython.boundscheck(False)
     cpdef diag(self):
         r"""
         Diagonalize the Hamiltonian. 
@@ -1852,6 +1851,7 @@ cdef class CFLMin:
         if self.cfl_bounds != NULL:
             free(self.cfl_bounds)
 
+    @cython.boundscheck(False)
     cpdef minimize(self, fit_obj, x0):
         r"""
         Run the minimization. 
@@ -2090,7 +2090,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     (w, z) = h.diag()
 
     # The number of degrees of freedom of the chi-squared distribution
-    ndof = len(ex)-len(parameters)
+    ndof = max(efit.n_p_real - efit.n_obs, 1)
 
     e_sigma = e_fit_sigma(w, ex, ndof)
 
@@ -2159,10 +2159,7 @@ def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min,
     summary += gen_pycf_summary()
 
     # The number of degrees of freedom of the chi-squared distribution
-    ndof = 0
-    for e in ex_list:
-        ndof += len(e)
-    ndof -= len(parameters)
+    ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
 
     for i,h in enumerate(mhfit.h_list):
         h.set_coeff(x)
@@ -2222,8 +2219,8 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     (w, z) = h.diag()
     
     # The number of degrees of freedom of the chi-squared distribution
-    ndof = len(ex) + sh.nobs - len(parameters)
-    
+    ndof = max(eshfit.n_p_real - eshfit.n_obs, 1)
+
     sh_param = sh.calc_param(h)
     e_sigma = e_fit_sigma(w, ex, ndof)
     sh_sigma = sh_fit_sigma(sh_param, sh, shx, ndof)
