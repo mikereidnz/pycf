@@ -337,22 +337,26 @@ cdef class Hamiltonian:
         elif isinstance(tensor, str):
             return tensor in [t.get_name() for t in self.tensors]
         else:
-            raise ValueError("Membership test is only available for Tensor type objects and tensor names (strings)")
+            raise ValueError("Membership test is only available for Tensor type "\
+                    "objects and tensor names (strings)")
 
     def index(self, tensor):
         if isinstance(tensor, Tensor):
             try:
                 return self.tensors.index(tensor)
             except ValueError:
-                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.get_name()))
+                raise ValueError("The tensor {} is not an element of this "\
+                        "Hamiltonian".format(tensor.get_name()))
 
         elif isinstance(tensor, str):
             try:
                 return [t.get_name() for t in self.tensors].index(tensor)
             except ValueError:
-                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor))
+                raise ValueError("The tensor {} is not an element of this "\
+                        "Hamiltonian".format(tensor))
         else:
-            raise ValueError("The index method is only available for Tensor type objects and tensor names (strings)")
+            raise ValueError("The index method is only available for Tensor type "\
+                "objects and tensor names (strings)")
 
             
     cpdef set_coeff(self, coeff):
@@ -622,6 +626,14 @@ cdef class SpinHamiltonian:
             if i not in ['zeeman', 'hyperfine', 'quadrupole']:
                 raise ValueError("Invalid element in interactions list: '{}'.".format(i))
         self.interactions = interactions
+        if 'S' in kwargs:
+            if not any((i in interactions for i in ['zeeman', 'hyperfine'])):
+                raise ValueError("SpinHamiltonian: the S_z spin projection was specified yet the "\
+                        "interactions list contains neither the zeeman key nor the hyperfine key.")
+        if 'I' in kwargs:
+            if not any((i in interactions for i in ['hyperfine', 'quadrupole'])):
+                raise ValueError("SpinHamiltonian: the I_z spin projection was specified yet the "\
+                "interactions list contains neither the hyperfine key nor the quadrupole key.")
 
         if 'level' not in kwargs:
             raise KeyError("SpinHamiltonian: missing keyword argument 'level'.")
@@ -686,7 +698,8 @@ cdef class SpinHamiltonian:
                 # The ordering of S_matel and I_matel is opposite to what makes
                 # intuitive sense here... should probably figure this out
                 # sometime.
-                self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.S_matel, self.I_matel), dtype=np.complex128)]
+                self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.S_matel, self.I_matel), 
+                    dtype=np.complex128)]
                 self.nsh += 1
                 # Three hyperfine values plus three Euler rotation parameters.
                 self.nobs += 6
@@ -738,27 +751,32 @@ cdef class SpinHamiltonian:
         elif (isinstance(tensor, str)):
             return tensor in [t.get_name() for t in self.tensors]
         else:
-            raise ValueError("Membership test is only available for Tensor type objects and tensor names (strings)")
+            raise ValueError("SpinHamiltonian: membership test is only available "\
+                    "for Tensor type objects and tensor names (strings)")
 
     def index(self, tensor):
         if isinstance(tensor, Tensor):
             try:
                 return self.tensors.index(tensor)
             except ValueError:
-                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor.get_name()))
+                raise ValueError("SpinHamiltonian: he tensor {} is not an "\
+                        "element of this Hamiltonian".format(tensor.get_name()))
 
         elif isinstance(tensor, str):
             try:
                 return [t.get_name() for t in self.tensors].index(tensor)
             except ValueError:
-                raise ValueError("The tensor {} is not an element of this Hamiltonian".format(tensor))
+                raise ValueError("SpinHamiltonian: the tensor {} is not an "\
+                        "element of this Hamiltonian".format(tensor))
         else:
-            raise ValueError("The index method is only available for Tensor type objects and tensor names (strings)")
+            raise ValueError("SpinHamiltonian: the index method is only "\
+                    "available for Tensor type objects and tensor names "\
+                    "(strings)")
 
     
     def set_pro_data(self, tensors, coupling_constants={}):
         r"""
-        Set the projection data for a specific spin Hamiltonian interaction. 
+        Set the projection data for all spin Hamiltonian interactions. 
 
         Parameters
         ----------
@@ -778,6 +796,11 @@ cdef class SpinHamiltonian:
         """
         cdef cfl.zt **t_array
         cdef np.ndarray[double, ndim=1, mode="c"] cc
+        if not isinstance(tensors, list):
+            raise TypeError("The tensors argument of set_pro_data must be a list "\
+                    "of Tensor objects, not an object of type %s." % type(tensors))
+        if not all((isinstance(t, Tensor) for t in tensors)):
+            raise TypeError("The tensors argument of set_pro_data must be a list of Tensor objects")
 
         t_array = <cfl.zt **>malloc(len(self.required_tensors)*sizeof(cfl.zt *))
         if t_array == NULL:
@@ -788,26 +811,31 @@ cdef class SpinHamiltonian:
         cc_list = []
         for i,rt in enumerate(self.required_tensors):
             try:
-                t_array[i] = <cfl.zt *>PyCapsule_GetPointer(next((t for t in tensors if t.get_name() == rt)).t_cap, "pycfl.Tensor")
+                t_array[i] = <cfl.zt *>PyCapsule_GetPointer(
+                        next((t for t in tensors if t.get_name() == rt)).t_cap, "pycfl.Tensor")
             except StopIteration:
-                raise ValueError("Missing tensor %s in tensors list" % rt)
+                free(t_array)
+                raise ValueError("Missing tensor %s in tensors list in set_pro_data call." % rt)
             if rt == 'HYP':
                 try:
                     cc_list += [coupling_constants['HYP']]
                 except KeyError:
-                    raise KeyError("Missing the nuclear dipole coupling constant.")
+                    free(t_array)
+                    raise KeyError("Missing the nuclear dipole coupling constant in set_pro_data call.")
             elif rt == 'QUAD':
                 try:
                     cc_list += [coupling_constants['QUAD']]
                 except KeyError:
-                    raise KeyError("Missing the nuclear quadrupole coupling constant.")
+                    free(t_array)
+                    raise KeyError("Missing the nuclear quadrupole coupling constant in set_pro_data call.")
             else:
                 # Default to unity for Zeeman/magz. 
                 cc_list += [1.0]
        
         self.coeff_dict = coupling_constants
         cc = np.array(cc_list, dtype=np.float64)
-        retval = zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), t_array, self.level, &cc[0])
+        retval = zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), 
+                t_array, self.level, &cc[0])
         
         free(t_array)
         if retval != 1:
@@ -881,7 +909,8 @@ cdef class SpinHamiltonian:
         
         result_list = []
         for i in range(len(self.interactions)):
-            zshp(&a[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w);
+            zshp(&a[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(
+                self.sh_cap, "pycfl.SpinHamiltonian"), shp_w);
             result_list += [np.copy(a.reshape(3,3))]
 
         zshp_w_free(shp_w);
@@ -1028,8 +1057,8 @@ cdef class EFitRunner(object):
 
         self.param_array = param_array 
 
-        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), 
-                self.ex_data, self.n_p, self.param_array);
+        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(
+            h.h_cap, "pycfl.Hamiltonian"), self.ex_data, self.n_p, self.param_array);
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
@@ -1200,7 +1229,8 @@ cdef class MHFitRunner(object):
             if all((p not in h for h in h_list)):
                 raise ValueError("Parameter %s not found in any Hamiltonian." % p)
             if not isinstance(self.coeff[p], Number):
-                raise ValueError("The coefficient %s was not specfied as a number in one of the Hamiltonians." % p)
+                raise ValueError("The coefficient %s was not specfied as a "\
+                        "number in one of the Hamiltonians." % p)
             # The parameter type is recorded such that any complex parameters
             # can be split into two real parameters.
             if isinstance(self.coeff[p], complex):
@@ -1317,7 +1347,8 @@ cdef class MHFitRunner(object):
                 ip_real += 1
         
         self.param_arrays = param_arrays 
-        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], self.ex_data, &n_zx[0], self.param_arrays)
+        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], 
+                self.ex_data, &n_zx[0], self.param_arrays)
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
@@ -1884,8 +1915,10 @@ cdef class CFLMin:
         cdef double *cov_ptr
         
         cnx = <size_t> len(x0)
-        obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(fit_obj.obj_f_cap, "pycfl.MinObjF")
-        cov_f_ptr = <void (*)(double *, double *, cfl_min_obj *)>PyCapsule_GetPointer(fit_obj.cov_f_cap, "pycfl.MinCovF")
+        obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(
+                fit_obj.obj_f_cap, "pycfl.MinObjF")
+        cov_f_ptr = <void (*)(double *, double *, cfl_min_obj *)>PyCapsule_GetPointer(
+                fit_obj.cov_f_cap, "pycfl.MinCovF")
         data_ptr = <void *>PyCapsule_GetPointer(fit_obj.fit_data_cap, "pycfl.MinData")
 
         # If bounds are specified, convert them to real valued lists the order of
