@@ -143,23 +143,14 @@ void efit_data_free(efit_data *data) {
  *  ha          Array of length n containing pointers to Hamiltonians.
  *  weights     Array of length n with each entry specifying the chi^2 weighting
  *              of the corresponding ha entry.
- *  bc_blockdim The barycenter block dimension for each corresponding ha entry.
- *              If 0, no barycenter shift is applied.  For entries of value n,
- *              the barycenter shift for n dimensional blocks of energy levels
- *              is calculated and subtracted from the theoretical eigenvalues
- *              prior to the chi^2 evaluation.  This is useful for ensuring that
- *              magnetic or hyperfine data available for a subset of CF levels
- *              is not dominated by a shift of the entire multiplet.  If
- *              non-zero, the experimental data must be in blocks of the
- *              specified size with no missing levels. 
  *  exa         Array of pointers to experimental energy level data. 
  *  n_zx        The number of complex valued parameters to be fit to each of the
  *              Hamiltonians.
  *  p           Array of length n to arrays of pointers to parameter type
  *              structs. 
  */
-mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
-    int *bc_blockdim, ex_data **exa, int *n_zx, param_type ***p) {
+mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa, 
+    int *n_zx, param_type ***p) {
   int i, j, nhd_w;
   int num_procs;
   mhfit_data *data;
@@ -280,7 +271,6 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights,
   data->n = n;
   data->ha = ha;
   data->weights = weights;
-  data->bc_blockdim = bc_blockdim;
   data->exa = exa;
   data->nhd_w = nhd_w;
   data->n_zx = n_zx;
@@ -490,46 +480,15 @@ inline double echisq(double *e, ex_data *d) {
   double chisq;
 
   chisq = 0;
-  for (i = 0; i < d->n; i++) {
-    chisq += pow(d->e[i] - e[d->li[i]], 2);
+  /* The chisq contribution due to absolute energy level data. */
+  for (i = 0; i < d->n_a; i++) {
+    chisq += pow(e[d->la[i]] - d->e[i], 2);
   }
-
-  return chisq;
-}
-
-/* Chi^2 for multi Hamiltonian fit.  Optionally accounts for barycenter shifts
- * between blocks of experimental data. 
- *
- * Parameters
- * ----------
- *  e           The theoretical energy array.
- *  ex_data     Pointer to the experimental data struct.
- *  bc_blockdim The barycenter block dimension for this set of ex_data. 
- */
-inline double mhchisq(double *e, ex_data *d, int bc_blockdim) {
-  int i, j;
-  double chisq, bc_shift;
+  /* The chisq contribution due to difference energy level data. */ 
+  for (i = 0; i < d->n_d; i++) {
+    chisq += pow(fabs(e[d->fld[i]] - e[d->ild[i]]) - d->e[i+d->n_a], 2);
+  }
   
-  chisq = 0;
-  if (bc_blockdim != 0) {
-    bc_shift = 0;
-    for (i = 0; i < d->n; i++) {
-      if (i % bc_blockdim == 0) {
-        bc_shift = 0;
-        for (j = i; j < i+bc_blockdim; j++) {
-          bc_shift += d->e[j] - e[d->li[j]];
-        }
-        bc_shift /= bc_blockdim;
-      }
-      chisq += pow(d->e[i] - (e[d->li[i]] - bc_shift), 2);
-    }
-  }
-  else {
-    for (i = 0; i < d->n; i++) {
-      chisq += pow(d->e[i] - e[d->li[i]], 2);
-    }
-  }
-
   return chisq;
 }
 
@@ -670,7 +629,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
     hi = d->hi[i];
     parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-    chisq += d->weights[i]*mhchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
+    chisq += d->weights[i]*echisq(d->h_eval[hi], d->exa[i]);
   }
 
   return chisq;
@@ -748,7 +707,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
     hi = d->hi[i];
     parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
     zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-    *chi2 += d->weights[i]*mhchisq(d->h_eval[hi], d->exa[i], d->bc_blockdim[i]);
+    *chi2 += d->weights[i]*echisq(d->h_eval[hi], d->exa[i]);
   }
   d->echisq_weight = 1; //CFL_MIN_START_CHI2/(*chi2);
 }
@@ -758,7 +717,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
 void eshfit_chi2(double *x, void *data, double *chi2) {
   int i, j, sh_index;
   eshfit_data *d = data;
-
+  
   sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh, x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
   *chi2 = echisq(d->h_eval, d->ex);
@@ -812,7 +771,15 @@ double efit_cov_df(double x, void *data) {
   zhd('N', d->eval, NULL, d->h, d->hd_w);
 
   /* Return the value of the specified energy level. */
-  return d->eval[d->ex->li[cov_d->obs_index]];
+  if (cov_d->obs_index < d->ex->n_a) {
+    /* Absolute energy level. */
+    return d->eval[d->ex->la[cov_d->obs_index]];
+  }
+  else {
+    /* Energy level difference. */
+    return fabs(d->eval[d->ex->fld[cov_d->obs_index - d->ex->n_a]] \
+        - d->eval[d->ex->ild[cov_d->obs_index - d->ex->n_a]]);
+  }
 }
 
 /* Function for evaluating the covariance matrix for a multi-eigenvalue vector
@@ -826,27 +793,35 @@ double efit_cov_df(double x, void *data) {
  * each observable w.r.t. each parameter, thus yielding the covariance matrix.
  */
 double mhfit_cov_df(double x, void *data) {
-  int i, hi, ex_n;
-  double chisq;
+  int i, hi, ex_n, n_a;
   cov_data *cov_d = (cov_data *)data;
   mhfit_data *d = cov_d->obj_f_data;
 
   i = 0;
   ex_n = 0;
   do {
-    ex_n += d->exa[i]->n;
+    ex_n += d->exa[i]->n_obs;
     i++;
   } while (cov_d->obs_index > ex_n);
   i--;
-  ex_n -= d->exa[i]->n;
+  ex_n -= d->exa[i]->n_obs;
 
   hi = d->hi[i];
-  
+  n_a = d->exa[hi]->n_a;
+
   cov_d->df_x[cov_d->par_index] = x;
   parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, cov_d->df_x);
   zhd('N', d->h_eval[hi], NULL, d->ha[i], d->hd_w[hi]);
 
-  return d->h_eval[hi][d->exa[i]->li[cov_d->obs_index-ex_n]];
+  if (cov_d->obs_index < n_a) {
+    /* Absolute energy level. */
+    return d->h_eval[hi][d->exa[hi]->la[cov_d->obs_index]];
+  }
+  else {
+    /* Energy level difference. */
+    return fabs(d->h_eval[hi][d->exa[hi]->fld[cov_d->obs_index - n_a]] \
+        - d->h_eval[hi][d->exa[hi]->ild[cov_d->obs_index - n_a]]);
+  }
 }
 
 /* Function for evaluating the covariance matrix for an energy level and spin
@@ -869,14 +844,14 @@ double eshfit_cov_df(double x, void *data) {
   sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh,
       cov_d->df_x);
   zhd('V', d->h_eval, d->h_evect, d->h, d->hd_w);
-
-  if (cov_d->obs_index >= d->ex->n) {
+   
+  if (cov_d->obs_index >= d->ex->n_obs) {
     /* obs_index corresponds to an observable from the spin Hamiltonian. */
 
     /* The current spin Hamiltonian index. */
-    shi = cov_d->shi_index[cov_d->obs_index - d->ex->n];
+    shi = cov_d->shi_index[cov_d->obs_index - d->ex->n_obs];
     /* The current spin Hamiltonian element. */
-    shel = cov_d->shel_index[cov_d->obs_index - d->ex->n];
+    shel = cov_d->shel_index[cov_d->obs_index - d->ex->n_obs];
 
     zshp(d->sh_pa[shi], d->h_evect, shi, d->sh, d->shp_w);
 
@@ -897,7 +872,15 @@ double eshfit_cov_df(double x, void *data) {
   else {
     /* obs_index corresponds to an energy level observable; return the value of
      * the specified level.*/
-    return d->h_eval[d->ex->li[cov_d->obs_index]];
+    if (cov_d->obs_index < d->ex->n_a) {
+      /* Absolute energy level. */
+      return d->h_eval[d->ex->la[cov_d->obs_index]];
+    }
+    else {
+      /* Energy level difference. */
+      return fabs(d->h_eval[d->ex->fld[cov_d->obs_index - d->ex->n_a]] \
+          - d->h_eval[d->ex->ild[cov_d->obs_index - d->ex->n_a]]);
+    }
   }
 }
 
@@ -927,13 +910,13 @@ double eshfit_hpro_cov_df(double x, void *data) {
    * and invert the result to obtain the spin Hamiltonian parameters. */
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
-  if (cov_d->obs_index >= d->ex->n) {
+  if (cov_d->obs_index >= d->ex->n_obs) {
     /* obs_index corresponds to an observable from the spin Hamiltonian. */
 
     /* The current spin Hamiltonian index. */
-    shi = cov_d->shi_index[cov_d->obs_index - d->ex->n];
+    shi = cov_d->shi_index[cov_d->obs_index - d->ex->n_obs];
     /* The current spin Hamiltonian element. */
-    shel = cov_d->shel_index[cov_d->obs_index - d->ex->n];
+    shel = cov_d->shel_index[cov_d->obs_index - d->ex->n_obs];
 
     zshp(d->sh_pa[shi], d->h_evect, shi, d->sh, d->shp_w);
 
@@ -954,7 +937,15 @@ double eshfit_hpro_cov_df(double x, void *data) {
   else {
     /* obs_index corresponds to an energy level observable; return the value of
      * the specified level.*/
-    return d->h_eval[d->ex->li[cov_d->obs_index]];
+    if (cov_d->obs_index < d->ex->n_a) {
+      /* Absolute energy level. */
+      return d->h_eval[d->ex->la[cov_d->obs_index]];
+    }
+    else {
+      /* Energy level difference. */
+      return fabs(d->h_eval[d->ex->fld[cov_d->obs_index - d->ex->n_a]] \
+          - d->h_eval[d->ex->ild[cov_d->obs_index - d->ex->n_a]]);
+    }
   }
 }
 
@@ -1042,7 +1033,7 @@ void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   /* The number of parameters. */
   n = obj->n;
   /* The number of observables. */
-  m = d->ex->n;
+  m = d->ex->n_obs;
 
   F.function = &efit_cov_df;
 
@@ -1076,7 +1067,7 @@ void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   /* The number of observables. */
   m = 0;
   for (i = 0; i < d->n; i++) {
-    m += d->exa[i]->n;
+    m += d->exa[i]->n_obs;
   }
 
   F.function = &mhfit_cov_df;
@@ -1112,7 +1103,7 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   /* The number of observables.  We count 6 observables per spin Hamiltonian
    * term, except for the quadrupole term which is traceless and thus only
    * contributes 5 observables. */
-  m = d->ex->n;
+  m = d->ex->n_obs;
   for (i = 0; i < d->sh->ninter; i++) {
     if (!strcmp("quadrupole", d->sh->inter[i])) {
       m += 5;
@@ -1125,11 +1116,11 @@ void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   /* Create index arrays that map the obs_index, minus the number of energy
    * level observables, to the corresponding spin Hamiltonian interaction and
    * spin Hamiltonian elements. */
-  shi_index = (size_t *) malloc((m-d->ex->n)*sizeof(size_t));
+  shi_index = (size_t *) malloc((m - d->ex->n_obs)*sizeof(size_t));
   if (shi_index == 0) {
     CFL_ERROR_VOID("malloc failed for cov_d->shi_index");
   }
-  shel_index = (size_t *)malloc((m-d->ex->n)*sizeof(size_t));
+  shel_index = (size_t *)malloc((m - d->ex->n_obs)*sizeof(size_t));
   if (shel_index == 0) {
     free(shi_index);
     CFL_ERROR_VOID("malloc failed for cov_d->shel_index");
@@ -1189,7 +1180,7 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   /* The number of observables.  We count 6 observables per spin Hamiltonian
    * term, except for the quadrupole term which is traceless and thus only
    * contributes 5 observables. */
-  m = d->ex->n;
+  m = d->ex->n_obs;
   for (i = 0; i < d->sh->ninter; i++) {
     if (!strcmp("quadrupole", d->sh->inter[i])) {
       m += 5;
@@ -1202,11 +1193,11 @@ void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) {
   /* Create index arrays that map the obs_index, minus the number of energy
    * level observables, to the corresponding spin Hamiltonian interaction and
    * spin Hamiltonian elements. */
-  shi_index = (size_t *) malloc((m-d->ex->n)*sizeof(size_t));
+  shi_index = (size_t *) malloc((m - d->ex->n_obs)*sizeof(size_t));
   if (shi_index == 0) {
     CFL_ERROR_VOID("malloc failed for cov_d->shi_index");
   }
-  shel_index = (size_t *)malloc((m-d->ex->n)*sizeof(size_t));
+  shel_index = (size_t *)malloc((m - d->ex->n_obs)*sizeof(size_t));
   if (shel_index == 0) {
     free(shi_index);
     CFL_ERROR_VOID("malloc failed for cov_d->shel_index");

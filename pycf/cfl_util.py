@@ -140,10 +140,19 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
        I, T, and F and their position in label_key specifies the location in
        each label.  
     ex : np.ndarray, optional
-        2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
+        the number of available experimental energy level observables.  The two
+        column case is used to specify only absolute energy levels.  In this
+        instance, the first column contains energy level indices starting at 1,
+        and the second column contains the absolute experimental energy of the
+        corresponding level.  The three column case is used to specify a
+        combination of absolute energy levels and energy differences.  For
+        absolute energies, the first column again contains energy level indices
+        starting at 1, while the second column should be set to -1, and the
+        third column contains the corresponding absolute experimental energy.
+        For energy differences, the first column specifies the initial energy
+        level index, the second column specifies the final energy level index,
+        and the third column corresponds to the energy difference. 
     nstates : int, optional
         The number of constituent states to display for mixed states.
     sigma : float, optional
@@ -182,6 +191,15 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
                     label += "{: >3d}>".format(l)
 
         return label
+    
+    if ex != None:
+        if ex.shape[1] == 3:
+            # Index of absolute energy levels. 
+            ex_a_i = np.where(ex[:, 1] <= -1)[0]
+            tmp_ex = np.empty((len(ex_a_i), 2))
+            tmp_ex[:, 0] = ex[ex_a_i, 0]
+            tmp_ex[:, 1] = ex[ex_a_i, 2]
+            ex = tmp_ex
 
     s = "Energy level summary\n"
     s+= "====================\n\n"

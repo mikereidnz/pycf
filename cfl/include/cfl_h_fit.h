@@ -34,17 +34,29 @@ typedef struct {
   /* Indicator whether parameter is real, purely imaginary, or complex. */
   char type;
   /* Complex (resultant) parameter array index. */
-  size_t index;
+  int index;
 } param_type;
 
 /* Experimental energy level data. */
 typedef struct {
-  /* Number of experimental energy levels. */
-  size_t n;
-  /* Array of experimental energy level data. */
+  /* The total number of energy level observables (n_a + n_d). */
+  int n_obs;
+  /* The number of absolute energy levels. */
+  int n_a;
+  /* The number of experimental energy differences. */
+  int n_d;
+  /* Array of length n_obs; the first n_a elements are absolute energy level
+   * values, and the remaining elements are energy differences. */
   double *e;
-  /* Index array specifying for which levels we have data, starting at zero. */
-  int *li;
+  /* Array of length n_a mapping the index of e to the level index of the
+   * complete Hamiltonian.  Used for absolute energy level values.*/
+  int *la;
+  /* Array of length n_d, mapping the index of e to the initial level index of
+   * the complete Hamiltonian.  Used for energy difference values. */
+  int *ild;
+  /* Array of length n_d; mapping the index of e to the final level index of the
+   * complete Hamiltonian.  Used for energy difference values. */
+  int *fld;
 } ex_data;
 
 /* Experimental spin Hamiltonian data. */
@@ -57,7 +69,7 @@ typedef struct {
 
 /* Data for covariance matrix estimation. */
 typedef struct {
-  /* Index of parameter with repsect to which we differentiate. */
+  /* Index of parameter with respect to which we differentiate. */
   size_t par_index;
   /* Index of current observable being differentiated w.r.t. parameters. */
   size_t obs_index;
@@ -67,7 +79,7 @@ typedef struct {
   /* Pointer to data for minimization objective function. */
   void *obj_f_data;
   /* Array that maps obs_index, minus the number of energy level observables, to
-   * the correct spin Hamlitonian interaction. */
+   * the correct spin Hamiltonian interaction. */
   size_t *shi_index;
   /* Array that maps obs_index, minus the number of energy level observables, to
    * the element of the spin Hamiltonian specified by shi_index. */
@@ -102,8 +114,6 @@ typedef struct {
   /* Array of length n with each entry specifying the chi^2 weighting of the
    * corresponding ha entry. */
   double *weights;
-  /* The barycenter block dimension for each corresponding ha entry. */
-  int *bc_blockdim;
   /* Array of pointers to experimental energy level data. */
   ex_data **exa;
   /* The number of Hamiltonian diagonalization workspaces. */
@@ -168,8 +178,8 @@ extern "C" {
 #endif /* __cplusplus */
 efit_data *efit_data_alloc(zh *h, ex_data *ex, int n_zx, param_type **p);
 void efit_data_free(efit_data *data);
-mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, 
-    int *bc_blockdim, ex_data **exa, int *n_zx, param_type ***p); 
+mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa, 
+    int *n_zx, param_type ***p); 
 void mhfit_data_free(mhfit_data *data);
 eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, int n_zx, int n_ushx, param_type **p); 

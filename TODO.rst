@@ -8,7 +8,7 @@ TODO
   * Add weighting to spin Hamiltonian log.
   * Print all parameters, even static ones, in a fit summary... Maybe add a
     generic input section? 
-  * Print the number of parameters and the number of observables.
+  * Add support to energy difference printing.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.

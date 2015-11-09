@@ -1,4 +1,4 @@
-# file: ccfl.pxd
+# file: cfl.pxd
 #cython: c_string_encoding=ascii
 
 #   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
@@ -127,14 +127,19 @@ cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_obj:
         pass
 
-    cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), size_t n, void *data, nlopt_min_alg algorithm, double xtol, cfl_min_bounds *bounds)
-    cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data), void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), size_t n, void *data, gsl_min_alg algorithm)
+    cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), 
+            void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), 
+            size_t n, void *data, nlopt_min_alg algorithm, double xtol, cfl_min_bounds *bounds)
+    cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data), 
+            void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), 
+            size_t n, void *data, gsl_min_alg algorithm)
     int cfl_min(double *x0, double *fmin, double *cov_inv, cfl_min_obj *obj) nogil
     void cfl_min_free(cfl_min_obj *obj)
 
 
 cdef extern from "../../cfl/include/basinhopping.h":
-    cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accept_rate, int step_adapt_int, cfl_min_bounds *bounds, cfl_min_obj *lmin)
+    cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accept_rate, 
+            int step_adapt_int, cfl_min_bounds *bounds, cfl_min_obj *lmin)
 
 
 cdef extern from "../../cfl/include/cfl_h_fit.h":
@@ -143,9 +148,13 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         size_t index
 
     ctypedef struct ex_data:
-        size_t n
+        int n_obs
+        int n_a
+        int n_d
         double *e
-        int *li
+        int *la
+        int *ild
+        int *fld
 
     ctypedef struct shx_data:
         double complex *pa
@@ -162,9 +171,11 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
 
     efit_data *efit_data_alloc(zh *h, ex_data *ex, int n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, int *bc_blockdim, ex_data **exa, int *n_zx, param_type ***p)
+    mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa, 
+            int *n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
-    eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, shx_data **shx, int n_zx, int n_ushx, param_type **p)
+    eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+            shx_data **shx, int n_zx, int n_ushx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
     int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj) 

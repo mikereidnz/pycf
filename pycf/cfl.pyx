@@ -399,7 +399,7 @@ cdef class Hamiltonian:
         Returns
         -------
         (w, z) : tuple
-            The eignvalues and eigenvectors, respectively, of the diagonalized
+            The eigenvalues and eigenvectors, respectively, of the diagonalized
             Hamiltonian. 
 
         """
@@ -567,7 +567,7 @@ cpdef quadrupole_sh_coeff(t):
 cdef class SpinHamiltonian:
     r""" 
     Abstraction for spin Hamiltonian data.  Objects of type SpinHamiltonian are
-    used for calculating spin Hamiltonian paremeters from crystal field
+    used for calculating spin Hamiltonian parameters from crystal field
     parameters in conjunction with :class:`Hamiltonian` objects.  
     
     The type of data that a SpinHamiltonian object represents depends on the
@@ -917,6 +917,48 @@ cdef class SpinHamiltonian:
 
         return result_list
 
+cdef parse_ex(ex):
+    r"""
+    Helper function for parsing energy level data. 
+    """
+    if not isinstance(ex, np.ndarray):
+        raise TypeError("ex data must be of type np.ndarray, not %s." % type(ex))
+
+    if ex.shape[1] == 2:
+        # Two dimensional; no energy level differences. 
+        n_a = ex.shape[0]
+        n_d = 0
+        # Subtract one, since we need an index starting at zero, whereas ex
+        # levels start at 1. 
+        ex_e = np.ascontiguousarray(ex[:, 1], dtype=np.float64)
+        ex_la = np.ascontiguousarray(ex[:, 0]-1, dtype=np.int32)
+        ex_ild = None
+        ex_fld = None
+    elif ex.shape[1] == 3:
+        # Index of absolute energy levels. 
+        ex_a_i = np.where(ex[:, 1] <= -1)[0]
+        # Index of difference energy levels. 
+        ex_d_i = np.where(ex[:, 1] > -1)[0]
+
+        ex_e = np.ascontiguousarray(np.hstack((ex[ex_a_i, 2], ex[ex_d_i, 2])), dtype=np.float64)
+        ex_la = np.ascontiguousarray(ex[ex_a_i, 0]-1, dtype=np.int32)
+        ex_ild = np.ascontiguousarray(ex[ex_d_i, 0]-1, dtype=np.int32)
+        ex_fld = np.ascontiguousarray(ex[ex_d_i, 1]-1, dtype=np.int32)
+        n_d = len(ex_d_i)
+        n_a = ex.shape[0] - n_d
+
+        print(ex_e)
+        print(ex_la)
+        print(ex_ild)
+        print(ex_fld)
+    else:
+        raise ValueError("Incorrect ex shape; expected a two, or three, column array.")
+    
+    n_obs = ex.shape[0]
+
+    return {'n_obs': n_obs, 'n_a': n_a, 'n_d': n_d, 'ex_e': ex_e, 'ex_la': ex_la, 
+            'ex_ild': ex_ild, 'ex_fld': ex_fld}
+
 
 cdef class EFitRunner(object):
     r"""
@@ -935,10 +977,19 @@ cdef class EFitRunner(object):
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
     ex : np.ndarray
-        2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
+        the number of available experimental energy level observables.  The two
+        column case is used to specify only absolute energy levels.  In this
+        instance, the first column contains energy level indices starting at 1,
+        and the second column contains the absolute experimental energy of the
+        corresponding level.  The three column case is used to specify a
+        combination of absolute energy levels and energy differences.  For
+        absolute energies, the first column again contains energy level indices
+        starting at 1, while the second column should be set to -1, and the
+        third column contains the corresponding absolute experimental energy.
+        For energy differences, the first column specifies the initial energy
+        level index, the second column specifies the final energy level index,
+        and the third column corresponds to the energy difference. 
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -951,18 +1002,20 @@ cdef class EFitRunner(object):
     cpdef public int n_obs
     cpdef public dict param_types
     cdef cfl.ex_data *ex_data
+    cdef dict pex
     cdef cfl.param_type **param_array
-    cdef np.ndarray ex_e
-    cdef np.ndarray ex_li
     cdef np.ndarray p0_real
     cdef cfl.efit_data *efit_data
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
-    
     def __init__(self, parameters, h, ex, **kwargs):
+        cdef int n_a
+        cdef int n_d
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
-        cdef np.ndarray[int, ndim=1, mode="c"] ex_li
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_la
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_ild
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_fld
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
@@ -999,32 +1052,43 @@ cdef class EFitRunner(object):
         
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-        self.n_obs = len(ex)
-        if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
-            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
-                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
-        elif ex.shape[1] != 2:
-            raise ValueError("Incorrect ex shape; expected a two column array.")
+        
+        # Parse the energy level data. 
+        pex = parse_ex(ex)
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-
-        # Prepare experimental energy level data
-        self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
-        # Subtract one, since we need an index starting at zero, whereas ex
-        # levels start at 1. 
-        self.ex_li = np.ascontiguousarray(ex[:,0]-1, dtype=np.int32)
-       
-        ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
-        ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
+        self.pex = pex
+        self.n_obs = pex['n_obs']
+        n_a = pex['n_a']
+        n_d = pex['n_d']
+        
+        if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
+            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
+                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
+                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+        
         self.ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
         if self.ex_data == NULL:
             raise MemoryError("ex_data alloc failed")
-        self.ex_data.n = len(ex)
+
+        self.ex_data.n_obs = self.n_obs
+        self.ex_data.n_a = n_a
+        self.ex_data.n_d = n_d
+        ex_e = <np.ndarray[double, ndim=1, mode="c"]> pex['ex_e']
+        ex_la = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_la']
         self.ex_data.e = &ex_e[0]
-        self.ex_data.li = &ex_li[0]
+        self.ex_data.la = &ex_la[0]
+        if n_d:
+            ex_ild = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_ild']
+            ex_fld = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_fld']
+            self.ex_data.ild = &ex_ild[0]
+            self.ex_data.fld = &ex_fld[0]
+        else:
+            # There are no energy level difference observables.
+            self.ex_data.ild = NULL
+            self.ex_data.fld = NULL
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
@@ -1143,25 +1207,24 @@ cdef class MHFitRunner(object):
         A list of tensor objects for which to vary the prefactor. 
     h_list : list
         A list of Hamiltonians, each containing the interactions required to
-        match the corresponing experimental energy level data.
+        match the corresponding experimental energy level data.
     weights_list : list
         A list of floating point weights that determine the weighting added to
         the chi^2 contribution of each eigenvalue vector.
-    bc_blockdim_list : list
-        The barycenter block dimension for each corresponding h_list entry.  If
-        0, no barycenter shift is applied.  For entries of value n, the
-        barycenter shift for n dimensional blocks of energy levels is calculated
-        and subtracted from the theoretical eigenvalues prior to the chi^2
-        evaluation.  This is useful for ensuring that magnetic or hyperfine data
-        available for a subset of CF levels is not dominated by a shift of the
-        entire multiplet.  If non-zero, the experimental data must be in blocks
-        of the specified size with no missing levels. 
     ex_list : list
-        A list of 2 by n dimensional arrays, with n the number of available
-        experimental energy levels for each corresponding Hamiltonian in h_list.
-        The first column of each element contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
+        the number of available experimental energy level observables.  The two
+        column case is used to specify only absolute energy levels.  In this
+        instance, the first column contains energy level indices starting at 1,
+        and the second column contains the absolute experimental energy of the
+        corresponding level.  The three column case is used to specify a
+        combination of absolute energy levels and energy differences.  For
+        absolute energies, the first column again contains energy level indices
+        starting at 1, while the second column should be set to -1, and the
+        third column contains the corresponding absolute experimental energy.
+        For energy differences, the first column specifies the initial energy
+        level index, the second column specifies the final energy level index,
+        and the third column corresponds to the energy difference. 
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -1177,10 +1240,8 @@ cdef class MHFitRunner(object):
     cpdef public dict param_types
     cdef cfl.zh **ha
     cdef np.ndarray weights
-    cdef np.ndarray bc_blockdim
-    cdef list ex_e_list
-    cdef list ex_li_list
     cdef cfl.ex_data **ex_data
+    cdef list pex_list
     cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
     cdef np.ndarray p0_real
@@ -1188,12 +1249,15 @@ cdef class MHFitRunner(object):
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
-    
-    def __init__(self, parameters, h_list, weights_list, bc_blockdim_list, ex_list, **kwargs):
+    def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
+        cdef int n_obs
+        cdef int n_a
+        cdef int n_d
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
-        cdef np.ndarray[int, ndim=1, mode="c"] ex_li
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_la
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_ild
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_fld
         cdef np.ndarray[double, ndim=1, mode="c"] weights
-        cdef np.ndarray[int, ndim=1, mode="c"] bc_blockdim
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
@@ -1240,9 +1304,17 @@ cdef class MHFitRunner(object):
                 self.param_types[p] = "r"
                 self.n_p_real += 1
 
+        # Parse the energy level data. 
         self.n_obs = 0
-        for ex in ex_list:
-            self.n_obs += ex.shape[0]
+        pex_list = []
+        for i,ex in enumerate(ex_list):
+            pex_list += [parse_ex(ex)]
+            self.n_obs += pex_list[i]['n_obs']
+
+        # We assign pointers to self to make sure a reference exists for as long
+        # as the object, and consequently prevent the GC from freeing the
+        # pointers until after __dealloc__ is called.
+        self.pex_list = pex_list
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
@@ -1264,17 +1336,7 @@ cdef class MHFitRunner(object):
             free(self.ha)
             raise MemoryError("exa alloc failed")
 
-        self.ex_e_list = []
-        self.ex_li_list = []
         for i in range(self.n_h):
-            # Prepare experimental energy level data
-            self.ex_e_list += [np.ascontiguousarray(ex_list[i][:,1], dtype=np.float64)]
-            # Subtract one, since we need an index starting at zero, whereas ex
-            # levels start at 1. 
-            self.ex_li_list += [np.ascontiguousarray(ex_list[i][:,0]-1, dtype=np.int32)]
-       
-            ex_e = self.ex_e_list[i]
-            ex_li = self.ex_li_list[i]
             self.ex_data[i] = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
             if self.ex_data[i] == NULL:
                 for j in range(i):
@@ -1282,14 +1344,28 @@ cdef class MHFitRunner(object):
                 free(self.ex_data)
                 free(self.ha)
                 raise MemoryError("ex_data alloc failed")
-            self.ex_data[i].n = len(ex_li)
+            n_obs = pex_list[i]['n_obs']
+            n_a = pex_list[i]['n_a']
+            n_d = pex_list[i]['n_d']
+            self.ex_data[i].n_obs = n_obs
+            self.ex_data[i].n_a = n_a
+            self.ex_data[i].n_d = n_d
+            ex_e = <np.ndarray[double, ndim=1, mode="c"]> pex_list[i]['ex_e']
+            ex_la = <np.ndarray[int, ndim=1, mode="c"]> pex_list[i]['ex_la']
             self.ex_data[i].e = &ex_e[0]
-            self.ex_data[i].li = &ex_li[0]
+            self.ex_data[i].la = &ex_la[0]
+            if n_d:
+                ex_ild = <np.ndarray[int, ndim=1, mode="c"]> pex_list[i]['ex_ild']
+                ex_fld = <np.ndarray[int, ndim=1, mode="c"]> pex_list[i]['ex_fld']
+                self.ex_data[i].ild = &ex_ild[0]
+                self.ex_data[i].fld = &ex_fld[0]
+            else:
+                # There are no energy level difference observables.
+                self.ex_data[i].ild = NULL
+                self.ex_data[i].fld = NULL
 
         self.weights = np.array(weights_list, dtype=np.float64)
         weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
-        self.bc_blockdim = np.array(bc_blockdim_list, dtype=np.int32)
-        bc_blockdim = <np.ndarray[int, ndim=1, mode="c"]> self.bc_blockdim
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
@@ -1347,8 +1423,7 @@ cdef class MHFitRunner(object):
                 ip_real += 1
         
         self.param_arrays = param_arrays 
-        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], &bc_blockdim[0], 
-                self.ex_data, &n_zx[0], self.param_arrays)
+        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], self.ex_data, &n_zx[0], self.param_arrays)
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
@@ -1439,10 +1514,19 @@ cdef class ESHFitRunner(object):
         interactions, the respective coupling constants will automatically be
         added to the parameters.  
     ex : np.ndarray
-        2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
+        the number of available experimental energy level observables.  The two
+        column case is used to specify only absolute energy levels.  In this
+        instance, the first column contains energy level indices starting at 1,
+        and the second column contains the absolute experimental energy of the
+        corresponding level.  The three column case is used to specify a
+        combination of absolute energy levels and energy differences.  For
+        absolute energies, the first column again contains energy level indices
+        starting at 1, while the second column should be set to -1, and the
+        third column contains the corresponding absolute experimental energy.
+        For energy differences, the first column specifies the initial energy
+        level index, the second column specifies the final energy level index,
+        and the third column corresponds to the energy difference. 
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -1450,7 +1534,7 @@ cdef class ESHFitRunner(object):
     weights : dict
         Set the weighting for `\chi^2` contributions of terms to be fit.  Valid
         keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
-        corresponding values should be floats.  Any ommited values will be set
+        corresponding values should be floats.  Any omitted values will be set
         to unity.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
@@ -1467,10 +1551,9 @@ cdef class ESHFitRunner(object):
     cpdef public int n_ushx
     cpdef public dict param_types
     cdef cfl.ex_data *ex_data
+    cdef dict pex
     cdef cfl.param_type **param_array
     cdef cfl.shx_data **shx_array
-    cdef np.ndarray ex_e
-    cdef np.ndarray ex_li
     cdef list shx_list
     cdef dict weights
     cdef np.ndarray p0_real
@@ -1479,8 +1562,13 @@ cdef class ESHFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
+        cdef int n_obs
+        cdef int n_a
+        cdef int n_d
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
-        cdef np.ndarray[int, ndim=1, mode="c"] ex_li
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_la
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_ild
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_fld
         cdef np.ndarray[double complex, ndim=1, mode="c"] shx_pa
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
@@ -1571,32 +1659,43 @@ cdef class ESHFitRunner(object):
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
         
-        self.n_obs = len(ex) + sh.nsh
-        if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
-            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
-                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
-        elif ex.shape[1] != 2:
-            raise ValueError("Incorrect ex shape; expected a two column array.")
+        # Parse the energy level data. 
+        pex = parse_ex(ex)
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-       
-        # Prepare experimental energy level data
-        self.ex_e = np.ascontiguousarray(ex[:,1], dtype=np.float64)
-        # Subtract one, since we need an index starting at zero, whereas ex
-        # levels start at 1. 
-        self.ex_li = np.ascontiguousarray(ex[:,0]-1, dtype=np.int32)
-       
-        ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_e
-        ex_li = <np.ndarray[int, ndim=1, mode="c"]> self.ex_li
+        self.pex = pex
+        self.n_obs = pex['n_obs']
+        n_obs = pex['n_obs']
+        n_a = pex['n_a']
+        n_d = pex['n_d']
+
+        self.n_obs += sh.nsh
+        if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
+            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
+                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
+                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+
         self.ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
         if self.ex_data == NULL:
             raise MemoryError("ex_data alloc failed")
-        self.ex_data.n = len(ex)
+        self.ex_data.n_obs = n_obs
+        self.ex_data.n_a = n_a
+        self.ex_data.n_d = n_d
+        ex_e = <np.ndarray[double, ndim=1, mode="c"]> pex['ex_e']
+        ex_la = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_la']
         self.ex_data.e = &ex_e[0]
-        self.ex_data.li = &ex_li[0]
+        self.ex_data.la = &ex_la[0]
+        if n_d:
+            ex_ild = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_ild']
+            ex_fld = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_fld']
+            self.ex_data.ild = &ex_ild[0]
+            self.ex_data.fld = &ex_fld[0]
+        else:
+            # There are no energy level difference observables.
+            self.ex_data.ild = NULL
+            self.ex_data.fld = NULL
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
@@ -1804,7 +1903,7 @@ cdef class CFLMin:
 
     bounds : dict, optional
         Parameter bounds.  Keys specify the tensor name (note that tensors
-        created by tensor arithmethic should have their name attribute set
+        created by tensor arithmetic should have their name attribute set
         explicitly), while values correspond to tuples, the first entry of which
         is the lower bound and the second entry the upper bound.  The number of
         elements in bounds must match the length of the parameters list. 
@@ -2106,10 +2205,19 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
     ex : np.ndarray
-        2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
+        the number of available experimental energy level observables.  The two
+        column case is used to specify only absolute energy levels.  In this
+        instance, the first column contains energy level indices starting at 1,
+        and the second column contains the absolute experimental energy of the
+        corresponding level.  The three column case is used to specify a
+        combination of absolute energy levels and energy differences.  For
+        absolute energies, the first column again contains energy level indices
+        starting at 1, while the second column should be set to -1, and the
+        third column contains the corresponding absolute experimental energy.
+        For energy differences, the first column specifies the initial energy
+        level index, the second column specifies the final energy level index,
+        and the third column corresponds to the energy difference. 
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
@@ -2139,7 +2247,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
 
 
 
-def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min, **kwargs):
+def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     multiple eigenvalue vectors.  Typically, this would consist of one vector of
@@ -2160,30 +2268,29 @@ def mh_fit(parameters, h_list, weights_list, bc_blockdim_list, ex_list, cfl_min,
         A list of tensor objects for which to vary the prefactor. 
     h_list : list
         A list of Hamiltonians, each containing the interactions required to
-        match the corresponing experimental energy level data.
+        match the corresponding experimental energy level data.
     weights_list : list
         A list of floating point weights that determine the weighting added to
         the chi^2 contribution of each eigenvalue vector.
-    bc_blockdim_list : list
-        The barycenter block dimension for each corresponding h_list entry.  If
-        0, no barycenter shift is applied.  For entries of value n, the
-        barycenter shift for n dimensional blocks of energy levels is calculated
-        and subtracted from the theoretical eigenvalues prior to the chi^2
-        evaluation.  This is useful for ensuring that magnetic or hyperfine data
-        available for a subset of CF levels is not dominated by a shift of the
-        entire multiplet.  If non-zero, the experimental data must be in blocks
-        of the specified size with no missing levels. 
     ex_list : list
-        A list of 2 by n dimensional arrays, with n the number of available
-        experimental energy levels for each corresponding Hamiltonian in h_list.
-        The first column of each element contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
+        the number of available experimental energy level observables.  The two
+        column case is used to specify only absolute energy levels.  In this
+        instance, the first column contains energy level indices starting at 1,
+        and the second column contains the absolute experimental energy of the
+        corresponding level.  The three column case is used to specify a
+        combination of absolute energy levels and energy differences.  For
+        absolute energies, the first column again contains energy level indices
+        starting at 1, while the second column should be set to -1, and the
+        third column contains the corresponding absolute experimental energy.
+        For energy differences, the first column specifies the initial energy
+        level index, the second column specifies the final energy level index,
+        and the third column corresponds to the energy difference. 
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
-    mhfit = MHFitRunner(parameters, h_list, weights_list, bc_blockdim_list, ex_list, **kwargs)
+    mhfit = MHFitRunner(parameters, h_list, weights_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
 
     summary = "==============\n"
@@ -2226,10 +2333,19 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     sh : SpinHamiltonian
         The spin Hamiltonian object to be fit. 
     ex : np.ndarray
-        2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
+        the number of available experimental energy level observables.  The two
+        column case is used to specify only absolute energy levels.  In this
+        instance, the first column contains energy level indices starting at 1,
+        and the second column contains the absolute experimental energy of the
+        corresponding level.  The three column case is used to specify a
+        combination of absolute energy levels and energy differences.  For
+        absolute energies, the first column again contains energy level indices
+        starting at 1, while the second column should be set to -1, and the
+        third column contains the corresponding absolute experimental energy.
+        For energy differences, the first column specifies the initial energy
+        level index, the second column specifies the final energy level index,
+        and the third column corresponds to the energy difference. 
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -2237,7 +2353,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     weights : dict
         Set the weighting for `\chi^2` contributions of terms to be fit.  Valid
         keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
-        corresponding values should be floats.  Any ommited values will be set
+        corresponding values should be floats.  Any omitted values will be set
         to unity.
     cfl_min : CFLMin 
         The minimization object which sets the optimization algorithm and

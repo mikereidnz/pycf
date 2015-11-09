@@ -489,9 +489,13 @@ int main (void)
   double ce_x0[7] = {2000, 900, 200, -1000, -1000, -100};
   ex_data ce_ex_data;
   int ex_index[6] = {1, 2, 7, 8, 11, 13};
-  ce_ex_data.n = 6;
+  ce_ex_data.n_obs = 6;
+  ce_ex_data.n_a = 6;
+  ce_ex_data.n_d = 0;
   ce_ex_data.e = ce_ex;
-  ce_ex_data.li = ex_index;
+  ce_ex_data.la = ex_index;
+  ce_ex_data.ild = NULL;
+  ce_ex_data.fld = NULL;
 
   /* Run energy level fit. */
   efit_data *efit_d;
@@ -517,11 +521,10 @@ int main (void)
   param_type **pa[2] = {p, p};
   zh *ha[2] = {h, h};
   double weights[2] = {1.0, 1.0};
-  int bc_blockdim[2] = {0, 0};
   ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
   int n_zx_a[2] = {6, 6};
 
-  mh_fd = mhfit_data_alloc(2, ha, weights, bc_blockdim, exa, n_zx_a, pa);
+  mh_fd = mhfit_data_alloc(2, ha, weights, exa, n_zx_a, pa);
   mhfit_lmin_obj = cfl_gsl_min_setup(&mhfit_obj, NULL, 6, mh_fd, gsl_vector_bfgs2);
   mhfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mhfit_lmin_obj);
 
