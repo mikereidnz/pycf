@@ -947,10 +947,6 @@ cdef parse_ex(ex):
         n_d = len(ex_d_i)
         n_a = ex.shape[0] - n_d
 
-        print(ex_e)
-        print(ex_la)
-        print(ex_ild)
-        print(ex_fld)
     else:
         raise ValueError("Incorrect ex shape; expected a two, or three, column array.")
     
