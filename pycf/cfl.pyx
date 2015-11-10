@@ -923,7 +923,11 @@ cdef parse_ex(ex):
     """
     if not isinstance(ex, np.ndarray):
         raise TypeError("ex data must be of type np.ndarray, not %s." % type(ex))
-
+    elif ex.shape[1] != 2 or ex.shap[1] != 3:
+        raise ValueError("Incorrect ex shape; expected a two, or three, column array.")
+    elif len(ex[:, 0]) != len(set(ex[:, 0])):
+        raise ValueError("ex input data contains duplicate entries in the index column.")
+    
     if ex.shape[1] == 2:
         # Two dimensional; no energy level differences. 
         n_a = ex.shape[0]
@@ -947,9 +951,6 @@ cdef parse_ex(ex):
         n_d = len(ex_d_i)
         n_a = ex.shape[0] - n_d
 
-    else:
-        raise ValueError("Incorrect ex shape; expected a two, or three, column array.")
-    
     n_obs = ex.shape[0]
 
     return {'n_obs': n_obs, 'n_a': n_a, 'n_d': n_d, 'ex_e': ex_e, 'ex_la': ex_la, 

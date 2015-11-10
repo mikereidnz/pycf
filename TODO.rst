@@ -1,5 +1,7 @@
 TODO
 ====
+  * Current F->D transition labels are very limited... should store the complete
+    label somehow... Only works for (2F) labels presently. 
   * Think about the efit/eshfit->chisq weight factor... should all (spin)
     hamiltonians be normalized, or only the principal one?
   * Fit to multiple spin Hamiltonians

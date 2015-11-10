@@ -166,7 +166,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
                     if l:
                         label = "|(2F)".format(l)
                     else:
-                        label = "|(4F)"
+                        label = "|    "
                 elif label_key[i] == "S":
                         label += "{:d}".format(l)
                 elif label_key[i] == "L":
@@ -194,19 +194,24 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
     
     if ex != None:
         if ex.shape[1] == 3:
-            # Index of absolute energy levels. 
+            # Drop energy differences. 
             ex_a_i = np.where(ex[:, 1] <= -1)[0]
             tmp_ex = np.empty((len(ex_a_i), 2))
             tmp_ex[:, 0] = ex[ex_a_i, 0]
             tmp_ex[:, 1] = ex[ex_a_i, 2]
             ex = tmp_ex
+        # Sort ex according to index column.
+        ex = ex[np.argsort(ex[:, 0]), :]
+        if len(ex[:, 0]) != len(set(ex[:, 0])):
+            raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
 
     s = "Energy level summary\n"
     s+= "====================\n\n"
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
-    heading = "Lev.  " + ("Percentage                 " + "State" + " "*(len(fmt_label(0, labels))-4))*nstates + "       Theory"
+    heading = "Lev.  " + ("Percentage                 " + "State" + \
+            " " * (len(fmt_label(0, labels))-4)) * nstates + "       Theory"
     if ex != None:
         heading += "     Experiment    Difference\n"
     else:
@@ -220,7 +225,8 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
         for j in range(nstates):
             si = sort_list[i][j]
             
-            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, si+1, fmt_label(si, labels))
+            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                    si+1, fmt_label(si, labels))
         s += line + " {: >12.4f}".format(w[i])
         if ex != None:
             if ex[ex_i,0] == i+1:
@@ -506,8 +512,6 @@ def bal_bounds(coeff, bounds):
     """
     bal_b = {}
     for c in bounds:
-        #if type(coeff[c]) != type(bounds[c]):
-        #    raise ValueError("Coefficient %s is of type %s while corresponding bounds element is of type %s" % (c, type(coeff[c]), type(bounds[c])))
         bal_b[c] = (coeff[c]-bounds[c], coeff[c]+bounds[c])
 
     return bal_b
