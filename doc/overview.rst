@@ -32,3 +32,14 @@ pretty-printing calculation results.  While direct calls to cfl without python
 are certainly possible, the manual input data entry quickly becomes intractable
 for realistic problems.  It would also be possible to create bindings for cfl in
 other languages, such as Matlab. 
+
+spinh
+~~~~~
+
+spinh is a module written in pure python which is primarily intended as a set of
+helper routines for calculations performed with pycfl. It can be used to
+calculate the spin Hamiltonian matrix elements given a set of parameter
+matrices; this can be useful when used in conjunction with the multi-Hamiltonian
+fit of pycfl.  Furthermore, it allows one to perform an inversion that
+calculates the spin Hamiltonian parameter matrices from complete spin
+Hamiltonian.  Supported interactions are Zeeman, hyperfine, and quadrupole.

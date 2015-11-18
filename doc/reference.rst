@@ -2,12 +2,6 @@
 pycf reference
 ==============
 
-:mod:`pyemp` -- emp python wrapper
-==================================
-
-.. automodule:: pyemp
-  :members:
-
 :mod:`cfl` -- python wrapper for cfl
 ======================================
 .. autoclass:: cfl.StateLabels
@@ -37,6 +31,9 @@ pycf reference
 .. autoclass:: cfl.EFitRunner
   :members:
 
+.. autoclass:: cfl.MHFitRunner
+  :members:
+
 .. autoclass:: cfl.ESHFitRunner
   :members:
 
@@ -44,6 +41,8 @@ pycf reference
   :members:
 
 .. autofunction:: cfl.e_fit
+
+.. autofunction:: cfl.mh_fit
 
 .. autofunction:: cfl.esh_fit
 
@@ -62,6 +61,18 @@ pycf reference
 .. automodule:: cfl_util
   :members:
 
+
+:mod:`pyemp` -- emp python wrapper
+==================================
+
+.. automodule:: pyemp
+  :members:
+
+:mod:`spinh` -- spin Hamiltonian calculations
+=============================================
+
+.. automodule:: spinh
+  :members:
 
 :mod:`matel` -- Matrix element function
 =======================================

@@ -12,6 +12,7 @@ Welcome to pycf's documentation
   overview
   install
   pyemp
+  spinh
   reference
   gpc_installation
   emp_lapack
