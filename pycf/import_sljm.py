@@ -106,6 +106,8 @@ class ImportSLJM(object):
                     # Set T labels to zero for states that don't specify it. 
                     if not l[gi[k]]:
                         label = 0
+                    else:
+                        label = int(l[gi[k]])
                 # Only 2 F states seem to be labeled for F->D, so we set those F
                 # labels to 1, all others to 0. 
                 elif k == 'F':
@@ -119,7 +121,6 @@ class ImportSLJM(object):
             sl += [lk]
 
         label_key = "".join(label_key) 
-
         # Generate a dictionary with keys for each tensor and lists of the form
         # [row, col, matel].  These are then used to create Scipy sparse CSR
         # matrices. 
