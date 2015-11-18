@@ -429,7 +429,7 @@ cdef class Hamiltonian:
 
         return (w, z)
 
-    cpdef gen_summary(self, ex=None, nstates=2, sigma=None):
+    cpdef gen_summary(self, ex=None, nstates=2, sigma=None, e_shift=False):
         r"""
         Generate an energy level summary resulting from a diagonalization. 
 
@@ -444,10 +444,12 @@ cdef class Hamiltonian:
             The number of constituent states to display for mixed states.
         sigma : float, optional
             The standard deviation for the energy level chi^2.
+        e_shift : bool, optional
+            Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero. 
         """
         if self.diag_run:
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
-                    self.tensors[0].states.label_key, ex, nstates, sigma)
+                    self.tensors[0].states.label_key, ex, nstates, sigma, e_shift)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
 

@@ -123,7 +123,7 @@ def gen_pycf_summary():
     
     return s
 
-def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
+def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shift=False):
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
 
@@ -157,6 +157,8 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
         The number of constituent states to display for mixed states.
     sigma : float, optional
         The standard deviation for the energy level chi^2.
+    e_shift : bool, optional
+        Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero. 
     """
     
     def fmt_label(li, labels):
@@ -204,6 +206,10 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
         ex = ex[np.argsort(ex[:, 0]), :]
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
+    
+    if e_shift:
+        e_shift = -np.min(w)
+        w = w + e_shift
 
     s = "Energy level summary\n"
     s+= "====================\n\n"
@@ -240,7 +246,10 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None):
 
     if sigma != None:
         s += "sigma = {: .4f}\n".format(sigma)
-
+    s += "Label key: {}\n".format(label_key)
+    if e_shift:
+        s += "Energy level shift: {: .4f}\n".format(e_shift)
+    
     return s
 
 def gen_sh_summary(param, sh, shx=None, sigma=None):
