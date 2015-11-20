@@ -17,9 +17,10 @@ except KeyError:
     compile_args = []
 
 try:
-    link_args=['-lgsl', '-lnlopt', '-lm', 'cfl/libcfl.a', os.environ['CFL_LDLIBS']]
+    link_args=[os.environ['CFL_LDLIBS']]
 except KeyError:
-    link_args=['-lgsl', '-lnlopt', '-lm', 'cfl/libcfl.a']
+    link_args=[]
+link_args += ['cfl/libcfl.a', '-lgsl', '-lnlopt', '-lm']
 
 if '--compiler=intel' in sys.argv:
     if find_executable('icc') == None:

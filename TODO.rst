@@ -82,3 +82,17 @@ Distributed memory parallelization
   * Use methods pzgels and pzheevd from ScalaPACK and pzgemm and pzhemm from
     PBLAS.  Link to ScalaPACK doc about matrix size per core guideline 
     n_core = ~ (m by n)/10^6
+
+Debian/Ubuntu dependencies
+--------------------------
+libgsl0-dev
+build-essential
+gfortran
+liblapacke-dev
+liblapack-dev
+libnlopt-dev
+python-numpy
+python-scipy
+python-matplotlib
+cython
+
