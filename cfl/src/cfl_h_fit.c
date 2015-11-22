@@ -205,12 +205,12 @@ mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa,
     for (j = 0; j < n; j++) {
       if (j >= nhd_w) {
         data->hi[i] = j;
-        lwork[nhd_w] = ha[i]->slabels->hash;
+        lwork[nhd_w] = ha[i]->slabels->th;
         iwork[j] = i;
         nhd_w++;
         break;
       }
-      else if (ha[i]->slabels->hash == lwork[j]) {
+      else if (ha[i]->slabels->th == lwork[j]) {
         data->hi[i] = j;
         break;
       }

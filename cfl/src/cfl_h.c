@@ -83,7 +83,7 @@ zh *zh_alloc(int n, int nt, zt **t) {
 
   /* Ensure all tensors have matching state labels. */
   for (i = 1; i < nt; i++) {
-    if (t[0]->slabels->hash != t[i]->slabels->hash) {
+    if (t[0]->slabels->th != t[i]->slabels->th) {
       CFL_ERROR_NULL("Tensors have mismatching state labels")
     }
   }

@@ -251,7 +251,7 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
 
   zeeman_index = 0;
   zeeman_term = 0;
-  thash = (t[0])->slabels->hash;
+  thash = (t[0])->slabels->th;
   for (i = 0; i < ntensors; i++) {
     sh->pro_data[i] = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
     if (sh->pro_data[i] == 0) {
@@ -273,7 +273,7 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
       free(sh->pro_data);
       CFL_ERROR_VAL("malloc failed for pro_data[i]->pt", ENOMEM);
     }
-    else if (thash != (t[i])->slabels->hash) {
+    else if (thash != (t[i])->slabels->th) {
       for (j = 0; j = i; j++) {
         free((sh->pro_data[j])->pt);
         free(sh->pro_data[j]);

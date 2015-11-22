@@ -31,35 +31,36 @@
 #include <string.h>
 #include <math.h>
 #include <complex.h>
-#include <cfl_error.h>
-#include <cfl_csr.h>
-#include <cfl_tensor.h>
+#include "cfl_error.h"
+#include "cfl_csr.h"
+#include "cfl_tensor.h"
 
-/*
- * FIXME: replace with integer hash function; such as:
- * http://isthe.com/chongo/tech/comp/fnv/
- * Implement the djb2 hash algorithm for array of int arrays.  For details
- * on djb2, see: http://www.cse.yorku.ca/~oz/hash.html
+
+/* 32-bit FNV hash function for a buffer due to Fowler, Noll and Vo.  For
+ * further details, see: http://www.isthe.com/chongo/tech/comp/fnv/
  *
  * Parameters
  * ----------
- *  n         The length of the array of int arrays.
- *  nc        The length of the int arrays.
- *  a         Array of int arrays to hash. 
+ *  buf       The start of the buffer to be hashed. 
+ *  len       The length of buf in octets.
+ *  hval      The previous hash value or FNV1_32_INIT for the first call. 
  */
-long state_hash(int n, int nc, int **a) {
-  unsigned long hash = 5381;
-  char c;
-  int i, j;
-   
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < nc; j++) {
-      c = (char ) a[i][j];
-      hash = ((hash << 5) + hash) + c;
-    }
+uint32_t fnv_hash(void *buf, int len, uint32_t hval) {
+  unsigned char *bp = (unsigned char *)buf;	/* start of buffer */
+  unsigned char *be = bp + len;		        /* beyond end of buffer */
+
+  /* FNV-1 hash each octet in the buffer. */
+  while (bp < be) {
+    /* multiply by the 32 bit FNV magic prime mod 2^32 */
+    hval *= FNV_32_PRIME;
+    /* xor the bottom with the current octet */
+    hval ^= (uint32_t)*bp++;
   }
-  return hash;
+
+  /* return our new hash value */
+  return hval;
 }
+
 
 /*
  * Allocate storage for state labels. 
@@ -114,10 +115,26 @@ sl *sl_alloc(int n, char *key, int **labels) {
     }
     memcpy(l->labels[i], labels[i], nl*sizeof(int));
   }
+
+  l->lh = (uint32_t *) malloc(n*sizeof(uint32_t));
+  if (l->lh == 0) {
+    for (i = 0; i < n; i++) {
+      free(l->labels[i]);
+    }
+    free(l->key);
+    free(l->labels);
+    free(l);
+    CFL_ERROR_NULL("malloc failed for l->lh");
+  }
+
+  l->lh[0] = fnv_hash(l->labels[0], nl, FNV1_32_INIT);
+  for (i = 1; i < n; i++) {
+    l->lh[i] = fnv_hash(l->labels[i], nl, l->lh[i-1]);
+  }
   
-  l->hash = state_hash(n, nl, l->labels);
+  l->th = fnv_hash(l->lh, n*sizeof(uint32_t)/sizeof(char), FNV1_32_INIT);
   l->n = n;
-  
+
   return l;
 }
 
@@ -129,6 +146,7 @@ void sl_free(sl *l) {
   }
   free(l->key);
   free(l->labels);
+  free(l->lh);
   free(l);
 }
 
@@ -163,7 +181,7 @@ zt *zt_alloc(char *name, complex double *a, int n, sl *slabels) {
   t->n = n;
   t->slabels = slabels;
   t->matel = ma;
-  
+
   return t;
 }
 
@@ -201,7 +219,7 @@ zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in,
   t->n = n;
   t->slabels = slabels;
   t->matel = ma;
-  
+
   return t;
 }
 
@@ -230,7 +248,7 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
   if (t1->n != t2->n) {
     CFL_ERROR_NULL("dimensions of tensors to be added do not match");
   }
-  else if (t1->slabels->hash != t2->slabels->hash) {
+  else if (t1->slabels->th != t2->slabels->th) {
     CFL_ERROR_NULL("state labels of tensors to be added don't match");
   }
 
