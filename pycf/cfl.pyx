@@ -1066,7 +1066,7 @@ cdef class EFitRunner(object):
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
         
         self.ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
         if self.ex_data == NULL:
@@ -1321,7 +1321,7 @@ cdef class MHFitRunner(object):
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
 
         self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
         if self.ha == NULL:
@@ -1674,7 +1674,7 @@ cdef class ESHFitRunner(object):
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your on peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
 
         self.ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
         if self.ex_data == NULL:
