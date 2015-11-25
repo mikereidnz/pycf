@@ -134,7 +134,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
     z : np.ndarray
         The eigenvectors in an n by n matrix.
     labels : list
-        A list of labels of state labels.
+        A list of state labels.
     label_key : str
        String identifying the type of label.  Valid characters are S, L, J, M,
        I, T, and F and their position in label_key specifies the location in
@@ -195,16 +195,29 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
         return label
     
     if ex != None:
-        if ex.shape[1] == 3:
-            # Drop energy differences. 
-            ex_a_i = np.where(ex[:, 1] <= -1)[0]
-            tmp_ex = np.empty((len(ex_a_i), 2))
-            tmp_ex[:, 0] = ex[ex_a_i, 0]
-            tmp_ex[:, 1] = ex[ex_a_i, 2]
-            ex = tmp_ex
-        # Sort ex according to index column.
-        ex = ex[np.argsort(ex[:, 0]), :]
-        if len(ex[:, 0]) != len(set(ex[:, 0])):
+        if isinstance(ex, np.ndarray):
+            # Sort ex according to index column.
+            parsed_ex = ex[np.argsort(ex[:, 0]), :]
+        else:
+            if ex.sl_index:
+                print('sl_index')
+                parsed_ex = np.zeros((ex.n_a, 2))
+                parsed_ex[:, 1] = ex.e[:ex.n_a]
+                # Determine the index of the principal component of each
+                # eigenvector. 
+                pc = np.argmax(np.abs(z), axis=0)
+                for i,r in enumerate(ex.a_states):
+                    # Find which pc each entry in a_states corresponds to.
+                    parsed_ex[i, 0] = np.where((np.array(labels)[pc] == r).all(axis=1))[0][0]
+
+            else:
+                parsed_ex = np.zeros((ex.n_a, 2))
+                parsed_ex[:, 1] = ex.e[:ex.n_a]
+                parsed_ex[:, 0] = ex.la
+                # Sort ex according to index column.
+                parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
+
+        if len(parsed_ex[:, 0]) != len(set(parsed_ex[:, 0])):
             raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
     
     if e_shift:
@@ -234,10 +247,11 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
             line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
                     si+1, fmt_label(si, labels))
         s += line + " {: >12.4f}".format(w[i])
+
         if ex != None:
-            if ex[ex_i,0] == i+1:
-                s += "   {: >12.4f}  {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
-                if ex_i != len(ex)-1:
+            if parsed_ex[ex_i,0] == i+1:
+                s += "   {: >12.4f}  {: >12.4f}".format(parsed_ex[ex_i,1], parsed_ex[ex_i,1]-w[i]) + "\n"
+                if ex_i != len(parsed_ex)-1:
                     ex_i += 1
             else:
                 s += "         --            --\n"
@@ -402,12 +416,14 @@ def e_fit_sigma(e, ex, ndof):
         is, the number of experimental data points minus the number of
         parameters.
     """
-    # Experimental level index.
-    ex_li = np.array(ex[:,0], dtype=int)-1
-    try:
-        sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
-    except:
-        raise IndexError("Level index in experimental energies file is out of range.")
+    if isinstance(ex, np.ndarray):
+        ex_li = np.array(ex[:,0], dtype=int)-1
+        try:
+            sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
+        except:
+            raise IndexError("Level index in experimental energies file is out of range.")
+    else:
+        sigma = np.sqrt(np.sum((e[ex.la-1] - ex.e[:len(ex.la)])**2))/ndof
     
     return sigma
 

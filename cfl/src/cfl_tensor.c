@@ -43,12 +43,13 @@
  * ----------
  *  buf       The start of the buffer to be hashed. 
  *  len       The length of buf in octets.
- *  hval      The previous hash value or FNV1_32_INIT for the first call. 
  */
-uint32_t fnv_hash(void *buf, int len, uint32_t hval) {
+uint32_t fnv_hash(void *buf, int len) {
   unsigned char *bp = (unsigned char *)buf;	/* start of buffer */
   unsigned char *be = bp + len;		        /* beyond end of buffer */
+  uint32_t hval;
 
+  hval = FNV1_32_INIT;
   /* FNV-1 hash each octet in the buffer. */
   while (bp < be) {
     /* multiply by the 32 bit FNV magic prime mod 2^32 */
@@ -60,7 +61,6 @@ uint32_t fnv_hash(void *buf, int len, uint32_t hval) {
   /* return our new hash value */
   return hval;
 }
-
 
 /*
  * Allocate storage for state labels. 
@@ -127,12 +127,11 @@ sl *sl_alloc(int n, char *key, int **labels) {
     CFL_ERROR_NULL("malloc failed for l->lh");
   }
 
-  l->lh[0] = fnv_hash(l->labels[0], nl, FNV1_32_INIT);
-  for (i = 1; i < n; i++) {
-    l->lh[i] = fnv_hash(l->labels[i], nl, l->lh[i-1]);
+  for (i = 0; i < n; i++) {
+    l->lh[i] = fnv_hash(l->labels[i], nl*sizeof(int)/sizeof(char));
   }
-  
-  l->th = fnv_hash(l->lh, n*sizeof(uint32_t)/sizeof(char), FNV1_32_INIT);
+
+  l->th = fnv_hash(l->lh, n*sizeof(uint32_t)/sizeof(char));
   l->n = n;
 
   return l;

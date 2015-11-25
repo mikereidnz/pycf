@@ -54,9 +54,21 @@ typedef struct {
   /* Array of length n_d, mapping the index of e to the initial level index of
    * the complete Hamiltonian.  Used for energy difference values. */
   int *ild;
-  /* Array of length n_d; mapping the index of e to the final level index of the
+  /* Array of length n_d, mapping the index of e to the final level index of the
    * complete Hamiltonian.  Used for energy difference values. */
   int *fld;
+  /* Array of length n_a mapping the index of e to the hash of the state label
+   * of the complete Hamiltonian.  Used for absolute energy level values used
+   * with state label sorting. */
+  int *lah;
+  /* Array of length n_d, mapping the index of e to the hash of the state label
+   * of the initial level of the complete Hamiltonian.  Used for energy
+   * difference values with state label sorting. */
+  int *ildh;
+  /* Array of length n_d, mapping the index of e to the hash of the state label
+   * of the final level of the complete Hamiltonian.  Used for energy difference
+   * values with state label sorting. */
+  int *fldh;
 } ex_data;
 
 /* Experimental spin Hamiltonian data. */
@@ -88,12 +100,16 @@ typedef struct {
 
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {
+  /* Specifies whether state label sorting of h is required. */
+  char job;
   /* Pointer to the Hamiltonian. */
   zh *h;
   /* Pointer to workspace for Hamiltonian diagonalization. */
   zhd_w *hd_w;
   /* Eigenvalue array. */
   double *eval;
+  /* Complete Hamiltonian eigenvector array. */
+  complex double *evect;
   /* Experimental energy level data. */
   ex_data *ex;
   /* The number of parameters after conversion to complex type. */
@@ -106,10 +122,13 @@ typedef struct {
 
 /* Data for multi-eigenvalue vector fit. */
 typedef struct {
-  /* The number of eigenvalue vectors. */
+  /* Specifies whether state label sorting is required for each h in ha. */
+  char *job;
+  /* Flag denoting whether any h in ha requires state label sorting. */
+  int sl_sort;
+  /* The number of Hamiltonians. */
   int n;
-  /* Array of length n containing pointers to Hamiltonians for each eigenvalue
-   * vector. */
+  /* Array of length n containing pointers to the Hamiltonians. */
   zh **ha;
   /* Array of length n with each entry specifying the chi^2 weighting of the
    * corresponding ha entry. */
@@ -123,7 +142,9 @@ typedef struct {
   /* Array of pointers to Hamiltonian diagonalization workspaces. */
   zhd_w **hd_w;
   /* Array of eigenvalue arrays. */
-  double **h_eval;
+  double **eval;
+  /* Array of eigenvector array. */
+  complex double **evect;
   /* The number of parameters after conversion to complex type for each
    * Hamiltonian. */
   int *n_zx;
@@ -135,6 +156,8 @@ typedef struct {
 
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {
+  /* Specifies whether state label sorting of h is required. */
+  char job;
   /* Pointer to the complete Hamiltonian. */
   zh *h;
   /* Pointer to workspace for Hamiltonian diagonalization. */
@@ -142,9 +165,9 @@ typedef struct {
   /* Pointer to workspace for projection Hamiltonian diagonalization. */
   zhd_w *hprod_w;
   /* Complete Hamiltonian eigenvector array. */
-  complex double *h_evect;
+  complex double *evect;
   /* Complete Hamiltonian eigenvalue array. */
-  double *h_eval;
+  double *eval;
   /* Pointer to the projection Hamiltonian. */
   zh *hpro;
   /* Projection Hamiltonian eigenvector array. */
@@ -176,12 +199,13 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-efit_data *efit_data_alloc(zh *h, ex_data *ex, int n_zx, param_type **p);
+efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
+    param_type **p);
 void efit_data_free(efit_data *data);
-mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa, 
-    int *n_zx, param_type ***p); 
+mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
+    ex_data **exa, int *n_zx, param_type ***p);
 void mhfit_data_free(mhfit_data *data);
-eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, int n_zx, int n_ushx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,

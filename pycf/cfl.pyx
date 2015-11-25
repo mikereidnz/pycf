@@ -925,7 +925,7 @@ cdef parse_ex(ex):
     """
     if not isinstance(ex, np.ndarray):
         raise TypeError("ex data must be of type np.ndarray, not %s." % type(ex))
-    elif ex.shape[1] != 2 or ex.shap[1] != 3:
+    elif not (ex.shape[1] == 2 or ex.shape[1] == 3):
         raise ValueError("Incorrect ex shape; expected a two, or three, column array.")
     elif len(ex[:, 0]) != len(set(ex[:, 0])):
         raise ValueError("ex input data contains duplicate entries in the index column.")
@@ -959,6 +959,208 @@ cdef parse_ex(ex):
             'ex_ild': ex_ild, 'ex_fld': ex_fld}
 
 
+cdef class ExData(object):
+    r"""
+    Experimental energy level data for Hamiltonians. 
+
+    Parameters
+    ----------
+    data : np.ndarray or tuple
+        If data is of type np.ndarray it assumed to be a 2 by n dimensional,
+        with the first column containing energy level indices starting at 1, and
+        the second column containing the absolute experimental energy of the
+        corresponding level.  If data is of type tuple each element must be a
+        np.ndarray of type specified using the key argument.  Implemented types
+        are::
+            - Absolute energy level data with level index (default). 
+            - Difference energy level data with level index; np.ndarray must be
+              3 by n dimensions, where the first column specifies the initial
+              energy level index, the second column specifies the final energy
+              level index, and the third column corresponds to the energy
+              difference.
+            - Absolute energy level data with state label index; of dimension
+              m+1 by n, where m is the number of state labels.  The first m
+              elements are state labels in LS coupling with the type of label of
+              each element specified by the label_key argument.  The (m+1)th
+              entry contains the absolute experimental energy of the
+              corresponding level.
+            - Difference energy level data with state label index; of
+              dimension 2m+1 by n, where m is the number of state labels.  The
+              first m elements are state labels in LS coupling specifying the
+              initial energy level.  The next m elements are state labels in LS
+              coupling specifying the final energy level.  The final entry
+              corresponds to the energy difference.  The type of state label
+              elements are given by label_key.
+        Note: mixing level index data with state label index data is not
+        supported.
+    key : str or tuple, optional
+        If data is of type np.ndarray this argument is optional; otherwise it
+        must be specified and be of the same length as the data tuple.  This
+        argument is used to specify the type of data. Available keys are::
+            - 'A', absolute energy data with level index;
+            - 'D', difference energy data with level index;
+            - 'AS', absolute energy level data with state label index;
+            - 'DS', difference energy level data with state label index.
+    label_key : str, optional
+        This argument is only required if experimental data with state label
+        indices is to be used.  In this case, each element of label_key
+        specifies the type of each of the m state label entries passed via the
+        data argument.  It must match the label_key of Hamiltonian to be fit to
+        this experimental data.
+    """
+    cpdef public int sl_index
+    cpdef public int n_obs
+    cpdef public int n_a
+    cpdef public int n_d
+    cpdef public np.ndarray a_states
+    cpdef public np.ndarray id_states
+    cpdef public np.ndarray fd_states
+    cpdef public np.ndarray e
+    cpdef public np.ndarray la
+    cpdef public np.ndarray ild
+    cpdef public np.ndarray fld
+    cpdef public np.ndarray lah
+    cpdef public np.ndarray ildh
+    cpdef public np.ndarray fldh
+    def __init__(self, data, key=None, label_key=None):
+        cdef np.ndarray[int, ndim=1, mode='c'] clabels
+
+        if not (isinstance(data, np.ndarray) or isinstance(data, tuple)):
+            raise TypeError("The ex data argument must either be of type np.ndarray or tuple, not %s." % type(data))
+        if not (isinstance(key, str) or isinstance(key, tuple) or key==None):
+            raise TypeError("The key argument must either be of type np.ndarray or tuple, not %s." % type(key))
+        if isinstance(data, tuple):
+            if key == None:
+                raise ValueError("Missing key argument; this must be specified if data is a tuple.")
+            elif len(data) != 2:
+                raise ValueError("The data argument can at most contain two elements; " \
+                        "one absolute energy array and one difference energy array.")
+            elif not isinstance(key, tuple):
+                raise TypeError("If the data argument is a tuple with two " \
+                        "elements the key argument must also be a tuple with two elements.")
+            elif len(key) != 2:
+                raise ValueError("The key tuple must be the same length as the data tuple.")
+            elif not all(isinstance(d, np.ndarray) for d in data):
+                raise TypeError("Elements of the data tuple must be of type np.ndarray.")
+            elif not all(isinstance(k, str) for k in key):
+                raise TypeError("Elements of the key tuple must be of type str.")
+        
+        if key != None:
+            if not isinstance(key, tuple):
+                # A single key is provided; we therefore make both data and key
+                # iterable for key checks below, and such that key check is
+                # forced in case of state labels (type(data) != np.ndarray).
+                key = [key]
+                data = [data]
+
+            for k in key:
+                if k == 'A' or k == 'D':
+                    if 'AS' in key or 'DS' in key:
+                        raise ValueError("Mixed index and state level indices are " \
+                                "not supported; use either A and D, or AS and DS.")
+                    self.sl_index = 0
+                else:
+                    if 'A' in key or 'D' in key:
+                        raise ValueError("Mixed index and state level indices are " \
+                                "not supported; use either A and D, or AS and DS.")
+                    elif type(label_key) != str:
+                        raise TypeError("The label_key argument must be of type str and is " \
+                                "mandatory for state label indices.")
+                    self.sl_index = 1
+
+                if k not in ['A', 'D', 'AS', 'DS']:
+                    raise ValueError("Invalid key argument; allowed options are 'A', 'D', 'AS', and 'DS'.")
+
+        if isinstance(data, np.ndarray):
+            if not data.shape[1] == 2:
+                raise ValueError("Incorrect ex data shape; expected a two column array.")
+            # No energy level differences.
+            self.n_a = data.shape[0]
+            self.n_d = 0
+            # Subtract one, since we need an index starting at zero, whereas ex
+            # levels start at 1. 
+            self.e = np.ascontiguousarray(data[:, 1], dtype=np.float64)
+            self.la = np.ascontiguousarray(data[:, 0]-1, dtype=np.int32)
+        else:
+            if self.sl_index:
+                ll = len(label_key)
+
+                if 'AS' in key:
+                    if data[key.index('AS')].shape[1] != ll + 1:
+                        raise ValueError("The dimension of absolute energy level array " \
+                                "is inconsistent with the specified label_key.")
+                    
+                    self.n_a = len(data[key.index('AS')])
+                    self.a_states = np.zeros((self.n_a, ll), dtype=np.int32)
+                    lah = np.zeros(self.n_a, dtype=np.int32)
+                    for i in range(len(lah)):
+                        self.a_states[i, :] = data[key.index('AS')][i, :ll]
+                        clabels = np.ascontiguousarray(self.a_states[i, :], dtype=np.int32)
+                        lah[i] = cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+
+                    self.la = np.zeros(self.n_a, dtype=np.int32)
+                    self.lah = np.ascontiguousarray(lah, dtype=np.int32)
+
+                if 'DS' in key:
+                    if data[key.index('DS')].shape[1] != 2*ll + 1:
+                        raise ValueError("The dimension of difference energy level array " \
+                                "is inconsistent with the specified label_key.")
+                    self.n_d = len(data[key.index('DS')])
+                    self.id_states = np.zeros((self.n_d, ll), dtype=np.int32)
+                    self.fd_states = np.zeros((self.n_d, ll), dtype=np.int32)
+                    ildh = np.zeros(self.n_d, dtype=np.int32)
+                    fldh = np.zeros(self.n_d, dtype=np.int32)
+                    for i in range(len(ildh)):
+                        self.id_states[i, :] = data[key.index('DS')][i, :ll]
+                        self.fd_states[i, :] = data[key.index('DS')][i, ll:2*ll]
+                        clabels = np.ascontiguousarray(self.id_states[i, :], dtype=np.int32)
+                        ildh[i] = cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        clabels = np.ascontiguousarray(self.fd_states[i, :], dtype=np.int32)
+                        fldh[i] = cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+
+                    self.ild = np.zeros(self.n_d, dtype=np.int32)
+                    self.fld = np.zeros(self.n_d, dtype=np.int32)
+                    self.ildh = np.ascontiguousarray(ildh, dtype=np.int32)
+                    self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
+                
+                if len(key) == 2:
+                    self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
+                        data[key.index('DS')][:, 2*ll])), dtype=np.float64)
+                elif key[0] == 'AS':
+                    self.e = np.ascontiguousarray(data[key.index('AS')][:, ll], dtype=np.float64)
+                    self.n_d = 0
+                elif key[0] == 'DS':
+                    self.e = np.ascontiguousarray(data[key.index('DS')][:, 2*ll], dtype=np.float64)
+                    self.n_a = 0
+            else:
+                if 'A' in key:
+                    if data[key.index('A')].shape[1] != 2:
+                        raise ValueError("Incorrect ex data shape for absolute energies; expected a two column array.")
+                    
+                    self.n_a = len(data[key.index('A')])
+                    self.la = np.ascontiguousarray(data[key.index('A')][:, 0]-1, dtype=np.int32)
+
+                if 'D' in key:
+                    if data[key.index('D')].shape[1] != 3:
+                        raise ValueError("Incorrect ex data shape for energy differences; expected a three column array.")
+                    
+                    self.n_d = len(data[key.index('D')])
+                    self.ild = np.ascontiguousarray(data[key.index('D')][:, 0]-1, dtype=np.int32)
+                    self.fld = np.ascontiguousarray(data[key.index('D')][:, 1]-1, dtype=np.int32)
+                
+                if len(key) == 2:
+                    self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, 1],
+                        data[key.index('D')][:, 2])), dtype=np.float64)
+                elif key[0] == 'A':
+                    self.e = np.ascontiguousarray(data[key.index('A')][:, 1], dtype=np.float64)
+                    self.n_d = 0
+                elif key[0] == 'D':
+                    self.e = np.ascontiguousarray(data[key.index('D')][:, 2], dtype=np.float64)
+                    self.n_a = 0
+        
+        self.n_obs = self.n_a + self.n_d
+
+
 cdef class EFitRunner(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
@@ -975,20 +1177,11 @@ cdef class EFitRunner(object):
         A list of tensor objects for which to vary the prefactor. 
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
-    ex : np.ndarray
-        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
-        the number of available experimental energy level observables.  The two
-        column case is used to specify only absolute energy levels.  In this
-        instance, the first column contains energy level indices starting at 1,
-        and the second column contains the absolute experimental energy of the
-        corresponding level.  The three column case is used to specify a
-        combination of absolute energy levels and energy differences.  For
-        absolute energies, the first column again contains energy level indices
-        starting at 1, while the second column should be set to -1, and the
-        third column contains the corresponding absolute experimental energy.
-        For energy differences, the first column specifies the initial energy
-        level index, the second column specifies the final energy level index,
-        and the third column corresponds to the energy difference. 
+    ex : np.ndarray or ExData
+        Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
+        former case, n is the number of energy levels, with the first column
+        containing energy level indices starting at 1, and the second column
+        containing the absolute experimental energy of the corresponding level.  
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -1001,7 +1194,7 @@ cdef class EFitRunner(object):
     cpdef public int n_obs
     cpdef public dict param_types
     cdef cfl.ex_data *ex_data
-    cdef dict pex
+    cdef public ExData ex
     cdef cfl.param_type **param_array
     cdef np.ndarray p0_real
     cdef cfl.efit_data *efit_data
@@ -1009,12 +1202,13 @@ cdef class EFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h, ex, **kwargs):
-        cdef int n_a
-        cdef int n_d
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_la
         cdef np.ndarray[int, ndim=1, mode="c"] ex_ild
         cdef np.ndarray[int, ndim=1, mode="c"] ex_fld
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_lah
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_ildh
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_fldh
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
 
@@ -1052,16 +1246,17 @@ cdef class EFitRunner(object):
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
         
-        # Parse the energy level data. 
-        pex = parse_ex(ex)
-
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.pex = pex
-        self.n_obs = pex['n_obs']
-        n_a = pex['n_a']
-        n_d = pex['n_d']
+        
+        # Parse the energy level data, if required.
+        if not isinstance(ex, ExData):
+            self.ex = ExData(ex)
+        else:
+            self.ex = ex
+        
+        self.n_obs = self.ex.n_obs
         
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
@@ -1072,22 +1267,48 @@ cdef class EFitRunner(object):
         if self.ex_data == NULL:
             raise MemoryError("ex_data alloc failed")
 
-        self.ex_data.n_obs = self.n_obs
-        self.ex_data.n_a = n_a
-        self.ex_data.n_d = n_d
-        ex_e = <np.ndarray[double, ndim=1, mode="c"]> pex['ex_e']
-        ex_la = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_la']
+        self.ex_data.n_obs = self.ex.n_obs
+        self.ex_data.n_a = self.ex.n_a
+        self.ex_data.n_d = self.ex.n_d
+        ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex.e
         self.ex_data.e = &ex_e[0]
-        self.ex_data.la = &ex_la[0]
-        if n_d:
-            ex_ild = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_ild']
-            ex_fld = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_fld']
+
+        if self.ex.n_a:
+            ex_la = <np.ndarray[int, ndim=1, mode="c"]> self.ex.la
+            self.ex_data.la = &ex_la[0]
+        else:
+            # There are no absolute energy level observables.
+            self.ex_data.la = NULL
+
+        if self.ex.n_d:
+            ex_ild = <np.ndarray[int, ndim=1, mode="c"]> self.ex.ild
+            ex_fld = <np.ndarray[int, ndim=1, mode="c"]> self.ex.fld
             self.ex_data.ild = &ex_ild[0]
             self.ex_data.fld = &ex_fld[0]
         else:
             # There are no energy level difference observables.
             self.ex_data.ild = NULL
             self.ex_data.fld = NULL
+
+        if self.ex.sl_index:
+            if self.ex.n_a:
+                ex_lah = <np.ndarray[int, ndim=1, mode="c"]> self.ex.lah
+                self.ex_data.lah = &ex_lah[0]
+            else:
+                self.ex_data.lah = NULL
+
+            if self.ex.n_d:
+                ex_ildh = <np.ndarray[int, ndim=1, mode="c"]> self.ex.ildh
+                ex_fldh = <np.ndarray[int, ndim=1, mode="c"]> self.ex.fldh
+                self.ex_data.ildh = &ex_ildh[0]
+                self.ex_data.fldh = &ex_fldh[0]
+            else:
+                self.ex_data.ildh = NULL
+                self.ex_data.fldh = NULL
+        else:
+            self.ex_data.lah = NULL
+            self.ex_data.ildh = NULL
+            self.ex_data.fldh = NULL
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
@@ -1097,7 +1318,6 @@ cdef class EFitRunner(object):
             raise MemoryError("param_array alloc failed")
         
         ip_real = 0
-        param_enc = {'r': 114, 'i': 105, 'c': 99}
         for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
             if param_array[i] is NULL:
@@ -1107,7 +1327,7 @@ cdef class EFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
-            param_array[i].type = param_enc[self.param_types[p]]
+            param_array[i].type = ord(self.param_types[p])
             param_array[i].index = h.index(p)
 
             if self.param_types[p] == 'c':
@@ -1119,9 +1339,12 @@ cdef class EFitRunner(object):
                 ip_real += 1
 
         self.param_array = param_array 
-
-        self.efit_data = cfl.efit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(
-            h.h_cap, "pycfl.Hamiltonian"), self.ex_data, self.n_p, self.param_array);
+        if self.ex.sl_index:
+            self.efit_data = cfl.efit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(
+                h.h_cap, "pycfl.Hamiltonian"), self.ex_data, self.n_p, self.param_array);
+        else:
+            self.efit_data = cfl.efit_data_alloc('N', <cfl.zh *>PyCapsule_GetPointer(
+                h.h_cap, "pycfl.Hamiltonian"), self.ex_data, self.n_p, self.param_array);
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
@@ -1240,26 +1463,28 @@ cdef class MHFitRunner(object):
     cdef cfl.zh **ha
     cdef np.ndarray weights
     cdef cfl.ex_data **ex_data
-    cdef list pex_list
+    cdef list ex_list
     cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
     cdef np.ndarray p0_real
     cdef cfl.mhfit_data *mhfit_data
+    cdef np.ndarray job_a
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
-        cdef int n_obs
-        cdef int n_a
-        cdef int n_d
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_la
         cdef np.ndarray[int, ndim=1, mode="c"] ex_ild
         cdef np.ndarray[int, ndim=1, mode="c"] ex_fld
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_lah
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_ildh
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_fldh
         cdef np.ndarray[double, ndim=1, mode="c"] weights
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
+        cdef np.ndarray[char, ndim=1, mode="c"] job_a
 
         self.n_h = len(h_list)
         self.n_p = len(parameters)
@@ -1303,17 +1528,21 @@ cdef class MHFitRunner(object):
                 self.param_types[p] = "r"
                 self.n_p_real += 1
 
-        # Parse the energy level data. 
-        self.n_obs = 0
-        pex_list = []
-        for i,ex in enumerate(ex_list):
-            pex_list += [parse_ex(ex)]
-            self.n_obs += pex_list[i]['n_obs']
-
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.pex_list = pex_list
+
+        # Parse the energy level data. 
+        self.n_obs = 0
+        self.ex_list = []
+        if (len(ex_list) != self.n_h):
+            raise ValueError("The number of Hamiltonians does not match the number of elements in ex_list.")
+        for i,ex in enumerate(ex_list):
+            if not isinstance(ex, ExData):
+                self.ex_list += [ExData(ex)]
+            else:
+                self.ex_list += [ex]
+            self.n_obs += self.ex_list[i].n_obs
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
@@ -1334,7 +1563,7 @@ cdef class MHFitRunner(object):
         if self.ex_data == NULL:
             free(self.ha)
             raise MemoryError("exa alloc failed")
-
+        
         for i in range(self.n_h):
             self.ex_data[i] = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
             if self.ex_data[i] == NULL:
@@ -1343,25 +1572,49 @@ cdef class MHFitRunner(object):
                 free(self.ex_data)
                 free(self.ha)
                 raise MemoryError("ex_data alloc failed")
-            n_obs = pex_list[i]['n_obs']
-            n_a = pex_list[i]['n_a']
-            n_d = pex_list[i]['n_d']
-            self.ex_data[i].n_obs = n_obs
-            self.ex_data[i].n_a = n_a
-            self.ex_data[i].n_d = n_d
-            ex_e = <np.ndarray[double, ndim=1, mode="c"]> pex_list[i]['ex_e']
-            ex_la = <np.ndarray[int, ndim=1, mode="c"]> pex_list[i]['ex_la']
+            
+            self.ex_data[i].n_obs = self.ex_list[i].n_obs
+            self.ex_data[i].n_a = self.ex_list[i].n_a
+            self.ex_data[i].n_d = self.ex_list[i].n_d
+
+            ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex_list[i].e
             self.ex_data[i].e = &ex_e[0]
-            self.ex_data[i].la = &ex_la[0]
-            if n_d:
-                ex_ild = <np.ndarray[int, ndim=1, mode="c"]> pex_list[i]['ex_ild']
-                ex_fld = <np.ndarray[int, ndim=1, mode="c"]> pex_list[i]['ex_fld']
+            if self.ex_list[i].n_a:
+                ex_la = <np.ndarray[int, ndim=1, mode="c"]> self.ex_list[i].la
+                self.ex_data[i].la = &ex_la[0]
+            else:
+                # There are no absolute energy level observables.
+                self.ex_data[i].la = NULL
+
+            if self.ex_list[i].n_d:
+                ex_ild = <np.ndarray[int, ndim=1, mode="c"]> self.ex_list[i].ild
+                ex_fld = <np.ndarray[int, ndim=1, mode="c"]> self.ex_list[i].fld
                 self.ex_data[i].ild = &ex_ild[0]
                 self.ex_data[i].fld = &ex_fld[0]
             else:
                 # There are no energy level difference observables.
                 self.ex_data[i].ild = NULL
                 self.ex_data[i].fld = NULL
+
+            if self.ex_list[i].sl_index:
+                if self.ex_list[i].n_a:
+                    ex_lah = <np.ndarray[int, ndim=1, mode="c"]> self.ex_list[i].lah
+                    self.ex_data[i].lah = &ex_lah[0]
+                else:
+                    self.ex_data[i].lah = NULL
+
+                if self.ex_list[i].n_d:
+                    ex_ildh = <np.ndarray[int, ndim=1, mode="c"]> self.ex_list[i].ildh
+                    ex_fldh = <np.ndarray[int, ndim=1, mode="c"]> self.ex_list[i].fldh
+                    self.ex_data[i].ildh = &ex_ildh[0]
+                    self.ex_data[i].fldh = &ex_fldh[0]
+                else:
+                    self.ex_data[i].ildh = NULL
+                    self.ex_data[i].fldh = NULL
+            else:
+                self.ex_data[i].lah = NULL
+                self.ex_data[i].ildh = NULL
+                self.ex_data[i].fldh = NULL
 
         self.weights = np.array(weights_list, dtype=np.float64)
         weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
@@ -1388,7 +1641,6 @@ cdef class MHFitRunner(object):
                 free(self.ha)
                 raise MemoryError("param_arrays[{}] alloc failed".format(i))
        
-        param_enc = {'r': 114, 'i': 105, 'c': 99}
         for hi,h in enumerate(h_list):
             for i,p in enumerate(h_param_list[hi]):
                 param_arrays[hi][i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
@@ -1407,7 +1659,7 @@ cdef class MHFitRunner(object):
                     free(self.ha)
                     raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
                 
-                param_arrays[hi][i].type = param_enc[self.param_types[p]]
+                param_arrays[hi][i].type = ord(self.param_types[p])
                 param_arrays[hi][i].index = h_list[hi].index(p)
         
         # Set initial values.
@@ -1421,8 +1673,17 @@ cdef class MHFitRunner(object):
                 self.p0_real[ip_real] = self.coeff[p]
                 ip_real += 1
         
-        self.param_arrays = param_arrays 
-        self.mhfit_data = mhfit_data_alloc(self.n_h, self.ha, &weights[0], self.ex_data, &n_zx[0], self.param_arrays)
+        self.param_arrays = param_arrays
+                
+        self.job_a = np.empty(self.n_h, dtype=np.dtype('S'))
+        for i,ex in enumerate(self.ex_list):
+            if ex.sl_index:
+                self.job_a[i] = 'S'
+            else:
+                self.job_a[i] = 'N'
+        job_a = self.job_a
+        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, &weights[0], self.ex_data, &n_zx[0], self.param_arrays)
+        
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
@@ -1550,7 +1811,7 @@ cdef class ESHFitRunner(object):
     cpdef public int n_ushx
     cpdef public dict param_types
     cdef cfl.ex_data *ex_data
-    cdef dict pex
+    cdef public ExData ex
     cdef cfl.param_type **param_array
     cdef cfl.shx_data **shx_array
     cdef list shx_list
@@ -1561,13 +1822,13 @@ cdef class ESHFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
-        cdef int n_obs
-        cdef int n_a
-        cdef int n_d
         cdef np.ndarray[double, ndim=1, mode="c"] ex_e
         cdef np.ndarray[int, ndim=1, mode="c"] ex_la
         cdef np.ndarray[int, ndim=1, mode="c"] ex_ild
         cdef np.ndarray[int, ndim=1, mode="c"] ex_fld
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_lah
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_ildh
+        cdef np.ndarray[int, ndim=1, mode="c"] ex_fldh
         cdef np.ndarray[double complex, ndim=1, mode="c"] shx_pa
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
         cdef np.ndarray[double, ndim=1, mode="c"] x
@@ -1657,18 +1918,17 @@ cdef class ESHFitRunner(object):
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-        
-        # Parse the energy level data. 
-        pex = parse_ex(ex)
 
         # We assign pointers to self to make sure a reference exists for as long
         # as the object, and consequently prevent the GC from freeing the
         # pointers until after __dealloc__ is called.
-        self.pex = pex
-        self.n_obs = pex['n_obs']
-        n_obs = pex['n_obs']
-        n_a = pex['n_a']
-        n_d = pex['n_d']
+        
+        # Parse the energy level data, if required.
+        if not isinstance(ex, ExData):
+            self.ex = ExData(ex)
+        else:
+            self.ex = ex
+        self.n_obs = self.ex.n_obs
 
         self.n_obs += sh.nsh
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
@@ -1679,22 +1939,49 @@ cdef class ESHFitRunner(object):
         self.ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
         if self.ex_data == NULL:
             raise MemoryError("ex_data alloc failed")
-        self.ex_data.n_obs = n_obs
-        self.ex_data.n_a = n_a
-        self.ex_data.n_d = n_d
-        ex_e = <np.ndarray[double, ndim=1, mode="c"]> pex['ex_e']
-        ex_la = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_la']
+
+        self.ex_data.n_obs = self.ex.n_obs
+        self.ex_data.n_a = self.ex.n_a
+        self.ex_data.n_d = self.ex.n_d
+        ex_e = <np.ndarray[double, ndim=1, mode="c"]> self.ex.e
         self.ex_data.e = &ex_e[0]
-        self.ex_data.la = &ex_la[0]
-        if n_d:
-            ex_ild = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_ild']
-            ex_fld = <np.ndarray[int, ndim=1, mode="c"]> pex['ex_fld']
+
+        if self.ex.n_a:
+            ex_la = <np.ndarray[int, ndim=1, mode="c"]> self.ex.la
+            self.ex_data.la = &ex_la[0]
+        else:
+            # There are no absolute energy level observables.
+            self.ex_data.la = NULL
+
+        if self.ex.n_d:
+            ex_ild = <np.ndarray[int, ndim=1, mode="c"]> self.ex.ild
+            ex_fld = <np.ndarray[int, ndim=1, mode="c"]> self.ex.fld
             self.ex_data.ild = &ex_ild[0]
             self.ex_data.fld = &ex_fld[0]
         else:
             # There are no energy level difference observables.
             self.ex_data.ild = NULL
             self.ex_data.fld = NULL
+
+        if self.ex.sl_index:
+            if self.ex.n_a:
+                ex_lah = <np.ndarray[int, ndim=1, mode="c"]> self.ex.lah
+                self.ex_data.lah = &ex_lah[0]
+            else:
+                self.ex_data.lah = NULL
+
+            if self.ex.n_d:
+                ex_ildh = <np.ndarray[int, ndim=1, mode="c"]> self.ex.ildh
+                ex_fldh = <np.ndarray[int, ndim=1, mode="c"]> self.ex.fldh
+                self.ex_data.ildh = &ex_ildh[0]
+                self.ex_data.fldh = &ex_fldh[0]
+            else:
+                self.ex_data.ildh = NULL
+                self.ex_data.fldh = NULL
+        else:
+            self.ex_data.lah = NULL
+            self.ex_data.ildh = NULL
+            self.ex_data.fldh = NULL
 
         # Prepare array of pointers to parameter data structs.
         self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
@@ -1706,7 +1993,6 @@ cdef class ESHFitRunner(object):
        
         ip_real = 0
 
-        param_enc = {'r': 114, 'i': 105, 'c': 99, 'h': 104, 'q': 113}
         for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
             if param_array[i] is NULL:
@@ -1716,7 +2002,7 @@ cdef class ESHFitRunner(object):
                 free(self.param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
-            param_array[i].type = param_enc[self.param_types[p]]
+            param_array[i].type = ord(self.param_types[p])
             if (i < self.n_p - self.n_ushx):
                 param_array[i].index = self.h.index(p)
 
@@ -1791,10 +2077,16 @@ cdef class ESHFitRunner(object):
         chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(len(sh.interactions)+1)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
         if (self.hpro != None):
-            self.eshfit_data = eshfit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
-                <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
-                self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
-                shx_array, self.n_p, self.n_ushx, self.param_array)
+            if self.ex.sl_index:
+                self.eshfit_data = eshfit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                    <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
+                    self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                    shx_array, self.n_p, self.n_ushx, self.param_array)
+            else:
+                self.eshfit_data = eshfit_data_alloc('N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                    <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
+                    self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                    shx_array, self.n_p, self.n_ushx, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_cov, "pycfl.MinCovF", NULL)
             
@@ -1802,9 +2094,14 @@ cdef class ESHFitRunner(object):
             cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
 
         else:
-            self.eshfit_data = eshfit_data_alloc(<cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
-                NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
-                shx_array, self.n_p, self.n_ushx, self.param_array)
+            if self.ex.sl_index:
+                self.eshfit_data = eshfit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                    NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                    shx_array, self.n_p, self.n_ushx, self.param_array)
+            else:
+                self.eshfit_data = eshfit_data_alloc('N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                    NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
+                    shx_array, self.n_p, self.n_ushx, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
             
@@ -2232,13 +2529,13 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(efit.n_p_real - efit.n_obs, 1)
 
-    e_sigma = e_fit_sigma(w, ex, ndof)
+    e_sigma = e_fit_sigma(w, efit.ex, ndof)
 
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
     summary += gen_pycf_summary()
-    summary += efit.h.gen_summary(ex=ex, sigma=e_sigma)
+    summary += efit.h.gen_summary(ex=efit.ex, sigma=e_sigma)
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
 

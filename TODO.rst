@@ -1,5 +1,9 @@
 TODO
 ====
+  * Update ex docstring in cfl.pyx and cfl_util.py
+  * Update energy level summary printing to handle energy differences, and state
+    label specified energies.
+  * Check uniqueness of energy levels in ExData.
   * Current F->D transition labels are very limited... should store the complete
     label somehow... Only works for (2F) labels presently. 
   * Think about the efit/eshfit->chisq weight factor... should all (spin)
