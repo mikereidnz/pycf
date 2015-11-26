@@ -112,6 +112,41 @@ def L2term(i):
     else:
         raise NotImplementedError("L quantum number values greater than 11 are not supported.")
 
+def ex_parse_helper(ex, z, labels):
+    r"""
+    Helper for creating print-compatible ex array from ExData object.  
+
+    Parameters
+    ----------
+    ex : ExData
+        The objected to be parsed.
+    z : np.ndarray
+        The eigenvector array the principal components of which are used to sort
+        state-labels.
+    labels : list
+        A list of state labels.
+    """
+    if ex.sl_index:
+        parsed_ex = np.zeros((ex.n_a, 2))
+        parsed_ex[:, 1] = ex.e[:ex.n_a]
+        # Determine the index of the principal component of each
+        # eigenvector. 
+        pc = np.argmax(np.abs(z), axis=0)
+        for i,r in enumerate(ex.a_states):
+            # Find the index of the principal component of each state
+            # label in a_states; we add one for compatibility with
+            # ex data passed via a direct np.ndarray.
+            parsed_ex[i, 0] = np.where((np.array(labels)[pc] == r).all(axis=1))[0][0] + 1
+    
+    else:
+        parsed_ex = np.zeros((ex.n_a, 2))
+        parsed_ex[:, 1] = ex.e[:ex.n_a]
+        parsed_ex[:, 0] = ex.la
+        # Sort ex according to index column.
+        parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
+
+    return parsed_ex
+
 def gen_pycf_summary():
     r"""
     Print the pycf version and date/time.
@@ -197,27 +232,11 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
     if ex != None:
         if isinstance(ex, np.ndarray):
             # Sort ex according to index column.
-            parsed_ex = ex[np.argsort(ex[:, 0]), :]
+            ex = ex[np.argsort(ex[:, 0]), :]
         else:
-            if ex.sl_index:
-                print('sl_index')
-                parsed_ex = np.zeros((ex.n_a, 2))
-                parsed_ex[:, 1] = ex.e[:ex.n_a]
-                # Determine the index of the principal component of each
-                # eigenvector. 
-                pc = np.argmax(np.abs(z), axis=0)
-                for i,r in enumerate(ex.a_states):
-                    # Find which pc each entry in a_states corresponds to.
-                    parsed_ex[i, 0] = np.where((np.array(labels)[pc] == r).all(axis=1))[0][0]
+            ex = ex_parse_helper(ex, z, labels)
 
-            else:
-                parsed_ex = np.zeros((ex.n_a, 2))
-                parsed_ex[:, 1] = ex.e[:ex.n_a]
-                parsed_ex[:, 0] = ex.la
-                # Sort ex according to index column.
-                parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
-
-        if len(parsed_ex[:, 0]) != len(set(parsed_ex[:, 0])):
+        if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
     
     if e_shift:
@@ -249,9 +268,9 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
         s += line + " {: >12.4f}".format(w[i])
 
         if ex != None:
-            if parsed_ex[ex_i,0] == i+1:
-                s += "   {: >12.4f}  {: >12.4f}".format(parsed_ex[ex_i,1], parsed_ex[ex_i,1]-w[i]) + "\n"
-                if ex_i != len(parsed_ex)-1:
+            if ex[ex_i,0] == i+1:
+                s += "   {: >12.4f}  {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
+                if ex_i != len(ex)-1:
                     ex_i += 1
             else:
                 s += "         --            --\n"
@@ -397,7 +416,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
 
     return s
 
-def e_fit_sigma(e, ex, ndof):
+def e_fit_sigma(e, ex, ndof, z=None, labels=None):
     r"""
     Calculate the standard deviation of an energy level fit assuming a model
     fit.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
@@ -407,23 +426,35 @@ def e_fit_sigma(e, ex, ndof):
     e : np.ndarray
         The energies of fitted levels.
     ex : np.ndarray
-        2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
+        former case, n is the number of energy levels, with the first column
+        containing energy level indices starting at 1, and the second column
+        containing the absolute experimental energy of the corresponding level.
+        In order to specify energy level differences, or specify energies
+        according to their SLJM state labels, use the ExData interface.
     ndof : int
         The number of degrees of freedom of the chi-squared distribution, that
         is, the number of experimental data points minus the number of
         parameters.
+    z : np.ndarray, optional
+        The eigenvector array the principal components of which are used to sort
+        state-labels.  This must be specified if ex is an ExData object.
+    labels : list, optional
+        A list of state labels.  This must be specified if ex is an ExData
+        object.
     """
-    if isinstance(ex, np.ndarray):
-        ex_li = np.array(ex[:,0], dtype=int)-1
-        try:
-            sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
-        except:
-            raise IndexError("Level index in experimental energies file is out of range.")
-    else:
-        sigma = np.sqrt(np.sum((e[ex.la-1] - ex.e[:len(ex.la)])**2))/ndof
+    if not isinstance(ex, np.ndarray):
+        if z ==  None or labels == None:
+            raise ValueError("Unless ex is a correctly formatted np.ndarray, you " \
+                    "must provide the z and labels arguments to e_fit_sigma.")
+        ex = ex_parse_helper(ex, z, labels)
+
+    ex_li = np.array(ex[:,0], dtype=int)-1
+    try:
+        sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
+    except:
+        raise IndexError("Level index in experimental energies file is out of range.")
+
     
     return sigma
 

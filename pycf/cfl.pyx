@@ -1181,7 +1181,9 @@ cdef class EFitRunner(object):
         Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
         former case, n is the number of energy levels, with the first column
         containing energy level indices starting at 1, and the second column
-        containing the absolute experimental energy of the corresponding level.  
+        containing the absolute experimental energy of the corresponding level.
+        In order to specify energy level differences, or specify energies
+        according to their SLJM state labels, use the ExData interface. 
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -1433,20 +1435,14 @@ cdef class MHFitRunner(object):
     weights_list : list
         A list of floating point weights that determine the weighting added to
         the chi^2 contribution of each eigenvalue vector.
-    ex_list : list
-        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
-        the number of available experimental energy level observables.  The two
-        column case is used to specify only absolute energy levels.  In this
-        instance, the first column contains energy level indices starting at 1,
-        and the second column contains the absolute experimental energy of the
-        corresponding level.  The three column case is used to specify a
-        combination of absolute energy levels and energy differences.  For
-        absolute energies, the first column again contains energy level indices
-        starting at 1, while the second column should be set to -1, and the
-        third column contains the corresponding absolute experimental energy.
-        For energy differences, the first column specifies the initial energy
-        level index, the second column specifies the final energy level index,
-        and the third column corresponds to the energy difference. 
+    ex : np.ndarray or ExData
+        Either a list of 2 by n dimensional np.ndarrays or a list of ExData type
+        objects.  In the former case, n is the number of energy levels, with the
+        first column of each array containing energy level indices starting at
+        1, and the second column containing the absolute experimental energy of
+        the corresponding level.  In order to specify energy level differences,
+        or specify energies according to their SLJM state labels, use the ExData
+        interface. 
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -1773,20 +1769,14 @@ cdef class ESHFitRunner(object):
         with the set_pro_data method.  If it contains hyperfine or quadrupole
         interactions, the respective coupling constants will automatically be
         added to the parameters.  
-    ex : np.ndarray
-        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
-        the number of available experimental energy level observables.  The two
-        column case is used to specify only absolute energy levels.  In this
-        instance, the first column contains energy level indices starting at 1,
-        and the second column contains the absolute experimental energy of the
-        corresponding level.  The three column case is used to specify a
-        combination of absolute energy levels and energy differences.  For
-        absolute energies, the first column again contains energy level indices
-        starting at 1, while the second column should be set to -1, and the
-        third column contains the corresponding absolute experimental energy.
-        For energy differences, the first column specifies the initial energy
-        level index, the second column specifies the final energy level index,
-        and the third column corresponds to the energy difference. 
+    ex : np.ndarray or ExData
+        Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
+        former case, n is the number of energy levels, with the first column
+        containing energy level indices starting at 1, and the second column
+        containing the absolute experimental energy of the corresponding level.
+        In order to specify energy level differences, or specify energies
+        according to their SLJM state labels, use the ExData interface. 
+
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -2501,19 +2491,12 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     h : Hamiltonian
         The Hamiltonian for which to fit the energy levels. 
     ex : np.ndarray
-        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
-        the number of available experimental energy level observables.  The two
-        column case is used to specify only absolute energy levels.  In this
-        instance, the first column contains energy level indices starting at 1,
-        and the second column contains the absolute experimental energy of the
-        corresponding level.  The three column case is used to specify a
-        combination of absolute energy levels and energy differences.  For
-        absolute energies, the first column again contains energy level indices
-        starting at 1, while the second column should be set to -1, and the
-        third column contains the corresponding absolute experimental energy.
-        For energy differences, the first column specifies the initial energy
-        level index, the second column specifies the final energy level index,
-        and the third column corresponds to the energy difference. 
+        Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
+        former case, n is the number of energy levels, with the first column
+        containing energy level indices starting at 1, and the second column
+        containing the absolute experimental energy of the corresponding level.
+        In order to specify energy level differences, or specify energies
+        according to their SLJM state labels, use the ExData interface. 
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
@@ -2529,7 +2512,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(efit.n_p_real - efit.n_obs, 1)
 
-    e_sigma = e_fit_sigma(w, efit.ex, ndof)
+    e_sigma = e_fit_sigma(w, efit.ex, ndof, z, h.tensors[0].states.labels)
 
     summary = "=============\n"
     summary+= "e_fit summary\n"
@@ -2569,19 +2552,13 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         A list of floating point weights that determine the weighting added to
         the chi^2 contribution of each eigenvalue vector.
     ex_list : list
-        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
-        the number of available experimental energy level observables.  The two
-        column case is used to specify only absolute energy levels.  In this
-        instance, the first column contains energy level indices starting at 1,
-        and the second column contains the absolute experimental energy of the
-        corresponding level.  The three column case is used to specify a
-        combination of absolute energy levels and energy differences.  For
-        absolute energies, the first column again contains energy level indices
-        starting at 1, while the second column should be set to -1, and the
-        third column contains the corresponding absolute experimental energy.
-        For energy differences, the first column specifies the initial energy
-        level index, the second column specifies the final energy level index,
-        and the third column corresponds to the energy difference. 
+        Either a list of 2 by n dimensional np.ndarrays or a list of ExData type
+        objects.  In the former case, n is the number of energy levels, with the
+        first column of each array containing energy level indices starting at
+        1, and the second column containing the absolute experimental energy of
+        the corresponding level.  In order to specify energy level differences,
+        or specify energies according to their SLJM state labels, use the ExData
+        interface. 
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -2601,7 +2578,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         h.set_coeff(x)
         (w, z) = h.diag()
 
-        e_sigma = e_fit_sigma(w, ex_list[i], ndof)
+        e_sigma = e_fit_sigma(w, ex_list[i], ndof, z, h.tensors[0].states.labels)
         summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
         summary += "\n"
 
@@ -2629,19 +2606,12 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     sh : SpinHamiltonian
         The spin Hamiltonian object to be fit. 
     ex : np.ndarray
-        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
-        the number of available experimental energy level observables.  The two
-        column case is used to specify only absolute energy levels.  In this
-        instance, the first column contains energy level indices starting at 1,
-        and the second column contains the absolute experimental energy of the
-        corresponding level.  The three column case is used to specify a
-        combination of absolute energy levels and energy differences.  For
-        absolute energies, the first column again contains energy level indices
-        starting at 1, while the second column should be set to -1, and the
-        third column contains the corresponding absolute experimental energy.
-        For energy differences, the first column specifies the initial energy
-        level index, the second column specifies the final energy level index,
-        and the third column corresponds to the energy difference. 
+        Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
+        former case, n is the number of energy levels, with the first column
+        containing energy level indices starting at 1, and the second column
+        containing the absolute experimental energy of the corresponding level.
+        In order to specify energy level differences, or specify energies
+        according to their SLJM state labels, use the ExData interface. 
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -2667,7 +2637,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     ndof = max(eshfit.n_p_real - eshfit.n_obs, 1)
 
     sh_param = sh.calc_param(h)
-    e_sigma = e_fit_sigma(w, ex, ndof)
+    e_sigma = e_fit_sigma(w, ex, ndof, z, h.tensors[0].states.labels)
     sh_sigma = sh_fit_sigma(sh_param, sh, shx, ndof)
 
     summary = "===============\n"
