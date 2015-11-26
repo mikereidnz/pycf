@@ -238,7 +238,12 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
 
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
-    
+        
+        # We currently throw out difference energies; ensure summary doesn't
+        # fail for diff only fits by setting ex to None
+        if len(ex) == 0:
+            ex = None
+
     if e_shift:
         e_shift = -np.min(w)
         w = w + e_shift
