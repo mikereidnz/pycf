@@ -1052,6 +1052,9 @@ cdef class ExData(object):
                 # forced in case of state labels (type(data) != np.ndarray).
                 key = [key]
                 data = [data]
+            
+            if any(d.ndim != 2 for d in data):
+                raise ValueError("All data arrays must be two dimensional.")
 
             for k in key:
                 if k == 'A' or k == 'D':
@@ -2644,7 +2647,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     summary+= "esh_fit summary\n"
     summary+= "===============\n"
     summary += gen_pycf_summary()
-    summary += h.gen_summary(ex=ex, sigma=e_sigma)
+    summary += h.gen_summary(ex=eshfit.ex, sigma=e_sigma)
     summary += "\n"
     summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
     summary += "\n"

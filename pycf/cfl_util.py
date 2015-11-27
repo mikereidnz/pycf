@@ -141,7 +141,7 @@ def ex_parse_helper(ex, z, labels):
     else:
         parsed_ex = np.zeros((ex.n_a, 2))
         parsed_ex[:, 1] = ex.e[:ex.n_a]
-        parsed_ex[:, 0] = ex.la
+        parsed_ex[:, 0] = ex.la + 1
         # Sort ex according to index column.
         parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
 
