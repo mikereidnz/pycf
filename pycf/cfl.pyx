@@ -1084,6 +1084,8 @@ cdef class ExData(object):
             # levels start at 1. 
             self.e = np.ascontiguousarray(data[:, 1], dtype=np.float64)
             self.la = np.ascontiguousarray(data[:, 0]-1, dtype=np.int32)
+            if len(self.la) != len(set(self.la)):
+                raise ValueError("ex data contains duplicate absolute state label entries.")
         else:
             if self.sl_index:
                 ll = len(label_key)
@@ -1103,6 +1105,8 @@ cdef class ExData(object):
 
                     self.la = np.zeros(self.n_a, dtype=np.int32)
                     self.lah = np.ascontiguousarray(lah, dtype=np.int32)
+                    if len(self.lah) != len(set(self.lah)):
+                        raise ValueError("ex data contains duplicate absolute index entries.")
 
                 if 'DS' in key:
                     if data[key.index('DS')].shape[1] != 2*ll + 1:
@@ -1125,7 +1129,11 @@ cdef class ExData(object):
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
                     self.ildh = np.ascontiguousarray(ildh, dtype=np.int32)
                     self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
-                
+                    if len(self.ildh) != len(set(self.ildh)):
+                        raise ValueError("ex data contains duplicate initial state label entries.")
+                    if len(self.fldh) != len(set(self.fldh)):
+                        raise ValueError("ex data contains duplicate final state label entries.")
+
                 if len(key) == 2:
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
                         data[key.index('DS')][:, 2*ll])), dtype=np.float64)
@@ -1135,22 +1143,29 @@ cdef class ExData(object):
                 elif key[0] == 'DS':
                     self.e = np.ascontiguousarray(data[key.index('DS')][:, 2*ll], dtype=np.float64)
                     self.n_a = 0
+                    self.la = np.zeros(0)
             else:
                 if 'A' in key:
                     if data[key.index('A')].shape[1] != 2:
-                        raise ValueError("Incorrect ex data shape for absolute energies; expected a two column array.")
+                        raise ValueError("Incorrect ex data shape for absolute energies; " \
+                                "expected a two column array.")
                     
                     self.n_a = len(data[key.index('A')])
                     self.la = np.ascontiguousarray(data[key.index('A')][:, 0]-1, dtype=np.int32)
-
+                    if len(self.la) != len(set(self.la)):
+                        raise ValueError("ex data contains duplicate absolute index entries.")
                 if 'D' in key:
                     if data[key.index('D')].shape[1] != 3:
-                        raise ValueError("Incorrect ex data shape for energy differences; expected a three column array.")
+                        raise ValueError("Incorrect ex data shape for energy differences; " \
+                                "expected a three column array.")
                     
                     self.n_d = len(data[key.index('D')])
                     self.ild = np.ascontiguousarray(data[key.index('D')][:, 0]-1, dtype=np.int32)
                     self.fld = np.ascontiguousarray(data[key.index('D')][:, 1]-1, dtype=np.int32)
-                
+                    if len(self.ild) != len(set(self.ild)):
+                        raise ValueError("ex data contains duplicate initial difference index entries.")
+                    if len(self.fld) != len(set(self.fld)):
+                        raise ValueError("ex data contains duplicate final difference index entries.")
                 if len(key) == 2:
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, 1],
                         data[key.index('D')][:, 2])), dtype=np.float64)
@@ -1160,6 +1175,7 @@ cdef class ExData(object):
                 elif key[0] == 'D':
                     self.e = np.ascontiguousarray(data[key.index('D')][:, 2], dtype=np.float64)
                     self.n_a = 0
+                    self.la = np.zeros(0)
         
         self.n_obs = self.n_a + self.n_d
 
