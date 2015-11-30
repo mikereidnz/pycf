@@ -27,6 +27,7 @@ import warnings
 import numpy as np
 from numpy.linalg import lstsq
 from scipy.linalg import block_diag
+from scipy.optimize import minimize
 from matel import matel
 
 
@@ -338,8 +339,7 @@ def su2_rz_lsq_f(p, coeff_a, b):
         The phase to be varied. 
     coeff_a : np.ndarray
         The appropriate coefficient array, generated with either
-        :func:`bgs_coeff_array`, :func:`ias_coeff_array` or
-        :func:`iqi_coeff_array`.
+        :func:`bgs_coeff_array` or :func:`ias_coeff_array`.
     b : numpy.ndarray
         For a 'BgS' term, b must be a `3 \times 2 \times 2` array, corresponding
         to individual 'BgS' matrix elements for a field along three linearly
@@ -353,14 +353,15 @@ def su2_rz_lsq_f(p, coeff_a, b):
         elements of the spin Hamiltonian tensor.
     """
     # Check whether 'BgS', or 'IAS', since we need to loop through each field
-    # direction for the former. 
-    if coeff_a.shape == (3, 2, 2):
+    # direction for the former.
+    if b.shape == (3, 2, 2):
+        b_p = np.zeros((3, 2, 2), dtype=np.complex)
         for i in range(3):
-            coeff_a_p[i,:,:] = su2_rz(p, coeff_a[i,:,:])
+            b_p[i,:,:] = su2_rz(p, b[i,:,:])
     else:
-        coeff_a_p = su2_rz(p, coeff_a[i,:,:])
+        b_p = su2_rz(p, b)
 
-    tensor = invert_term(coeff_a_p, b)
+    tensor = invert_term(coeff_a, b_p)
     
     r = 0
     for i in [(1, 3), (2, 6), (5, 7)]:
@@ -405,6 +406,7 @@ class SpinH(object):
     Returns
     -------
     object : SpinH
+
     """
     def __init__(self, terms, **kwargs):
         for t in terms:
@@ -609,15 +611,17 @@ class SpinH(object):
                     RuntimeWarning)
             # Check whether 'BgS', or 'IAS', since we need to loop through each
             # field direction for the former. 
-            if coeff_a.shape == (3, 2, 2):
+            if self.H_terms[term].shape == (3, 2, 2):
                 for i in range(3):
-                    coeff_a[i,:,:] = su2_rz(r['x'], coeff_a[i,:,:])
+                    self.H_terms[term][i,:,:] = su2_rz(r['x'], self.H_terms[term][i,:,:])
             else:
-                coeff_a = su2_rz(r['x'], coeff_a[i,:,:])
+                self.H_terms[term] = su2_rz(r['x'], self.H_terms[term])
+
+            self.sym_phase = r['x']
         else:
-            coeff_a = self.coeff_a[term]
+            self.sym_phase = 0
             
-        return(invert_term(coeff_a, self.H_terms[term]))
+        return(invert_term(self.coeff_a[term], self.H_terms[term]))
 
     def get_H(self):
         r"""
