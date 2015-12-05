@@ -1475,6 +1475,7 @@ cdef class MHFitRunner(object):
     cpdef public int n_p_real
     cpdef public int n_obs
     cpdef public dict param_types
+    cdef list h_param_list
     cdef cfl.zh **ha
     cdef np.ndarray weights
     cdef cfl.ex_data **ex_data
@@ -1521,7 +1522,8 @@ cdef class MHFitRunner(object):
                 self.coeff.update(h.coeff_dict)
             h_param_list += [[p for p in parameters if p in h]]
             self.n_zx[i] = len(h_param_list[i])
-        
+        self.h_param_list = h_param_list
+
         # The number of complex valued parameters for each Hamiltonian
         n_zx = <np.ndarray[int, ndim=1, mode="c"]> self.n_zx
 
@@ -1715,12 +1717,14 @@ cdef class MHFitRunner(object):
             for i in range(self.n_h):
                 free(self.ex_data[i])
             free(self.ex_data)
+
         if self.param_arrays != NULL:
             for hi in range(self.n_h):
-                for i in range(self.n_p):
+                for i in range(len(self.h_param_list[hi])):
                     free(self.param_arrays[hi][i])
                 free(self.param_arrays[hi])
             free(self.param_arrays)
+
         if self.mhfit_data != NULL:
             cfl.mhfit_data_free(self.mhfit_data)
 
