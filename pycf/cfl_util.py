@@ -197,35 +197,25 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
     """
     
     def fmt_label(li, labels):
-        if 'F' in label_key:
-            for i,l in enumerate(labels[li]):
-                if label_key[i] == 'F':
-                    if l:
-                        label = "|(2F)".format(l)
-                    else:
-                        label = "|    "
-                elif label_key[i] == "S":
-                        label += "{:d}".format(l)
-                elif label_key[i] == "L":
-                    label += L2term(l)
-                elif label_key[i] == "J":
-                    label += "{: >2d},".format(l)
-                elif i < len(label_key)-1:
-                    label += "{: >3d},".format(l)
+        label = "|"
+        for i,l in enumerate(labels[li]):
+            if label_key[i] == 'T':
+                label += "{:d},".format(l)
+            elif label_key[i] == 'F':
+                if l:
+                    label += "(2F)".format(l)
                 else:
-                    label += "{: >3d}>".format(l)
-        else:
-            for i,l in enumerate(labels[li]):
-                if label_key[i] == 'S':
-                    label = "|{:d}".format(l)
-                elif label_key[i] == "L":
-                    label += L2term(l)
-                elif label_key[i] == "J":
-                    label += "{: >2d},".format(l)
-                elif i < len(label_key)-1:
-                    label += "{: >3d},".format(l)
-                else:
-                    label += "{: >3d}>".format(l)
+                    label += "    "
+            elif label_key[i] == 'S':
+                    label += "{:d}".format(l)
+            elif label_key[i] == 'L':
+                label += L2term(l)
+            elif label_key[i] == 'J':
+                label += "{: >2d},".format(l)
+            elif i < len(label_key)-1:
+                label += "{: >3d},".format(l)
+            else:
+                label += "{: >3d}>".format(l)
 
         return label
     
