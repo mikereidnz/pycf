@@ -5,6 +5,20 @@ About pycf
 pycf is a collection of python modules for crystal field theory and spin
 Hamiltonian calculations.  The two primary modules are, pyemp and cfl. 
 
+pycfl
+=====
+
+pycfl is a crystal field fitting program that supports a variety of fitting
+modes, including fitting to spin Hamiltonian data and multiple crystal field
+Hamiltonians simultaneously.  It is divided into two parts: cfl, an independent
+library written in C99 which handles all core calculations, and a python
+wrapper, called pycf, which takes care of any input data preparation.  The
+source for cfl is located in ``/pycf/cfl`` and can be complied independently
+with gnu make.  The python/cython code can be found in ``/pycf/pycf/``, and is
+compiled with using pythons dist-utils.  There are also a number of pure python
+modules that can be used for spin Hamiltonian calculations.
+
+
 pyemp
 =====
 A python wrapper for Michael F. Reid's F-shell empirical crystal field theory
@@ -12,24 +26,6 @@ routines.  Facilitates automatic generation of emp input files and parsing their
 output.  Currently wrapped erun applications are 'cfit', 'inten', 'vtrans', and
 'spectrum'.  This wrapper is written in pure python and is called
 ``pycf/pycf/pyemp.py``.  
-
-
-pycfl
-=====
-
-pycfl is a reimplementation of 'cfit' with support for spin Hamiltonian fitting.
-It is divided into two parts.  One part is a small library called cfl which is
-written in c99 and handles all core calculations.  It is located in
-``/pycf/cfl`` and is intended to be an independent component that can easily be
-reused in other applications requiring crystal-field calculations.  The second
-part is a python wrapper written in cython, which is called
-``/pycf/pycf/cfl.pxd``.  This wrapper, and supporting modules located in
-``/pycf/pycf/``, take care of any input data preparation, such as CF matrix
-element loading and spin Hamiltonian matrix element evaluations, as well as
-pretty-printing calculation results.  While direct calls to cfl without python
-are certainly possible, the manual entry of input data would quickly become
-intractable for realistic problems.  It would also be possible to create
-bindings for cfl in other languages, such as Matlab.   
 
 
 Installation
@@ -88,27 +84,35 @@ Dependencies
 
 Before building you will need to satisfy the following dependencies:
  
+  * GCC and gfortran
+  * build-essential package or your distributions equivalent
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
     LAPACK
   * `gsl <https://www.gnu.org/software/gsl/>`_ - the GNU scientific library
   * `nlopt <http://ab-initio.mit.edu/wiki/index.php/NLopt>`_ - nonlinear
     optimization library
-  * gcc 
-  * build-essential package or your distributions equivalent
   * python (tested with version 2.7)
+  * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
   * numpy (version >= 1.7) 
   * scipy 
   * matplotlib (pyemp plotting only; can be omitted for pycfl)
-  * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
+
+GCC, gfortran, and LAPACK can be substituded for their Intel MKL equivalent; see
+the Intel mkl section below for details.
 
 All of the above programs should be available via the package manager on most
-linux distributions.
+linux distributions.  For Debian or Debian derived distributions (including
+Ubuntu), the following packages install all the required dependencies::
 
-Note that if any of the dependencies are installed in a non-standard location
-(not listed in ``/etc/ld.so.conf``) you need to specify the path to any include
-and lib directories prior to running ``python setup.py install``.  This is done
-by setting the environment variables ``CFL_CFLAGS`` and ``CFL_LDLIBS``, where
-the former should be a space separated list of required include paths, and the
+  sudo apt-get install build-essential gfortran liblapacke-dev liblapack-dev \
+  libgsl0-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
+
+Note that if any of the dependencies are not installed using your distributions
+package manager, and they are in a non-standard location (not listed in
+``/etc/ld.so.conf``), then you need to specify the path to any include and lib
+directories prior to running ``python setup.py install``.  This is done by
+setting the environment variables ``CFL_CFLAGS`` and ``CFL_LDLIBS``, where the
+former should be a space separated list of required include paths, and the
 latter should be a space separated list of required link-time and run-time
 library paths.  For example, say some additional libraries are installed in
 ``$HOME/opt``, then one would set the include and link/run -time paths using::
@@ -174,20 +178,3 @@ running make::
 
 where ``inteldir`` is again assumed to follow the standard intel installation
 directory layout. 
-
-
-Development
------------
-
-If you want to modify pycf and redistribute it you can create a new archive
-using the command::
-
-  $ python setup.py sdist
-
-which creates a ``tar.gz`` file in the ``dist`` directory.  For testing it
-is useful to build in-place using::
-
-  $ python setup.py build_ext -i
-
-This places the extension module files into the package source directory such
-that it can be directly imported by other modules.
