@@ -2235,16 +2235,22 @@ cdef class CFLMin:
             - 'nlopt_bobyqa'
             - 'nlopt_sbplx'.
 
-    stepsize : dict, optional
-        The stepsize for parameter variation; presently only supported for the
-        basinhopping algorithm.  Keys specify the tensor name, while values
-        correspond to the stepsize.  If adaptive stepsize is enabled (default,
-        see CFLMin doc for details), then this dictionary is used as the
-        starting stepsize, and all step sizes are scaled by the same factor in
-        order to achieve the target acceptance rate.  In other words, this kwarg
-        is then used to set the relative proportion between the step sizes. 
+    stepsize : dict, optional 
+        The stepsize for parameter variation; this argument is  only referenced
+        if the basinhopping algorithm is selected.  Keys specify the tensor
+        name, while values correspond to the stepsize.  If adaptive stepsize is
+        enabled, then this dictionary is used as the starting stepsize, and all
+        step sizes are scaled by the same factor in order to achieve the target
+        acceptance rate.  In other words, this kwarg is then used to set the
+        relative proportion between the step sizes. 
     niter : int, optional
-        The number of basinhopping iterations to complete.  Defaults to 100.
+        The number of basinhopping iterations to complete; defaults to 100. 
+    target_accept_rate : float, optional
+        The target acceptance rate for basinhopping steps; used for adaptive
+        stepsize tuning.  To disable adaptive stepsize, set this parameter to 0.
+        The default is 0.5.
+    step_adapt_int : int, optional
+        The number of iterations between adaptive stepsize checks; defaults to 20.
     xtol : float, optional
         If either the global optimization or a local basinhopping minimization
         routine is from nlopt, the ``xtol`` argument can be used to set the
@@ -2318,7 +2324,7 @@ cdef class CFLMin:
         cdef np.ndarray[double, ndim=1, mode="c"] cstepsize
         cdef double *stepsize_ptr
         cdef float target_accept_rate
-        cdef int step_adapt_int = 0
+        cdef int step_adapt_int
         cdef np.ndarray[double, ndim=2, mode="c"] cov_inv
         cdef double *cov_ptr
         
@@ -2432,7 +2438,9 @@ cdef class CFLMin:
                 target_accept_rate = 0.5
     
             if 'step_adapt_int' in self.kwargs:
-                    step_adapt_int = self.kwargs['step_adapt_int']
+                step_adapt_int = self.kwargs['step_adapt_int']
+            else:
+                step_adapt_int = 20
 
             if 'lmin' in self.kwargs:
                 lmin = self.kwargs['lmin']
