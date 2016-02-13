@@ -88,14 +88,5 @@ Distributed memory parallelization
 
 Debian/Ubuntu dependencies
 --------------------------
-libgsl0-dev
-build-essential
-gfortran
-liblapacke-dev
-liblapack-dev
-libnlopt-dev
-python-numpy
-python-scipy
-python-matplotlib
-cython
+libgsl0-dev build-essential gfortran liblapacke-dev liblapack-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
 

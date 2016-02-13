@@ -2135,7 +2135,10 @@ cdef class ESHFitRunner(object):
                 shwi = self.weights[inter]
             except KeyError:
                 shwi = 1.0
-            shx_array[i].chisq_weight = shwi/chi2[i+1] * ew_scale 
+            # FIXME: removed chi2 scaling; used to be:
+            # shx_array[i].chisq_weight = shwi/chi2[i+1] * ew_scale 
+            # which is broken with current cfl weighting setup... 
+            shx_array[i].chisq_weight = shwi * ew_scale 
     
     def __dealloc__(self):
         if self.ex_data != NULL:
