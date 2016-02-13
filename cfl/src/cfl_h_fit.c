@@ -854,7 +854,6 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
     zhd('N', d->eval, NULL, d->h, d->hd_w);
   }
   chisq = d->echisq_weight * echisq(d->eval, d->ex);
-  printf("echiqs = %f\n", chisq);
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
