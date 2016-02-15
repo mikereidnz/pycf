@@ -614,7 +614,7 @@ inline double shchisq(complex double *pa, complex double *xpa) {
   for (i = 0; i < 9; i++) {
     chisq += pow(cabs(pa[i]) - cabs(xpa[i]), 2);
   }
-
+  
   return chisq;
 }
 
@@ -832,7 +832,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
     zshp(d->sh_pa[i], d->evect, i, d->sh, d->shp_w);
     chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
-
+  
   return chisq;
 }
 
@@ -861,7 +861,7 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
   for (i = 0; i < d->sh->ninter; i++) {
-    zshp(d->sh_pa[i], d->evect, i, d->sh, d->shp_w);
+    zshp(d->sh_pa[i], d->hpro_evect, i, d->sh, d->shp_w);
     chisq += d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
 
@@ -964,7 +964,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
 
   for (i = 0; i < d->sh->ninter; i++) {
-    zshp(d->sh_pa[i], d->evect, i, d->sh, d->shp_w);
+    zshp(d->sh_pa[i], d->hpro_evect, i, d->sh, d->shp_w);
     chi2[i+1] = shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
 }
@@ -1156,7 +1156,7 @@ double eshfit_hpro_cov_df(double x, void *data) {
     /* The current spin Hamiltonian element. */
     shel = cov_d->shel_index[cov_d->obs_index - d->ex->n_obs];
 
-    zshp(d->sh_pa[shi], d->evect, shi, d->sh, d->shp_w);
+    zshp(d->sh_pa[shi], d->hpro_evect, shi, d->sh, d->shp_w);
 
     /* Return the upper diagonal entries of the parameter matrix. */
     if (shel < 3) {
