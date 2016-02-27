@@ -1129,11 +1129,7 @@ cdef class ExData(object):
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
                     self.ildh = np.ascontiguousarray(ildh, dtype=np.int32)
                     self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
-                    if len(self.ildh) != len(set(self.ildh)):
-                        raise ValueError("ex data contains duplicate initial state label entries.")
-                    if len(self.fldh) != len(set(self.fldh)):
-                        raise ValueError("ex data contains duplicate final state label entries.")
-
+                    
                 if len(key) == 2:
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
                         data[key.index('DS')][:, 2*ll])), dtype=np.float64)
@@ -1162,10 +1158,6 @@ cdef class ExData(object):
                     self.n_d = len(data[key.index('D')])
                     self.ild = np.ascontiguousarray(data[key.index('D')][:, 0]-1, dtype=np.int32)
                     self.fld = np.ascontiguousarray(data[key.index('D')][:, 1]-1, dtype=np.int32)
-                    if len(self.ild) != len(set(self.ild)):
-                        raise ValueError("ex data contains duplicate initial difference index entries.")
-                    if len(self.fld) != len(set(self.fld)):
-                        raise ValueError("ex data contains duplicate final difference index entries.")
                 if len(key) == 2:
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, 1],
                         data[key.index('D')][:, 2])), dtype=np.float64)
