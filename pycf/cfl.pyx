@@ -2609,7 +2609,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         summary += "\n"
 
     summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
-
+    
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
 

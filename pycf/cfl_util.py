@@ -155,7 +155,13 @@ def gen_pycf_summary():
     s = "pycf revision: {}\n".format(__version__.__version__)
     s += "File: {}\n".format(os.path.abspath(inspect.stack()[1][1]))
     s += "Calculation completed on: {}\n\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    
+
+    s += "Input file\n"
+    s += "==========\n\n"
+    with open(str(os.path.abspath(inspect.stack()[1][1])), 'r') as f:
+        s += f.read()
+    s += "\n\n"
+
     return s
 
 def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shift=False):
@@ -410,6 +416,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
         s += "{0:<20} {1: <}\n".format(k+":", kwargs[k])
 
     return s
+
 
 def e_fit_sigma(e, ex, ndof, z=None, labels=None):
     r"""
