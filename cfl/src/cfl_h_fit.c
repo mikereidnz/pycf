@@ -250,14 +250,16 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights,
   nhd_w = 0;
   for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
+      /* A new tensor; record j index. */
       if (j >= nhd_w) {
         data->hi[i] = j;
-        lwork[nhd_w] = ha[i]->slabels->th;
+        lwork[nhd_w] = ha[i]->hh;
         iwork[j] = i;
         nhd_w++;
         break;
       }
-      else if (ha[i]->slabels->th == lwork[j]) {
+      /* Check whether Hamiltonian hash matches. */
+      else if (ha[i]->hh == lwork[j]) {
         data->hi[i] = j;
         break;
       }
