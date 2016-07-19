@@ -27,7 +27,7 @@ import warnings
 import numpy as np
 from numpy.linalg import lstsq
 from scipy.linalg import block_diag
-from scipy.optimize import minimize
+from scipy.optimize import basinhopping
 from matel import matel
 
 
@@ -369,6 +369,83 @@ def su2_rz_lsq_f(p, coeff_a, b):
 
     return r
 
+def su2_rotation(p, m):
+    """
+    Apply an SU(2) rotation an about the z, y, and x axes respectively to the 
+    spin-half matrix elements of a spin Hamiltonian term, specifically, a Zeeman
+    interaction term or a magnetic dipole hyperfine interaction term.  
+
+    Parameters
+    ----------
+    p : array
+        The three rotation angles. 
+    m : ndarray
+        A `2 \times 2` Zeeman interaction term, or a `2 \times (I+1) \times 2`
+        by `2 \times (I+1) \times 2` magnetic dipole hyperfine interaction term.
+    
+    Returns
+    -------
+    m : ndarray
+        The transformed matrix. 
+    """
+    I = np.complex(0,1)
+    
+    a = p[0]
+    b = p[1]
+    c = p[2]
+    rotation = np.array([[np.exp(-I*(a)/2) * (np.cos(b/2)*np.cos(c/2)+I*np.sin(b/2)*np.sin(c/2)), 
+        -np.exp(-I*(a)/2) * (I*np.cos(b/2)*np.sin(c/2)+np.sin(b/2)*np.cos(c/2))],
+                         [np.exp(I*(a)/2) * (np.sin(b/2)*np.cos(c/2)-I*np.cos(b/2)*np.sin(c/2)), 
+         np.exp(I*(a)/2) * (-I*np.sin(b/2)*np.sin(c/2)+np.cos(b/2)*np.cos(c/2))]])
+    
+    #rotation = np.array([[np.exp(-I*(a+c)/2) * np.cos(b/2), -np.exp(-I*(a-c)/2)*np.sin(b/2)],
+    #    [np.exp(I*(a-c)/2)*np.sin(b/2), np.exp(I*(a+c)/2)*np.cos(b/2)]])
+    
+    return np.dot(np.dot(np.conj(rotation.T), m), rotation)
+
+
+def su2_rotation_lsq_f(p, coeff_a, b):
+    """
+    Helper function for least squares fitting of the SU(2) rotation required to
+    symmetrize spin Hamiltonian terms containing spin half matrix elements.
+
+    Parameters
+    ----------
+    p : array
+        The three rotation angles, with entries for rotations about the z, y,
+        and x axes respectively.
+    coeff_a : np.ndarray
+        The appropriate coefficient array, generated with either
+        :func:`bgs_coeff_array` or :func:`ias_coeff_array`.
+    b : numpy.ndarray
+        For a 'BgS' term, b must be a `3 \times 2 \times 2` array, corresponding
+        to individual 'BgS' matrix elements for a field along three linearly
+        independent directions. For an 'IAS' term, b must be a `2 (I + 1) \times
+        2` np.ndarray corresponding to the `IAS` matrix elements. 
+
+    Returns
+    -------
+    r : float
+        The residue; calculated from the differences between the off diagonal
+        elements of the spin Hamiltonian tensor.
+    """
+    # Check whether 'BgS', or 'IAS', since we need to loop through each field
+    # direction for the former.
+    if b.shape == (3, 2, 2):
+        b_p = np.zeros((3, 2, 2), dtype=np.complex)
+        for i in range(3):
+            b_p[i,:,:] = su2_rotation(p, b[i,:,:])
+    else:
+        b_p = su2_rotation(p, b)
+
+    tensor = invert_term(coeff_a, b_p)
+    
+    r = 0
+    for i in [(1, 3), (2, 6), (5, 7)]:
+        r += np.abs(tensor[i[0]] - tensor[i[1]])
+
+    return r
+
 
 class SpinH(object):
     r""" 
@@ -604,22 +681,25 @@ class SpinH(object):
                     "with support for the specified term: {}".format(term))
 
         if sym:
-            r = minimize(lambda p: su2_rz_lsq_f(p, self.coeff_a[term],
-                self.H_terms[term]), 0, method='Powell')
-            if not r['success']:
-                warnings.warn("The tensor symmetrization fit did not succeed.",
-                    RuntimeWarning)
+            def print_fun(x, f, accepted):
+                print("Symmeterization minimum %.4f accepted %d" % (f, int(accepted)))
+
+            fmin = lambda p: su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
+            r = basinhopping(fmin, [0,0,0], minimizer_kwargs={"method": "Powell"}, 
+                    callback=print_fun, niter=100)
+            #r = basinhopping(fmin, [0,0,0], minimizer_kwargs={"method": "Powell"}, 
+            #        callback=print_fun, niter=100)
             # Check whether 'BgS', or 'IAS', since we need to loop through each
             # field direction for the former. 
             if self.H_terms[term].shape == (3, 2, 2):
                 for i in range(3):
-                    self.H_terms[term][i,:,:] = su2_rz(r['x'], self.H_terms[term][i,:,:])
+                    self.H_terms[term][i,:,:] = su2_rotation(r['x'], self.H_terms[term][i,:,:])
             else:
-                self.H_terms[term] = su2_rz(r['x'], self.H_terms[term])
+                self.H_terms[term] = su2_rotation(r['x'], self.H_terms[term])
 
             self.sym_phase = r['x']
         else:
-            self.sym_phase = 0
+            self.sym_phase = [0, 0, 0]
             
         return(invert_term(self.coeff_a[term], self.H_terms[term]))
 

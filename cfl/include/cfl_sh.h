@@ -157,7 +157,8 @@ void zshi_w_free(zshi_w *w);
 void zshi(complex double *a, zshi_w *w);
 zshp_w *zshp_w_alloc(zsh *sh);
 void zshp_w_free(zshp_w *w);
-void zshp(complex double *a, complex double *hz, int int_i, zsh *sh, zshp_w *w);
+void zshp(complex double *a, complex double *b, complex double *hz, int int_i,
+    zsh *sh, zshp_w *w);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

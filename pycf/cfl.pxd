@@ -103,8 +103,7 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     void zshi(double complex *a, zshi_w *w)
     zshp_w *zshp_w_alloc(zsh *sh)
     void zshp_w_free(zshp_w *w)
-    void zshp(double complex *a, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
-
+    void zshp(double complex *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
 
 cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_bounds:

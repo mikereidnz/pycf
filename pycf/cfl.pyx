@@ -616,6 +616,9 @@ cdef class SpinHamiltonian:
     cdef public list tensors
     cdef public int pro_data_set
     cdef public dict coeff_dict
+    cdef float dz
+    cdef float dh
+    cdef float dq
 
     def __init__(self, interactions, **kwargs):
         cdef int csz
@@ -685,18 +688,18 @@ cdef class SpinHamiltonian:
             if inter == 'zeeman':
                 # Coefficient arrays are calculated for three B fields in \hat{x},
                 # \hat{y}, and \hat{z} directions, respectively.
-                dz = 2*self.Sz+1
-                B_a = np.zeros([3, dz**2, 9], dtype = np.complex)
+                self.dz = 2*self.Sz+1
+                B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
                 for j in range(3):
                     B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.S_matel)
-                self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * dz**2, 9)), dtype=np.complex128)]
+                self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * self.dz**2, 9)), dtype=np.complex128)]
                 self.nsh += 3
                 # Three g-values plus three Euler rotation parameters.
                 self.nobs += 6
                 self.required_tensors += ['MAGX', 'MAGY', 'MAGZ']
 
             if inter == 'hyperfine':
-                dh = 2*self.Sz+1 + 2*self.Iz+1
+                self.dh = 2*self.Sz+1 + 2*self.Iz+1
                 # The ordering of S_matel and I_matel is opposite to what makes
                 # intuitive sense here... should probably figure this out
                 # sometime.
@@ -708,7 +711,7 @@ cdef class SpinHamiltonian:
                 self.required_tensors += ['HYP']
 
             if inter == 'quadrupole': 
-                dq = 2*self.Iz+1
+                self.dq = 2*self.Iz+1
                 self.inv_data += [np.asfortranarray(quadrupole_sh_coeff(self.I_matel), dtype=np.complex128)]
                 self.nsh += 1
                 # Two quadrupole values plus three Euler rotation parameters.
@@ -847,27 +850,32 @@ cdef class SpinHamiltonian:
         self.pro_data_set = 1
 
 
-    def calc_param(self, h):
+    def calc_param(self, h, matel=False):
         r"""
-        Calculate the spin Hamiltonian parameters given a complete Hamiltonian.
+        Calculate the spin Hamiltonian parameters given a crystal-field
+        Hamiltonian.
 
         Parameters
         ----------
         h : Hamiltonian
-            The corresponding complete Hamiltonian. 
+            The corresponding crystal-field Hamiltonian. 
+        matel : bool
+            If true, a dictionary containing the spin Hamiltonian matrix
+            elements is returned.
 
         Returns
         -------
-        param : list
-            Elements are nd.arrays corresponding to spin Hamiltonian tensors of
-            interactions specified when the spin Hamiltonian object was
-            instantiated. 
+        res : tuple
+            If matel=False, a list of nd.arrays is returned.  These correspond
+            to the spin Hamiltonian tensors of interactions specified when the
+            spin Hamiltonian object was instantiated. 
         """
 
         cdef cfl.zshp_w *shp_w
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] cz
         cdef np.ndarray[double complex, ndim=1, mode="c"] a
-        
+        cdef np.ndarray[double complex, ndim=1, mode="c"] b
+
         if not self.pro_data_set:
             raise ValueError("The spin Hamiltonian interaction is missing projection data.")
 
@@ -906,16 +914,38 @@ cdef class SpinHamiltonian:
 
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=2, mode="fortran"]> z
-        shp_w = zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"));
+        shp_w = zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
         a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(9, dtype=np.complex128)
-        
+       
         result_list = []
-        for i in range(len(self.interactions)):
-            zshp(&a[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(
-                self.sh_cap, "pycfl.SpinHamiltonian"), shp_w);
-            result_list += [np.copy(a.reshape(3,3))]
+        sh_matel = {}
+        for i,inter in enumerate(self.interactions):
+            if inter == 'zeeman':
+                # Factor of 3 accounts for the orientations magx, magy, magz.
+                d_inter = 3*self.dz**2
+            elif inter == 'hyperfine':
+                d_inter = self.dh**2
+            elif inter == 'quadrupole':
+                d_inter = self.dq**2
 
-        zshp_w_free(shp_w);
+            b = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(d_inter, dtype=np.complex128)
+
+            zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w)
+            result_list += [np.copy(a.reshape(3,3))]
+            
+            if inter == 'zeeman':
+                sh_matel['magx'] = b[0:4].reshape(2,2)
+                sh_matel['magy'] = b[4:8].reshape(2,2)
+                sh_matel['magz'] = b[8:12].reshape(2,2)
+            elif inter == 'hyperfine':
+                sh_matel['hyperfine'] = b.reshape(self.dh, self.dh)
+            elif inter == 'quadrupole':
+                sh_matel['quadrupole'] = b.reshape(self.dq, self.dq)
+        
+        if matel:
+            return ((result_list, sh_matel))
+        else:
+            return result_list
 
         return result_list
 
