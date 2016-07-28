@@ -699,10 +699,10 @@ cdef class SpinHamiltonian:
                 self.required_tensors += ['MAGX', 'MAGY', 'MAGZ']
 
             if inter == 'hyperfine':
-                self.dh = 2*self.Sz+1 + 2*self.Iz+1
-                # The ordering of S_matel and I_matel is opposite to what makes
-                # intuitive sense here... should probably figure this out
-                # sometime.
+                self.dh = (2*self.Sz+1) * (2*self.Iz+1)
+                # The ordering of S_matel and I_matel is such that the states
+                # are first ordered by Iz, and then order by blocks of 2 by 2 Sz
+                # eigenvalues.
                 self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.S_matel, self.I_matel), 
                     dtype=np.complex128)]
                 self.nsh += 1
@@ -947,7 +947,6 @@ cdef class SpinHamiltonian:
         else:
             return result_list
 
-        return result_list
 
 cdef parse_ex(ex):
     r"""
