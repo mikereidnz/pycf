@@ -81,12 +81,20 @@ zh *zh_alloc(int n, int nt, zt **t) {
     CFL_ERROR_NULL("malloc failed for h");
   }
 
+  h->tnh = (uint32_t *) malloc(nt*sizeof(uint32_t));
+  if (h->tnh == 0) {
+    free(h);
+    CFL_ERROR_NULL("malloc failed for h->tnh");
+  }
+
   /* Ensure all tensors have matching state labels. */
   for (i = 1; i < nt; i++) {
-    if (t[0]->slabels->hash != t[i]->slabels->hash) {
+    if (t[0]->slabels->th != t[i]->slabels->th) {
       CFL_ERROR_NULL("Tensors have mismatching state labels")
     }
+    h->tnh[i] = fnv_hash(t[i]->name, strlen(t[i]->name));
   }
+  h->hh = fnv_hash(h->tnh, nt*sizeof(uint32_t)/sizeof(char));
   h->slabels = t[0]->slabels;
 
   h->n = n;
@@ -105,6 +113,7 @@ zh *zh_alloc(int n, int nt, zt **t) {
 }
 
 void zh_free(zh *h) {
+  free(h->tnh);
   free(h);
 }
 

@@ -28,6 +28,9 @@ pycf reference
 
 .. autofunction:: cfl.quadrupole_sh_coeff
 
+.. autoclass:: cfl.ExData
+  :members:
+
 .. autoclass:: cfl.EFitRunner
   :members:
 

@@ -925,9 +925,9 @@ class SpectrumErun(GenericErun):
             """
 
             linedata = np.loadtxt('{}/lines.gp_'.format(self.workdir),
-                    skiprows=3)
+                    skiprows=3, ndmin=2)
             curvedata = np.loadtxt('{}/curves.gp_'.format(self.workdir),
-                    skiprows=3)
+                    skiprows=3, ndmin=2)
             
             # Fetch line/curve energies and intensities for the selected
             # polarization. 

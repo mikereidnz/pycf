@@ -19,7 +19,14 @@
 #ifndef _CFL_TENSOR_H_
 #define _CFL_TENSOR_H_
 
-#include <cfl_csr.h>
+#include <stdint.h>
+#include "cfl_csr.h"
+
+
+/* The 32 bit FNV-1 non-zero initial basis. */
+#define FNV1_32_INIT ((uint32_t)0x811c9dc5)
+/* The 32 bit magic FNV-0 and FNV-1 prime. */
+#define FNV_32_PRIME ((uint32_t)0x01000193)
 
 /* State label type. */
 typedef struct {
@@ -30,8 +37,10 @@ typedef struct {
   char *key;
   /* Array of length n containing arrays of length strlen(key). */
   int **labels;
-  /* Pointer to hash of states. */
-  long hash;
+  /* Array of length n containing the hash values for each labels entry. */
+  uint32_t *lh;
+  /* The hash of all state labels in the tensor. */
+  uint32_t th;
 } sl;
  
 /* The tensor structure for complex valued matrix elements. */
@@ -59,6 +68,7 @@ zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in,
 void zt_free(zt *t);
 zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2);
 zt *zt_s(char *name, zt *t, complex double s);
+uint32_t fnv_hash(void *buf, int len);
 
 #ifdef __cplusplus
 }

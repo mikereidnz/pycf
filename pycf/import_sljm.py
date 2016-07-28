@@ -91,7 +91,7 @@ class ImportSLJM(object):
             label_key += [k for k in gi if (l[gi[k]] and k not in label_key)]
 
         # Rearrange label key to cannonical order.
-        sort_key = ['F', 'S', 'L', 'J', 'M', 'I', 'T']
+        sort_key = ['T', 'F', 'S', 'L', 'J', 'M', 'I']
         label_key.sort(key=lambda l: sort_key.index(l))
         
         sl = []

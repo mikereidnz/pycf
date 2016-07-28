@@ -27,6 +27,7 @@ import warnings
 import numpy as np
 from numpy.linalg import lstsq
 from scipy.linalg import block_diag
+from scipy.optimize import basinhopping
 from matel import matel
 
 
@@ -338,8 +339,7 @@ def su2_rz_lsq_f(p, coeff_a, b):
         The phase to be varied. 
     coeff_a : np.ndarray
         The appropriate coefficient array, generated with either
-        :func:`bgs_coeff_array`, :func:`ias_coeff_array` or
-        :func:`iqi_coeff_array`.
+        :func:`bgs_coeff_array` or :func:`ias_coeff_array`.
     b : numpy.ndarray
         For a 'BgS' term, b must be a `3 \times 2 \times 2` array, corresponding
         to individual 'BgS' matrix elements for a field along three linearly
@@ -353,14 +353,96 @@ def su2_rz_lsq_f(p, coeff_a, b):
         elements of the spin Hamiltonian tensor.
     """
     # Check whether 'BgS', or 'IAS', since we need to loop through each field
-    # direction for the former. 
-    if coeff_a.shape == (3, 2, 2):
+    # direction for the former.
+    if b.shape == (3, 2, 2):
+        b_p = np.zeros((3, 2, 2), dtype=np.complex)
         for i in range(3):
-            coeff_a_p[i,:,:] = su2_rz(p, coeff_a[i,:,:])
+            b_p[i,:,:] = su2_rz(p, b[i,:,:])
     else:
-        coeff_a_p = su2_rz(p, coeff_a[i,:,:])
+        b_p = su2_rz(p, b)
 
-    tensor = invert_term(coeff_a_p, b)
+    tensor = invert_term(coeff_a, b_p)
+    
+    r = 0
+    for i in [(1, 3), (2, 6), (5, 7)]:
+        r += np.abs(tensor[i[0]] - tensor[i[1]])
+
+    return r
+
+def su2_rotation(p, m):
+    """
+    Apply an SU(2) rotation an about the z, y, and x axes respectively to the 
+    spin-half matrix elements of a spin Hamiltonian term, specifically, a Zeeman
+    interaction term or a magnetic dipole hyperfine interaction term.  
+
+    Parameters
+    ----------
+    p : array
+        The three rotation angles. 
+    m : ndarray
+        A `2 \times 2` Zeeman interaction term, or a `2 \times (I+1) \times 2`
+        by `2 \times (I+1) \times 2` magnetic dipole hyperfine interaction term.
+    
+    Returns
+    -------
+    m : ndarray
+        The transformed matrix. 
+    """
+    I = np.complex(0,1)
+    
+    a = p[0]
+    b = p[1]
+    c = p[2]
+    rotation = np.array([[np.exp(-I*(a)/2) * (np.cos(b/2)*np.cos(c/2)+I*np.sin(b/2)*np.sin(c/2)), 
+        -np.exp(-I*(a)/2) * (I*np.cos(b/2)*np.sin(c/2)+np.sin(b/2)*np.cos(c/2))],
+                         [np.exp(I*(a)/2) * (np.sin(b/2)*np.cos(c/2)-I*np.cos(b/2)*np.sin(c/2)), 
+         np.exp(I*(a)/2) * (-I*np.sin(b/2)*np.sin(c/2)+np.cos(b/2)*np.cos(c/2))]])
+    
+    #rotation = np.array([[np.exp(-I*(a+c)/2) * np.cos(b/2), -np.exp(-I*(a-c)/2)*np.sin(b/2)],
+    #    [np.exp(I*(a-c)/2)*np.sin(b/2), np.exp(I*(a+c)/2)*np.cos(b/2)]])
+    rm = np.copy(m)
+    for i in range(int(m.shape[0]/2)):
+        for j in range(int(m.shape[1]/2)):
+            rm[2*i:2*i+2, 2*j:2*j+2] = np.dot(np.dot(np.conj(rotation.T), m[2*i:2*i+2, 2*j:2*j+2]), rotation)
+    
+    return rm
+
+
+def su2_rotation_lsq_f(p, coeff_a, b):
+    """
+    Helper function for least squares fitting of the SU(2) rotation required to
+    symmetrize spin Hamiltonian terms containing spin half matrix elements.
+
+    Parameters
+    ----------
+    p : array
+        The three rotation angles, with entries for rotations about the z, y,
+        and x axes respectively.
+    coeff_a : np.ndarray
+        The appropriate coefficient array, generated with either
+        :func:`bgs_coeff_array` or :func:`ias_coeff_array`.
+    b : numpy.ndarray
+        For a 'BgS' term, b must be a `3 \times 2 \times 2` array, corresponding
+        to individual 'BgS' matrix elements for a field along three linearly
+        independent directions. For an 'IAS' term, b must be a `2 (I + 1) \times
+        2` np.ndarray corresponding to the `IAS` matrix elements. 
+
+    Returns
+    -------
+    r : float
+        The residue; calculated from the differences between the off diagonal
+        elements of the spin Hamiltonian tensor.
+    """
+    # Check whether 'BgS', or 'IAS', since we need to loop through each field
+    # direction for the former.
+    if b.shape == (3, 2, 2):
+        b_p = np.zeros((3, 2, 2), dtype=np.complex)
+        for i in range(3):
+            b_p[i,:,:] = su2_rotation(p, b[i,:,:])
+    else:
+        b_p = su2_rotation(p, b)
+
+    tensor = invert_term(coeff_a, b_p)
     
     r = 0
     for i in [(1, 3), (2, 6), (5, 7)]:
@@ -405,6 +487,7 @@ class SpinH(object):
     Returns
     -------
     object : SpinH
+
     """
     def __init__(self, terms, **kwargs):
         for t in terms:
@@ -487,7 +570,7 @@ class SpinH(object):
                     self.coeff_a['bgs'] = np.reshape(B_a, (len(B) * S_dimsq, 9))
 
                 if 'ias' in terms:
-                    self.coeff_a['ias'] = ias_coeff_array(I_m, S_m)
+                    self.coeff_a['ias'] = ias_coeff_array(S_m, I_m)
                 if 'iqi' in terms:
                     self.coeff_a['iqi'] = iqi_coeff_array(I_m)
             elif kwargs['inv'] != False:
@@ -537,7 +620,7 @@ class SpinH(object):
             self.terms['bgs'] = __add_diag(bgs(self.B, m, self.S_m), n)
         elif term == 'ias':
             # ias term is of correct dimension.
-            self.terms['ias'] = ias(self.I_m, m, self.S_m)
+            self.terms['ias'] = ias(self.S_m, m, self.I_m)
         elif term == 'iqi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
             n = self.H_dim/(2 * self.I + 1)
@@ -575,7 +658,7 @@ class SpinH(object):
             I_dim = 2 * self.I + 1
             self.H_terms['iqi'] = val[:I_dim, :I_dim]
     
-    def inv_term(self, term, sym=False):
+    def inv_term(self, term, sym=False, sym_phase=None):
         r"""
         Invert the specified term of this spin Hamiltonian.
 
@@ -586,6 +669,10 @@ class SpinH(object):
             specified when the SpinH object was instantiated. 
         sym : bool
             Set to True to enable spin Hamiltonian parameter symmeterization.
+        sym_phase : list
+            List with three elements specifying the symmeterization angles.  If
+            this argument is provided, no fit will be performed and the
+            symmeterization will be applied with the specified angles.
 
         Returns
         -------
@@ -602,22 +689,33 @@ class SpinH(object):
                     "with support for the specified term: {}".format(term))
 
         if sym:
-            r = minimize(lambda p: su2_rz_lsq_f(p, self.coeff_a[term],
-                self.H_terms[term]), 0, method='Powell')
-            if not r['success']:
-                warnings.warn("The tensor symmetrization fit did not succeed.",
-                    RuntimeWarning)
+            def print_fun(x, f, accepted):
+                print("Symmeterization minimum %.4f accepted %d" % (f, int(accepted)))
+    
+            if sym_phase == None:
+                fmin = lambda p: su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
+                r = basinhopping(fmin, [0,0,0], minimizer_kwargs={"method": "Powell"}, 
+                        callback=print_fun, niter=100)
+                #r = basinhopping(fmin, [0,0,0], minimizer_kwargs={"method": "Powell"}, 
+                #        callback=print_fun, niter=100)
+                self.sym_phase = r['x']
+            else:
+                if len(sym_phase) != 3:
+                    raise ValueError("The sym_phase argument must be of length 3.")
+                self.sym_phase = sym_phase
+
             # Check whether 'BgS', or 'IAS', since we need to loop through each
             # field direction for the former. 
-            if coeff_a.shape == (3, 2, 2):
+            if self.H_terms[term].shape == (3, 2, 2):
                 for i in range(3):
-                    coeff_a[i,:,:] = su2_rz(r['x'], coeff_a[i,:,:])
+                    self.H_terms[term][i,:,:] = su2_rotation(self.sym_phase, self.H_terms[term][i,:,:])
             else:
-                coeff_a = su2_rz(r['x'], coeff_a[i,:,:])
+                self.H_terms[term] = su2_rotation(self.sym_phase, self.H_terms[term])
+
         else:
-            coeff_a = self.coeff_a[term]
+            self.sym_phase = [0, 0, 0]
             
-        return(invert_term(coeff_a, self.H_terms[term]))
+        return(invert_term(self.coeff_a[term], self.H_terms[term]))
 
     def get_H(self):
         r"""

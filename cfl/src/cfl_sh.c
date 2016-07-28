@@ -251,7 +251,7 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
 
   zeeman_index = 0;
   zeeman_term = 0;
-  thash = (t[0])->slabels->hash;
+  thash = (t[0])->slabels->th;
   for (i = 0; i < ntensors; i++) {
     sh->pro_data[i] = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
     if (sh->pro_data[i] == 0) {
@@ -273,7 +273,7 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
       free(sh->pro_data);
       CFL_ERROR_VAL("malloc failed for pro_data[i]->pt", ENOMEM);
     }
-    else if (thash != (t[i])->slabels->hash) {
+    else if (thash != (t[i])->slabels->th) {
       for (j = 0; j = i; j++) {
         free((sh->pro_data[j])->pt);
         free(sh->pro_data[j]);
@@ -660,12 +660,13 @@ void zshi_w_free(zshi_w *w) {
 void zshi(complex double *a, zshi_w *w) {
   int i, info; 
   char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
-  
+
   /* Store a copy of the inversion matrix. */
   memcpy((void *)w->a, (void *)w->data->a, w->a_size);
   
   info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, 9, 1, w->a,
       w->data->m, w->data->b, w->ldb, w->work, w->lwork);
+
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
@@ -767,6 +768,12 @@ void zshp_w_free(zshp_w *w) {
  *  a       An array of length 9 which will be overwritten with the spin
  *          Hamiltonian parameter matrix of the interaction specified with
  *          int_i upon exit.
+ *  b       An array of length dshi^2, with dshi the dimension of the spin
+ *          Hamiltonian specific to this interaction.  For a Zeeman interaction,
+ *          this must be 3*dshi^2 in order to accomodate the three orientations
+ *          magx, magy, and magz.  b will be overwritten with the spin
+ *          Hamiltonian matrix elements upon exit.  Can be set to NULL if the
+ *          matrix elements are not required.
  *  hz      Pointer to array containing the eigenvectors that diagonalize the
  *          Hamiltonian containing free-ion and crystal-field interactions.
  *  int_i   Index specifying for which interaction to calculate the parameter
@@ -775,7 +782,7 @@ void zshp_w_free(zshp_w *w) {
  *  sh      The spin Hamiltonian object.
  *  shp_w   The parameter workspace.
  */
-void zshp(complex double *a, complex double *hz, int int_i, zsh *sh, zshp_w *w) {
+void zshp(complex double *a, complex double *b, complex double *hz, int int_i, zsh *sh, zshp_w *w) {
   int i;
   /* Generate sorting data every time we cycle through all interactions. */
   if (int_i == 0) {
@@ -810,5 +817,10 @@ void zshp(complex double *a, complex double *hz, int int_i, zsh *sh, zshp_w *w) 
     zshp_parse((sh->inv_data[int_i])->b, sh, int_i+w->zeeman_offset, w->shp_p_w);
   }
   
+  if (b != NULL) {
+    memcpy(b, (sh->inv_data[int_i])->b, w->shi_w[int_i]->ldb*sizeof(complex double));
+  }
+
   zshi(a, w->shi_w[int_i]);
 }
+

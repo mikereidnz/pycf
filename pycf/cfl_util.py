@@ -112,6 +112,41 @@ def L2term(i):
     else:
         raise NotImplementedError("L quantum number values greater than 11 are not supported.")
 
+def ex_parse_helper(ex, z, labels):
+    r"""
+    Helper for creating print-compatible ex array from ExData object.  
+
+    Parameters
+    ----------
+    ex : ExData
+        The objected to be parsed.
+    z : np.ndarray
+        The eigenvector array the principal components of which are used to sort
+        state-labels.
+    labels : list
+        A list of state labels.
+    """
+    if ex.sl_index:
+        parsed_ex = np.zeros((ex.n_a, 2))
+        parsed_ex[:, 1] = ex.e[:ex.n_a]
+        # Determine the index of the principal component of each
+        # eigenvector. 
+        pc = np.argmax(np.abs(z), axis=0)
+        for i,r in enumerate(ex.a_states):
+            # Find the index of the principal component of each state
+            # label in a_states; we add one for compatibility with
+            # ex data passed via a direct np.ndarray.
+            parsed_ex[i, 0] = np.where((np.array(labels)[pc] == r).all(axis=1))[0][0] + 1
+    
+    else:
+        parsed_ex = np.zeros((ex.n_a, 2))
+        parsed_ex[:, 1] = ex.e[:ex.n_a]
+        parsed_ex[:, 0] = ex.la + 1
+        # Sort ex according to index column.
+        parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
+
+    return parsed_ex
+
 def gen_pycf_summary():
     r"""
     Print the pycf version and date/time.
@@ -120,7 +155,13 @@ def gen_pycf_summary():
     s = "pycf revision: {}\n".format(__version__.__version__)
     s += "File: {}\n".format(os.path.abspath(inspect.stack()[1][1]))
     s += "Calculation completed on: {}\n\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    
+
+    s += "Input file\n"
+    s += "==========\n\n"
+    with open(str(os.path.abspath(inspect.stack()[1][1])), 'r') as f:
+        s += f.read()
+    s += "\n\n"
+
     return s
 
 def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shift=False):
@@ -134,7 +175,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
     z : np.ndarray
         The eigenvectors in an n by n matrix.
     labels : list
-        A list of labels of state labels.
+        A list of state labels.
     label_key : str
        String identifying the type of label.  Valid characters are S, L, J, M,
        I, T, and F and their position in label_key specifies the location in
@@ -162,51 +203,43 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
     """
     
     def fmt_label(li, labels):
-        if 'F' in label_key:
-            for i,l in enumerate(labels[li]):
-                if label_key[i] == 'F':
-                    if l:
-                        label = "|(2F)".format(l)
-                    else:
-                        label = "|    "
-                elif label_key[i] == "S":
-                        label += "{:d}".format(l)
-                elif label_key[i] == "L":
-                    label += L2term(l)
-                elif label_key[i] == "J":
-                    label += "{: >2d},".format(l)
-                elif i < len(label_key)-1:
-                    label += "{: >3d},".format(l)
+        label = "|"
+        for i,l in enumerate(labels[li]):
+            if label_key[i] == 'T':
+                label += "{:d},".format(l)
+            elif label_key[i] == 'F':
+                if l:
+                    label += "(2F)".format(l)
                 else:
-                    label += "{: >3d}>".format(l)
-        else:
-            for i,l in enumerate(labels[li]):
-                if label_key[i] == 'S':
-                    label = "|{:d}".format(l)
-                elif label_key[i] == "L":
-                    label += L2term(l)
-                elif label_key[i] == "J":
-                    label += "{: >2d},".format(l)
-                elif i < len(label_key)-1:
-                    label += "{: >3d},".format(l)
-                else:
-                    label += "{: >3d}>".format(l)
+                    label += "    "
+            elif label_key[i] == 'S':
+                    label += "{:d}".format(l)
+            elif label_key[i] == 'L':
+                label += L2term(l)
+            elif label_key[i] == 'J':
+                label += "{: >2d},".format(l)
+            elif i < len(label_key)-1:
+                label += "{: >3d},".format(l)
+            else:
+                label += "{: >3d}>".format(l)
 
         return label
     
     if ex != None:
-        if ex.shape[1] == 3:
-            # Drop energy differences. 
-            ex_a_i = np.where(ex[:, 1] <= -1)[0]
-            tmp_ex = np.empty((len(ex_a_i), 2))
-            tmp_ex[:, 0] = ex[ex_a_i, 0]
-            tmp_ex[:, 1] = ex[ex_a_i, 2]
-            ex = tmp_ex
-        # Sort ex according to index column.
-        ex = ex[np.argsort(ex[:, 0]), :]
+        if isinstance(ex, np.ndarray):
+            # Sort ex according to index column.
+            ex = ex[np.argsort(ex[:, 0]), :]
+        else:
+            ex = ex_parse_helper(ex, z, labels)
+
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
-    
+        
+        # We currently throw out difference energies; ensure summary doesn't
+        # fail for diff only fits by setting ex to None
+        if len(ex) == 0:
+            ex = None
+
     if e_shift:
         e_shift = -np.min(w)
         w = w + e_shift
@@ -234,6 +267,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
             line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
                     si+1, fmt_label(si, labels))
         s += line + " {: >12.4f}".format(w[i])
+
         if ex != None:
             if ex[ex_i,0] == i+1:
                 s += "   {: >12.4f}  {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
@@ -383,7 +417,8 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
 
     return s
 
-def e_fit_sigma(e, ex, ndof):
+
+def e_fit_sigma(e, ex, ndof, z=None, labels=None):
     r"""
     Calculate the standard deviation of an energy level fit assuming a model
     fit.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
@@ -393,21 +428,35 @@ def e_fit_sigma(e, ex, ndof):
     e : np.ndarray
         The energies of fitted levels.
     ex : np.ndarray
-        2 by n dimensional array, with n the number of available experimental
-        energy levels. The first column contains energy level indices starting
-        at 1, and the second column contains corresponding experimental energy
-        level values. 
+        Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
+        former case, n is the number of energy levels, with the first column
+        containing energy level indices starting at 1, and the second column
+        containing the absolute experimental energy of the corresponding level.
+        In order to specify energy level differences, or specify energies
+        according to their SLJM state labels, use the ExData interface.
     ndof : int
         The number of degrees of freedom of the chi-squared distribution, that
         is, the number of experimental data points minus the number of
         parameters.
+    z : np.ndarray, optional
+        The eigenvector array the principal components of which are used to sort
+        state-labels.  This must be specified if ex is an ExData object.
+    labels : list, optional
+        A list of state labels.  This must be specified if ex is an ExData
+        object.
     """
-    # Experimental level index.
+    if not isinstance(ex, np.ndarray):
+        if z ==  None or labels == None:
+            raise ValueError("Unless ex is a correctly formatted np.ndarray, you " \
+                    "must provide the z and labels arguments to e_fit_sigma.")
+        ex = ex_parse_helper(ex, z, labels)
+
     ex_li = np.array(ex[:,0], dtype=int)-1
     try:
         sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
     except:
         raise IndexError("Level index in experimental energies file is out of range.")
+
     
     return sigma
 

@@ -43,6 +43,10 @@ typedef struct {
   int nt;
   /* State labels. */
   sl *slabels;
+  /* Array of length nt containing the hash values for each tensor name. */
+  uint32_t *tnh;
+  /* The Hamiltonian hash; consists of a hash of the tnh array. */
+  uint32_t hh;
   /* Pointer to array of pointers to complex valued tensors. */
   zt **t;
   /* Tensor coefficients. */

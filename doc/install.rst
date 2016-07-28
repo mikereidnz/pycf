@@ -20,8 +20,8 @@ is achieved using the ``PYTHONPATH`` environment variable, which has to be set
 to include the path to the ``site-packages`` directory into which the module was
 installed. 
 
-Here is a quick example which installs pycf to ``opt`` in ones home directory.
-Assuming one is in the package root directory::
+Here is a quick example which installs pycf to ``opt`` in the ``$HOME``
+directory.  Assuming one is in the package root directory::
 
   python setup.py install --prefix $HOME/opt
 
@@ -33,7 +33,7 @@ To add this directory to the ``PYTHONPATH`` environment variable, run::
 
   export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages
 
-This environment variable change can be made to persistent for future terminal
+This environment variable change can be made persistent for future terminal
 sessions by adding the above line to the ``~/.bashrc`` file::
   
   echo 'export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages' >> ~/.bashrc 
@@ -56,33 +56,41 @@ Dependencies
 
 Before building you will need to satisfy the following dependencies:
  
+  * GCC and gfortran
+  * build-essential package or your distributions equivalent
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
     LAPACK
   * `gsl <https://www.gnu.org/software/gsl/>`_ - the GNU scientific library
   * `nlopt <http://ab-initio.mit.edu/wiki/index.php/NLopt>`_ - nonlinear
     optimization library
-  * gcc 
-  * build-essential package or your distributions equivalent
   * python (tested with version 2.7)
+  * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
   * numpy (version >= 1.7) 
   * scipy 
   * matplotlib (pyemp plotting only; can be omitted for pycfl)
-  * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
+
+GCC, gfortran, and LAPACK can be substituded for their Intel MKL equivalent; see
+the Intel mkl section below for details.
 
 All of the above programs should be available via the package manager on most
-linux distributions.
+linux distributions.  For Debian or Debian derived distributions (including
+Ubuntu), the following packages install all the required dependencies::
 
-Note that if any of the dependencies are installed in a non-standard location
-(not listed in ``/etc/ld.so.conf``) you need to specify the path to any include
-and lib directories prior to running ``python setup.py install``.  This is done
-by setting the environment variables ``CFL_CFLAGS`` and ``CFL_LDLIBS``, where
-the former should be a space separated list of required include paths, and the
+  sudo apt-get install build-essential gfortran liblapacke-dev liblapack-dev \
+  libgsl0-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
+
+Note that if any of the dependencies are not installed using your distributions
+package manager, and they are in a non-standard location (not listed in
+``/etc/ld.so.conf``), then you need to specify the path to any include and lib
+directories prior to running ``python setup.py install``.  This is done by
+setting the environment variables ``CFL_CFLAGS`` and ``CFL_LDLIBS``, where the
+former should be a space separated list of required include paths, and the
 latter should be a space separated list of required link-time and run-time
 library paths.  For example, say some additional libraries are installed in
 ``$HOME/opt``, then one would set the include and link/run -time paths using::
 
-  export CFL_CFLAGS='-I$HOME/opt/include'
-  export CFL_LDLIBS='-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib'
+  export CFL_CFLAGS="-I$HOME/opt/include"
+  export CFL_LDLIBS="-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib"
 
 Additionally, since cython compiles c extensions as shared objects, all linked
 objects must be compiled as position independent code (``-fPIC``).  If you are
@@ -119,7 +127,7 @@ need to change the ``USE_MKL`` macro in ``pycf/cfl/include/cfl_config.h`` to
 ``TRUE``.  This is not strictly necessary if you also have lapacke, since the
 mkl_lapacke and standard lapacke headers seem to be interchangable, and the
 linker will use the mkl library even if ``USE_MKL`` is false. Then, provided the
-bin directory containing icc is part of your system ``$PATH`` building with icc
+bin directory containing icc is part of your system ``$PATH``, building with icc
 and linking against mkl is done by::
   
   python setup.py build_ext --compiler=intel
@@ -128,12 +136,11 @@ The module can then be installed the usual way::
 
   python setup.py install --prefix=/path/to/dir
 
-Note that this defaults to linking against the lp64 interface, parallel
-threading and OpenMPI support.  To adjust these settings, modify the
-``MKL_CFLAGS`` variable in ``pycf/cfl/makefile``.  Furthermore, it is assumed
-that core libraries are in ``intel/lib/intel64`` and mkl libraries are in
-``intel/mkl/lib/intel64/``, where the location of the ``intel`` directory is
-inferred from the location of icc.
+Note that this defaults to linking against the lp64 interface, and OpenMP
+support.  To adjust these settings, modify the ``MKL_CFLAGS`` variable in
+``pycf/cfl/makefile``.  Furthermore, it is assumed that core libraries are in
+``intel/lib/intel64`` and mkl libraries are in ``intel/mkl/lib/intel64/``, where
+the location of the ``intel`` directory is inferred from the location of icc.
   
 To build only cfl with icc set the following environment variables prior to
 running make::
@@ -143,23 +150,3 @@ running make::
 
 where ``inteldir`` is again assumed to follow the standard intel installation
 directory layout. 
-
-
-Development
------------
-
-If you want to modify pycf and redistribute it you can create a new archive
-using the command::
-
-  $ python setup.py sdist
-
-which creates a ``tar.gz`` file in the ``dist`` directory.  For testing it
-is useful to build in-place using::
-
-  $ python setup.py build_ext -i
-
-This places the extension module files into the package source directory such
-that it can be directly imported by other modules.
-
-
-

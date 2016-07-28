@@ -35,7 +35,7 @@
 #define BH_DEF_ADAPT_INT      20
 
 /* Numerical derivative step-size for covariance matrix estimation. */
-#define COV_DERIV_H           1e-10
+#define COV_DERIV_H           1e-12
 
 /* The absolute error tolerance for the eigenvalues of Hamiltonian
  * diagonalization (see LAPACK zheevr for detailed description). */

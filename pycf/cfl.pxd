@@ -45,6 +45,7 @@ cdef extern from "../../cfl/include/cfl_tensor.h":
     void zt_free(zt *t)
     zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2)
     zt *zt_s(char *name, zt *t, double complex s)
+    unsigned int fnv_hash(void *buf, int len)
 
 
 cdef extern from "../../cfl/include/cfl_h.h":
@@ -102,8 +103,7 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     void zshi(double complex *a, zshi_w *w)
     zshp_w *zshp_w_alloc(zsh *sh)
     void zshp_w_free(zshp_w *w)
-    void zshp(double complex *a, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
-
+    void zshp(double complex *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
 
 cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_bounds:
@@ -155,6 +155,9 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         int *la
         int *ild
         int *fld
+        int *lah
+        int *ildh
+        int *fldh
 
     ctypedef struct shx_data:
         double complex *pa
@@ -169,12 +172,12 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
-    efit_data *efit_data_alloc(zh *h, ex_data *ex, int n_zx, param_type **p)
+    efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mhfit_data *mhfit_data_alloc(int n, zh **ha, double *weights, ex_data **exa, 
-            int *n_zx, param_type ***p)
+    mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
+        ex_data **exa, int *n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
-    eshfit_data *eshfit_data_alloc(zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+    eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
             shx_data **shx, int n_zx, int n_ushx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
