@@ -85,7 +85,7 @@ typedef struct {
   zhcsr **coeff_w;
   /* Length of coeff_w array. */
   int lcoeff_w;
-  /* Storage for non-Hermitian CRS representation; used for generating RCM. */
+  /* Storage for non-Hermitian CRS representation. */
   zcsr *zcsr_h;
   /* Permutation to obtain block-diagonalized ordering of the Hamiltonian. */
   int *blk_perm;

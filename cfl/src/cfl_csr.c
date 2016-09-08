@@ -450,8 +450,9 @@ void zcsr2zha(zcsr *csr_m, complex double *a) {
 
 /*
  * Given three sparse matrices of the same shape in Hermitian CSR form, A, B,
- * and C, this function calculates the number of non-zero elements of C, the
- * row_ptr of C, and allocates storage for a zhcsr object. 
+ * and C as well as scalars alpha and beta, then, for C = alpha * A + beta * B,
+ * this function calculates the number of non-zero elements of C, the row_ptr of
+ * C, and allocates storage for a zhcsr object. 
  *
  * Parameters
  * ----------
