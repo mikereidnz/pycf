@@ -408,12 +408,14 @@ void mhfit_data_free(mhfit_data *data) {
  *  job     Set to 'N' if state label sorting is not required for h, in which
  *          case ex->lah, ex->ildh, and ex->fldh will not be referenced.  If
  *          state label sorting is required for h, set to 'S', in which case all
- *          elements of ex must be alloced. 
+ *          elements of ex must be alloced.
+ *  inv_job Set to 'S' if spin Hamiltonian parameter tensor symmeterization by
+ *          SVD is required, otherwise set to 'N'.
  *  h       Pointer to the complete Hamiltonian.  
  *  hpro    Pointer to the projection Hamiltonian; can be NULL if identical to
  *          h.  The tensor order of hpro must match the tensor order of h, since
- *          they share the same coefficent array; hpro will ignore any
- *          coefficients that are soley required by h.  Furthermore, if the
+ *          they share the same coefficient array; hpro will ignore any
+ *          coefficients that are solely required by h.  Furthermore, if the
  *          caller has set hpro->coeff, the caller must retain a copy of this
  *          pointer, since eshfit_data_alloc will alias hpro->coeff with
  *          h->coeff.  
@@ -429,7 +431,7 @@ void mhfit_data_free(mhfit_data *data) {
  *          that is, not in the Hamiltonian h.
  *  p       Array of pointers to parameters to be fit.
  */
-eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, int n_zx, int n_ushx, param_type **p) {
   int i,j;
   eshfit_data *data;
@@ -460,7 +462,7 @@ eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh,
     free(data);
     CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
   }
-  data->shp_w = zshp_w_alloc(sh);
+  data->shp_w = zshp_w_alloc(inv_job, sh);
   if (data->shp_w == 0) {
     free(data->evect);
     free(data->eval);
@@ -468,7 +470,7 @@ eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh,
     free(data);
     CFL_ERROR_NULL("zshp_w_alloc failed for data->shp_w");
   }
-  data->sh_pa = (complex double **) malloc(sh->ninter*sizeof(complex double *));
+  data->sh_pa = (double **) malloc(sh->ninter*sizeof(double *));
   if (data->sh_pa == 0) {
     free(data->evect);
     free(data->eval);
@@ -478,7 +480,7 @@ eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh,
     CFL_ERROR_NULL("malloc failed for data->sh_pa");
   }
   for (i = 0; i < sh->ninter; i++) {
-    data->sh_pa[i] = (complex double *) calloc(9,sizeof(complex double));
+    data->sh_pa[i] = (double *) calloc(9,sizeof(double));
     if (data->sh_pa[i] == 0) {
       free(data->evect);
       free(data->eval);
@@ -608,13 +610,13 @@ inline double echisq(double *e, ex_data *d) {
  *  pa    The theoretical parameter array.
  *  xpa   The experimental parameter array. 
  */
-inline double shchisq(complex double *pa, complex double *xpa) {
+inline double shchisq(double *pa, double *xpa) {
   int i;
   double chisq;
 
   chisq = 0;
   for (i = 0; i < 9; i++) {
-    chisq += pow(cabs(pa[i]) - cabs(xpa[i]), 2);
+    chisq += pow(abs(pa[i]) - abs(xpa[i]), 2);
   }
   
   return chisq;

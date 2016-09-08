@@ -101,9 +101,9 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     zshi_w *zshi_w_alloc(zsh_inv_data *d)
     void zshi_w_free(zshi_w *w)
     void zshi(double complex *a, zshi_w *w)
-    zshp_w *zshp_w_alloc(zsh *sh)
+    zshp_w *zshp_w_alloc(char job, zsh *sh)
     void zshp_w_free(zshp_w *w)
-    void zshp(double complex *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
+    void zshp(double *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
 
 cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_bounds:
@@ -177,7 +177,7 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
         ex_data **exa, int *n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
-    eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+    eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
             shx_data **shx, int n_zx, int n_ushx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)

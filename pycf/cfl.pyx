@@ -873,7 +873,7 @@ cdef class SpinHamiltonian:
 
         cdef cfl.zshp_w *shp_w
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] cz
-        cdef np.ndarray[double complex, ndim=1, mode="c"] a
+        cdef np.ndarray[double, ndim=1, mode="c"] a
         cdef np.ndarray[double complex, ndim=1, mode="c"] b
 
         if not self.pro_data_set:
@@ -914,8 +914,8 @@ cdef class SpinHamiltonian:
 
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=2, mode="fortran"]> z
-        shp_w = zshp_w_alloc(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
-        a = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(9, dtype=np.complex128)
+        shp_w = zshp_w_alloc('N', <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
+        a = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(9, dtype=np.complex128)
        
         result_list = []
         sh_matel = {}
@@ -2112,12 +2112,12 @@ cdef class ESHFitRunner(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
         if (self.hpro != None):
             if self.ex.sl_index:
-                self.eshfit_data = eshfit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('S', 'N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.n_ushx, self.param_array)
             else:
-                self.eshfit_data = eshfit_data_alloc('N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('N', 'N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.n_ushx, self.param_array)
@@ -2129,11 +2129,11 @@ cdef class ESHFitRunner(object):
 
         else:
             if self.ex.sl_index:
-                self.eshfit_data = eshfit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('S', 'N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.n_ushx, self.param_array)
             else:
-                self.eshfit_data = eshfit_data_alloc('N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('N', 'N', <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.n_ushx, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)

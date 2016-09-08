@@ -582,16 +582,101 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
       &one, &hz[(sh->l)*d], d, shp_p_w->a, d, &zero, shp_p_w->b, sh->dim);
 }
 
+
+/* 
+ * Allocate workspace for symmeterizing inverted spin Hamiltonian parameter
+ * tensors using a singular value decomposition. 
+ */
+zshi_svd_w *zshi_svd_w_alloc() {
+  int lwork, info;
+  double *s, *u, *vt, wquery;
+  zshi_svd_w *w;
+
+  w = (zshi_svd_w *) malloc(sizeof(zshi_svd_w));
+  if (w == 0) {
+    CFL_ERROR_NULL("malloc failed for w");
+  }
+ 
+  info = LAPACKE_dgesvd_work(LAPACK_COL_MAJOR, 'A', 'A', 3, 3, NULL, 3, NULL,
+      NULL, 3, NULL, 3, &wquery, -1);
+  if (info != 0) {
+    free(w);
+    CFL_ERROR_NULL("LAPACKE workspace query failed");
+  }
+
+  lwork = (int)wquery;
+  w->work = (double *) calloc(lwork,sizeof(double));
+  if (w->work == 0) {
+    free(w);
+    CFL_ERROR_NULL("calloc failed for work");
+  }
+  memset(w->s, 0, 9*sizeof(double));
+  memset(w->u, 0, 9*sizeof(double));
+  memset(w->vt, 0, 9*sizeof(double));
+  
+  w->lwork = lwork;
+
+  return w;
+}
+
+
+/* 
+ * Free the spin Hamiltonian tensor symmeterization workspace. 
+ */
+void zshi_svd_w_free(zshi_svd_w *w) {
+  free(w->work);
+  free(w);
+}
+
+/* 
+ * Perform a symmeterization of an inverted spin Hamlitonian parameter tensor
+ * using a singular value decomposition.
+ *
+ * Parameters
+ * ----------
+ *  a     The parameter tensor array.
+ *  w     The symmeterization workspace.
+ */
+void zshi_svd(double *a, zshi_svd_w *w) {
+  int info;
+  char lapack_err[] = "LAPACKE_zgesvd failed with error code: 0";
+  
+  info = LAPACKE_dgesvd_work(LAPACK_COL_MAJOR, 'A', 'A', 3, 3, a, 3, w->s, w->u,
+      3, w->vt, 3, w->work, w->lwork);
+  if (info != 0) {
+    sprintf(lapack_err, "LAPACKE_zgesvd failed with error code: %i", info);
+    CFL_ERROR_VOID(lapack_err);
+  }
+
+  int i, j;
+  /* Construct the Sigma matrix from vector s. */
+  w->s[4] = w->s[1];
+  w->s[8] = w->s[2];
+  w->s[1] = 0;
+  w->s[2] = 0;
+
+  /* w->work is at least 5*MIN(M,N), which in our case is 15.  Therefore, we can
+   * use w->work as a matrix multiplication workspace. */
+  cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, w->u, 3,
+      w->s, 3, 0, w->work, 3);
+  cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, w->work,
+      3, w->vt, 3, 0, a, 3);
+}
+
+
 /*
  * Allocate workspace for the spin Hamiltonian inversion function, which
  * solves the over-determined system Ax=b.
  *
  * Parameters
  * ----------
+ *  job     Specify whether to allocate space for a singular value decomposition
+ *          that symmeterizes the resulting spin Hamiltonian parameter tensor.
+ *          Set to 'S' to enable SVD symmeterization, and to 'N' otherwise.
  *  data    Pointer to a data struct for complex valued spin Hamiltonian
  *          inversion data.
  */
-zshi_w *zshi_w_alloc(zsh_inv_data *d) {
+zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
   int ldb, lwork, info;
   zshi_w *w;
   complex double *a, *work, wquery;
@@ -627,7 +712,23 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
     free(work);
     CFL_ERROR_NULL("calloc failed for work");
   }
+  
+  if (job == 'S') {
+    w->job = 'S';
+    w->svd_w = (zshi_svd_w *) zshi_svd_w_alloc();
+    if (w->svd_w == 0) {
+      free(w);
+      free(work);
+      free(a);
+      CFL_ERROR_NULL("zshi_svd_w_alloc failed");
+    }
+  }
+  else {
+    w->job = 'N';
+    w->svd_w = NULL;
+  }
 
+  w->job = job;
   w->lwork = lwork,
   w->work = work;
   w->a = a;
@@ -642,6 +743,9 @@ zshi_w *zshi_w_alloc(zsh_inv_data *d) {
  * Free the spin Hamiltonian inversion workspace. 
  */
 void zshi_w_free(zshi_w *w) {
+  if (w->job == 'S') {
+    zshi_svd_w_free(w->svd_w);
+  }
   free(w->work);
   free(w->a);
   free(w);
@@ -657,7 +761,7 @@ void zshi_w_free(zshi_w *w) {
  *      parameter matrix of the interaction up on exit.
  *  w   The workspace allocated with zshi_w_alloc. 
  */
-void zshi(complex double *a, zshi_w *w) {
+void zshi(double *a, zshi_w *w) {
   int i, info; 
   char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
 
@@ -672,7 +776,11 @@ void zshi(complex double *a, zshi_w *w) {
     CFL_ERROR_VOID(lapack_err);
   }
   for (i = 0; i < 9; i++) {
-    a[i] = w->data->b[i];
+    a[i] = creal(w->data->b[i]);
+  }
+
+  if (w->job == 'S') {
+    zshi_svd(a, w->svd_w);
   }
 }
 
@@ -682,9 +790,12 @@ void zshi(complex double *a, zshi_w *w) {
  *
  * Parameters
  * ----------
+ *  job   Specify whether to allocate space for a singular value decomposition
+ *        that symmeterizes the resulting spin Hamiltonian parameter tensor. Set
+ *        to 'S' to enable SVD symmeterization, and to 'N' otherwise. 
  *  sh    The spin Hamiltonian object.
  */
-zshp_w *zshp_w_alloc(zsh *sh) {
+zshp_w *zshp_w_alloc(char job, zsh *sh) {
   int i, j;
   zshp_w *w;
 
@@ -716,7 +827,7 @@ zshp_w *zshp_w_alloc(zsh *sh) {
   w->msz = -1;
   w->magz_i = -1;
   for (i = 0; i < sh->ninter; i++) {
-    w->shi_w[i] = zshi_w_alloc(sh->inv_data[i]);
+    w->shi_w[i] = zshi_w_alloc(job, sh->inv_data[i]);
     if (w->shi_w[i] == 0) {
       for (j = 0; j < i; j++) {
         free(w->shi_w[i]);
@@ -782,7 +893,8 @@ void zshp_w_free(zshp_w *w) {
  *  sh      The spin Hamiltonian object.
  *  shp_w   The parameter workspace.
  */
-void zshp(complex double *a, complex double *b, complex double *hz, int int_i, zsh *sh, zshp_w *w) {
+void zshp(double *a, complex double *b, complex double *hz, int int_i,
+    zsh *sh, zshp_w *w) {
   int i;
   /* Generate sorting data every time we cycle through all interactions. */
   if (int_i == 0) {

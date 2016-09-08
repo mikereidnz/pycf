@@ -74,7 +74,7 @@ typedef struct {
 /* Experimental spin Hamiltonian data. */
 typedef struct {
   /* Array of nine experimental spin Hamiltonian parameter values. */
-  complex double *pa;
+  double *pa;
   /* chi^2 weighting. */
   double chisq_weight;
 } shx_data;
@@ -179,7 +179,7 @@ typedef struct {
   /* Pointer to spin Hamiltonian parameter projection workspace. */
   zshp_w *shp_w;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
-  complex double **sh_pa;
+  double **sh_pa;
   /* Experimental energy level data. */
   ex_data *ex;
   /* Array of pointers to spin Hamiltonian experimental data. */
@@ -205,7 +205,7 @@ void efit_data_free(efit_data *data);
 mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
     ex_data **exa, int *n_zx, param_type ***p);
 void mhfit_data_free(mhfit_data *data);
-eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, int n_zx, int n_ushx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
 int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
