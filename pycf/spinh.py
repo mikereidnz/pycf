@@ -26,7 +26,7 @@ from __future__ import division
 import warnings
 import numpy as np
 from numpy.linalg import lstsq
-from scipy.linalg import block_diag
+from scipy.linalg import block_diag, svd, diagsvd
 from scipy.optimize import basinhopping
 from matel import matel
 
@@ -450,6 +450,12 @@ def su2_rotation_lsq_f(p, coeff_a, b):
 
     return r
 
+def param_ten_svd(t):
+    U, s, Vh = svd(t)
+    S = diagsvd(s, 3, 3)
+    t = np.dot(t, Vh.T).dot(U.T)
+    
+    return t
 
 class SpinH(object):
     r""" 
@@ -716,6 +722,42 @@ class SpinH(object):
             self.sym_phase = [0, 0, 0]
             
         return(invert_term(self.coeff_a[term], self.H_terms[term]))
+
+
+    #def inv_term(self, term, sym=False):
+    #    r"""
+    #    Invert the specified term of this spin Hamiltonian.
+
+    #    Parameters
+    #    ----------
+    #    term : string
+    #        Specifies the term; must be one of the values of the ``term`` list
+    #        specified when the SpinH object was instantiated. 
+    #    sym : bool
+    #        Set to True to enable spin Hamiltonian symmeterization using a
+    #        singular-value decomposition.
+
+    #    Returns
+    #    -------
+    #    term_parameters : numpy.ndarray
+    #        A `9` by `1` vector consisting of stacked rows of the corresponding
+    #        `3` by `3` term parameter matrix. 
+    #    """
+    #    if not self.inv:
+    #        raise TypeError("This spectrum object does not support inv_term "
+    #                "method calls; to enable this pass the inv = True argument "
+    #                "to the constructor.")
+    #    elif term not in self.t_list:
+    #        raise ValueError("This SpinH object was not instantiated "
+    #                "with support for the specified term: {}".format(term))
+
+    #    t = invert_term(self.coeff_a[term], self.H_terms[term]).reshape(3,3)
+    #    if sym:
+    #        U, s, Vh = svd(t)
+    #        S = diagsvd(s, 3, 3)
+    #        t = np.dot(t, Vh.T).dot(U.T)
+    #        
+    #    return t
 
     def get_H(self):
         r"""
