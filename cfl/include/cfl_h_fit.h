@@ -33,8 +33,12 @@
 typedef struct {
   /* Indicator whether parameter is real, purely imaginary, or complex. */
   char type;
-  /* Complex (resultant) parameter array index. */
-  int index;
+  /* For n_zx complex parameters to be varied, this index maps to the correct
+   * entry in x, the array of real valued parameters. */
+  int xi;
+  /* For n_zx complex parameters to be varied, this index maps to the correct
+   * entry of the corresponding Hamiltonians coefficient array. */
+  int ci;
 } param_type;
 
 /* Experimental energy level data. */
@@ -194,6 +198,13 @@ typedef struct {
   double echisq_weight;
 } eshfit_data;
 
+/* Data for fitting multiple spin Hamiltonians. */
+typedef struct {
+  /* The number of spin Hamiltonians to fit. */
+  int n;
+  /* eshfit data for each spin Hamiltonian. */
+  eshfit_data **data;
+} meshfit_data;
 
 /* Function prototypes. */
 #ifdef __cplusplus

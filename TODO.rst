@@ -1,5 +1,14 @@
 TODO
 ====
+  * Current Hamiltonian summing and coefficient multiplication is unecessarily
+    memory hungry. Rather than finding intermediate sparsity patterns, write a
+    function that finds the final sparsity pattern with zero entries, then
+    simply add each matrix to that. Could also be parallelized... provided there
+    isn't too much OpenMP overhead.
+  * Currently the coupling coefficents A and Q are not consistently used with
+    fitting... it makes sense to explicitly set them when one simply wants to
+    invert a spin Hamiltonian, but for fitting the ESHFitRunner should take care
+    of that...
   * Update energy level summary printing to handle energy differences, and MHFit
     summaries; at the moment it uses a single coeff dict for all MHFit diags,
     which clearly is nonsense.
@@ -13,6 +22,9 @@ TODO
   * Add weighting to spin Hamiltonian log.
   * Print all parameters, even static ones, in a fit summary... Maybe add a
     generic input section? 
+  * Change parameter printing s.t. it supports something akin to repr, i.e.,
+    directly throws back the dict that you can then reuse in a different fit. At
+    least add appropritae formatting with commas and quotes.
   * Add support to energy difference printing.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
@@ -35,9 +47,9 @@ Notes on col vs row major arrays
     ensures that the matrix is again stored in a 1 by n dimensional array.
     Matrices should be passed from cython as fortran contiguous arrays, although
     for tensor matrix elements such inconsistencies don't always show up due to
-    their hermiticity.  Furthermore, some sometimes 1 dimensional arrays are
-    passed as c style arrays, since for these cases they are identical to
-    fortran style arrays.
+    their hermiticity.  Furthermore, some 1 dimensional arrays are passed as c
+    style arrays, since for these cases they are identical to fortran style
+    arrays.
 
 Turning your code into a pretzel
 --------------------------------

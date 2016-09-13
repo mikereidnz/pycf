@@ -648,7 +648,6 @@ void zshi_svd(double *a, zshi_svd_w *w) {
     CFL_ERROR_VOID(lapack_err);
   }
 
-  int i, j;
   /* Construct the Sigma matrix from vector s. */
   w->s[4] = w->s[1];
   w->s[8] = w->s[2];
@@ -767,7 +766,7 @@ void zshi(double *a, zshi_w *w) {
 
   /* Store a copy of the inversion matrix. */
   memcpy((void *)w->a, (void *)w->data->a, w->a_size);
-  
+
   info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, 9, 1, w->a,
       w->data->m, w->data->b, w->ldb, w->work, w->lwork);
 

@@ -145,7 +145,8 @@ cdef extern from "../../cfl/include/basinhopping.h":
 cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct param_type:
         char type
-        size_t index
+        int xi
+        int ci
 
     ctypedef struct ex_data:
         int n_obs
@@ -160,7 +161,7 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         int *fldh
 
     ctypedef struct shx_data:
-        double complex *pa
+        double *pa
         float chisq_weight
 
     ctypedef struct efit_data:
