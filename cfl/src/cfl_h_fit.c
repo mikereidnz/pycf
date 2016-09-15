@@ -408,8 +408,7 @@ void mhfit_data_free(mhfit_data *data) {
  *  job     Set to 'N' if state label sorting is not required for h, in which
  *          case ex->lah, ex->ildh, and ex->fldh will not be referenced.  If
  *          state label sorting is required for h, set to 'S', in which case all
- *          elements of ex must be alloced.  To disable electronic energy level
- *          data fitting and only fit to the spin Hamiltonian, set to 'D'.
+ *          elements of ex must be alloced. 
  *  inv_job Set to 'S' if spin Hamiltonian parameter tensor symmeterization by
  *          SVD is required, otherwise set to 'N'.
  *  h       Pointer to the complete Hamiltonian.  
@@ -575,6 +574,35 @@ void eshfit_data_free(eshfit_data *data) {
     free(data->sh_pa[i]);
   }
   free(data->sh_pa);
+  free(data);
+}
+
+/*
+ * Alloc data for fitting to multiple CF Hamiltonians and spin Hamiltonians.  
+ *
+ * Calls eshfit_obj (or eshfit_hpro_obj where appropriate) for multiple CF
+ * Hamiltonian/spin Hamiltonian pairs. 
+ *
+ * Parameters
+ * ----------
+ * n          The number of CF Hamiltonian/spin Hamiltonian pairs.
+ * eshfit_d   Array of pointers to previously allocated eshfit_data structs. 
+ */
+meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d) {
+  meshfit_data *data;
+
+  data = (meshfit_data *) malloc(sizeof(meshfit_data));
+  if (data == 0) {
+    CFL_ERROR_NULL("malloc failed for meshfit_data");
+  }
+
+  data->n = n;
+  data->data = eshfit_d;
+
+  return data;
+}
+
+void meshfit_data_free(meshfit_data *data) {
   free(data);
 }
 
@@ -825,7 +853,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
     find_sort_indices(d->ex, d->h, d->evect); 
   }
   /* Check whether energy level fitting is disabled; i.e., a pure sh fit. */
-  if (d->job == 'D') {
+  if (d->ex->n_obs == 0) {
     chisq = 0;
   } 
   else {
@@ -859,7 +887,14 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   else {
     zhd('N', d->eval, NULL, d->h, d->hd_w);
   }
-  chisq = d->echisq_weight * echisq(d->eval, d->ex);
+  /* Check whether energy level fitting is disabled; i.e., a pure sh fit. */
+  if (d->ex->n_obs == 0) {
+    chisq = 0;
+  } 
+  else {
+    chisq = d->echisq_weight * echisq(d->eval, d->ex);
+  }
+
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
   zhd('V', d->hpro_eval, d->hpro_evect, d->hpro, d->hprod_w);
@@ -957,8 +992,16 @@ void eshfit_chi2(double *x, void *data, double *chi2) {
   if (d->job == 'S') {
     find_sort_indices(d->ex, d->h, d->evect); 
   }
-  *chi2 = echisq(d->eval, d->ex);
-  d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
+
+  /* Get chi2 provided energy-level fitting isn't disabled. */
+  if (d->ex->n_obs == 0) {
+    chi2[0] = 0;
+    d->echisq_weight = 0;
+  } 
+  else {
+    chi2[0] = echisq(d->eval, d->ex);
+    d->echisq_weight = CFL_MIN_START_CHI2/(chi2[0]);
+  }
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
@@ -983,8 +1026,16 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   else {
     zhd('N', d->eval, NULL, d->h, d->hd_w);
   }
-  chi2[0] = echisq(d->eval, d->ex);
-  d->echisq_weight = CFL_MIN_START_CHI2/chi2[0];
+  
+  /* Get chi2 provided energy-level fitting isn't disabled. */
+  if (d->ex->n_obs == 0) {
+    chi2[0] = 0;
+    d->echisq_weight = 0;
+  } 
+  else {
+    chi2[0] = echisq(d->eval, d->ex);
+    d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
+  }
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
    * and invert the result to obtain the spin Hamiltonian parameters. */
@@ -996,24 +1047,25 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   }
 }
 
-///*  Objective function for fit to energy levels and multiple spin Hamiltonians.
-// *  This can probably be accomodated by using a two dimensional array...
-// */
-//void meshfit_chi2(double *x, void *data, double *chi2) {
-//  int i;
-//  meshfit_data *d = data;
-//
-//  for (i=0; i<d->n; i++) {
-//    if (d->data[i]->hpro == NULL) {
-//      chisq[i] += eshfit_obj(n, x, grad, d->data[i]);
-//    }
-//    else {
-//      chisq[i] += eshfit_hpro_obj(n, x, grad, d->data[i]);
-//    }
-//  }
-//}
+/*  Objective function for fit to energy levels and multiple spin Hamiltonians.
+ */
+void meshfit_chi2(double *x, void *data, double *chi2) {
+  int i, chi2_index;
+  meshfit_data *d = data;
 
-
+  chi2_index = 0;
+  for (i=0; i<d->n; i++) {
+    if (d->data[i]->hpro == NULL) {
+      eshfit_chi2(x, d->data[i], &chi2[chi2_index]);
+    }
+    else {
+      eshfit_hpro_chi2(x, d->data[i], &chi2[chi2_index]);
+    }
+    /* The chi2 array contains an entry for each sh interaction plus 1 for the
+     * total energy level chi2. */
+    chi2_index += d->data[i]->d->sh->ninter + 1;
+  }
+}
 
 /* Function for evaluating the covariance matrix for an energy level fit.
  *

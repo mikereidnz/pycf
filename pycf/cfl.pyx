@@ -1629,7 +1629,6 @@ cdef class MHFitRunner(object):
         weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
 
         # Prepare array of pointers to parameter data structs.
-        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         param_arrays = <cfl.param_type ***>malloc(self.n_h*sizeof(cfl.param_type **))
         if param_arrays == NULL:
             for i in range(self.n_h):
@@ -1673,6 +1672,7 @@ cdef class MHFitRunner(object):
                 param_arrays[hi][i].xi = x0_index[p]
         
         # Set initial values.
+        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         ii = 0
         for p in parameters:
             if self.param_types[p] == 'c':
@@ -1964,13 +1964,13 @@ cdef class ESHFitRunner(object):
         self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex), "pycfl.ExData")
 
         # Prepare array of pointers to parameter data structs.
-        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
             free(self.ex_data)
             raise MemoryError("param_array alloc failed")
         self.param_array = param_array 
        
+        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         ii = 0
         for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
@@ -2173,7 +2173,7 @@ cdef class MESHFitRunner(object):
     #cdef cfl.ex_data **ex_data
     #cdef list ex_list
     #cdef np.ndarray n_zx
-    #cdef cfl.param_type ***param_arrays
+    #cdef list param_arrays
     #cdef np.ndarray p0_real
     #cdef cfl.mhfit_data *mhfit_data
     #cdef np.ndarray job_a
@@ -2198,9 +2198,10 @@ cdef class MESHFitRunner(object):
 
         self.coeff = {}             # Local copy of all coefficients of any H/SH.
         h_param_list = []           # Array of arrays specifying parameters of each H.
-        n_zx = np.zeros(self.n_h)   # The number of complex parameters of each H/SH pair.
+        n_zxa = np.zeros(self.n_h)  # The number of complex parameters of each H/SH pair.
         self.n_obs = 0              # The number of observables.
         n_ex = 0                    # The number of experimental electronic energy level sets.
+        ex_job_list = []            # Specifies whether: state-label sort, standard ex, or no ex.
         for i,d in enumerate(h_sh_list):
             try:
                 h = d['h']
@@ -2213,7 +2214,7 @@ cdef class MESHFitRunner(object):
                 self.coeff.update(h.coeff_dict)
             
             h_param_list += [[p for p in parameters if p in h]]
-            n_zx[i] += len(h_param_list[i])
+            n_zxa[i] += len(h_param_list[i])
 
             try:
                 sh = d['sh']
@@ -2238,8 +2239,16 @@ cdef class MESHFitRunner(object):
                     ex_list += [ex]
                 self.n_obs += ex_list[i].n_obs
                 n_ex += 1
+                if ex.sl_index:
+                    ex_job_list[i] += ['S']
+                else:
+                    ex_job_list[i] += ['N']
             else:
-                ex_list += [None]
+                # No energy level data; passing an empty array to ExData sets
+                # nobs attribute to 0, which dissables energy level chi2 fitting
+                # in cfl.
+                ex_list += [ExData(np.empty((0,2)))]
+                ex_job_list[i] += ['N']
             try:
                 weights_list += [d['weights']]
             except KeyError:
@@ -2250,7 +2259,6 @@ cdef class MESHFitRunner(object):
             h_list += [h]
             hpro_list += [hpro]
             sh_list += [sh]
-
 
         self.h_list = h_list
         self.hpro_list = hpro_list
@@ -2263,7 +2271,7 @@ cdef class MESHFitRunner(object):
         
         self.param_types = {}       # The type of each parameter (real, complex, or imag).
         self.n_p_real = 0           # The total number of real parameters (two for each complex number).
-        n_ushx= np.zeros(self.n_h)  # The number of parameters unique to each spin Hamiltonian.
+        n_ushxa = np.zeros(self.n_h)# The number of parameters unique to each spin Hamiltonian.
         x0_index = {}               # Index of each parameter in the real-valued param array.        
         for i,p in enumerate(parameters):
             if all((p not in hh for hh in (h_list + sh_list) )):
@@ -2280,23 +2288,23 @@ cdef class MESHFitRunner(object):
                 self.param_types[p] = "h"
                 for j,h in enumerate(h_list):
                     if p not in h:
-                        n_ushx[j] += 1
+                        n_ushxa[j] += 1
             elif p == 'QUAD':
                 x0_index[p] = self.n_p_real
                 self.n_p_real += 1
                 self.param_types[p] = "q"
                 for j,h in enumerate(h_list):
                     if p not in h:
-                        n_ushx[j] += 1
+                        n_ushxa[j] += 1
             else:
                 x0_index[p] = self.n_p_real
                 self.param_types[p] = "r"
                 self.n_p_real += 1
 
-        # n_zx is the total number of complex parameters for each H/SH pair;
+        # n_zxa is the total number of complex parameters for each H/SH pair;
         # therefore, we have to add the number of unique SH parameters to the
-        # existing n_zx array.
-        n_zx = n_zx + n_ushx
+        # existing n_zxa array.
+        n_zxa = n_zxa + n_ushxa
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
@@ -2305,116 +2313,136 @@ cdef class MESHFitRunner(object):
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
-
-        self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
-        if self.ha == NULL:
-            raise MemoryError("ha alloc failed")
-        # TODO: malloc space for self.sha, self.hproa, self.exa... then assign
-        # here if not None. 
-        for i in range(self.n_h):
-            self.ha[i] = <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian")
-            self.sha[i] = <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian")
-            if hpro_list[i] != None:
-                self.hproa[i] = <cfl.zh *>PyCapsule_GetPointer(hpro_list[i].h_cap, "pycfl.Hamiltonian")
-            else:
-                self.hproa[i] = NULL
-
-        self.ex_data = <cfl.ex_data **>malloc(self.n_h*sizeof(cfl.ex_data *))
-        if self.ex_data == NULL:
-            free(self.ha)
-            raise MemoryError("exa alloc failed")
         
+        ex_data = []
         for i in range(self.n_h):
             if self.ex_list[i] != None:
                 try:
-                    self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(
-                            exdata_alloc_helper(self.ex_list[i]), "pycfl.ExData")
+                    ex_data[i] += [<cfl.ex_data *>PyCapsule_GetPointer(
+                            exdata_alloc_helper(self.ex_list[i]), "pycfl.ExData")]
                 except:
                     for j in range(i):
-                        free(self.ex_data[j])
-                    free(self.ex_data)
-                    free(self.ha)
+                        free(ex_data[j])
                     raise
             else:
-                self.ex_list[i] == NULL
+                ex_data += [NULL]
 
         self.weights = np.array(weights_list, dtype=np.float64)
         weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
 
+        #FIXME: The below freeing mess is probably buggy (actually, this one is
+        # probably fine now, but not so much for in mhfit). 
         # Prepare array of pointers to parameter data structs.
-        self.p0_real = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        param_arrays = <cfl.param_type ***>malloc(self.n_h*sizeof(cfl.param_type **))
-        if param_arrays == NULL:
-            for i in range(self.n_h):
-                free(self.ex_data[i])
-            free(self.ex_data)
-            free(self.ha)
-            raise MemoryError("param_arrays alloc failed")
-
-        for i in range(self.n_h):
-            param_arrays[i] = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
-            if param_arrays[i] == NULL:
-                for j in range(i):
-                    free(param_arrays[j])
-                free(param_arrays)
-                for j in range(self.n_h):
-                    free(self.ex_data[j])
-                free(self.ex_data)
-                free(self.ha)
-                raise MemoryError("param_arrays[{}] alloc failed".format(i))
-       
+        param_arrays = []
         for hi,h in enumerate(h_list):
+            param_arrays += [<cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))]
+            if param_arrays[hi] is NULL:
+                for hj in range(hi):
+                    for j in range(self.n_p):
+                        free(param_arrays[hj][j])
+                    free(param_arrays[hj])
+                for j in range(self.n_h):
+                    free(ex_data[j])
+                raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
             for i,p in enumerate(h_param_list[hi]):
                 param_arrays[hi][i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
                 if param_arrays[hi][i] is NULL:
-                    for hj in range(hi):
-                        for j in range(self.n_p):
-                            free(param_arrays[hj][j])
                     for j in range(i):
                         free(param_arrays[hi][j])
-                    for hj in range(self.n_h):
+                    for hj in range(hi+1):
+                        for j in range(self.n_p):
+                            free(param_arrays[hj][j])
                         free(param_arrays[hj])
-                    free(self.param_arrays)
                     for j in range(self.n_h):
-                        free(self.ex_data[j])
-                    free(self.ex_data)
-                    free(self.ha)
+                        free(ex_data[j])
                     raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
                 
                 param_arrays[hi][i].type = ord(self.param_types[p])
-                param_arrays[hi][i].index = h_list[hi].index(p)
+                param_arrays[hi][i].ci = h_list[hi].index(p)
+                param_arrays[hi][i].xi = x0_index[p]
         
         # Set initial values.
-        ip_real = 0
+        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
+        ii = 0
         for p in parameters:
             if self.param_types[p] == 'c':
-                self.p0_real[ip_real] = np.real(self.coeff[p])
-                self.p0_real[ip_real+1] = np.imag(self.coeff[p])
-                ip_real += 2
+                self.x0[ii] = np.real(self.coeff[p])
+                self.x0[ii+1] = np.imag(self.coeff[p])
+                ii += 2
             else:
-                self.p0_real[ip_real] = self.coeff[p]
-                ip_real += 1
+                self.x0[ii] = self.coeff[p]
+                ii += 1
         
         self.param_arrays = param_arrays
                 
-        self.job_a = np.empty(self.n_h, dtype=np.dtype('S'))
-        for i,ex in enumerate(self.ex_list):
-            if ex.sl_index:
-                self.job_a[i] = 'S'
-            else:
-                self.job_a[i] = 'N'
-        job_a = self.job_a
-        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, &weights[0], self.ex_data, &n_zx[0], self.param_arrays)
+        # Create list of experimental spin Hamiltonian data arrays.
+        self.weights = weights
+        shx_arrays = []
+        for shi, sh in enumerate(sh_list):
+            try:
+                (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx)
+            except:
+                for shj in range(shi):
+                    for j in range(len(sh_list[shj].interactions)):
+                        free(shx_arrays[shj][j])
+                for hi in range(self.n_h):
+                    for i in range(self.n_p):
+                        free(param_arrays[hi][i])
+                    free(param_arrays[hi])
+                for ex in ex_list:
+                    if ex != NULL:
+                        free(ex)
+                raise
+            shx_arrays += [<cfl.shx_data **>PyCapsule_GetPointer(shx_array_cap, "pycfl.ShxArray")]
         
-        self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
-        self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
+        self.shx_arrays = shx_arrays
+        
+        eshfit_array = <cfl.eshfit_data **>malloc(n_h*sizeof(cfl.eshfit_data *))
+        if param_arrays[hi][i] is NULL:
+            for i in range(self.n_h):
+                for j in range(len(h_param_list[i])):
+                    free(param_arrays[i][j])
+                free(param_arrays[i])
+                free(ex_data[i])
+                for j in range(len(sh_list[i].interactions)):
+                    free(shx_arrays[i][j])
+            raise MemoryError("eshfit_array alloc failed")
+
+        self.eshfit_array = eshfit_array
+        #FIXME: should have a try statement, free previously alloced eshfit_data
+        #objects, and all the other stuff from above. This bug exists in all the
+        #"Runner" functions.
+        for i in range(self.n_h):
+            if hpro_list[i] != None:
+                eshfit_array[i] = eshfit_data_alloc(ex_job_list[i], 'N', 
+                    <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), 
+                    <cfl.zh *>PyCapsule_GetPointer(hpro_list[i].h_cap, "pycfl.Hamiltonian"),
+                    ex_data[i], <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
+                    shx_arrays[i], n_zxa[i], n_ushxa[i], self.param_arrays[i])
+            else:
+                eshfit_array[i] = eshfit_data_alloc(ex_job_list[i], 'N', 
+                    <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), NULL,
+                    ex_data[i], <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
+                    shx_arrays[i], n_zxa[i], n_ushxa[i], self.param_arrays[i])
+        
+        self.meshfit_data = meshfit_data_alloc(n_h, eshfit_array)
+        
+        self.fit_data_cap = PyCapsule_New(<void *>self.meshfit_data, "pycfl.MinData", NULL)
+        self.obj_f_cap = PyCapsule_New(<void *>&cfl.meshfit_obj, "pycfl.MinObjF", NULL)
+        # FIXME: points to mhfit_cov for now... obviously broken. 
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
         
-        # Run mhfit_chi2 so that the initial chi^2 weighting is set.
-        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
-        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
-        cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
-
+        # Run meshfit_chi2 so that the initial chi^2 weighting is set.
+        # Start with one chi2 entry for each Hamiltonian, then one additional
+        # one for each interaction of each spin Hamiltonian. 
+        nchi2 = n_h         
+        for sh in sh_list:
+            nchi2 += len(sh.interactions)
+        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(nchi2)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
+        cfl.meshfit_chi2(&x[0], self.meshfit_data, &chi2[0])
+    
+    # TODO: need to sort out dealloc, then get this thing to compile!
     def __dealloc__(self):
         if self.ha != NULL:
             free(self.ha)

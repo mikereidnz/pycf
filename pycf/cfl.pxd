@@ -181,16 +181,18 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
             shx_data **shx, int n_zx, int n_ushx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
-    int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
-    int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj) 
+    meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d)
+    void meshfit_data_free(meshfit_data *data)
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
     double mhfit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil 
     double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil 
+    double meshfit_obj(size_t n, double *x, double *grad, void *data) nogil
     void efit_chi2(double *x, void *data, double *chi2) nogil
     void mhfit_chi2(double *x, void *data, double *chi2) nogil 
     void eshfit_chi2(double *x, void *data, double *chi2) nogil
     void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil 
+    void meshfit_chi2(double *x, void *data, double *chi2) nogil
     void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil 
     void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil

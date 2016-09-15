@@ -43,7 +43,9 @@ typedef struct {
 
 /* Experimental energy level data. */
 typedef struct {
-  /* The total number of energy level observables (n_a + n_d). */
+  /* The total number of energy level observables (n_a + n_d).  If set to 0,
+   * then eshfit_obj and eshfit_hpro_obj will not evaluate any energy level
+   * contributions. */
   int n_obs;
   /* The number of absolute energy levels. */
   int n_a;
@@ -219,18 +221,18 @@ void mhfit_data_free(mhfit_data *data);
 eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
     shx_data **shx, int n_zx, int n_ushx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
-int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
-    cfl_min_obj *min_obj);
-int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
-    *bounds, cfl_min_obj *min_obj); 
+meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d);
+void meshfit_data_free(meshfit_data *data);
 double efit_obj(size_t n, double *x, double *grad, void *data);
 double mhfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
+double meshfit_obj(size_t n, double *x, double *grad, void *data);
 void efit_chi2(double *x, void *data, double *chi2);
 void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
+void meshfit_chi2(double *x, void *data, double *chi2);
 void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
