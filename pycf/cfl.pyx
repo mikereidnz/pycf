@@ -254,7 +254,16 @@ cdef class Tensor:
                         "all Tensor objects created by Tensor arithmetic.  All "\
                         "tensors imported with ImportSLJM automatically have "\
                         "their name attribute set.")
+    def get_matel(self):
+        """
+        Returns the matrix elements of this tensor in a dense array.
+        """
+        cdef np.ndarray[double complex, ndim=2, mode="c"] matel
+        
+        matel = np.ascontiguousarray(np.zeros((self.n,self.n), dtype=np.complex128))
+        cfl.zt_get_matel(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"), &matel[0,0])
 
+        return matel
 
 cdef class Hamiltonian:
     r"""

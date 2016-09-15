@@ -43,6 +43,7 @@ cdef extern from "../../cfl/include/cfl_tensor.h":
     zt *zt_alloc(char *name, double complex *a, int n, sl *slabels)
     zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in, double complex *val, sl *slabels)
     void zt_free(zt *t)
+    void zt_get_matel(zt *t, double complex *a)
     zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2)
     zt *zt_s(char *name, zt *t, double complex s)
     unsigned int fnv_hash(void *buf, int len)

@@ -228,6 +228,12 @@ void zt_free(zt *t) {
   free(t);
 }
 
+/* Wraper for cython to get the matrix elements of a tensor in dense storage;
+ * defining c types with other user defined c types (zhcsr) seems annoying
+ * in cython. */
+void zt_get_matel(zt *t, complex double *a) {
+  zhcsr2zha(t->matel, a);
+}
 
 /*
  * Add and scale the matrix elements of two tensors, write the result to a newly
