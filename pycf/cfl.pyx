@@ -418,7 +418,7 @@ cdef class Hamiltonian:
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] z
         
         self.w = np.ascontiguousarray(np.zeros(self.n), dtype=np.float64)
-        self.z = np.asfortranarray(np.zeros(self.n*self.n).reshape((self.n,self.n)), dtype=np.complex128)
+        self.z = np.asfortranarray(np.zeros((self.n,self.n)), dtype=np.complex128)
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
         z = <np.ndarray[double complex, ndim=2, mode="fortran"]> self.z
 
