@@ -1063,7 +1063,7 @@ void meshfit_chi2(double *x, void *data, double *chi2) {
     }
     /* The chi2 array contains an entry for each sh interaction plus 1 for the
      * total energy level chi2. */
-    chi2_index += d->data[i]->d->sh->ninter + 1;
+    chi2_index += d->data[i]->sh->ninter + 1;
   }
 }
 

@@ -173,6 +173,9 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
+    ctypedef struct meshfit_data:
+        pass
+
     efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx, param_type **p)
     void efit_data_free(efit_data *data)
     mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
