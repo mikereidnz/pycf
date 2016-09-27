@@ -435,7 +435,7 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
     shx_data **shx, int n_zx, int n_ushx, param_type **p) {
   int i,j;
   eshfit_data *data;
-
+  printf("cfl entry\n");
   if (h->coeff == NULL) {
     CFL_ERROR_NULL("h is missing coefficients; set with zh_set_coeff prior to" \
         "calling eshfit_data_alloc");
