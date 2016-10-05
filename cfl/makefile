@@ -35,7 +35,7 @@ test: $(TESTS)
 debug: CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke 
 debug: all
 
-libcfl.a: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
+libcfl.a: cfl_zefoz.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
 	$(AR) $(ARFLAGS) $@ $^
 
 zefoz_test: cfl_zefoz.o cfl_h.o cfl_tensor.o cfl_csr.o

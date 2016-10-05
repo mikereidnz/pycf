@@ -40,23 +40,38 @@ typedef struct {
   double *dwork;
   /* The size of the dwork array. */
   int dlwork;
+  /* Storage for the magnetic field strength of a given iteration. */
+  double B[3];
   /* The pivot indices the LU factorization and dgetri inversion used when
    * inverting C. */
   int ipiv[3];
   /* The Zeeman gradient vector. */
   double v[3];
   /* The Zeeman curvature tensor. */
-  double C[9];
-} zefoz_w;
+  double C[10];
+} zefoz_d;
 
+typedef struct {
+  /* Field strengths, in consecutive blocks of three (x, y, and z). */
+  double *B;
+  /* Field gradients, in consecutive blocks of three (x, y, and z). */
+  double *v;
+  /* Zefoz point counter. */
+  int ctr;
+  /* Size of zefoz point array. */
+  int size;
+} zefoz_a;
 
 /* Function prototypes. */
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-zefoz_w *zefoz_alloc(zh *h, int *zi);
-void zefoz_free(zefoz_w *work);
-void zefoz_iter(int k, int l, double *B, double complex **m, zefoz_w *work);
+zefoz_d *zefoz_alloc(zh *h, int *zi);
+void zefoz_free(zefoz_d *data);
+zefoz_a *zefoz_a_alloc(int init_size);
+void zefoz_a_free(zefoz_a *za);
+void zefoz_search(zefoz_a *za, double xtol, int k, int l, double *Bi, 
+    double *Bf, int *na, complex double **m, zefoz_d *data);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

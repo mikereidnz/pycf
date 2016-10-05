@@ -284,20 +284,25 @@ int main (void) {
   }
   printf("\n");
   
-  static double B_array[3] = {0.01, 0.01, 0.01};
   static int zi[3] = {7, 8, 9}; 
   double complex *zm[3] = {ce_magx_a, ce_magy_a, ce_magz_a};
+  static double Bi[3] = {0.02, 0.02, 0.02};
+  static double Bf[3] = {0.04, 0.04, 0.04};
+  static int na[3] = {4, 4, 4};
+  zefoz_d *zdata;
+  zefoz_a *za;
+  zdata = zefoz_alloc(h, zi);
+  za = zefoz_a_alloc(2);
+  
+  zefoz_search(za, 0.1, 9, 13, Bi, Bf, na, zm, zdata);
+  printf("%i ZEFOZ points found.\n", za->ctr);
+  //for (i=0; i<3; i++) {
+  //  printf("%f ", B_array[i]);
+  //}
+  //printf("\n");
 
-  zefoz_w *zwork;
-  zwork = zefoz_alloc(h, zi);
-  
-  zefoz_iter(12, 13, B_array, zm, zwork);
-  
-  for (i=0; i<3; i++) {
-    printf("%f ", B_array[i]);
-  }
-  printf("\n");
-  zefoz_free(zwork);
+  zefoz_a_free(za);
+  zefoz_free(zdata);
   free(w);
   free(z);
   zh_free(h);

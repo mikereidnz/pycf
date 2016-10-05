@@ -48,4 +48,12 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+/* The maximum number of iterations that a ZEFOZ search will attempt to find a
+ * zero gradient point for a given initial field point. */
+#define CFL_ZEFOZ_MAX_ITER    10
+
+/* The maximum field difference between consecutive ZEFOZ iterations above which
+ * the search for this starting guess is terminated. */
+#define CFL_ZEFOZ_MAX_DIFF    1e8
+
 #endif /* _CFL_CONFIG_H_ */

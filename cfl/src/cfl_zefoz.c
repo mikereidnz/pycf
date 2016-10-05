@@ -65,7 +65,7 @@ inline double inprod(int n, double complex *bra, double complex *op, double comp
 }
 
 /*
- * Allocate workspace for a ZEFOZ point search. 
+ * Allocate data for a ZEFOZ point search. 
  *
  * Parameters
  * ----------
@@ -73,86 +73,86 @@ inline double inprod(int n, double complex *bra, double complex *op, double comp
  *  zi      Indices of the Zeeman tensors in coeff array; must be in ordered by
  *          x, y, and z indices.
  */
-zefoz_w *zefoz_alloc(zh *h, int *zi) {
-  zefoz_w *work;
+zefoz_d *zefoz_alloc(zh *h, int *zi) {
+  zefoz_d *data;
   int info;
   double wquery;
 
-  work = (zefoz_w *) malloc(sizeof(zefoz_w));
-  if (work == 0) {
-    CFL_ERROR_NULL("malloc failed for work");
+  data = (zefoz_d *) malloc(sizeof(zefoz_d));
+  if (data == 0) {
+    CFL_ERROR_NULL("malloc failed for data");
   }
 
-  work->w = (double *) calloc(h->n, sizeof(double));
-  if (work->w == 0) {
-    free(work);
-    CFL_ERROR_NULL("calloc failed for work->w");
+  data->w = (double *) calloc(h->n, sizeof(double));
+  if (data->w == 0) {
+    free(data);
+    CFL_ERROR_NULL("calloc failed for data->w");
   }
-  work->z = (double complex *) calloc(h->n*h->n, sizeof(double complex));
-  if (work->z == 0) {
-    free(work->w);
-    free(work);
-    CFL_ERROR_NULL("calloc failed for work->z");
-  }
-
-  work->hd_w = (zhd_w *) zhd_w_alloc('V', h);
-  if (work->hd_w == 0) {
-    free(work->w);
-    free(work->z);
-    free(work);
-    CFL_ERROR_NULL("zhd_w_alloc failed for work->hd_w");
+  data->z = (double complex *) calloc(h->n*h->n, sizeof(double complex));
+  if (data->z == 0) {
+    free(data->w);
+    free(data);
+    CFL_ERROR_NULL("calloc failed for data->z");
   }
 
-  work->inprod_w = (double complex *) calloc(h->n, sizeof(double complex));
-  if (work->inprod_w == 0) {
-    free(work->w);
-    free(work->z);
-    free(work->hd_w);
-    free(work);
+  data->hd_w = (zhd_w *) zhd_w_alloc('V', h);
+  if (data->hd_w == 0) {
+    free(data->w);
+    free(data->z);
+    free(data);
+    CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
+  }
+
+  data->inprod_w = (double complex *) calloc(h->n, sizeof(double complex));
+  if (data->inprod_w == 0) {
+    free(data->w);
+    free(data->z);
+    free(data->hd_w);
+    free(data);
   }
   
-  memset(work->ipiv, 0, 3*sizeof(int));
-  memset(work->v, 0, 3*sizeof(double));
-  memset(work->C, 0, 9*sizeof(double));
+  memset(data->ipiv, 0, 3*sizeof(int));
+  memset(data->v, 0, 3*sizeof(double));
+  memset(data->C, 0, 9*sizeof(double));
 
-  info = LAPACKE_dgetri_work(LAPACK_COL_MAJOR, 3, work->C, 3, work->ipiv,
+  info = LAPACKE_dgetri_work(LAPACK_COL_MAJOR, 3, data->C, 3, data->ipiv,
       &wquery, -1);
   if (info != 0) {
-    free(work->w);
-    free(work->z);
-    free(work->hd_w);
-    free(work->inprod_w);
-    free(work);
+    free(data->w);
+    free(data->z);
+    free(data->hd_w);
+    free(data->inprod_w);
+    free(data);
     CFL_ERROR_NULL("LAPACKE workspace query failed");
   }
 
   /* Since LWORK >= N*NB, where NB is the optimal blocksize returned by ILAENV,
    * this workspace will always be big enough for the Jacobian/gradient vector
    * dot product. */
-  work->dlwork = (int)wquery;
-  work->dwork = (double *) calloc(work->dlwork, sizeof(double));
-  if (work->dwork == 0) {
-    free(work->w);
-    free(work->z);
-    free(work->hd_w);
-    free(work->inprod_w);
-    free(work);
+  data->dlwork = (int)wquery;
+  data->dwork = (double *) calloc(data->dlwork, sizeof(double));
+  if (data->dwork == 0) {
+    free(data->w);
+    free(data->z);
+    free(data->hd_w);
+    free(data->inprod_w);
+    free(data);
     CFL_ERROR_NULL("calloc failed for dwork");
   }
 
-  work->h = h;
-  work->zi = zi;
+  data->h = h;
+  data->zi = zi;
 
-  return work;
+  return data;
 }
 
-void zefoz_free(zefoz_w *work) {
-  free(work->w);
-  free(work->z);
-  zhd_w_free(work->hd_w);
-  free(work->inprod_w);
-  free(work->dwork);
-  free(work);
+void zefoz_free(zefoz_d *data) {
+  free(data->w);
+  free(data->z);
+  zhd_w_free(data->hd_w);
+  free(data->inprod_w);
+  free(data->dwork);
+  free(data);
 }
 
 /* Find the first derivative from perturbation theory, following PRB 74, 195101.
@@ -162,16 +162,16 @@ void zefoz_free(zefoz_w *work) {
  *  k         The level for which to determine the derivative.
  *  mi        Zeeman operator matrix elements along direction for which to
  *            differentiate.
- *  zefoz_w   The ZEFOZ search workspace.
+ *  zefoz_d   The ZEFOZ search data.
  */
-inline double d1(int k, double complex *mi, zefoz_w *work) {
+inline double d1(int k, double complex *mi, zefoz_d *data) {
   int n;
   double s;
   double complex *phi;
 
-  n = work->h->n;
-  phi = work->z;
-  s = inprod(n, &(phi[n*k]), mi, &(phi[n*k]), work->inprod_w);
+  n = data->h->n;
+  phi = data->z;
+  s = inprod(n, &(phi[n*k]), mi, &(phi[n*k]), data->inprod_w);
   
   return s;
 }
@@ -186,22 +186,22 @@ inline double d1(int k, double complex *mi, zefoz_w *work) {
  *            derivative.
  *  mj        Zeeman operator matrix elements along direction for the second
  *            derivative.
- *  zefoz_w   The ZEFOZ search workspace.
+ *  zefoz_d   The ZEFOZ search data.
  */
-inline double d2(int k, double complex *mi, double complex *mj, zefoz_w *work) {
+inline double d2(int k, double complex *mi, double complex *mj, zefoz_d *data) {
   int l, n; 
   double s, *omega;
   double complex *phi;
 
-  n = work->h->n;
-  omega = work->w;
-  phi = work->z;
+  n = data->h->n;
+  omega = data->w;
+  phi = data->z;
 
   s = 0;
   for (l=0; l<n; l++) {
     if (l != k) {
-      s += inprod(n, &(phi[n*k]), mi, &(phi[n*l]), work->inprod_w) * inprod(n,
-          &(phi[n*l]), mj, &(phi[n*k]), work->inprod_w)/(omega[k] - omega[l]);
+      s += inprod(n, &(phi[n*k]), mi, &(phi[n*l]), data->inprod_w) * inprod(n,
+          &(phi[n*l]), mj, &(phi[n*k]), data->inprod_w)/(omega[k] - omega[l]);
     }
   }
 
@@ -209,8 +209,7 @@ inline double d2(int k, double complex *mi, double complex *mj, zefoz_w *work) {
 }
 
 
-/* Calculate the Zeeman gradient vector and overwrites value in the workspace
- * struct.
+/* Calculate the Zeeman gradient vector and overwrites value in the data struct.
  *
  * Parameters
  * ----------
@@ -218,18 +217,18 @@ inline double d2(int k, double complex *mi, double complex *mj, zefoz_w *work) {
  *  l     Index of the ith level.
  *  m     Array of pointers to Zeeman operator matrix element arrays, in the
  *        order x, y, and z.
- *  work  Workspace for the ZEFOZ search.
+ *  data  Data for the ZEFOZ search.
  */
-inline void v_eval(int k, int l, double complex **m, zefoz_w *work) {
+inline void v_eval(int k, int l, double complex **m, zefoz_d *data) {
   int i;
 
   for (i=0; i<3; i++) {
-    work->v[i] = d1(k, m[i], work) - d1(l, m[i], work);
+    data->v[i] = d1(k, m[i], data) - d1(l, m[i], data);
   }
 }
 
 /* Calculate the Zeeman curvature tensor (Jacobian) and overwrites value in the
- * workspace struct. 
+ * data struct. 
  *
  * Parameters
  * ----------
@@ -237,14 +236,14 @@ inline void v_eval(int k, int l, double complex **m, zefoz_w *work) {
  *  l     Index of the ith level.
  *  m     Array of pointers to Zeeman operator matrix element arrays, in the
  *        order x, y, and z.
- *  work  Workspace for the ZEFOZ search.
+ *  data  Data for the ZEFOZ search.
  */
-inline void C_eval(int k, int l, double complex **m, zefoz_w *work) {
+inline void C_eval(int k, int l, double complex **m, zefoz_d *data) {
   int i, j;
 
   for (i=0; i<3; i++) {
     for (j=0; j<3; j++) {
-      work->C[i*3+j] = d2(k, m[i], m[j], work) - d2(l, m[i], m[j], work);
+      data->C[i*3+j] = d2(k, m[i], m[j], data) - d2(l, m[i], m[j], data);
     }
   }
 }
@@ -258,44 +257,195 @@ inline void C_eval(int k, int l, double complex **m, zefoz_w *work) {
  * ----------
  *  k     Index of the kth level.
  *  l     Index of the ith level.
- *  B     Array of length three containing the previous x, y, and z field
- *        strengths of the previous iteration. 
  *  m     Array of pointers to Zeeman operator matrix element arrays, in the
  *        order x, y, and z.
- *  work  Workspace for the ZEFOZ search.
+ *  data  Data for the ZEFOZ search.
  */
-void zefoz_iter(int k, int l, double *B, double complex **m, zefoz_w *work) {
+void zefoz_iter(int k, int l, double complex **m, zefoz_d *data) {
   int i, info, n;
   char lapack_err[] = "LAPACKE failed with error code: 0";
 
   for (i=0; i<3; i++) {
-    work->h->coeff[work->zi[i]] = B[i];
+    data->h->coeff[data->zi[i]] = data->B[i];
   }
-  zhd('V', work->w, work->z, work->h, work->hd_w);
+  zhd('V', data->w, data->z, data->h, data->hd_w);
 
-  v_eval(k, l, m, work);
-  C_eval(k, l, m, work);
+  v_eval(k, l, m, data);
+  C_eval(k, l, m, data);
   
-  n = work->h->n;
-
+  n = data->h->n;
+  
   /* Invert the Jacobian. */
-  info = LAPACKE_dgetrf_work(LAPACK_COL_MAJOR, 3, 3, work->C, 3, work->ipiv);
+  info = LAPACKE_dgetrf_work(LAPACK_COL_MAJOR, 3, 3, data->C, 3, data->ipiv);
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
-  info = LAPACKE_dgetri_work(LAPACK_COL_MAJOR, 3, work->C, 3, work->ipiv,
-      work->dwork, work->dlwork);
+  info = LAPACKE_dgetri_work(LAPACK_COL_MAJOR, 3, data->C, 3, data->ipiv,
+      data->dwork, data->dlwork);
   if (info != 0) {
     sprintf(lapack_err, "LAPACKE failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
   
   /* Calculate C^-1 v. */
-  cblas_dgemv(CblasColMajor, CblasNoTrans, 3, 3, 1, work->C, 3, work->v, 1,
-      0, work->dwork, 1);
+  cblas_dgemv(CblasColMajor, CblasNoTrans, 3, 3, 1, data->C, 3, data->v, 1,
+      0, data->dwork, 1);
 
   for (i=0; i<3; i++) {
-    B[i] -= 2*work->dwork[i];
+    data->B[i] -= 2*data->dwork[i];
   }
 }
+
+/* Allocate storage for zefoz point array.  Will double the size whenever the
+ * previously alloced storage runs out. 
+ *
+ * Parameters
+ * ----------
+ *  init_size     The number of points for which to initially alloc space.
+ */
+zefoz_a *zefoz_a_alloc(int init_size) {
+  zefoz_a *za;
+
+  za = (zefoz_a *) malloc(sizeof(zefoz_a));
+  if (za == 0) {
+    CFL_ERROR_NULL("malloc failed for za");
+  }
+  
+  za->B = (double *) calloc(init_size*3, sizeof(double)); 
+  if (za->B == 0) {
+    free(za);
+    CFL_ERROR_NULL("malloc failed for za->B");
+  }
+
+  za->v = (double *) calloc(init_size*3, sizeof(double)); 
+  if (za->v == 0) {
+    free(za->B);
+    free(za);
+    CFL_ERROR_NULL("malloc failed for za->v");
+  }
+  za->ctr = 0;
+  za->size = init_size;
+
+  return za;
+}
+
+/* Insert zefoz point into zefoz array. 
+ *
+ * Parameters
+ * ----------
+ *  za    Pointer to the zefoz array. 
+ *  B     Pointer the magnetic field strength array.
+ *  v     Pointer to the gradient vector. 
+ */
+void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
+  int i, j;
+  if (za->ctr == za->size) {
+    za->size *= 2;
+    za->B = (double *) realloc(za->B, za->size*3*sizeof(double));
+    if (za->B == 0) {
+      CFL_ERROR_VOID("realloc failed for za->B");
+    }
+    za->v = (double *) realloc(za->v, za->size*3*sizeof(double));
+    if (za->v == 0) {
+      CFL_ERROR_VOID("realloc failed for za->v");
+    }
+  }
+
+  memcpy(&(za->B[3*(za->ctr)]), B, 3*sizeof(double));
+  memcpy(&(za->v[3*(za->ctr)]), v, 3*sizeof(double));
+
+  za->ctr++;
+}
+
+void zefoz_a_free(zefoz_a *za) {
+  free(za->B);
+  free(za->v);
+  free(za);
+}
+
+/* Check whether the provided magnetic field is near a ZEFOZ point, in which
+ * case the ZEFOZ field values, along with the gradient vector, are inserted
+ * into the zefoz array. This function calls zefoz_inter until either
+ * CFL_ZEFOZ_MAX_ITER is exceeded or consecutive evaluations lead to a total
+ * magnetic field difference less than xtol. 
+ *
+ * Parameters
+ * ----------
+ *  za    Zefoz array into which any located points are inserted. 
+ *  xtol  If the total difference between the three field components of
+ *        consecutive iterations is less than this value, then the field value
+ *        is returned as a ZEFOZ point.
+ *  k     Index of the kth level.
+ *  l     Index of the ith level.
+ *  m     Array of pointers to Zeeman operator matrix element arrays, in the
+ *        order x, y, and z.
+ *  data  Data for the ZEFOZ search.
+ */
+void zefoz_check(zefoz_a *za, double xtol, int k, int l, double complex **m,
+    zefoz_d *data) {
+  int i;
+  double s, tmp[3];
+
+  for (i=0; i<CFL_ZEFOZ_MAX_ITER; i++) {
+    memcpy(tmp, data->B, 3*sizeof(double));
+
+    zefoz_iter(k, l, m, data);
+    s = fabs(data->B[0]-tmp[0]);
+    s += fabs(data->B[1]-tmp[1]);
+    s += fabs(data->B[2]-tmp[2]);
+    if (s<xtol) {
+      #pragma omp critical 
+      {
+      zefoz_a_insert(za, data->B, data->v);
+      }
+      break;
+    }
+    if (s > CFL_ZEFOZ_MAX_DIFF) {
+      break;
+    }
+  }
+}
+
+
+/* Search for ZEFOZ points given magnetic field starting values, number of
+ * search points, and increment size.  Located ZEFOZ points are written into the
+ * za array.
+ *
+ * Parameters
+ * ----------
+ *  za      Zefoz array into which any located points are inserted. 
+ *  xtol    If the total difference between the three field components of
+ *          consecutive iterations is less than this value, then the field value
+ *          is returned as a ZEFOZ point.
+ *  k       Index of the kth level.
+ *  l       Index of the ith level.
+ *  Bi      Array of initial values for magnetic field along x, y, and z.
+ *  Bf      Array specifying the final magnetic field values along x, y, and z.
+ *  na      Array specifying the number of steps for directions x, y, and z.
+ *  m       Array of pointers to Zeeman operator matrix element arrays, in the
+ *          order x, y, and z.
+ */
+void zefoz_search(zefoz_a *za, double xtol, int k, int l, double *Bi, 
+    double *Bf, int *na, complex double **m, zefoz_d *data) {
+  int x, y, z;
+  double xincr, yincr, zincr;
+
+  xincr = (Bf[0]-Bi[0])/na[0];
+  yincr = (Bf[1]-Bi[1])/na[1];
+  zincr = (Bf[2]-Bi[2])/na[2];
+  memcpy(data->B, Bi, 3*sizeof(double));
+//#pragma omp parallel for private(i, j, k, data) schedule(dynamic)
+  for (x=0; x<na[0]; x++) {
+    for (y=0; y<na[1]; y++) {
+      for (z=0; z<na[2]; z++) {
+        zefoz_check(za, xtol, k, l, m, data);
+        data->B[2] = zincr*z;
+        data->B[1] = yincr*y;
+        data->B[0] = xincr*x;
+      }
+    }
+  }
+}
+ 
+
