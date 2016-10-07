@@ -58,27 +58,105 @@ inline double inprod(int n, double complex *bra, double complex *op, double comp
   one = 1;
   zero = 0;
 
-  cblas_zhemv(CblasColMajor, CblasUpper, n, &one, op, n, ket, 1, &zero, zw, 1);
+  //cblas_zgemv(CblasColMajor, 'N', n, n, &one, op, n, ket, 1, &zero, zw, 1);
+  cblas_zgemv(CblasRowMajor, CblasNoTrans, n, n, &one, op, n, ket, 1, &zero, zw, 1);
+  //cblas_zhemv(CblasRowMajor, CblasUpper, n, &one, op, n, ket, 1, &zero, zw, 1);
   cblas_zdotc_sub(n, bra, 1, zw, 1, &dotc);
 
   return cabs(dotc);  
 }
 
+
+/* Allocate storage for zefoz point array, which is used to record both the
+ * magnetic field and gradient vector for located zefoz points. Resizes
+ * dynamically.
+ *
+ * Parameters
+ * ----------
+ *  init_size     The number of points for which to initially alloc space.
+ */
+zefoz_a *zefoz_a_alloc(int init_size) {
+  zefoz_a *za;
+
+  za = (zefoz_a *) malloc(sizeof(zefoz_a));
+  if (za == 0) {
+    CFL_ERROR_NULL("malloc failed for za");
+  }
+  
+  za->B = (double *) calloc(init_size*3, sizeof(double)); 
+  if (za->B == 0) {
+    free(za);
+    CFL_ERROR_NULL("malloc failed for za->B");
+  }
+
+  za->v = (double *) calloc(init_size*3, sizeof(double)); 
+  if (za->v == 0) {
+    free(za->B);
+    free(za);
+    CFL_ERROR_NULL("malloc failed for za->v");
+  }
+  za->ctr = 0;
+  za->size = init_size;
+
+  return za;
+}
+
+/* Insert zefoz point into zefoz array. Will double the size whenever the
+ * previously alloced storage runs out. 
+ *
+ * Parameters
+ * ----------
+ *  za    Pointer to the zefoz array. 
+ *  B     Pointer the magnetic field strength array.
+ *  v     Pointer to the gradient vector. 
+ */
+void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
+  int i, j;
+  if (za->ctr == za->size) {
+    za->size *= 2;
+    za->B = (double *) realloc(za->B, za->size*3*sizeof(double));
+    if (za->B == 0) {
+      CFL_ERROR_VOID("realloc failed for za->B");
+    }
+    za->v = (double *) realloc(za->v, za->size*3*sizeof(double));
+    if (za->v == 0) {
+      CFL_ERROR_VOID("realloc failed for za->v");
+    }
+  }
+
+  memcpy(&(za->B[3*(za->ctr)]), B, 3*sizeof(double));
+  memcpy(&(za->v[3*(za->ctr)]), v, 3*sizeof(double));
+
+  za->ctr++;
+}
+
+void zefoz_a_free(zefoz_a *za) {
+  free(za->B);
+  free(za->v);
+  free(za);
+}
+
+
 /*
- * Allocate data for a ZEFOZ point search. 
+ * Allocate data for a ZEFOZ point search.  The data and workspace is separated
+ * in this struct such that an instance can be alloced for each thread, such
+ * that concurrent field values can be tested.  The only restriction is the
+ * pointer to the Hamiltonian, which is probably shared between multiple
+ * threads.  Consequently, care must be taken when setting h->coeff from
+ * multiple threads. 
  *
  * Parameters
  * ----------
  *  h       Reference to the crystal field Hamiltonian. 
- *  zi      Indices of the Zeeman tensors in coeff array; must be in ordered by
- *          x, y, and z indices.
+ *  zi      Indices of the Zeeman tensors in coeff array; must be in order x, y,
+ *          and z indices.
  */
-zefoz_d *zefoz_alloc(zh *h, int *zi) {
-  zefoz_d *data;
+zd_inst *zd_inst_alloc(zh *h, int *zi) {
+  zd_inst *data;
   int info;
   double wquery;
 
-  data = (zefoz_d *) malloc(sizeof(zefoz_d));
+  data = (zd_inst *) malloc(sizeof(zd_inst));
   if (data == 0) {
     CFL_ERROR_NULL("malloc failed for data");
   }
@@ -146,7 +224,7 @@ zefoz_d *zefoz_alloc(zh *h, int *zi) {
   return data;
 }
 
-void zefoz_free(zefoz_d *data) {
+void zd_inst_free(zd_inst *data) {
   free(data->w);
   free(data->z);
   zhd_w_free(data->hd_w);
@@ -155,6 +233,64 @@ void zefoz_free(zefoz_d *data) {
   free(data);
 }
 
+
+/*
+ * Allocate data for a ZEFOZ point search.  
+ *
+ * Parameters
+ * ----------
+ *  h       Reference to the crystal field Hamiltonian. 
+ *  zi      Indices of the Zeeman tensors in coeff array; must be in order x, y,
+ *          and z indices.
+ */
+zefoz_d *zefoz_d_alloc(zh *h, int *zi) {
+  int i, j, ninst;
+  zefoz_d *data;
+
+#ifdef _OPENMP
+  ninst = omp_get_num_procs();
+#else
+  ninst = 1;
+#endif /* _OPENMP */
+
+  data = (zefoz_d *) malloc(sizeof(zefoz_d));
+  if (data == 0) {
+    CFL_ERROR_NULL("malloc failed for data");
+  }
+  
+  data->d_inst = (zd_inst **) malloc(sizeof(zd_inst *));
+  if (data->d_inst == 0) {
+    free(data);
+    CFL_ERROR_NULL("malloc failed for data->d_inst");
+  }
+  for (i=0; i<ninst; i++) {
+    data->d_inst[i] = zd_inst_alloc(h, zi);
+    if (data->d_inst[i] == 0) {
+      for (j=0; j<i; j++) {
+        zd_inst_free(data->d_inst[j]);
+        free(data->d_inst);
+        free(data);
+        CFL_ERROR_NULL("malloc failed for data->d_inst[i]");
+      }
+    }
+  }
+
+  data->ninst = ninst;
+
+  return data;
+}
+
+void zefoz_d_free(zefoz_d *data) {
+  int i;
+
+  for (i=0; i<data->ninst; i++) {
+    zd_inst_free(data->d_inst[i]);
+  }
+  free(data->d_inst);
+  free(data);
+}
+
+
 /* Find the first derivative from perturbation theory, following PRB 74, 195101.
  *
  * Parameters
@@ -162,9 +298,9 @@ void zefoz_free(zefoz_d *data) {
  *  k         The level for which to determine the derivative.
  *  mi        Zeeman operator matrix elements along direction for which to
  *            differentiate.
- *  zefoz_d   The ZEFOZ search data.
+ *  data      The ZEFOZ search data.
  */
-inline double d1(int k, double complex *mi, zefoz_d *data) {
+inline double d1(int k, double complex *mi, zd_inst *data) {
   int n;
   double s;
   double complex *phi;
@@ -186,9 +322,9 @@ inline double d1(int k, double complex *mi, zefoz_d *data) {
  *            derivative.
  *  mj        Zeeman operator matrix elements along direction for the second
  *            derivative.
- *  zefoz_d   The ZEFOZ search data.
+ *  data      The ZEFOZ search data.
  */
-inline double d2(int k, double complex *mi, double complex *mj, zefoz_d *data) {
+inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
   int l, n; 
   double s, *omega;
   double complex *phi;
@@ -219,7 +355,7 @@ inline double d2(int k, double complex *mi, double complex *mj, zefoz_d *data) {
  *        order x, y, and z.
  *  data  Data for the ZEFOZ search.
  */
-inline void v_eval(int k, int l, double complex **m, zefoz_d *data) {
+inline void v_eval(int k, int l, double complex **m, zd_inst *data) {
   int i;
 
   for (i=0; i<3; i++) {
@@ -238,7 +374,7 @@ inline void v_eval(int k, int l, double complex **m, zefoz_d *data) {
  *        order x, y, and z.
  *  data  Data for the ZEFOZ search.
  */
-inline void C_eval(int k, int l, double complex **m, zefoz_d *data) {
+inline void C_eval(int k, int l, double complex **m, zd_inst *data) {
   int i, j;
 
   for (i=0; i<3; i++) {
@@ -255,13 +391,14 @@ inline void C_eval(int k, int l, double complex **m, zefoz_d *data) {
  *
  * Parameters
  * ----------
- *  k     Index of the kth level.
- *  l     Index of the ith level.
+ *  k     Index of one of the two levels between which the ZEFOZ search is to be
+ *        performed.
+ *  l     The index of the other level for the ZEFOZ search.
  *  m     Array of pointers to Zeeman operator matrix element arrays, in the
  *        order x, y, and z.
  *  data  Data for the ZEFOZ search.
  */
-void zefoz_iter(int k, int l, double complex **m, zefoz_d *data) {
+inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
   int i, info, n;
   char lapack_err[] = "LAPACKE failed with error code: 0";
 
@@ -297,76 +434,10 @@ void zefoz_iter(int k, int l, double complex **m, zefoz_d *data) {
   }
 }
 
-/* Allocate storage for zefoz point array.  Will double the size whenever the
- * previously alloced storage runs out. 
- *
- * Parameters
- * ----------
- *  init_size     The number of points for which to initially alloc space.
- */
-zefoz_a *zefoz_a_alloc(int init_size) {
-  zefoz_a *za;
-
-  za = (zefoz_a *) malloc(sizeof(zefoz_a));
-  if (za == 0) {
-    CFL_ERROR_NULL("malloc failed for za");
-  }
-  
-  za->B = (double *) calloc(init_size*3, sizeof(double)); 
-  if (za->B == 0) {
-    free(za);
-    CFL_ERROR_NULL("malloc failed for za->B");
-  }
-
-  za->v = (double *) calloc(init_size*3, sizeof(double)); 
-  if (za->v == 0) {
-    free(za->B);
-    free(za);
-    CFL_ERROR_NULL("malloc failed for za->v");
-  }
-  za->ctr = 0;
-  za->size = init_size;
-
-  return za;
-}
-
-/* Insert zefoz point into zefoz array. 
- *
- * Parameters
- * ----------
- *  za    Pointer to the zefoz array. 
- *  B     Pointer the magnetic field strength array.
- *  v     Pointer to the gradient vector. 
- */
-void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
-  int i, j;
-  if (za->ctr == za->size) {
-    za->size *= 2;
-    za->B = (double *) realloc(za->B, za->size*3*sizeof(double));
-    if (za->B == 0) {
-      CFL_ERROR_VOID("realloc failed for za->B");
-    }
-    za->v = (double *) realloc(za->v, za->size*3*sizeof(double));
-    if (za->v == 0) {
-      CFL_ERROR_VOID("realloc failed for za->v");
-    }
-  }
-
-  memcpy(&(za->B[3*(za->ctr)]), B, 3*sizeof(double));
-  memcpy(&(za->v[3*(za->ctr)]), v, 3*sizeof(double));
-
-  za->ctr++;
-}
-
-void zefoz_a_free(zefoz_a *za) {
-  free(za->B);
-  free(za->v);
-  free(za);
-}
 
 /* Check whether the provided magnetic field is near a ZEFOZ point, in which
  * case the ZEFOZ field values, along with the gradient vector, are inserted
- * into the zefoz array. This function calls zefoz_inter until either
+ * into the zefoz array. This function calls zefoz_iter until either
  * CFL_ZEFOZ_MAX_ITER is exceeded or consecutive evaluations lead to a total
  * magnetic field difference less than xtol. 
  *
@@ -376,32 +447,34 @@ void zefoz_a_free(zefoz_a *za) {
  *  xtol  If the total difference between the three field components of
  *        consecutive iterations is less than this value, then the field value
  *        is returned as a ZEFOZ point.
- *  k     Index of the kth level.
- *  l     Index of the ith level.
+ *  k     Index of one of the two levels between which the ZEFOZ search is to be
+ *        performed.
+ *  l     The index of the other level for the ZEFOZ search. 
  *  m     Array of pointers to Zeeman operator matrix element arrays, in the
- *        order x, y, and z.
+ *        order x, y, and z.  Should be in row major form, to make right-hand
+ *        multiplication by a vector fast.
  *  data  Data for the ZEFOZ search.
  */
 void zefoz_check(zefoz_a *za, double xtol, int k, int l, double complex **m,
-    zefoz_d *data) {
+    zd_inst *data) {
   int i;
   double s, tmp[3];
-
+  
   for (i=0; i<CFL_ZEFOZ_MAX_ITER; i++) {
     memcpy(tmp, data->B, 3*sizeof(double));
-
+  
     zefoz_iter(k, l, m, data);
     s = fabs(data->B[0]-tmp[0]);
     s += fabs(data->B[1]-tmp[1]);
     s += fabs(data->B[2]-tmp[2]);
-    if (s<xtol) {
+    if (s > CFL_ZEFOZ_MAX_DIFF) {
+      break;
+    }
+    else if (s<xtol) {
       #pragma omp critical 
       {
       zefoz_a_insert(za, data->B, data->v);
       }
-      break;
-    }
-    if (s > CFL_ZEFOZ_MAX_DIFF) {
       break;
     }
   }
@@ -414,38 +487,53 @@ void zefoz_check(zefoz_a *za, double xtol, int k, int l, double complex **m,
  *
  * Parameters
  * ----------
- *  za      Zefoz array into which any located points are inserted. 
+ *  Bx      Array of field strengths to traverse along x. 
+ *  By      Array of field strengths to traverse along y. 
+ *  Bz      Array of field strengths to traverse along z
+ *  nx      Number of field strengths along x. 
+ *  ny      Number of field strengths along y. 
+ *  nz      Number of field strengths along z. 
+ *  k       Index of one of the two levels between which the ZEFOZ search is to
+ *          be performed.
+ *  l       The index of the other level for the ZEFOZ search. 
  *  xtol    If the total difference between the three field components of
  *          consecutive iterations is less than this value, then the field value
  *          is returned as a ZEFOZ point.
- *  k       Index of the kth level.
- *  l       Index of the ith level.
- *  Bi      Array of initial values for magnetic field along x, y, and z.
- *  Bf      Array specifying the final magnetic field values along x, y, and z.
- *  na      Array specifying the number of steps for directions x, y, and z.
  *  m       Array of pointers to Zeeman operator matrix element arrays, in the
  *          order x, y, and z.
+ *  za      Zefoz array into which any located points are inserted. 
+ *  data    Zefoz search data and workspace struct.
  */
-void zefoz_search(zefoz_a *za, double xtol, int k, int l, double *Bi, 
-    double *Bf, int *na, complex double **m, zefoz_d *data) {
-  int x, y, z;
-  double xincr, yincr, zincr;
+void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz,
+    int k, int l, double xtol, double complex **m, zefoz_a *za, zefoz_d *data) {
+  int x, y, z, tn;
+  double B[3];
 
-  xincr = (Bf[0]-Bi[0])/na[0];
-  yincr = (Bf[1]-Bi[1])/na[1];
-  zincr = (Bf[2]-Bi[2])/na[2];
-  memcpy(data->B, Bi, 3*sizeof(double));
-//#pragma omp parallel for private(i, j, k, data) schedule(dynamic)
-  for (x=0; x<na[0]; x++) {
-    for (y=0; y<na[1]; y++) {
-      for (z=0; z<na[2]; z++) {
-        zefoz_check(za, xtol, k, l, m, data);
-        data->B[2] = zincr*z;
-        data->B[1] = yincr*y;
-        data->B[0] = xincr*x;
+#ifdef _OPENMP
+#pragma omp parallel for private(x, y, z, B) schedule(dynamic)
+  for (x=0; x<nx; x++) {
+    tn = omp_get_thread_num();
+    B[0] = Bx[x];
+    for (y=0; y<ny; y++) {
+      B[1] = By[y];
+      for (z=0; z<nz; z++) {
+        B[2] = Bz[z];
+        memcpy(data->d_inst[0]->B, B, 3*sizeof(double));
+        zefoz_check(za, xtol, k, l, m, data->d_inst[tn]);
       }
     }
   }
+#else
+  for (x=0; x<nx; x++) {
+    B[0] = Bx[x];
+    for (y=0; y<ny; y++) {
+      B[1] = By[y];
+      for (z=0; z<nz; z++) {
+        B[2] = Bz[z];
+        memcpy(data->d_inst[0]->B, B, 3*sizeof(double));
+        zefoz_check(za, xtol, k, l, m, data->d_inst[tn]);
+      }
+    }
+  }
+#endif /* _OPENMP */
 }
- 
-

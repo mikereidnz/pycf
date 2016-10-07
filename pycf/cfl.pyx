@@ -21,11 +21,13 @@ from __future__ import division
 cimport cfl, cython
 cimport numpy as np
 import numpy as np
+from numpy.lib.stride_tricks import as_strided
 import sys
 from numbers import Number
 from cpython.pycapsule cimport *
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
+from libc.string cimport memcpy
 from matel import matel
 from cfl_util import *
 
@@ -34,8 +36,6 @@ from cfl_util import *
 #       corresponding frees.
 #       + Python free bug if one does not provide the correct shx data dict
 #       (change zeeman to something else). 
-
-
 cdef class StateLabels:
     r"""
     State label type for tensors and spin Hamiltonians.  State labels are
@@ -417,8 +417,8 @@ cdef class Hamiltonian:
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] z
         
-        self.w = np.ascontiguousarray(np.zeros(self.n), dtype=np.float64)
-        self.z = np.asfortranarray(np.zeros((self.n,self.n)), dtype=np.complex128)
+        self.w = np.ascontiguousarray(np.zeros(self.n, dtype=np.float64))
+        self.z = np.asfortranarray(np.zeros((self.n,self.n), dtype=np.complex128))
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
         z = <np.ndarray[double complex, ndim=2, mode="fortran"]> self.z
 
@@ -2528,6 +2528,7 @@ cdef class CFLMin:
                     cxtol, self.cfl_bounds)
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
+        
         with nogil:
             retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
 
@@ -2716,3 +2717,174 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
+
+
+cdef class ZEFOZSearchRunner:
+    r"""
+    Perform search for ZEFOZ points.
+
+    Parameters
+    ----------
+    h : Hamiltonian
+        The Hamiltonian for which to perform the ZEFOZ search.
+    xtol : float
+        If the total difference between the three field components of
+        consecutive iterations is less than this value, then the field value is
+        returned as a ZEFOZ point.
+    init_size : int
+        The initial size of the ZEFOZ point storage array.  
+    """
+    cdef list zmatel_list
+    cdef double complex **zmatel
+    cdef cfl.zefoz_d *cfl_zd
+    cdef cfl.zefoz_a *cfl_za
+    cdef np.ndarray zi
+    cdef float xtol
+    def __cinit__(self, h, xtol, init_size):
+        cdef np.ndarray[double complex, ndim=1, mode='c'] zm
+        cdef np.ndarray[int, ndim=1, mode='c'] zi
+        
+        self.xtol = xtol
+
+        zi = np.ascontiguousarray(np.zeros(3), dtype=np.int32)
+        try:
+            zi[0] = h.index('MX')
+        except KeyError:
+            raise KeyError("Missing MX tensor in Hamiltonian.")
+        try:
+            zi[1] = h.index('MY')
+        except KeyError:
+            raise KeyError("Missing MY tensor in Hamiltonian.")
+        try:
+            zi[2] = h.index('MZ')
+        except KeyError:
+            raise KeyError("Missing MZ tensor in Hamiltonian.")
+        self.zi = zi
+        
+        self.zmatel = <double complex **>malloc(3*sizeof(double complex *))
+        if self.zmatel == NULL:
+            raise MemoryError("zmatel malloc failed")
+        
+        self.zmatel_list = []
+        for i in range(3):
+            zm = np.ascontiguousarray(h.tensors[zi[i]].get_matel().reshape(h.n**2), dtype=np.complex128)
+            self.zmatel[i] = &zm[0]
+            self.zmatel_list += [zm]    # Keep reference to avoid GC cleanup.
+
+        self.cfl_zd = cfl.zefoz_d_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), &zi[0])
+        if self.cfl_zd == NULL:
+            free(self.zmatel)
+            raise MemoryError("zefoz_alloc failed")
+
+        self.cfl_za = cfl.zefoz_a_alloc(init_size)
+        if self.cfl_za == NULL:
+            free(self.zmatel)
+            cfl.zefoz_d_free(self.cfl_zd)
+            raise MemoryError("zefoz_a_alloc failed")
+
+    def __dealloc__(self):
+        if self.zmatel != NULL:
+            free(self.zmatel)
+        if self.cfl_zd != NULL:
+            cfl.zefoz_d_free(self.cfl_zd)
+        if self.cfl_za != NULL:
+            cfl.zefoz_a_free(self.cfl_za)
+    
+    @cython.boundscheck(False)
+    def run_search(self, Bx, By, Bz, k, l):
+        """
+        Run the ZEFOZ search.
+
+        Parameters
+        ----------
+        Bx : np.ndarray
+            Array of field strengths along x which to traverse.
+        By : np.ndarray
+            Array of field strengths along y which to traverse.
+        Bz : np.ndarray
+            Array of field strengths along z which to traverse.
+        k : int
+            Index of one of the two levels between which the ZEFOZ search is to
+            be performed.
+        l : int
+            The index of the other level for the ZEFOZ search.
+        """
+        cdef np.ndarray[double, ndim=1, mode='c'] cBx
+        cdef np.ndarray[double, ndim=1, mode='c'] cBy
+        cdef np.ndarray[double, ndim=1, mode='c'] cBz
+        cdef int nx
+        cdef int ny
+        cdef int nz
+        cdef double complex **zmatel
+        cdef cfl.zefoz_d *zd
+        cdef cfl.zefoz_a *za
+        cdef int ck
+        cdef int cl
+        cdef double xtol
+        cdef np.ndarray[double, ndim=1, mode='c'] B
+        cdef np.ndarray[double, ndim=1, mode='c'] v
+        
+        cBx = np.ascontiguousarray(Bx, dtype=np.float64)
+        cBy = np.ascontiguousarray(By, dtype=np.float64)
+        cBz = np.ascontiguousarray(Bz, dtype=np.float64)
+        nx = len(Bx) 
+        ny = len(By) 
+        nz = len(Bz)
+
+        ck = k
+        cl = l
+        xtol = self.xtol
+        zmatel = self.zmatel
+        zd = self.cfl_zd
+        za = self.cfl_za
+
+        with nogil:
+            cfl.zefoz_search(&cBx[0], &cBy[0], &cBz[0], nx, ny, nz, ck, cl, xtol, zmatel, za, zd)
+        
+        n = za.ctr
+        B = np.ascontiguousarray(np.zeros(3*n, dtype=np.float64))
+        v = np.ascontiguousarray(np.zeros(3*n, dtype=np.float64))
+
+        memcpy(&B[0], za.B, 3*n*sizeof(double));
+        memcpy(&v[0], za.v, 3*n*sizeof(double));
+        
+        return (B, v)
+
+
+def zefoz(start, stop, num, k, l, h, xtol=0.01, init_size=200):
+    """
+    Run the ZEFOZ search.
+
+    Parameters
+    ----------
+    start : list
+        List specifying the starting field values along x, y, and z.
+    stop : list
+        List specifying the stopping field values along x, y, and z.
+    num : list
+        List specifying the number of steps to take in the x, y, and z
+        directions.
+    k : int
+        Index of one of the two levels between which the ZEFOZ search is to
+        be performed.
+    l : int
+            The index of the other level for the ZEFOZ search.
+    h : Hamiltonian
+        The Hamiltonian for which to perform the ZEFOZ search.
+    xtol : float, optional
+        If the total difference between the three field components of
+        consecutive iterations is less than this value, then the field value is
+        returned as a ZEFOZ point.  Defaults to 0.01 Tesla.
+    init_size : int, optional
+        The initial size of the ZEFOZ point storage array.  Defaults to 200 and
+        doubles in size whenever space runs out.  Perhaps set to some large
+        number if there's a lot of expected ZEFOZ points.
+    """
+
+    zsearch = ZEFOZSearchRunner(h, xtol, init_size)
+    (B, v) = zsearch.run_search(start, stop, num, k, l)
+    
+    B=B.reshape(len(B)/3,3)
+    v=v.reshape(len(v)/3,3)
+    
+    return (B, v)

@@ -195,3 +195,21 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
+
+
+cdef extern from "../../cfl/include/cfl_zefoz.h":
+    ctypedef struct zefoz_d:
+        pass
+
+    ctypedef struct zefoz_a:
+        double *B
+        double *v
+        int ctr
+        int size
+
+    zefoz_d *zefoz_d_alloc(zh *h, int *zi)
+    void zefoz_d_free(zefoz_d *data)
+    zefoz_a *zefoz_a_alloc(int init_size)
+    void zefoz_a_free(zefoz_a *za)
+    void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz, int k, int l, double xtol, double complex **m, zefoz_a *za, zefoz_d *data) nogil
+

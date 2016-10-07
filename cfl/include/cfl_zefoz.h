@@ -21,7 +21,7 @@
 
 #include "cfl_h.h"
 
-/* Workspace type declaration for Hamiltonian diagonalization. */
+/* Data and workspace for ZEFOZ search of a single thread. */
 typedef struct {
   /* The Hamiltonian. */
   zh *h;
@@ -49,6 +49,14 @@ typedef struct {
   double v[3];
   /* The Zeeman curvature tensor. */
   double C[10];
+} zd_inst;
+
+/* Data for ZEFOZ search. */
+typedef struct {
+  /* The number of threads, and consequently data instances. */
+  int ninst;
+  /* Individual data structs for each threads. */
+  zd_inst **d_inst;
 } zefoz_d;
 
 typedef struct {
@@ -66,12 +74,12 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
-zefoz_d *zefoz_alloc(zh *h, int *zi);
-void zefoz_free(zefoz_d *data);
+zefoz_d *zefoz_d_alloc(zh *h, int *zi);
+void zefoz_d_free(zefoz_d *data);
 zefoz_a *zefoz_a_alloc(int init_size);
 void zefoz_a_free(zefoz_a *za);
-void zefoz_search(zefoz_a *za, double xtol, int k, int l, double *Bi, 
-    double *Bf, int *na, complex double **m, zefoz_d *data);
+void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz,
+    int k, int l, double xtol, double complex **m, zefoz_a *za, zefoz_d *data);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
