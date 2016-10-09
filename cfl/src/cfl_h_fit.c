@@ -62,14 +62,13 @@
  * complex valued tensor coefficients.  These complex coefficients can then be
  * used as prefactors for tensor matrix elements to form the Hamiltonian. 
  *
- * Fitting is performed by a weighted chi^2 method.  The weighting can be setup
- * by calling the appropriate *fit_chi2 function prior to fitting, which will
- * return both the energy level and the spin Hamiltonian chi^2 contrbutions.
- * Additionally, such a call sets the weighting of the energy level chi^2 such
- * that it is ~1 to ensure we stay within machine precision.  Any weighting
- * between the energy level chi^2 and spin Hamiltonian chi^2 contributions can
- * then be set using shx_data->chisq_weight variable, which must be specified
- * relative to the energy level weighting.
+ * Fitting is performed by a weighted chi^2 method.  Weights for both energy
+ * level data and spin Hamiltonian data can be specified in the ex and shx
+ * structs, respectively.  There's a global weighting factor for all energy
+ * level data pertaining to a single CF Hamiltonian, whereas spin Hamiltonian
+ * interactions can be weighted individually.  Furthermore, a the *fit_chi2
+ * functions can be employed to get initial and final values for the chi2
+ * contribution of each fit component.
  *
  * The covariance matrix is calculated following Press et al, Numerical recipes,
  * 3rd edition, section 15.2.  sigmas are evaluated by assuming a model fit
@@ -85,7 +84,8 @@
  */
 
 /*
- * Alloc data for fitting to energy levels.
+ * Alloc data for fitting to energy levels.  Since weighting for energy levels
+ * is a global factor, any value set in ex will not be referenced by efit.
  *
  * Parameters
  * ----------
@@ -145,7 +145,6 @@ efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
   data->ex = ex;
   data->n_zx = n_zx;
   data->p = p;
-  data->echisq_weight = 1;
 
   return data;
 }
@@ -171,16 +170,14 @@ void efit_data_free(efit_data *data) {
  *  n           The number of Hamiltonians. 
  *  input_data  Array of eigenvalue data structs. 
  *  ha          Array of length n containing pointers to Hamiltonians.
- *  weights     Array of length n with each entry specifying the chi^2 weighting
- *              of the corresponding ha entry.
  *  exa         Array of pointers to experimental energy level data. 
  *  n_zx        The number of complex valued parameters to be fit to each of the
  *              Hamiltonians.
  *  p           Array of length n to arrays of pointers to parameter type
  *              structs. 
  */
-mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
-    ex_data **exa, int *n_zx, param_type ***p) {
+mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, 
+    int *n_zx, param_type ***p) {
   int i, j, nhd_w;
   int num_procs;
   mhfit_data *data;
@@ -366,7 +363,6 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights,
 
   data->n = n;
   data->ha = ha;
-  data->weights = weights;
   data->exa = exa;
   data->nhd_w = nhd_w;
   data->n_zx = n_zx;
@@ -427,15 +423,13 @@ void mhfit_data_free(mhfit_data *data) {
  *          of the first Zeeman term in sh.
  *  n_zx    The number of complex valued parameters to be fit to both the
  *          complete Hamiltonian h and the spin Hamiltonian sh.
- *  n_ushx  The number of parameters that are unique to the spin Hamiltonian sh;
- *          that is, not in the Hamiltonian h.
  *  p       Array of pointers to parameters to be fit.
  */
 eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
-    shx_data **shx, int n_zx, int n_ushx, param_type **p) {
+    shx_data **shx, int n_zx, param_type **p) {
   int i,j;
   eshfit_data *data;
-  printf("cfl entry\n");
+
   if (h->coeff == NULL) {
     CFL_ERROR_NULL("h is missing coefficients; set with zh_set_coeff prior to" \
         "calling eshfit_data_alloc");
@@ -551,9 +545,7 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
   data->sh = sh;
   data->shx = shx;
   data->n_zx = n_zx;
-  data->n_ushx = n_ushx;
   data->p = p;
-  data->echisq_weight = 1;
 
   return data;
 }
@@ -590,7 +582,6 @@ void eshfit_data_free(eshfit_data *data) {
  */
 meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d) {
   meshfit_data *data;
-
   data = (meshfit_data *) malloc(sizeof(meshfit_data));
   if (data == 0) {
     CFL_ERROR_NULL("malloc failed for meshfit_data");
@@ -738,17 +729,16 @@ inline void parse_param_data(int n_zx, param_type **p, complex double *coeff,
  * Parameters
  * ----------
  *  n_zx      The number of complex parameters.
- *  n_ushx    The number of parameters unique to sh; that is, not in coeff.
  *  p         Array of param_type data.
  *  coeff     Complex array which will be overwritten with the parsed data.
  *  sh        Pointer to spin Hamiltonian.    
  *  x         Source of data. 
  */
-inline void sh_parse_param_data(int n_zx, int n_ushx, param_type **p, 
+inline void sh_parse_param_data(int n_zx, param_type **p, 
     complex double *coeff, zsh *sh, double *x) {
   int i;
-  
-  for (i=0; i<n_zx-n_ushx; i++) {
+
+  for (i=0; i<n_zx; i++) {
     if (p[i]->type == 'c') {
       /* Parameter is a complex number. */
       coeff[p[i]->ci] = x[p[i]->xi]+x[p[i]->xi+1]*I;
@@ -772,17 +762,6 @@ inline void sh_parse_param_data(int n_zx, int n_ushx, param_type **p,
       coeff[p[i]->ci] = x[p[i]->xi];
     }
   }
-  /* Set parameters unique to spin Hamiltonian. */
-  for (i=n_zx-n_ushx; i<n_zx; i++) {
-    if (p[i]->type == 'h') {
-      /* Nuclear dipole coupling constant. */
-      sh->pro_data[sh->pd_map[0]]->coupling = x[p[i]->xi];
-    }
-    else if (p[i]->type == 'q') {
-      /* Nuclear quadrupole coupling constant. */
-      sh->pro_data[sh->pd_map[1]]->coupling = x[p[i]->xi];
-    }
-  }
 }
 
 
@@ -799,7 +778,7 @@ double efit_obj(size_t n, double *x, double *grad, void *data) {
     zhd('N', d->eval, NULL, d->h, d->hd_w);
   }
 
-  return d->echisq_weight * echisq(d->eval, d->ex);
+  return echisq(d->eval, d->ex);
 }
 
 
@@ -822,7 +801,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
       else {
         zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
       }
-      chisq += d->weights[i]*echisq(d->eval[hi], d->exa[i]);
+      chisq += d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
     }
   }
   else {
@@ -831,7 +810,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
       hi = d->hi[i];
       parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
       zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-      chisq += d->weights[i]*echisq(d->eval[hi], d->exa[i]);
+      chisq += d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
     }
   }
 
@@ -845,7 +824,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   double chisq;
   eshfit_data *d = data;
 
-  sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh, x);
+  sh_parse_param_data(d->n_zx, d->p, d->h->coeff, d->sh, x);
   /* Calculate the energy level chi^2. */ 
   zhd('V', d->eval, d->evect, d->h, d->hd_w);
 
@@ -857,7 +836,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
     chisq = 0;
   } 
   else {
-    chisq = d->echisq_weight * echisq(d->eval, d->ex);
+    chisq = d->ex->chisq_weight * echisq(d->eval, d->ex);
   }
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
@@ -877,7 +856,7 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   eshfit_data *d = data;
 
   /* Sets both h and hpro coeffs, since ptrs are aliased. */
-  sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh, x);
+  sh_parse_param_data(d->n_zx, d->p, d->h->coeff, d->sh, x);
 
   /* Calculate the energy level chi^2. */
   if (d->job == 'S') {
@@ -892,7 +871,7 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
     chisq = 0;
   } 
   else {
-    chisq = d->echisq_weight * echisq(d->eval, d->ex);
+    chisq = d->ex->chisq_weight * echisq(d->eval, d->ex);
   }
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
@@ -945,11 +924,11 @@ void efit_chi2(double *x, void *data, double *chi2) {
   }
 
   *chi2 = echisq(d->eval, d->ex);
-  d->echisq_weight = 1; //CFL_MIN_START_CHI2/(*chi2);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, for
- *  multi-eigenvalue vector fit. */
+ *  multi-eigenvalue vector fit.  chi2 must be of length d->n, that is, the
+ *  number of crystal field Hamiltonians. */
 void mhfit_chi2(double *x, void *data, double *chi2) {
   int i, hi;
   double chisq;
@@ -966,7 +945,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
       else {
         zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
       }
-      *chi2 += d->weights[i]*echisq(d->eval[hi], d->exa[i]);
+      chi2[hi] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
     }
   }
   else {
@@ -974,11 +953,9 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
       hi = d->hi[i];
       parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
       zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-      *chi2 += d->weights[i]*echisq(d->eval[hi], d->exa[i]);
+      chi2[hi] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
     }
   }
-
-  d->echisq_weight = 1; //CFL_MIN_START_CHI2/(*chi2);
 }
 
 /*  Function used to get an initial estimate of chi^2 values, in scenario where
@@ -986,28 +963,26 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
 void eshfit_chi2(double *x, void *data, double *chi2) {
   int i;
   eshfit_data *d = data;
-
-  sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh, x);
+  sh_parse_param_data(d->n_zx, d->p, d->h->coeff, d->sh, x);
+  
   zhd('V', d->eval, d->evect, d->h, d->hd_w);
   if (d->job == 'S') {
     find_sort_indices(d->ex, d->h, d->evect); 
   }
-
+  
   /* Get chi2 provided energy-level fitting isn't disabled. */
   if (d->ex->n_obs == 0) {
     chi2[0] = 0;
-    d->echisq_weight = 0;
   } 
   else {
-    chi2[0] = echisq(d->eval, d->ex);
-    d->echisq_weight = CFL_MIN_START_CHI2/(chi2[0]);
+    chi2[0] = d->ex->chisq_weight * echisq(d->eval, d->ex);
   }
-
+  
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
    * Hamiltonian parameters. */
   for (i = 0; i < d->sh->ninter; i++) {
     zshp(d->sh_pa[i], NULL, d->evect, i, d->sh, d->shp_w);
-    chi2[i+1] = shchisq(d->sh_pa[i], d->shx[i]->pa);
+    chi2[i+1] = d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
 }
 
@@ -1018,7 +993,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   eshfit_data *d = data;
 
   /* Sets both h and hpro coeffs, since ptrs are aliased. */
-  sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh, x);
+  sh_parse_param_data(d->n_zx, d->p, d->h->coeff, d->sh, x);
   if (d->job == 'S') {
     zhd('V', d->eval, d->evect, d->h, d->hd_w);
     find_sort_indices(d->ex, d->h, d->evect); 
@@ -1030,11 +1005,9 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   /* Get chi2 provided energy-level fitting isn't disabled. */
   if (d->ex->n_obs == 0) {
     chi2[0] = 0;
-    d->echisq_weight = 0;
   } 
   else {
-    chi2[0] = echisq(d->eval, d->ex);
-    d->echisq_weight = CFL_MIN_START_CHI2/(*chi2);
+    chi2[0] = d->ex->chisq_weight * echisq(d->eval, d->ex);
   }
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
@@ -1043,7 +1016,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
 
   for (i = 0; i < d->sh->ninter; i++) {
     zshp(d->sh_pa[i], NULL, d->hpro_evect, i, d->sh, d->shp_w);
-    chi2[i+1] = shchisq(d->sh_pa[i], d->shx[i]->pa);
+    chi2[i+1] = d->shx[i]->chisq_weight * shchisq(d->sh_pa[i], d->shx[i]->pa);
   }
 }
 
@@ -1052,7 +1025,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
 void meshfit_chi2(double *x, void *data, double *chi2) {
   int i, chi2_index;
   meshfit_data *d = data;
-
+  
   chi2_index = 0;
   for (i=0; i<d->n; i++) {
     if (d->data[i]->hpro == NULL) {
@@ -1168,7 +1141,7 @@ double eshfit_cov_df(double x, void *data) {
   eshfit_data *d = cov_d->obj_f_data;
 
   cov_d->df_x[cov_d->par_index] = x;
-  sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh,
+  sh_parse_param_data(d->n_zx, d->p, d->h->coeff, d->sh,
       cov_d->df_x);
   zhd('V', d->eval, d->evect, d->h, d->hd_w);
   if (d->job == 'S') {
@@ -1232,7 +1205,7 @@ double eshfit_hpro_cov_df(double x, void *data) {
 
   cov_d->df_x[cov_d->par_index] = x;
   /* Sets both h and hpro coeffs, since ptrs are aliased. */
-  sh_parse_param_data(d->n_zx, d->n_ushx, d->p, d->h->coeff, d->sh,
+  sh_parse_param_data(d->n_zx, d->p, d->h->coeff, d->sh,
       cov_d->df_x);
   if (d->job == 'S') {
     zhd('V', d->eval, d->evect, d->h, d->hd_w);

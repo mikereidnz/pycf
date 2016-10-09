@@ -159,10 +159,11 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         int *lah
         int *ildh
         int *fldh
+        double chisq_weight
 
     ctypedef struct shx_data:
         double *pa
-        float chisq_weight
+        double chisq_weight
 
     ctypedef struct efit_data:
         pass
@@ -178,11 +179,10 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
 
     efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
-        ex_data **exa, int *n_zx, param_type ***p)
+    mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, int *n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
     eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
-            shx_data **shx, int n_zx, int n_ushx, param_type **p)
+            shx_data **shx, int n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d)
     void meshfit_data_free(meshfit_data *data)

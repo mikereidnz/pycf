@@ -55,26 +55,28 @@ typedef struct {
    * values, and the remaining elements are energy differences. */
   double *e;
   /* Array of length n_a mapping the index of e to the level index of the
-   * complete Hamiltonian.  Used for absolute energy level values.*/
+   * Hamiltonian.  Used for absolute energy level values.*/
   int *la;
   /* Array of length n_d, mapping the index of e to the initial level index of
-   * the complete Hamiltonian.  Used for energy difference values. */
+   * the Hamiltonian.  Used for energy difference values. */
   int *ild;
   /* Array of length n_d, mapping the index of e to the final level index of the
-   * complete Hamiltonian.  Used for energy difference values. */
+   * Hamiltonian.  Used for energy difference values. */
   int *fld;
   /* Array of length n_a mapping the index of e to the hash of the state label
-   * of the complete Hamiltonian.  Used for absolute energy level values used
-   * with state label sorting. */
+   * of the Hamiltonian.  Used for absolute energy level values used with state
+   * label sorting. */
   int *lah;
   /* Array of length n_d, mapping the index of e to the hash of the state label
-   * of the initial level of the complete Hamiltonian.  Used for energy
-   * difference values with state label sorting. */
+   * of the initial level of the Hamiltonian.  Used for energy difference values
+   * with state label sorting. */
   int *ildh;
   /* Array of length n_d, mapping the index of e to the hash of the state label
-   * of the final level of the complete Hamiltonian.  Used for energy difference
-   * values with state label sorting. */
+   * of the final level of the Hamiltonian.  Used for energy difference values
+   * with state label sorting. */
   int *fldh;
+  /* chi^2 weighting. */
+  double chisq_weight;
 } ex_data;
 
 /* Experimental spin Hamiltonian data. */
@@ -122,8 +124,6 @@ typedef struct {
   int n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
-  /* chi^2 weighting for energy levels. */
-  double echisq_weight;
 } efit_data;
 
 /* Data for multi-eigenvalue vector fit. */
@@ -136,9 +136,6 @@ typedef struct {
   int n;
   /* Array of length n containing pointers to the Hamiltonians. */
   zh **ha;
-  /* Array of length n with each entry specifying the chi^2 weighting of the
-   * corresponding ha entry. */
-  double *weights;
   /* Array of pointers to experimental energy level data. */
   ex_data **exa;
   /* The number of Hamiltonian diagonalization workspaces. */
@@ -156,8 +153,6 @@ typedef struct {
   int *n_zx;
   /* Array of length n to arrays of pointers to parameter type structs. */
   param_type ***p;
-  /* chi^2 weighting for first energy level vector. */
-  double echisq_weight;
 } mhfit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -192,12 +187,8 @@ typedef struct {
   shx_data **shx;
   /* The number of parameters after conversion to complex type. */
   int n_zx;
-  /* The number of parameters that are unique to sh; that is, not in coeff. */
-  int n_ushx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
-  /* chi^2 weighting for energy levels. */
-  double echisq_weight;
 } eshfit_data;
 
 /* Data for fitting multiple spin Hamiltonians. */
@@ -215,11 +206,11 @@ extern "C" {
 efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
     param_type **p);
 void efit_data_free(efit_data *data);
-mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
-    ex_data **exa, int *n_zx, param_type ***p);
+mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, 
+    int *n_zx, param_type ***p);
 void mhfit_data_free(mhfit_data *data);
-eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
-    shx_data **shx, int n_zx, int n_ushx, param_type **p); 
+eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, 
+    ex_data *ex, zsh *sh, shx_data **shx, int n_zx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
 meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d);
 void meshfit_data_free(meshfit_data *data);

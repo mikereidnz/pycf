@@ -1186,13 +1186,18 @@ cdef class ExData(object):
         self.n_obs = self.n_a + self.n_d
 
 
-cdef exdata_alloc_helper(ex):
+cdef exdata_alloc_helper(ex, weights={}):
     """
     Takes care of creating the cfl.ex_data c struct and returns it via a PyCapsule. 
 
     Parameters
     ----------
     ex : ExData
+        Experimental energy level data object.
+    weights: dict, optional
+        If weights contains the 'energy' key, the corresponding value is set as
+        the weighting chi squared weighting factor.  If weights is not provided,
+        or doesn't contain the 'energy' key, the weighting defaults to unity.
     """
     cdef np.ndarray[double, ndim=1, mode="c"] ex_e
     cdef np.ndarray[int, ndim=1, mode="c"] ex_la
@@ -1254,6 +1259,16 @@ cdef exdata_alloc_helper(ex):
         ex_data.ildh = NULL
         ex_data.fldh = NULL
 
+    # Set chi squared weighting if provided, otherwise default to unity.
+    try:
+        ew = weights['energy']
+    except KeyError:
+        ew = 1.0
+    if not isinstance(ew, Number):
+        raise ValueError("weights['energy'] must be a number.")
+
+    ex_data.chisq_weight = ew
+
     ex_data_cap = PyCapsule_New(<void *>ex_data, "pycfl.ExData", NULL)
 
     return ex_data_cap
@@ -1302,9 +1317,6 @@ cdef class EFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h, ex, **kwargs):
-        cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        cdef np.ndarray[double, ndim=1, mode="c"] x
-
         self.h = h
         self.n_p = len(parameters)
         self.parameters = parameters
@@ -1331,7 +1343,6 @@ cdef class EFitRunner(object):
                 self.n_p_real += 1
                 self.param_types[p] = "r"
 
-                
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
         
@@ -1390,10 +1401,10 @@ cdef class EFitRunner(object):
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
         
-        # Run efit_chi2 so that the initial chi^2 weighting is set.
-        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
-        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
+        ## Run efit_chi2 so that the initial chi^2 weighting is set.
+        #chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
+        #x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
+        #cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1497,7 +1508,6 @@ cdef class MHFitRunner(object):
     cpdef public dict param_types
     cdef list h_param_list
     cdef cfl.zh **ha
-    cdef np.ndarray weights
     cdef cfl.ex_data **ex_data
     cdef list ex_list
     cdef np.ndarray n_zx
@@ -1509,9 +1519,6 @@ cdef class MHFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
-        cdef np.ndarray[double, ndim=1, mode="c"] weights
-        cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
         cdef np.ndarray[char, ndim=1, mode="c"] job_a
 
@@ -1589,17 +1596,14 @@ cdef class MHFitRunner(object):
         
         for i in range(self.n_h):
             try:
-                self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(
-                        exdata_alloc_helper(self.ex_list[i]), "pycfl.ExData")
+                self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex_list[i], 
+                    weights_list[i]), "pycfl.ExData")
             except:
                 for j in range(i):
                     free(self.ex_data[j])
                 free(self.ex_data)
                 free(self.ha)
                 raise
-
-        self.weights = np.array(weights_list, dtype=np.float64)
-        weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
 
         # Prepare array of pointers to parameter data structs.
         param_arrays = <cfl.param_type ***>malloc(self.n_h*sizeof(cfl.param_type **))
@@ -1665,17 +1669,12 @@ cdef class MHFitRunner(object):
             else:
                 self.job_a[i] = 'N'
         job_a = self.job_a
-        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, &weights[0], self.ex_data, &n_zx[0], self.param_arrays)
+        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, self.ex_data, &n_zx[0], self.param_arrays)
         
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
         
-        # Run mhfit_chi2 so that the initial chi^2 weighting is set.
-        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
-        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
-
     def __dealloc__(self):
         if self.ha != NULL:
             free(self.ha)
@@ -1737,7 +1736,7 @@ cdef class MHFitRunner(object):
         return(coeff, fmin)
 
 
-cdef shxdata_alloc_helper(sh, shx):
+cdef shxdata_alloc_helper(sh, shx, weights):
     """ 
     Generate cfl.shx_data array of spin Hamiltonian experimental data. 
 
@@ -1749,6 +1748,10 @@ cdef shxdata_alloc_helper(sh, shx):
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
         np.ndarrays corresponding to the experimental spin Hamiltonian tensor.
+    weights : dict
+        Is used to specify the chi squared weighting of each spin Hamiltonian
+        interaction.  Valid keys are: zeeman, hyperfine, and quadrupole, and
+        omitted values are set to unity.
     Returns
     -------
     ret : tuple
@@ -1767,7 +1770,6 @@ cdef shxdata_alloc_helper(sh, shx):
         raise MemoryError("shx_array alloc failed")
     
     for i,inter in enumerate(sh.interactions):
-        print("sh.inte i={}".format(i))
         if inter not in shx:
             for j in range(i):
                 free(shx_array[j])
@@ -1788,7 +1790,6 @@ cdef shxdata_alloc_helper(sh, shx):
                 free(shx_array[j])
             free(shx_array)
             raise ValueError("exp_tensor must either be a (3, 3) or (9, 1) array.")
-        print("shx_array alloc")
         shx_array[i] = <cfl.shx_data *>malloc(sizeof(cfl.shx_data))
         if shx_array[i] == NULL:
             for j in range(i):
@@ -1796,13 +1797,15 @@ cdef shxdata_alloc_helper(sh, shx):
             free(shx_array)
             raise MemoryError("shx_array[{}] alloc failed".format(i))
         shx_pa = <np.ndarray[double, ndim=1, mode="c"]> shx_list[i]
-        print("shx_pa")
         shx_array[i].pa = &shx_pa[0]
-        print("ptr assigned")
-        shx_array[i].chisq_weight = 1
+        try:
+            wi = weights[inter]
+        except KeyError:
+            wi = 1.0
+        shx_array[i].chisq_weight = wi
 
     shx_array_cap = PyCapsule_New(<void *>shx_array, "pycfl.ShxArray", NULL)
-    print("return")
+    
     return (shx_array_cap, shx_list)
 
 
@@ -1858,23 +1861,18 @@ cdef class ESHFitRunner(object):
     cdef public list parameters
     cpdef public int n_p_real
     cpdef public int n_obs
-    cpdef public int n_ushx
     cpdef public dict param_types
     cdef cfl.ex_data *ex_data
     cdef public ExData ex
     cdef cfl.param_type **param_array
     cdef cfl.shx_data **shx_array
     cdef list shx_list
-    cdef dict weights
     cdef np.ndarray x0
     cdef cfl.eshfit_data *eshfit_data
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
-        cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        cdef np.ndarray[double, ndim=1, mode="c"] x
-        
         self.n_p = len(parameters)
         self.parameters = parameters
         self.sh = sh
@@ -1901,8 +1899,6 @@ cdef class ESHFitRunner(object):
         self.param_types = {}
         # The number of real parameters. 
         self.n_p_real = 0
-        # We also record the number of parameters unique to sh.
-        self.n_ushx = 0
         for i,p in enumerate(parameters):
             if all((p not in hh for hh in [h, sh])):
                 raise ValueError("Parameter %s not found in any Hamiltonian." % p)
@@ -1914,13 +1910,9 @@ cdef class ESHFitRunner(object):
             elif p == 'HYP':
                 self.n_p_real += 1
                 self.param_types[p] = "h"
-                if p not in h:
-                    self.n_ushx += 1
             elif p == 'QUAD':
                 self.n_p_real += 1
                 self.param_types[p] = "q"
-                if p not in h:
-                    self.n_ushx += 1
             else:
                 self.param_types[p] = "r"
                 self.n_p_real += 1
@@ -1941,8 +1933,8 @@ cdef class ESHFitRunner(object):
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
         
-        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex), "pycfl.ExData")
-
+        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex, weights), "pycfl.ExData")
+        
         # Prepare array of pointers to parameter data structs.
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
@@ -1964,9 +1956,11 @@ cdef class ESHFitRunner(object):
             param_array[i].type = ord(self.param_types[p])
 
             # Set the coeff index of parameters that are present in the CF
-            # Hamiltonian. 
-            if (i < self.n_p - self.n_ushx):
+            # Hamiltonian.
+            try: 
                 param_array[i].ci = self.h.index(p)
+            except KeyError:
+                continue
            
             # Set the index of the ith param in the x array.
             param_array[i].xi = ii
@@ -1980,9 +1974,8 @@ cdef class ESHFitRunner(object):
                 ii += 1
         
         # Create array of experimental spin Hamiltonian data.
-        self.weights = weights
         try:
-            (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx)
+            (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx, weights)
         except:
             for i in range(self.n_p):
                 free(param_array[i])
@@ -1993,67 +1986,41 @@ cdef class ESHFitRunner(object):
         self.shx_array = shx_array
         
         # Check the SVD kwarg...
-        if svd_sym in kwargs:
+        if 'svd_sym' in kwargs:
             if kwargs['svd_sym']:
-                svd = 'S'
+                svd = <char> 'S'
             else:
-                svd = 'N'
+                svd = <char> 'N'
         else:
-            svd = 'N'
+            svd = <char> 'N'
 
-        # Alloc data for objective functions and estimate initial chi^2 values. 
-        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(len(sh.interactions)+1)
-        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         if (self.hpro != None):
             if self.ex.sl_index:
                 self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
-                    shx_array, self.n_p, self.n_ushx, self.param_array)
+                    shx_array, self.n_p, self.param_array)
             else:
                 self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
-                    shx_array, self.n_p, self.n_ushx, self.param_array)
+                    shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_cov, "pycfl.MinCovF", NULL)
             
-            # Unweighted initial chi^2 estimation.
-            cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
-
         else:
             if self.ex.sl_index:
                 self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
-                    shx_array, self.n_p, self.n_ushx, self.param_array)
+                    shx_array, self.n_p, self.param_array)
             else:
                 self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
-                    shx_array, self.n_p, self.n_ushx, self.param_array)
+                    shx_array, self.n_p, self.param_array)
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
-            
-            # Unweighted initial chi^2 estimation.
-            cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
 
         self.fit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
-
-        # Energy levels are always weighted to unity provided a call to
-        # eshfit_hpro_chi2 or eshfit_chi2 has been made. 
-        if 'energy' in self.weights:
-            ew_scale = 1.0/self.weights['energy']
-        else:
-            ew_scale = 1.0
-
-        for i,inter in enumerate(sh.interactions):
-            try:
-                shwi = self.weights[inter]
-            except KeyError:
-                shwi = 1.0
-            # FIXME: removed chi2 scaling; used to be:
-            # shx_array[i].chisq_weight = shwi/chi2[i+1] * ew_scale 
-            # which is broken with current cfl weighting setup... 
-            shx_array[i].chisq_weight = shwi * ew_scale 
     
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -2140,7 +2107,7 @@ cdef class MESHFitRunner(object):
         use at your own peril.
     """
     cdef int n_h
-    #cdef public Hamiltonian h
+    cdef public Hamiltonian h
     cdef public dict coeff
     cpdef public list h_list
     cpdef public list hpro_list
@@ -2151,7 +2118,6 @@ cdef class MESHFitRunner(object):
     cpdef public int n_obs
     cpdef public dict param_types
     cdef list h_param_list
-    #cdef np.ndarray weights
     cdef list ex_data
     cdef list param_arrays
     cdef list shx_list
@@ -2163,11 +2129,6 @@ cdef class MESHFitRunner(object):
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     def __init__(self, parameters, h_sh_list, **kwargs):
-        cdef np.ndarray[double, ndim=1, mode="c"] weights
-        cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        cdef np.ndarray[double, ndim=1, mode="c"] x
-        #cdef np.ndarray[int, ndim=1, mode="c"] n_zx
-
         self.n_h = len(h_sh_list)
         self.n_p = len(parameters)
         h_list = []
@@ -2222,15 +2183,15 @@ cdef class MESHFitRunner(object):
                 self.n_obs += ex_list[i].n_obs
                 n_ex += 1
                 if ex.sl_index:
-                    ex_job_list += ['S']
+                    ex_job_list += [<char> 'S']
                 else:
-                    ex_job_list += ['N']
+                    ex_job_list += [<char> 'N']
             else:
                 # No energy level data; passing an empty array to ExData sets
                 # nobs attribute to 0, which disables energy level chi2 fitting
                 # in cfl.
                 ex_list += [ExData(np.empty((0,2)))]
-                ex_job_list += ['N']
+                ex_job_list += [<char> 'N']
             try:
                 shx_list += [d['shx']]
             except KeyError:
@@ -2240,20 +2201,21 @@ cdef class MESHFitRunner(object):
                 weights_list += [d['weights']]
             except KeyError:
                 raise KeyError("Each h_sh_list element must be a dictionary containing "\
-                        "a 'weights' key that points to a list of weights dict specific "\
+                        "a 'weights' key that points to a weights dict specific "\
                         "to that Hamiltonian and spin Hamiltonian.")
             if 'svd_inv' in d:
                 if d['svd_inv']:
-                    svd_list += ['S']
+                    svd_list += [<char> 'S']
                 else:
-                    svd_list += ['N']
+                    svd_list += [<char> 'N']
             else:
-                svd_list += ['N']
+                svd_list += [<char> 'N']
 
             h_list += [h]
             hpro_list += [hpro]
             sh_list += [sh]
-
+        
+        self.h = h_list[0]
         self.h_list = h_list
         self.hpro_list = hpro_list
         self.sh_list = sh_list
@@ -2265,7 +2227,6 @@ cdef class MESHFitRunner(object):
         
         self.param_types = {}       # The type of each parameter (real, complex, or imag).
         self.n_p_real = 0           # The total number of real parameters (two for each complex number).
-        n_ushxa = np.zeros(self.n_h)# The number of parameters unique to each spin Hamiltonian.
         x0_index = {}               # Index of each parameter in the real-valued param array.        
         for i,p in enumerate(parameters):
             if all((p not in hh for hh in (h_list + sh_list) )):
@@ -2276,29 +2237,27 @@ cdef class MESHFitRunner(object):
                 x0_index[p] = self.n_p_real
                 self.n_p_real += 2
                 self.param_types[p] = "c"
+            # n_zxa is the total number of complex parameters for each H/SH
+            # pair; therefore, we have account for any parameters that are only
+            # in SH.
             elif p == 'HYP':
                 x0_index[p] = self.n_p_real
                 self.n_p_real += 1
                 self.param_types[p] = "h"
                 for j,h in enumerate(h_list):
-                    if p not in h:
-                        n_ushxa[j] += 1
+                    if p not in h and p in sh_list[j]:
+                        n_zxa[j] += 1
             elif p == 'QUAD':
                 x0_index[p] = self.n_p_real
                 self.n_p_real += 1
                 self.param_types[p] = "q"
                 for j,h in enumerate(h_list):
-                    if p not in h:
-                        n_ushxa[j] += 1
+                    if p not in h and p in sh_list[j]:
+                        n_zxa[j] += 1
             else:
                 x0_index[p] = self.n_p_real
                 self.param_types[p] = "r"
                 self.n_p_real += 1
-
-        # n_zxa is the total number of complex parameters for each H/SH pair;
-        # therefore, we have to add the number of unique SH parameters to the
-        # existing n_zxa array.
-        n_zxa = n_zxa + n_ushxa
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
@@ -2310,10 +2269,9 @@ cdef class MESHFitRunner(object):
         
         ex_data = []
         for i in range(self.n_h):
-            print(i)
             if ex_list[i] != None:
                 try:
-                    ex_data += [exdata_alloc_helper(ex_list[i])]
+                    ex_data += [exdata_alloc_helper(ex_list[i], weights_list[i])]
                 except:
                     for j in range(i):
                         free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[j], "pycfl.ExData"))
@@ -2356,7 +2314,7 @@ cdef class MESHFitRunner(object):
                 pa_hi[i].ci = h_list[hi].index(p)
                 pa_hi[i].xi = x0_index[p]
 
-                param_arrays += [PyCapsule_New(<void *>pa_hi, "pycfl.ParamArrays", NULL)]
+            param_arrays += [PyCapsule_New(<void *>pa_hi, "pycfl.ParamArrays", NULL)]
         
         # Set initial values.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
@@ -2371,35 +2329,30 @@ cdef class MESHFitRunner(object):
                 ii += 1
         
         self.param_arrays = param_arrays
-        print("start shx alloc")                
+        
         # Create list of experimental spin Hamiltonian data arrays.
         shx_arrays = []
         for shi, sh in enumerate(sh_list):
-            print(shi)
             try:
-                (shx_ptr, self.shx_list) = shxdata_alloc_helper(sh, shx_list[shi])
+                (shx_ptr, self.shx_list) = shxdata_alloc_helper(sh, shx_list[shi], weights_list[shi])
             except:
-                print("exception raised?")
                 for shj in range(shi):
                     shx_j = <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[shj], "pycfl.ShxArray")
                     for j in range(len(sh_list[shj].interactions)):
                         free(shx_j[j])
                     free(shx_j)
-                print("shj done")
                 for hi in range(self.n_h):
                     pa_hi = <cfl.param_type **>PyCapsule_GetPointer(param_arrays[hi], "pycfl.ParamArrays")
                     for i in range(len(h_param_list[hi])):
                         free(pa_hi[i])
                     free(pa_hi)
-                print("hi done")
                 for i in range(self.n_h):
                     free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"))
                 raise
-            print("assign to shx_arrays")
+            
             shx_arrays += [shx_ptr]
         
         self.shx_arrays = shx_arrays
-        print("start eshfit alloc")
         self.eshfit_array = <cfl.eshfit_data **>malloc(self.n_h*sizeof(cfl.eshfit_data *))
         if self.eshfit_array is NULL:
             for i in range(self.n_h):
@@ -2414,73 +2367,34 @@ cdef class MESHFitRunner(object):
                 free(shx_i)
             raise MemoryError("eshfit_array alloc failed")
         
-        print("eshfit_array alloc")
         #FIXME: should have a try statement, free previously alloced eshfit_data
         #objects, and all the other stuff from above. This bug exists in all the
         #"Runner" functions.
+        #cdef char ex_job
         for i in range(self.n_h):
             if hpro_list[i] != None:
-                print("hpro eshfit entry")
                 self.eshfit_array[i] = eshfit_data_alloc(ex_job_list[i], svd_list[i], 
                     <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(hpro_list[i].h_cap, "pycfl.Hamiltonian"),
                     <cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"),
                     <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
-                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], n_ushxa[i], 
+                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], 
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
-                print("hpro eshfit exit")
             else:
-                print("eshfit entry")
                 self.eshfit_array[i] = eshfit_data_alloc(ex_job_list[i], svd_list[i], 
                     <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), NULL,
                     <cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"),
                     <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
-                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], n_ushxa[i], 
+                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], 
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
-                print("eshfit exit")
-        print("meshfit data alloc")
+                
         self.meshfit_data = meshfit_data_alloc(self.n_h, self.eshfit_array)
-        
+       
         self.fit_data_cap = PyCapsule_New(<void *>self.meshfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.meshfit_obj, "pycfl.MinObjF", NULL)
         # FIXME: points to mhfit_cov for now... obviously broken. 
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
         
-        self.weights = np.array(weights_list, dtype=np.float64)
-        weights = <np.ndarray[double, ndim=1, mode="c"]> self.weights
-        # Run meshfit_chi2 so that the initial chi^2 weighting is set.
-        # Start with one chi2 entry for each Hamiltonian, then one additional
-        # one for each interaction of each spin Hamiltonian. 
-        nchi2 = self.n_h         
-        for sh in sh_list:
-            nchi2 += len(sh.interactions)
-        chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(nchi2)
-        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        cfl.meshfit_chi2(&x[0], self.meshfit_data, &chi2[0])
-
-        # Energy levels are always weighted to unity provided a call to
-        # meshfit_chi2 has been made. 
-        #if 'energy' in self.weights:
-        #    ew_scale = 1.0/self.weights['energy']
-        #else:
-        #    ew_scale = 1.0
-        
-        # FIXME: Disabled energy level weighting. This whole weighting business
-        # needs a rethink, especially given the multi Hamiltonian fitting with a
-        # Number of energy level weight w.r.t. spin Hamiltonians. 
-        ew_scale = 1.0
-        for i in range(self.n_h):
-            shx_i = <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray")
-            for j,inter in enumerate(sh_list[i].interactions):
-                try:
-                    shw = self.weights[inter]
-                except KeyError:
-                    shw = 1.0
-                # FIXME: removed chi2 scaling; used to be:
-                # shx_array[i].chisq_weight = shwi/chi2[i+1] * ew_scale 
-                # which is broken with current cfl weighting setup... 
-                shx_i[j].chisq_weight = shw * ew_scale 
-    
     def __dealloc__(self):
         for i in range(self.n_h):
             ex_i = <cfl.ex_data *>PyCapsule_GetPointer(self.ex_data[i], "pycfl.ExData")
@@ -2531,7 +2445,7 @@ cdef class MESHFitRunner(object):
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef sigma = 0
 
-        x = <np.ndarray[double, ndim=1, mode="c"]> self.p0_real
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         print("fit entry")        
         fmin = min_object.minimize(self, x)
         
