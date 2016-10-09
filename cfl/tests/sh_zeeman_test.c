@@ -329,7 +329,7 @@ int main (void) {
   zsh_set_pro(ce_sh, pro_tensors, 0, coupling);
   ce_shp_w = zshp_w_alloc(ce_sh);
 
-  zshp(a, z, 0, ce_sh, ce_shp_w);
+  zshp(a, NULL, z, 0, ce_sh, ce_shp_w);
 
   for (i=0; i<3; i++) {
     for (j=0; j<3; j++) {

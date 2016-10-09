@@ -102,9 +102,9 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     zshi_w *zshi_w_alloc(zsh_inv_data *d)
     void zshi_w_free(zshi_w *w)
     void zshi(double complex *a, zshi_w *w)
-    zshp_w *zshp_w_alloc(zsh *sh)
+    zshp_w *zshp_w_alloc(char job, zsh *sh)
     void zshp_w_free(zshp_w *w)
-    void zshp(double complex *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
+    void zshp(double *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
 
 cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_bounds:
@@ -146,7 +146,8 @@ cdef extern from "../../cfl/include/basinhopping.h":
 cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct param_type:
         char type
-        size_t index
+        int xi
+        int ci
 
     ctypedef struct ex_data:
         int n_obs
@@ -159,10 +160,11 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         int *lah
         int *ildh
         int *fldh
+        double chisq_weight
 
     ctypedef struct shx_data:
-        double complex *pa
-        float chisq_weight
+        double *pa
+        double chisq_weight
 
     ctypedef struct efit_data:
         pass
@@ -173,24 +175,28 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
+    ctypedef struct meshfit_data:
+        pass
+
     efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
-        ex_data **exa, int *n_zx, param_type ***p)
+    mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, int *n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
-    eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
-            shx_data **shx, int n_zx, int n_ushx, param_type **p)
+    eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+            shx_data **shx, int n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
-    int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
-    int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj) 
+    meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d)
+    void meshfit_data_free(meshfit_data *data)
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
     double mhfit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil 
     double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil 
+    double meshfit_obj(size_t n, double *x, double *grad, void *data) nogil
     void efit_chi2(double *x, void *data, double *chi2) nogil
     void mhfit_chi2(double *x, void *data, double *chi2) nogil 
     void eshfit_chi2(double *x, void *data, double *chi2) nogil
     void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil 
+    void meshfit_chi2(double *x, void *data, double *chi2) nogil
     void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil 
     void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil

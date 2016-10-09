@@ -717,14 +717,14 @@ int main (void) {
   char *inter[] = {"zeeman", "hyperfine"};
   zsh *cehyp_sh;
   zshp_w *cehyp_shp_w;
-  complex double *a = (complex double *) calloc(9,sizeof(complex double));
+  double *a = (double *) calloc(9,sizeof(double));
   double coupling[4] = {1.0, 1.0, 1.0, 0.05};
   
   cehyp_sh = zsh_alloc(inter, 2, 1, 1, inv_a);
   zsh_set_pro(cehyp_sh, pro_tensors, 0, coupling);
-  cehyp_shp_w = zshp_w_alloc(cehyp_sh);
+  cehyp_shp_w = zshp_w_alloc('S', cehyp_sh);
 
-  zshp(a, z, 0, cehyp_sh, cehyp_shp_w);
+  zshp(a, NULL, z, 0, cehyp_sh, cehyp_shp_w);
   printf("Zeeman tensor:\n");
   for (i=0; i<3; i++) {
     for (j=0; j<3; j++) {
@@ -734,7 +734,7 @@ int main (void) {
   }
   printf("\n");
 
-  zshp(a, z, 1, cehyp_sh, cehyp_shp_w);
+  zshp(a, NULL, z, 1, cehyp_sh, cehyp_shp_w);
   printf("hyperfine tensor:\n");
   for (i=0; i<3; i++) {
     for (j=0; j<3; j++) {

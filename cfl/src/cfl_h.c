@@ -1067,7 +1067,7 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
   }
 
   /* Convert the Hamiltonian from Hermitian CSR to standard CSR, then apply
-   * block-diag permutation, and finally convert to dense storage. */
+   * block-diag permutation. */
   zhcsr2zcsr(hd_w->coeff_w[hd_w->lcoeff_w-1], hd_w->zcsr_h);
 
   if (hd_w->nblocks != 1) {

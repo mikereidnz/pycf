@@ -33,13 +33,19 @@
 typedef struct {
   /* Indicator whether parameter is real, purely imaginary, or complex. */
   char type;
-  /* Complex (resultant) parameter array index. */
-  int index;
+  /* For n_zx complex parameters to be varied, this index maps to the correct
+   * entry in x, the array of real valued parameters. */
+  int xi;
+  /* For n_zx complex parameters to be varied, this index maps to the correct
+   * entry of the corresponding Hamiltonians coefficient array. */
+  int ci;
 } param_type;
 
 /* Experimental energy level data. */
 typedef struct {
-  /* The total number of energy level observables (n_a + n_d). */
+  /* The total number of energy level observables (n_a + n_d).  If set to 0,
+   * then eshfit_obj and eshfit_hpro_obj will not evaluate any energy level
+   * contributions. */
   int n_obs;
   /* The number of absolute energy levels. */
   int n_a;
@@ -49,32 +55,34 @@ typedef struct {
    * values, and the remaining elements are energy differences. */
   double *e;
   /* Array of length n_a mapping the index of e to the level index of the
-   * complete Hamiltonian.  Used for absolute energy level values.*/
+   * Hamiltonian.  Used for absolute energy level values.*/
   int *la;
   /* Array of length n_d, mapping the index of e to the initial level index of
-   * the complete Hamiltonian.  Used for energy difference values. */
+   * the Hamiltonian.  Used for energy difference values. */
   int *ild;
   /* Array of length n_d, mapping the index of e to the final level index of the
-   * complete Hamiltonian.  Used for energy difference values. */
+   * Hamiltonian.  Used for energy difference values. */
   int *fld;
   /* Array of length n_a mapping the index of e to the hash of the state label
-   * of the complete Hamiltonian.  Used for absolute energy level values used
-   * with state label sorting. */
+   * of the Hamiltonian.  Used for absolute energy level values used with state
+   * label sorting. */
   int *lah;
   /* Array of length n_d, mapping the index of e to the hash of the state label
-   * of the initial level of the complete Hamiltonian.  Used for energy
-   * difference values with state label sorting. */
+   * of the initial level of the Hamiltonian.  Used for energy difference values
+   * with state label sorting. */
   int *ildh;
   /* Array of length n_d, mapping the index of e to the hash of the state label
-   * of the final level of the complete Hamiltonian.  Used for energy difference
-   * values with state label sorting. */
+   * of the final level of the Hamiltonian.  Used for energy difference values
+   * with state label sorting. */
   int *fldh;
+  /* chi^2 weighting. */
+  double chisq_weight;
 } ex_data;
 
 /* Experimental spin Hamiltonian data. */
 typedef struct {
   /* Array of nine experimental spin Hamiltonian parameter values. */
-  complex double *pa;
+  double *pa;
   /* chi^2 weighting. */
   double chisq_weight;
 } shx_data;
@@ -116,8 +124,6 @@ typedef struct {
   int n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
-  /* chi^2 weighting for energy levels. */
-  double echisq_weight;
 } efit_data;
 
 /* Data for multi-eigenvalue vector fit. */
@@ -130,9 +136,6 @@ typedef struct {
   int n;
   /* Array of length n containing pointers to the Hamiltonians. */
   zh **ha;
-  /* Array of length n with each entry specifying the chi^2 weighting of the
-   * corresponding ha entry. */
-  double *weights;
   /* Array of pointers to experimental energy level data. */
   ex_data **exa;
   /* The number of Hamiltonian diagonalization workspaces. */
@@ -150,8 +153,6 @@ typedef struct {
   int *n_zx;
   /* Array of length n to arrays of pointers to parameter type structs. */
   param_type ***p;
-  /* chi^2 weighting for first energy level vector. */
-  double echisq_weight;
 } mhfit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -179,21 +180,24 @@ typedef struct {
   /* Pointer to spin Hamiltonian parameter projection workspace. */
   zshp_w *shp_w;
   /* Array of pointers to store inverted spin Hamiltonian parameters. */
-  complex double **sh_pa;
+  double **sh_pa;
   /* Experimental energy level data. */
   ex_data *ex;
   /* Array of pointers to spin Hamiltonian experimental data. */
   shx_data **shx;
   /* The number of parameters after conversion to complex type. */
   int n_zx;
-  /* The number of parameters that are unique to sh; that is, not in coeff. */
-  int n_ushx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
-  /* chi^2 weighting for energy levels. */
-  double echisq_weight;
 } eshfit_data;
 
+/* Data for fitting multiple spin Hamiltonians. */
+typedef struct {
+  /* The number of spin Hamiltonians to fit. */
+  int n;
+  /* eshfit data for each spin Hamiltonian. */
+  eshfit_data **data;
+} meshfit_data;
 
 /* Function prototypes. */
 #ifdef __cplusplus
@@ -202,24 +206,24 @@ extern "C" {
 efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
     param_type **p);
 void efit_data_free(efit_data *data);
-mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
-    ex_data **exa, int *n_zx, param_type ***p);
+mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, 
+    int *n_zx, param_type ***p);
 void mhfit_data_free(mhfit_data *data);
-eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
-    shx_data **shx, int n_zx, int n_ushx, param_type **p); 
+eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, 
+    ex_data *ex, zsh *sh, shx_data **shx, int n_zx, param_type **p); 
 void eshfit_data_free(eshfit_data *data);
-int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds,
-    cfl_min_obj *min_obj);
-int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds
-    *bounds, cfl_min_obj *min_obj); 
+meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d);
+void meshfit_data_free(meshfit_data *data);
 double efit_obj(size_t n, double *x, double *grad, void *data);
 double mhfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_obj(size_t n, double *x, double *grad, void *data);
 double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
+double meshfit_obj(size_t n, double *x, double *grad, void *data);
 void efit_chi2(double *x, void *data, double *chi2);
 void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
+void meshfit_chi2(double *x, void *data, double *chi2);
 void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
