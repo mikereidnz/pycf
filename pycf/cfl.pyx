@@ -1195,7 +1195,7 @@ cdef class ExData(object):
         self.n_obs = self.n_a + self.n_d
 
 
-cdef exdata_alloc_helper(ex, weights={}):
+cdef exdata_alloc_helper(ex, double weight=1.0):
     """
     Takes care of creating the cfl.ex_data c struct and returns it via a PyCapsule. 
 
@@ -1203,10 +1203,9 @@ cdef exdata_alloc_helper(ex, weights={}):
     ----------
     ex : ExData
         Experimental energy level data object.
-    weights: dict, optional
-        If weights contains the 'energy' key, the corresponding value is set as
-        the weighting chi squared weighting factor.  If weights is not provided,
-        or doesn't contain the 'energy' key, the weighting defaults to unity.
+    weights: float, optional
+        Specifies the chi^2 weighting factor for this ex data object.  Defaults
+        to unity.
     """
     cdef np.ndarray[double, ndim=1, mode="c"] ex_e
     cdef np.ndarray[int, ndim=1, mode="c"] ex_la
@@ -1237,7 +1236,6 @@ cdef exdata_alloc_helper(ex, weights={}):
     else:
         # There are no absolute energy level observables.
         ex_data.la = NULL
-
     if ex.n_d:
         ex_ild = <np.ndarray[int, ndim=1, mode="c"]> ex.ild
         ex_fld = <np.ndarray[int, ndim=1, mode="c"]> ex.fld
@@ -1247,7 +1245,6 @@ cdef exdata_alloc_helper(ex, weights={}):
         # There are no energy level difference observables.
         ex_data.ild = NULL
         ex_data.fld = NULL
-
     if ex.sl_index:
         if ex.n_a:
             ex_lah = <np.ndarray[int, ndim=1, mode="c"]> ex.lah
@@ -1267,19 +1264,11 @@ cdef exdata_alloc_helper(ex, weights={}):
         ex_data.lah = NULL
         ex_data.ildh = NULL
         ex_data.fldh = NULL
-
-    # Set chi squared weighting if provided, otherwise default to unity.
-    try:
-        ew = weights['energy']
-    except KeyError:
-        ew = 1.0
-    if not isinstance(ew, Number):
-        raise ValueError("weights['energy'] must be a number.")
-
-    ex_data.chisq_weight = ew
-
+   
+    # Set chi squared weighting.
+    ex_data.chisq_weight = weight
     ex_data_cap = PyCapsule_New(<void *>ex_data, "pycfl.ExData", NULL)
-
+    
     return ex_data_cap
 
 
@@ -1570,7 +1559,7 @@ cdef class MHFitRunner(object):
                 x0_index[p] = self.n_p_real
                 self.param_types[p] = "r"
                 self.n_p_real += 1
-
+        
         # Parse the energy level data. 
         self.n_obs = 0
         self.ex_list = []
@@ -1590,14 +1579,12 @@ cdef class MHFitRunner(object):
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
-
         self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
         if self.ha == NULL:
             raise MemoryError("ha alloc failed")
 
         for i in range(self.n_h):
             self.ha[i] = <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian")
-
         self.ex_data = <cfl.ex_data **>malloc(self.n_h*sizeof(cfl.ex_data *))
         if self.ex_data == NULL:
             free(self.ha)
@@ -1613,7 +1600,7 @@ cdef class MHFitRunner(object):
                 free(self.ex_data)
                 free(self.ha)
                 raise
-
+        
         # Prepare array of pointers to parameter data structs.
         param_arrays = <cfl.param_type ***>malloc(self.n_h*sizeof(cfl.param_type **))
         if param_arrays == NULL:
@@ -1670,7 +1657,6 @@ cdef class MHFitRunner(object):
                 ii += 1
         
         self.param_arrays = param_arrays
-                
         self.job_a = np.empty(self.n_h, dtype=np.dtype('S'))
         for i,ex in enumerate(self.ex_list):
             if ex.sl_index:
@@ -1683,7 +1669,7 @@ cdef class MHFitRunner(object):
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
-        
+
     def __dealloc__(self):
         if self.ha != NULL:
             free(self.ha)
@@ -1942,7 +1928,8 @@ cdef class ESHFitRunner(object):
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
         
-        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex, weights), "pycfl.ExData")
+        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex, 
+            weights['energy']), "pycfl.ExData")
         
         # Prepare array of pointers to parameter data structs.
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
@@ -2212,6 +2199,8 @@ cdef class MESHFitRunner(object):
                 raise KeyError("Each h_sh_list element must be a dictionary containing "\
                         "a 'weights' key that points to a weights dict specific "\
                         "to that Hamiltonian and spin Hamiltonian.")
+            if 'energy' not in weights_list[i]:
+                weights_list[i]['energy'] = 1
             if 'svd_inv' in d:
                 if d['svd_inv']:
                     svd_list += [<char> 'S']
@@ -2280,7 +2269,7 @@ cdef class MESHFitRunner(object):
         for i in range(self.n_h):
             if ex_list[i] != None:
                 try:
-                    ex_data += [exdata_alloc_helper(ex_list[i], weights_list[i])]
+                    ex_data += [exdata_alloc_helper(ex_list[i], weights_list[i]['energy'])]
                 except:
                     for j in range(i):
                         free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[j], "pycfl.ExData"))
@@ -2455,7 +2444,6 @@ cdef class MESHFitRunner(object):
         cdef sigma = 0
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        print("fit entry")        
         fmin = min_object.minimize(self, x)
         
         coeff = self.coeff.copy() 
@@ -2882,18 +2870,18 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     summary+= "==============\n"
     summary += gen_pycf_summary()
 
-    # The number of degrees of freedom of the chi-squared distribution
-    ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
+    ## The number of degrees of freedom of the chi-squared distribution
+    #ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
 
-    for i,h in enumerate(mhfit.h_list):
-        h.set_coeff(x)
-        (w, z) = h.diag()
+    #for i,h in enumerate(mhfit.h_list):
+    #    h.set_coeff(x)
+    #    (w, z) = h.diag()
 
-        e_sigma = e_fit_sigma(w, ex_list[i], ndof, z, h.tensors[0].states.labels)
-        summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
-        summary += "\n"
+    #    e_sigma = e_fit_sigma(w, ex_list[i], ndof, z, h.tensors[0].states.labels)
+    #    summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
+    #    summary += "\n"
 
-    summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+    #summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
     
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
