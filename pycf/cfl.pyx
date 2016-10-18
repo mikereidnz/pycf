@@ -2219,14 +2219,16 @@ cdef class MESHFitRunner(object):
             except KeyError:
                 raise KeyError("Each h_sh_list element must be a dict containing an 'shx' "\
                         "key that points to a dict of experimental spin Hamiltonian data.")
+            if any(inter not in shx_list[i] for inter in sh.interactions):
+                raise ValueError("Missing experimental spin Hamiltonian data for one or more interactions.")
             try:
                 weights_list += [d['weights']]
             except KeyError:
-                raise KeyError("Each h_sh_list element must be a dictionary containing "\
-                        "a 'weights' key that points to a weights dict specific "\
-                        "to that Hamiltonian and spin Hamiltonian.")
-            if 'energy' not in weights_list[i]:
-                weights_list[i]['energy'] = 1
+                weights_list += [{}]   
+            # Set default weights to unity.
+            for w in ['energy'] + sh.interactions:
+                if w not in weights_list[i]:
+                    weights_list[i][w] = 1
             if 'svd_inv' in d:
                 if d['svd_inv']:
                     svd_list += [<char> 'S']
