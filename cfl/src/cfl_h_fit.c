@@ -933,7 +933,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
   int i, hi;
   double chisq;
   mhfit_data *d = data;
-
+  
   if (d->sl_sort) {
     for (i = 0; i < d->n; i++) {
       hi = d->hi[i];
@@ -945,7 +945,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
       else {
         zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
       }
-      chi2[hi] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
+      chi2[i] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
     }
   }
   else {
@@ -953,7 +953,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
       hi = d->hi[i];
       parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
       zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-      chi2[hi] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
+      chi2[i] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
     }
   }
 }

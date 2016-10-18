@@ -222,124 +222,7 @@ def ex_parse_diff(ex, z, labels):
 
     return parsed_ex
 
-
-def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2):
-    r"""
-    Generate a truncated energy level summary displaying only levels for which
-    experimental energy level data is provided.
-
-    Parameters
-    ----------
-    w : np.ndarray
-        The eigenvalue vector, of length n.
-    z : np.ndarray
-        The eigenvectors in an n by n matrix.
-    labels : list
-        A list of state labels.
-    label_key : str
-       String identifying the type of label.  Valid characters are S, L, J, M,
-       I, T, and F and their position in label_key specifies the location in
-       each label.  
-    ex : ExData
-        The ExData object for which to generate the truncated energy level summary. 
-    name : str
-        Name used in heading for this truncated summary.
-    nstates : int, optional
-        The number of constituent states to display for mixed states.
-    """
-    def fmt_label(li, labels):
-        label = "|"
-        for i,l in enumerate(labels[li]):
-            if label_key[i] == 'T':
-                label += "{:d},".format(l)
-            elif label_key[i] == 'F':
-                if l:
-                    label += "(2F)".format(l)
-                else:
-                    label += "    "
-            elif label_key[i] == 'S':
-                    label += "{:d}".format(l)
-            elif label_key[i] == 'L':
-                label += L2term(l)
-            elif label_key[i] == 'J':
-                label += "{: >2d},".format(l)
-            elif i < len(label_key)-1:
-                label += "{: >3d},".format(l)
-            else:
-                label += "{: >3d}>".format(l)
-
-        return label
-    
-    if ex.n_a + ex.n_d == 0:
-        return ""
-
-    s = "{} summary\n".format(name)
-    s+= "="*len(name) + "========\n\n"
-    sort_list = []
-    for i in range(len(z)):
-        sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
-    
-    # Absolute energy level summary.
-    if ex.n_a != 0:
-        s += uline_char("Absolute energy levels:\n")
-        exa = ex_parse_abs(ex, z, labels)
-        heading = "Lev.  " + ("Percentage                 " + "State" + \
-                " " * (len(fmt_label(0, labels))-4)) * nstates + "       Theory"
-        heading += "     Experiment    Difference\n"
-        
-        s += uline_char(heading)
-        for ii in range(ex.n_a):
-            i = int(exa[ii, 0])
-            line = "{0:<6}".format(i+1)
-            N = np.sum(np.abs(z[:, i]))
-            for j in range(nstates):
-                si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
-                        si+1, fmt_label(si, labels))
-
-            s += line + " {: >12.4f}".format(w[i])
-            s += "   {: >12.4f}  {: >12.4f}".format(exa[ii,1], exa[ii,1]-w[i]) + "\n"
-        
-        s += "\n"
-    
-    # Difference energy level summary. 
-    if ex.n_d != 0:
-        s += uline_char("Energy level differences:\n")
-        exd = ex_parse_diff(ex, z, labels)
-        heading = "Lev.  " + ("Percentage                 " + "State" + \
-                " " * (len(fmt_label(0, labels))-4)) * nstates + "    Th. diff."
-        heading += "     Exp. diff.    Diff. diff.\n"
-        
-        s += uline_char(heading)
-        for ii in range(ex.n_d):
-            i = int(exd[ii, 0])
-            line = "{0:<6}".format(i+1)
-            N = np.sum(np.abs(z[:, i]))
-            for j in range(nstates):
-                si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
-                        si+1, fmt_label(si, labels))
-            s += line + "\n"
-            tmp_w = w[i]
-            i = int(exd[ii, 1])
-            line = "{0:<6}".format(i+1)
-            N = np.sum(np.abs(z[:, i]))
-            for j in range(nstates):
-                si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
-                        si+1, fmt_label(si, labels))
-            tmp_w = w[i]-tmp_w
-            s += line + " {: >12.4f}".format(tmp_w)
-            s += "   {: >12.4f}  {: >12.4f}".format(exd[ii,2], exd[ii,2] - tmp_w) + "\n"
-        s += "\n"
-
-    s += "Label key: {}\n".format(label_key)
-    s += "\n"
-    
-    return s
-
-
-def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shift=False):
+def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=None, weighting=None, e_shift=False):
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
 
@@ -364,8 +247,15 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
         an ExData object.  
     nstates : int, optional
         The number of constituent states to display for mixed states.
-    sigma : float, optional
-        The standard deviation for the energy level chi^2.
+    chi2 : float, optional 
+        The final chi2 value of the fit. 
+    ndof : int, optional
+        The number of degrees of freedom of the fit; that is, the number of
+        observables minus the number of parameters.  If this is provided, along
+        with chi2, then the standard deviation -- assuming a model fit -- will
+        be shown.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
+    weighting : float, optional
+        The weighting applied during the chi2 fit.  This should be set if ndof is set.
     e_shift : bool, optional
         Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero. 
     """
@@ -443,15 +333,158 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
         else:
             s += "\n"
 
-    if sigma != None:
-        s += "sigma = {: .4f}\n".format(sigma)
     s += "Label key: {}\n".format(label_key)
+    if chi2 != None:
+        s += "chi2 = {: .4f}\n".format(chi2)
+        if ndof != None:
+            if weighting == None:
+                raise ValueError("The weight argument needs to be provided if you provide ndof.")
+            s += "sigma = {: .4f}\n".format(np.sqrt(chi2/weighting)/ndof)
+            if weighting != 1:
+                s += "chi2 weighting = {: .2f}\n".format(weighting)
+
     if e_shift:
         s += "Energy level shift: {: .4f}\n".format(e_shift)
     
     return s
 
-def gen_sh_summary(param, sh, name = None, shx=None, sigma=None):
+
+def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2, chi2=None, ndof=None, weighting=None):
+    r"""
+    Generate a truncated energy level summary displaying only levels for which
+    experimental energy level data is provided.
+
+    Parameters
+    ----------
+    w : np.ndarray
+        The eigenvalue vector, of length n.
+    z : np.ndarray
+        The eigenvectors in an n by n matrix.
+    labels : list
+        A list of state labels.
+    label_key : str
+       String identifying the type of label.  Valid characters are S, L, J, M,
+       I, T, and F and their position in label_key specifies the location in
+       each label.  
+    ex : ExData
+        The ExData object for which to generate the truncated energy level summary. 
+    name : str
+        Name used in heading for this truncated summary.
+    nstates : int, optional
+        The number of constituent states to display for mixed states.
+    chi2 : float, optional 
+        The final chi2 value of the fit. 
+    ndof : int, optional
+        The number of degrees of freedom of the fit; that is, the number of
+        observables minus the number of parameters.  If this is provided, along
+        with chi2, then the standard deviation -- assuming a model fit -- will
+        be shown.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
+    weighting : float, optional
+        The weighting applied during the chi2 fit.  This should be set if ndof is set.
+    """
+    def fmt_label(li, labels):
+        label = "|"
+        for i,l in enumerate(labels[li]):
+            if label_key[i] == 'T':
+                label += "{:d},".format(l)
+            elif label_key[i] == 'F':
+                if l:
+                    label += "(2F)".format(l)
+                else:
+                    label += "    "
+            elif label_key[i] == 'S':
+                    label += "{:d}".format(l)
+            elif label_key[i] == 'L':
+                label += L2term(l)
+            elif label_key[i] == 'J':
+                label += "{: >2d},".format(l)
+            elif i < len(label_key)-1:
+                label += "{: >3d},".format(l)
+            else:
+                label += "{: >3d}>".format(l)
+
+        return label
+    
+    if ex.n_a + ex.n_d == 0:
+        return ""
+
+    s = "{} summary\n".format(name)
+    s+= "="*len(name) + "========\n\n"
+    sort_list = []
+    for i in range(len(z)):
+        sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
+    
+    # Absolute energy level summary.
+    if ex.n_a != 0:
+        if ex.n_d != 0:
+            s += uline_char("Absolute energy levels:\n")
+        exa = ex_parse_abs(ex, z, labels)
+        heading = "Lev.  " + ("Percentage                 " + "State" + \
+                " " * (len(fmt_label(0, labels))-4)) * nstates + "       Theory"
+        heading += "     Experiment    Difference\n"
+        
+        s += uline_char(heading)
+        for ii in range(ex.n_a):
+            i = int(exa[ii, 0])
+            line = "{0:<6}".format(i+1)
+            N = np.sum(np.abs(z[:, i]))
+            for j in range(nstates):
+                si = sort_list[i][j]
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                        si+1, fmt_label(si, labels))
+
+            s += line + " {: >12.4f}".format(w[i])
+            s += "   {: >12.4f}  {: >12.4f}".format(exa[ii,1], exa[ii,1]-w[i]) + "\n"
+        
+        s += "\n"
+    
+    # Difference energy level summary. 
+    if ex.n_d != 0:
+        if ex.n_a != 0:
+            s += uline_char("Energy level differences:\n")
+        exd = ex_parse_diff(ex, z, labels)
+        heading = "Lev.  " + ("Percentage                 " + "State" + \
+                " " * (len(fmt_label(0, labels))-4)) * nstates + "    Th. diff."
+        heading += "     Exp. diff.    Diff. diff.\n"
+        
+        s += uline_char(heading)
+        for ii in range(ex.n_d):
+            i = int(exd[ii, 0])
+            line = "{0:<6}".format(i+1)
+            N = np.sum(np.abs(z[:, i]))
+            for j in range(nstates):
+                si = sort_list[i][j]
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                        si+1, fmt_label(si, labels))
+            s += line + "\n"
+            tmp_w = w[i]
+            i = int(exd[ii, 1])
+            line = "{0:<6}".format(i+1)
+            N = np.sum(np.abs(z[:, i]))
+            for j in range(nstates):
+                si = sort_list[i][j]
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                        si+1, fmt_label(si, labels))
+            tmp_w = w[i]-tmp_w
+            s += line + " {: >12.4f}".format(tmp_w)
+            s += "   {: >12.4f}  {: >12.4f}".format(exd[ii,2], exd[ii,2] - tmp_w) + "\n"
+        s += "\n"
+
+    s += "Label key: {}\n".format(label_key)
+    if chi2 != None:
+        s += "chi2 = {: .4f}\n".format(chi2)
+        if ndof != None:
+            if weighting == None:
+                raise ValueError("The weight argument needs to be provided if you provide ndof.")
+            s += "sigma = {: .4f}\n".format(np.sqrt(chi2/weighting)/ndof)
+            if weighting != 1:
+                s += "chi2 weighting = {: .2f}\n".format(weighting)
+    s += "\n"
+    
+    return s
+
+
+def gen_sh_summary(param, sh, shx=None, name=None, chi2=None, ndof=None, weighting=None):
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
     spin Hamiltonian data. 
@@ -465,16 +498,24 @@ def gen_sh_summary(param, sh, name = None, shx=None, sigma=None):
         passed as param.
     sh : SpinHamiltonian
         Generally the spin Hamiltonian object used to generate the param list. 
-    name : str, optional
-        If provided, the summary heading uses the provided string instead of
-        "Spin Hamiltonian".
     shx : dict, optional
         Specifies the experimental spin Hamiltonian data for comparison.  Valid
         keys are 'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3
         \times 3` np.ndarrays corresponding to the experimental spin Hamiltonian
         tensor.
-    sigma : float, optional
-        The standard deviation for the spin Hamiltonian chi^2.
+    name : str, optional
+        If provided, the summary heading uses the provided string instead of
+        "Spin Hamiltonian".
+    chi2 : np.ndarray, optional 
+        The final chi2 value of the fit for each spin Hamiltonian term. 
+    ndof : int, optional
+        The number of degrees of freedom of the fit; that is, the number of
+        observables minus the number of parameters.  If this is provided, along
+        with chi2, then the standard deviation -- assuming a model fit -- will
+        be shown.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
+    weighting : dict, optional
+        The weighting applied during the chi2 fit; one entry for each spin
+        Hamiltonian term.  This should be set if ndof is set.
     """
     np.set_printoptions(formatter={'float': lambda x: '{:8.5f}'.format(x)})
     
@@ -484,13 +525,14 @@ def gen_sh_summary(param, sh, name = None, shx=None, sigma=None):
     else:
         s = "Spin Hamiltonian summary\n"
         s+= "========================\n\n"
-
+    
+    tmp_sigma = 0
     for i,inter in enumerate(sh.interactions):
         s += uline_char("%s interaction\n" % inter)
         if shx != None:
             s += uline_char("Theory                        Experiment                    Difference\n")
         else:
-            s += uline("Theory\n")
+            s += uline_char("Theory\n")
         for j in range(3):
             s += str(np.real(np.abs(param[i])).reshape(3,3)[j,:])
             if shx != None:
@@ -498,14 +540,21 @@ def gen_sh_summary(param, sh, name = None, shx=None, sigma=None):
                     - np.abs(np.real(param[i]))).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
+        if chi2 != None:
+            s += "chi2 = {: .4f}\n".format(chi2[i])
+            if weighting != None:
+                s += "chi2 weighting = {: .2f}\n".format(weighting[inter])
+                tmp_sigma += chi2[i]/weighting[inter]
         s += "\n"
     
-    if sigma != None:
-        s += "sigma = {: .4f}\n".format(sigma)
+    if chi2 != None and ndof != None:
+        if weighting == None:
+            raise ValueError("The weight argument needs to be provided if you provide ndof.")
+        s += "sigma = {: .4f}\n".format(np.sqrt(tmp_sigma)/ndof)
 
     return s
 
-def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
+def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
 
@@ -517,9 +566,6 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
         Must have __iter__ method that iterates over names of tensors.
     method : str
         The optimization algorithm used for the fit.
-    sigma : float, optional
-        The total uncertainty for both the energy level and spin Hamiltonian
-        fits; must be specified if 'cov'=True in kwargs.
     kwargs: dict
         Additional, optimization algorithm specific, settings to print.
 
@@ -532,8 +578,8 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     
     heading = "Tensor name            Fitted coeff        Initial coeff         Difference"
     if kwargs['cov']:
-        if sigma == None:
-            raise ValueError("'cov' kwarg is specified as True, but sigma is not provided.")
+        ndof = max(fit_obj.n_p_real - fit_obj.n_obs, 1)
+        sigma = np.sqrt(np.sum(fit_obj.chi2))/ndof
         cov = np.linalg.inv(kwargs['cov_inv'])
         heading += "    Uncertainty"
     if 'bounds' in kwargs:
@@ -591,80 +637,6 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
 
     return s
 
-
-def e_fit_sigma(e, ex, ndof, z=None, labels=None):
-    r"""
-    Calculate the standard deviation of an energy level fit assuming a model
-    fit.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
-
-    Parameters
-    ----------
-    e : np.ndarray
-        The energies of fitted levels.
-    ex : np.ndarray
-        Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
-        former case, n is the number of energy levels, with the first column
-        containing energy level indices starting at 1, and the second column
-        containing the absolute experimental energy of the corresponding level.
-        In order to specify energy level differences, or specify energies
-        according to their SLJM state labels, use the ExData interface.
-    ndof : int
-        The number of degrees of freedom of the chi-squared distribution, that
-        is, the number of experimental data points minus the number of
-        parameters.
-    z : np.ndarray, optional
-        The eigenvector array the principal components of which are used to sort
-        state-labels.  This must be specified if ex is an ExData object.
-    labels : list, optional
-        A list of state labels.  This must be specified if ex is an ExData
-        object.
-    """
-    if not isinstance(ex, np.ndarray):
-        if z ==  None or labels == None:
-            raise ValueError("Unless ex is a correctly formatted np.ndarray, you " \
-                    "must provide the z and labels arguments to e_fit_sigma.")
-        ex = ex_parse_abs(ex, z, labels)
-
-    ex_li = np.array(ex[:,0], dtype=int)-1
-    try:
-        sigma = np.sqrt(np.sum((e[ex_li] - ex[:,1])**2))/ndof
-    except:
-        raise IndexError("Level index in experimental energies file is out of range.")
-
-    
-    return sigma
-
-def sh_fit_sigma(param, sh, shx, ndof):
-    r"""
-    Calculate the standard deviation of a spin Hamiltonian fit assuming a model
-    fit.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
-
-    Parameters
-    ----------
-    param : list
-        Elements must be `3 \times 3` np.ndarrays corresponding to the spin
-        Hamiltonian parameters.  Output from
-        :func:`cfl.SpinHamiltonian.calc_param` is appropriately formated to be
-        passed as param.
-    sh : SpinHamiltonian
-        Generally the spin Hamiltonian object used to generate the param list. 
-    shx : dict
-        Specifies the experimental spin Hamiltonian data.  Valid keys are
-        'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
-        np.ndarrays corresponding to the experimental spin Hamiltonian tensor.
-    ndof : int
-        The number of degrees of freedom of the chi-squared distribution, that
-        is, the number of experimental data points minus the number of
-        parameters.
-    """
-
-    chi2 = 0
-    for i,inter in enumerate(sh.interactions):
-        chi2 += np.sum((np.abs(shx[inter]) - np.abs(np.real(param[i])))**2)
-
-    sigma = np.sqrt(chi2/ndof)
-
-    return sigma
 
 def print_as_fortran_array(a):
     r"""

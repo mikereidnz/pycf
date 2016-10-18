@@ -2,7 +2,7 @@
 #cython: c_string_encoding=ascii
 #cython: embedsignature=True
 
-#   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
+#   Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -438,7 +438,7 @@ cdef class Hamiltonian:
 
         return (w, z)
 
-    cpdef gen_summary(self, ex=None, nstates=2, sigma=None, e_shift=False):
+    def gen_summary(self, ex=None, nstates=2, **kwargs):
         r"""
         Generate an energy level summary resulting from a diagonalization. 
 
@@ -451,14 +451,20 @@ cdef class Hamiltonian:
             the second column contains the energy level values.
         nstates : int, optional
             The number of constituent states to display for mixed states.
-        sigma : float, optional
-            The standard deviation for the energy level chi^2.
+        chi2 : float, optional 
+            The final chi2 value of the fit. 
+        ndof : int, optional
+            The number of degrees of freedom of the fit; that is, the number of
+            observables minus the number of parameters.
+        weighting : float, optional
+            The weighting applied to during the chi2 fit.  This needs to be
+            provided if ndof is set.
         e_shift : bool, optional
             Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero. 
         """
         if self.diag_run:
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
-                    self.tensors[0].states.label_key, ex, nstates, sigma, e_shift)
+                    self.tensors[0].states.label_key, ex, nstates, **kwargs)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
 
@@ -680,7 +686,6 @@ cdef class SpinHamiltonian:
     cdef float dz
     cdef float dh
     cdef float dq
-
     def __init__(self, interactions, **kwargs):
         cdef int csz
         cdef int ciz
@@ -1314,6 +1319,7 @@ cdef class EFitRunner(object):
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
+    cpdef public np.ndarray chi2
     def __init__(self, parameters, h, ex, **kwargs):
         self.h = h
         self.n_p = len(parameters)
@@ -1398,11 +1404,6 @@ cdef class EFitRunner(object):
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
-        
-        ## Run efit_chi2 so that the initial chi^2 weighting is set.
-        #chi2 = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(1)
-        #x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        #cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1437,7 +1438,7 @@ cdef class EFitRunner(object):
             function.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
-        cdef sigma = 0
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
 
@@ -1453,7 +1454,11 @@ cdef class EFitRunner(object):
             else:
                 coeff[p] = x[ri]
                 ri += 1
-        
+            
+        chi2 = np.ascontiguousarray(np.zeros(1, dtype=np.float64))
+        cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
+        self.chi2 = chi2
+
         return(coeff, fmin)
 
 
@@ -1516,6 +1521,8 @@ cdef class MHFitRunner(object):
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
+    cpdef public np.ndarray chi2
+    cpdef public list weights_list
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
         cdef np.ndarray[char, ndim=1, mode="c"] job_a
@@ -1524,6 +1531,7 @@ cdef class MHFitRunner(object):
         self.n_p = len(parameters)
         self.h_list = h_list
         self.parameters = parameters
+        self.weights_list = weights_list
         
         if not all((isinstance(p, str) for p in parameters)):
             raise TypeError("Parameters must be strings of tensor names.")
@@ -1711,7 +1719,7 @@ cdef class MHFitRunner(object):
             function.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
-        cdef sigma = 0
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         
@@ -1728,6 +1736,10 @@ cdef class MHFitRunner(object):
                 coeff[p] = x[ri]
                 ri += 1
         
+        chi2 = np.ascontiguousarray(np.zeros(self.n_h, dtype=np.float64))
+        cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
+        self.chi2 = chi2
+
         return(coeff, fmin)
 
 
@@ -1867,6 +1879,8 @@ cdef class ESHFitRunner(object):
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
+    cpdef public np.ndarray chi2
+    cpdef dict weights
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
         self.n_p = len(parameters)
         self.parameters = parameters
@@ -1927,7 +1941,10 @@ cdef class ESHFitRunner(object):
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
                     "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
-        
+        if 'energy' not in weights:
+            weights['energy'] = 1.0
+        self.weights = weights
+
         self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex, 
             weights['energy']), "pycfl.ExData")
         
@@ -2056,7 +2073,7 @@ cdef class ESHFitRunner(object):
             
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
-        cdef sigma = 0
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         fmin = min_object.minimize(self, x)
@@ -2071,8 +2088,14 @@ cdef class ESHFitRunner(object):
                 coeff[p] = x[ri]
                 ri += 1
         
-        return(coeff, fmin)
+        chi2 = np.ascontiguousarray(np.zeros(len(self.sh.interactions)+1, dtype=np.float64))
+        if (self.hpro != None):
+            cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
+        else:
+            cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
+        self.chi2 = chi2
 
+        return(coeff, fmin)
 
 
 cdef class MESHFitRunner(object):
@@ -2125,6 +2148,8 @@ cdef class MESHFitRunner(object):
     cpdef public object obj_f_cap
     cpdef public object cov_f_cap
     cpdef public object fit_data_cap
+    cpdef public np.ndarray chi2
+    cpdef public list weights_list
     def __init__(self, parameters, h_sh_list, **kwargs):
         self.n_h = len(h_sh_list)
         self.n_p = len(parameters)
@@ -2221,6 +2246,7 @@ cdef class MESHFitRunner(object):
         self.h_param_list = h_param_list
         self.parameters = parameters
         self.ex_list = ex_list
+        self.weights_list = weights_list
         
         if not all((isinstance(p, str) for p in parameters)):
             raise TypeError("Parameters must be strings of tensor names.")
@@ -2443,7 +2469,7 @@ cdef class MESHFitRunner(object):
             function.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
-        cdef sigma = 0
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         fmin = min_object.minimize(self, x)
@@ -2458,7 +2484,14 @@ cdef class MESHFitRunner(object):
             else:
                 coeff[p] = x[ri]
                 ri += 1
-        
+
+        nchi2 = 0
+        for sh in self.sh_list:
+            nchi2 += len(sh.interactions) + 1      # +1 for each energy level chi2.
+        chi2 = np.ascontiguousarray(np.zeros(nchi2, dtype=np.float64))
+        cfl.meshfit_chi2(&x[0], self.meshfit_data, &chi2[0])
+        self.chi2 = chi2
+
         return(coeff, fmin)
 
 
@@ -2813,15 +2846,13 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(efit.n_p_real - efit.n_obs, 1)
 
-    e_sigma = e_fit_sigma(w, efit.ex, ndof, z, h.tensors[0].states.labels)
-
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
     summary += gen_pycf_summary()
-    summary += efit.h.gen_summary(ex=efit.ex, sigma=e_sigma)
+    summary += efit.h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1)
     summary += "\n"
-    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
@@ -2872,8 +2903,8 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     summary+= "==============\n"
     summary += gen_pycf_summary()
 
-    ## The number of degrees of freedom of the chi-squared distribution
-    #ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
+    # The number of degrees of freedom of the chi-squared distribution
+    ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
     h = mhfit.h_list[0]
     h.set_coeff(x)
     (w, z) = h.diag()
@@ -2884,8 +2915,8 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
-        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, 
-                h.tensors[0].states.label_key, ex_list[i], name)
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key,
+                ex_list[i], name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
 
         summary += "\n"
 
@@ -2947,18 +2978,18 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     ndof = max(eshfit.n_p_real - eshfit.n_obs, 1)
 
     sh_param = sh.calc_param(h)
-    e_sigma = e_fit_sigma(w, ex, ndof, z, h.tensors[0].states.labels)
-    sh_sigma = sh_fit_sigma(sh_param, sh, shx, ndof)
-
+    
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n"
     summary += gen_pycf_summary()
-    summary += h.gen_summary(ex=eshfit.ex, sigma=e_sigma)
+    summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
+            weighting=eshfit.weights['energy'])
     summary += "\n"
-    summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
+    summary += gen_sh_summary(sh_param, sh, shx, chi2=eshfit.chi2[1:], ndof=ndof, 
+            weighting=eshfit.weights)
     summary += "\n"
-    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
@@ -3003,10 +3034,6 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(meshfit.n_p_real - meshfit.n_obs, 1)
 
-    #sh_param = sh.calc_param(h)
-    #e_sigma = e_fit_sigma(w, ex, ndof, z, h.tensors[0].states.labels)
-    #sh_sigma = sh_fit_sigma(sh_param, sh, shx, ndof)
-
     summary = "================\n"
     summary+= "mesh_fit summary\n"
     summary+= "================\n"
@@ -3014,21 +3041,27 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     summary += h.gen_summary()
     summary += "\n"
 
+    chi2_offset = 0
     for i,h in enumerate(meshfit.h_list):
         h.set_coeff(x)
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, 
-                h.tensors[0].states.label_key, meshfit.ex_list[i], name)
+                h.tensors[0].states.label_key, meshfit.ex_list[i], name,
+                chi2=meshfit.chi2[chi2_offset], ndof=ndof, weighting=meshfit.weights_list[i]['energy'])
+        chi2_offset += 1
         summary += "\n"
 
         name = "Spin Hamiltonian %i" % i
         sh_param = meshfit.sh_list[i].calc_param(h)
-        summary += gen_sh_summary(sh_param, meshfit.sh_list[i], name, h_sh_list[i]['shx'])
+        
+        ni = len(meshfit.sh_list[i].interactions)   # The number of interactions for this sh.
+        summary += gen_sh_summary(sh_param, meshfit.sh_list[i], h_sh_list[i]['shx'], name,
+                chi2=meshfit.chi2[chi2_offset:chi2_offset+ni], ndof=ndof, weighting=meshfit.weights_list[i])
+        chi2_offset += ni
         summary += "\n"
     
-    #summary += gen_fit_summary(x, meshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
     summary += gen_fit_summary(x, meshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
