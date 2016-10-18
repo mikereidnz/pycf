@@ -9,23 +9,11 @@ TODO
     fitting... it makes sense to explicitly set them when one simply wants to
     invert a spin Hamiltonian, but for fitting the ESHFitRunner should take care
     of that...
-  * Update energy level summary printing to handle energy differences, and MHFit
-    summaries; at the moment it uses a single coeff dict for all MHFit diags,
-    which clearly is nonsense.
   * Current F->D transition labels are very limited... should store the complete
     label somehow... Only works for (2F) labels presently. 
-  * Think about the efit/eshfit->chisq weight factor... should all (spin)
-    hamiltonians be normalized, or only the principal one?
-  * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
   * Add weighting to spin Hamiltonian log.
-  * Print all parameters, even static ones, in a fit summary... Maybe add a
-    generic input section? 
-  * Change parameter printing s.t. it supports something akin to repr, i.e.,
-    directly throws back the dict that you can then reuse in a different fit. At
-    least add appropritae formatting with commas and quotes.
-  * Add support to energy difference printing.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.

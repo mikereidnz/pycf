@@ -2114,6 +2114,7 @@ cdef class MESHFitRunner(object):
     cpdef public int n_obs
     cpdef public dict param_types
     cdef list h_param_list
+    cpdef public list ex_list
     cdef list ex_data
     cdef list param_arrays
     cdef list shx_list
@@ -2219,6 +2220,7 @@ cdef class MESHFitRunner(object):
         self.sh_list = sh_list
         self.h_param_list = h_param_list
         self.parameters = parameters
+        self.ex_list = ex_list
         
         if not all((isinstance(p, str) for p in parameters)):
             raise TypeError("Parameters must be strings of tensor names.")
@@ -2872,16 +2874,22 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
 
     ## The number of degrees of freedom of the chi-squared distribution
     #ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
+    h = mhfit.h_list[0]
+    h.set_coeff(x)
+    (w, z) = h.diag()
+    summary += h.gen_summary() + "\n\n"
 
-    #for i,h in enumerate(mhfit.h_list):
-    #    h.set_coeff(x)
-    #    (w, z) = h.diag()
+    for i,h in enumerate(mhfit.h_list):
+        h.set_coeff(x)
+        (w, z) = h.diag()
 
-    #    e_sigma = e_fit_sigma(w, ex_list[i], ndof, z, h.tensors[0].states.labels)
-    #    summary += h.gen_summary(ex=ex_list[i], sigma=e_sigma)
-    #    summary += "\n"
+        name = "Hamiltonian %i" % i
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, 
+                h.tensors[0].states.label_key, ex_list[i], name)
 
-    #summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, sigma=e_sigma, **cfl_min.kwargs)
+        summary += "\n"
+
+    summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, **cfl_min.kwargs)
     
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
@@ -2987,6 +2995,8 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     """
     meshfit = MESHFitRunner(parameters, h_sh_list, **kwargs)
     (x, fmin) = meshfit.fit(cfl_min)
+
+    h = meshfit.h_list[0]
     h.set_coeff(x)
     (w, z) = h.diag()
     
@@ -3001,10 +3011,23 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     summary+= "mesh_fit summary\n"
     summary+= "================\n"
     summary += gen_pycf_summary()
-    #summary += h.gen_summary(ex=eshfit.ex, sigma=e_sigma)
-    #summary += "\n"
-    #summary += gen_sh_summary(sh_param, sh, shx, sigma=sh_sigma)
-    #summary += "\n"
+    summary += h.gen_summary()
+    summary += "\n"
+
+    for i,h in enumerate(meshfit.h_list):
+        h.set_coeff(x)
+        (w, z) = h.diag()
+
+        name = "Hamiltonian %i" % i
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, 
+                h.tensors[0].states.label_key, meshfit.ex_list[i], name)
+        summary += "\n"
+
+        name = "Spin Hamiltonian %i" % i
+        sh_param = meshfit.sh_list[i].calc_param(h)
+        summary += gen_sh_summary(sh_param, meshfit.sh_list[i], name, h_sh_list[i]['shx'])
+        summary += "\n"
+    
     #summary += gen_fit_summary(x, meshfit, cfl_min.method, fmin, sigma=e_sigma+sh_sigma, **cfl_min.kwargs)
     summary += gen_fit_summary(x, meshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 

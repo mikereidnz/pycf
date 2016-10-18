@@ -112,40 +112,6 @@ def L2term(i):
     else:
         raise NotImplementedError("L quantum number values greater than 11 are not supported.")
 
-def ex_parse_helper(ex, z, labels):
-    r"""
-    Helper for creating print-compatible ex array from ExData object.  
-
-    Parameters
-    ----------
-    ex : ExData
-        The objected to be parsed.
-    z : np.ndarray
-        The eigenvector array the principal components of which are used to sort
-        state-labels.
-    labels : list
-        A list of state labels.
-    """
-    if ex.sl_index:
-        parsed_ex = np.zeros((ex.n_a, 2))
-        parsed_ex[:, 1] = ex.e[:ex.n_a]
-        # Determine the index of the principal component of each
-        # eigenvector. 
-        pc = np.argmax(np.abs(z), axis=0)
-        for i,r in enumerate(ex.a_states):
-            # Find the index of the principal component of each state
-            # label in a_states; we add one for compatibility with
-            # ex data passed via a direct np.ndarray.
-            parsed_ex[i, 0] = np.where((np.array(labels)[pc] == r).all(axis=1))[0][0] + 1
-    
-    else:
-        parsed_ex = np.zeros((ex.n_a, 2))
-        parsed_ex[:, 1] = ex.e[:ex.n_a]
-        parsed_ex[:, 0] = ex.la + 1
-        # Sort ex according to index column.
-        parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
-
-    return parsed_ex
 
 def gen_pycf_summary():
     r"""
@@ -164,6 +130,215 @@ def gen_pycf_summary():
 
     return s
 
+
+def ex_parse_abs(ex, z, labels):
+    r"""
+    Helper function for extracting and formatting experimental energy level data
+    from an ExData object for absolute energy level data.
+
+    Parameters
+    ----------
+    ex : ExData
+        The object to be parsed.
+    z : np.ndarray
+        Eigenvector array the principal components of which are used to sort
+        state labels.
+    labels : list 
+        A list of state labels.
+
+    Returns
+    -------
+    parsed_ex : np.ndarray
+        Two column array containing level indices starting at 1 in the zeroeth
+        column and corresponding experimental energy levels in the first column.
+        If the ExData object contains no absolute energy levels None is
+        returned.
+    """
+    if ex.n_a == 0:
+        parsed_ex = None
+    elif ex.sl_index:
+        parsed_ex = np.zeros((ex.n_a, 2))
+        parsed_ex[:, 1] = ex.e[:ex.n_a]
+        # Determine the index of the principal component of each
+        # eigenvector. 
+        pc = np.argmax(np.abs(z), axis=0)
+        for i,r in enumerate(ex.a_states):
+            # Find the index of the principal component of each state label.
+            parsed_ex[i, 0] = np.where((np.array(labels)[pc] == r).all(axis=1))[0][0]
+    
+    else:
+        parsed_ex = np.zeros((ex.n_a, 2))
+        parsed_ex[:, 1] = ex.e[:ex.n_a]
+        parsed_ex[:, 0] = ex.la 
+        # Sort ex according to index column.
+        parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
+
+    return parsed_ex
+
+def ex_parse_diff(ex, z, labels):
+    r"""
+    Helper function for extracting and formatting experimental energy level data
+    from an ExData object for energy level differences.
+
+    Parameters
+    ----------
+    ex : ExData
+        The object to be parsed.
+    z : np.ndarray
+        Eigenvector array the principal components of which are used to sort
+        state labels.
+    labels : list 
+        A list of state labels.
+    
+    Returns
+    -------
+    parsed_ex : np.ndarray
+        Three coloumn array containing initial level indices starting at 1 in
+        the zeroeth column, final level indices starting at 1 in the first
+        column, and corresponding experimental energy levels differences in the
+        second column.  If the ExData object contains no absolute energy levels
+        None is returned.
+    """
+    if ex.n_a == 0:
+        parsed_ex = None
+    elif ex.sl_index:
+        parsed_ex = np.zeros((ex.n_d, 3))
+        parsed_ex[:, 2] = ex.e[ex.n_a:]
+        # Determine the index of the principal component of each
+        # eigenvector. 
+        pc = np.argmax(np.abs(z), axis=0)
+        # Find the index of the principal component of each state label.
+        for i,s in enumerate(ex.id_states):
+            parsed_ex[i, 0] = np.where((np.array(labels)[pc] == s).all(axis=1))[0][0]
+        for i,s in enumerate(ex.fd_states):
+            parsed_ex[i, 1] = np.where((np.array(labels)[pc] == s).all(axis=1))[0][0]
+    else:
+        parsed_ex = np.zeros((ex.n_d, 3))
+        parsed_ex[:, 2] = ex.e[ex.n_a:]
+        parsed_ex[:, 0] = ex.ild
+        parsed_ex[:, 1] = ex.fld
+        # Sort ex according to index column.
+        parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
+
+    return parsed_ex
+
+
+def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2):
+    r"""
+    Generate a truncated energy level summary displaying only levels for which
+    experimental energy level data is provided.
+
+    Parameters
+    ----------
+    w : np.ndarray
+        The eigenvalue vector, of length n.
+    z : np.ndarray
+        The eigenvectors in an n by n matrix.
+    labels : list
+        A list of state labels.
+    label_key : str
+       String identifying the type of label.  Valid characters are S, L, J, M,
+       I, T, and F and their position in label_key specifies the location in
+       each label.  
+    ex : ExData
+        The ExData object for which to generate the truncated energy level summary. 
+    name : str
+        Name used in heading for this truncated summary.
+    nstates : int, optional
+        The number of constituent states to display for mixed states.
+    """
+    def fmt_label(li, labels):
+        label = "|"
+        for i,l in enumerate(labels[li]):
+            if label_key[i] == 'T':
+                label += "{:d},".format(l)
+            elif label_key[i] == 'F':
+                if l:
+                    label += "(2F)".format(l)
+                else:
+                    label += "    "
+            elif label_key[i] == 'S':
+                    label += "{:d}".format(l)
+            elif label_key[i] == 'L':
+                label += L2term(l)
+            elif label_key[i] == 'J':
+                label += "{: >2d},".format(l)
+            elif i < len(label_key)-1:
+                label += "{: >3d},".format(l)
+            else:
+                label += "{: >3d}>".format(l)
+
+        return label
+    
+    if ex.n_a + ex.n_d == 0:
+        return ""
+
+    s = "{} summary\n".format(name)
+    s+= "="*len(name) + "========\n\n"
+    sort_list = []
+    for i in range(len(z)):
+        sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
+    
+    # Absolute energy level summary.
+    if ex.n_a != 0:
+        s += uline_char("Absolute energy levels:\n")
+        exa = ex_parse_abs(ex, z, labels)
+        heading = "Lev.  " + ("Percentage                 " + "State" + \
+                " " * (len(fmt_label(0, labels))-4)) * nstates + "       Theory"
+        heading += "     Experiment    Difference\n"
+        
+        s += uline_char(heading)
+        for ii in range(ex.n_a):
+            i = int(exa[ii, 0])
+            line = "{0:<6}".format(i+1)
+            N = np.sum(np.abs(z[:, i]))
+            for j in range(nstates):
+                si = sort_list[i][j]
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                        si+1, fmt_label(si, labels))
+
+            s += line + " {: >12.4f}".format(w[i])
+            s += "   {: >12.4f}  {: >12.4f}".format(exa[ii,1], exa[ii,1]-w[i]) + "\n"
+        
+        s += "\n"
+    
+    # Difference energy level summary. 
+    if ex.n_d != 0:
+        s += uline_char("Energy level differences:\n")
+        exd = ex_parse_diff(ex, z, labels)
+        heading = "Lev.  " + ("Percentage                 " + "State" + \
+                " " * (len(fmt_label(0, labels))-4)) * nstates + "    Th. diff."
+        heading += "     Exp. diff.    Diff. diff.\n"
+        
+        s += uline_char(heading)
+        for ii in range(ex.n_d):
+            i = int(exd[ii, 0])
+            line = "{0:<6}".format(i+1)
+            N = np.sum(np.abs(z[:, i]))
+            for j in range(nstates):
+                si = sort_list[i][j]
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                        si+1, fmt_label(si, labels))
+            s += line + "\n"
+            tmp_w = w[i]
+            i = int(exd[ii, 1])
+            line = "{0:<6}".format(i+1)
+            N = np.sum(np.abs(z[:, i]))
+            for j in range(nstates):
+                si = sort_list[i][j]
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                        si+1, fmt_label(si, labels))
+            tmp_w = w[i]-tmp_w
+            s += line + " {: >12.4f}".format(tmp_w)
+            s += "   {: >12.4f}  {: >12.4f}".format(exd[ii,2], exd[ii,2] - tmp_w) + "\n"
+        s += "\n"
+
+    s += "Label key: {}\n".format(label_key)
+    s += "\n"
+    
+    return s
+
+
 def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shift=False):
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
@@ -180,20 +355,13 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
        String identifying the type of label.  Valid characters are S, L, J, M,
        I, T, and F and their position in label_key specifies the location in
        each label.  
-    ex : np.ndarray, optional
-        Either a 2 by n dimensional array or a 3 by n dimensional array, with n
-        the number of available experimental energy level observables.  The two
+    ex : np.ndarray or ExData, optional
+        Either a 2 by n dimensional array or an ExData object. The two
         column case is used to specify only absolute energy levels.  In this
         instance, the first column contains energy level indices starting at 1,
         and the second column contains the absolute experimental energy of the
-        corresponding level.  The three column case is used to specify a
-        combination of absolute energy levels and energy differences.  For
-        absolute energies, the first column again contains energy level indices
-        starting at 1, while the second column should be set to -1, and the
-        third column contains the corresponding absolute experimental energy.
-        For energy differences, the first column specifies the initial energy
-        level index, the second column specifies the final energy level index,
-        and the third column corresponds to the energy difference. 
+        corresponding level.  Other types of energy level data must be passed as
+        an ExData object.  
     nstates : int, optional
         The number of constituent states to display for mixed states.
     sigma : float, optional
@@ -229,16 +397,13 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
         if isinstance(ex, np.ndarray):
             # Sort ex according to index column.
             ex = ex[np.argsort(ex[:, 0]), :]
+            # Change to zero based indexing
+            ex[:, 0] = ex[:, 0]-1
         else:
-            ex = ex_parse_helper(ex, z, labels)
+            ex = ex_parse_abs(ex, z, labels)
 
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
-        
-        # We currently throw out difference energies; ensure summary doesn't
-        # fail for diff only fits by setting ex to None
-        if len(ex) == 0:
-            ex = None
 
     if e_shift:
         e_shift = -np.min(w)
@@ -257,7 +422,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
         heading += " \n"
     
     s += uline_char(heading)
-    ex_i=0
+    ii=0
     for i in range(len(z)):
         line = "{0:<6}".format(i+1)
         N = np.sum(np.abs(z[:, i]))
@@ -269,10 +434,10 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
         s += line + " {: >12.4f}".format(w[i])
 
         if ex != None:
-            if ex[ex_i,0] == i+1:
-                s += "   {: >12.4f}  {: >12.4f}".format(ex[ex_i,1], ex[ex_i,1]-w[i]) + "\n"
-                if ex_i != len(ex)-1:
-                    ex_i += 1
+            if ex[ii,0] == i:
+                s += "   {: >12.4f}  {: >12.4f}".format(ex[ii,1], ex[ii,1]-w[i]) + "\n"
+                if ii != len(ex)-1:
+                    ii += 1
             else:
                 s += "         --            --\n"
         else:
@@ -286,7 +451,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, sigma=None, e_shi
     
     return s
 
-def gen_sh_summary(param, sh, shx=None, sigma=None):
+def gen_sh_summary(param, sh, name = None, shx=None, sigma=None):
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
     spin Hamiltonian data. 
@@ -300,6 +465,9 @@ def gen_sh_summary(param, sh, shx=None, sigma=None):
         passed as param.
     sh : SpinHamiltonian
         Generally the spin Hamiltonian object used to generate the param list. 
+    name : str, optional
+        If provided, the summary heading uses the provided string instead of
+        "Spin Hamiltonian".
     shx : dict, optional
         Specifies the experimental spin Hamiltonian data for comparison.  Valid
         keys are 'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3
@@ -309,9 +477,14 @@ def gen_sh_summary(param, sh, shx=None, sigma=None):
         The standard deviation for the spin Hamiltonian chi^2.
     """
     np.set_printoptions(formatter={'float': lambda x: '{:8.5f}'.format(x)})
+    
+    if name != None:
+        s = "{} summary\n".format(name)
+        s+= "="*len(name) + "========\n\n"
+    else:
+        s = "Spin Hamiltonian summary\n"
+        s+= "========================\n\n"
 
-    s = "Spin Hamiltonian summary\n"
-    s+= "========================\n\n"
     for i,inter in enumerate(sh.interactions):
         s += uline_char("%s interaction\n" % inter)
         if shx != None:
@@ -325,6 +498,7 @@ def gen_sh_summary(param, sh, shx=None, sigma=None):
                     - np.abs(np.real(param[i]))).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
+        s += "\n"
     
     if sigma != None:
         s += "sigma = {: .4f}\n".format(sigma)
@@ -339,7 +513,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     ----------
     coeff : dict
         Contains the fitted interaction coefficients.
-    fit_obj : EFitRunner, MevFitRunner, or ESHFitRunner
+    fit_obj : EFitRunner, MHFitRunner, ESHFitRunner, or MESHFitRunner
         Must have __iter__ method that iterates over names of tensors.
     method : str
         The optimization algorithm used for the fit.
@@ -356,7 +530,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
     s = "Fitting summary\n"
     s+= "===============\n\n"
     
-    heading = "Tensor name          Fitted coeff        Initial coeff           Difference"
+    heading = "Tensor name            Fitted coeff        Initial coeff         Difference"
     if kwargs['cov']:
         if sigma == None:
             raise ValueError("'cov' kwarg is specified as True, but sigma is not provided.")
@@ -373,7 +547,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, sigma=None, **kwargs):
         co = fit_obj.coeff[p]
         if co.imag == 0:
             co = co.real
-        s += "{0:<12} {1: >20.4f} {2: >20.4f} {3: >20.4f}".format(p+":", coeff[p], co, coeff[p]-co)
+        s += "'{0:<12}: {1: >20.2f} {2: >20.2f} {3: >18.2f}".format(p+"'", coeff[p], co, coeff[p]-co)
         if kwargs['cov']:
             s += "{0: >15.0f}".format(np.sqrt(np.abs(cov[i,i]))*sigma)
         if 'bounds' in kwargs:
@@ -449,7 +623,7 @@ def e_fit_sigma(e, ex, ndof, z=None, labels=None):
         if z ==  None or labels == None:
             raise ValueError("Unless ex is a correctly formatted np.ndarray, you " \
                     "must provide the z and labels arguments to e_fit_sigma.")
-        ex = ex_parse_helper(ex, z, labels)
+        ex = ex_parse_abs(ex, z, labels)
 
     ex_li = np.array(ex[:,0], dtype=int)-1
     try:
