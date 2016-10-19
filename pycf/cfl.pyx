@@ -916,7 +916,7 @@ cdef class SpinHamiltonian:
         self.pro_data_set = 1
 
 
-    def calc_param(self, h, matel=False):
+    def calc_param(self, h, matel=False, svd_sym=False):
         r"""
         Calculate the spin Hamiltonian parameters given a crystal-field
         Hamiltonian.
@@ -925,9 +925,13 @@ cdef class SpinHamiltonian:
         ----------
         h : Hamiltonian
             The corresponding crystal-field Hamiltonian. 
-        matel : bool
+        matel : bool, optional
             If true, a dictionary containing the spin Hamiltonian matrix
             elements is returned.
+        svd_sym : bool, optional
+            Symmeterize spin Hamiltonian parameter tensors by applying an SVD
+            transformation.
+
 
         Returns
         -------
@@ -950,10 +954,16 @@ cdef class SpinHamiltonian:
         (h, hpro) = sh_hpro_helper(h, self)
         if hpro != None:
             h = hpro
+        
+        # Check whether to perform SVD symmeterization. 
+        if svd_sym:
+            svd = <char> 'S'
+        else:
+            svd = <char> 'N'
 
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=2, mode="fortran"]> z
-        shp_w = zshp_w_alloc('N', <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
+        shp_w = zshp_w_alloc(svd, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
         a = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(9, dtype=np.float64)
        
         result_list = []
@@ -2119,8 +2129,8 @@ cdef class MESHFitRunner(object):
         A list of tensor objects for which to vary the prefactor. 
     h_sh_list : list
         Each element should be a dictionary with the following keys: 'h', 'sh',
-        'ex', 'shx', and 'weights'.  For descriptions of each element, see the
-        ESHFitRunner docstring.
+        'ex', 'shx', 'weights', and svd_sym.  For descriptions of each element,
+        see the ESHFitRunner docstring.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -2229,8 +2239,8 @@ cdef class MESHFitRunner(object):
             for w in ['energy'] + sh.interactions:
                 if w not in weights_list[i]:
                     weights_list[i][w] = 1
-            if 'svd_inv' in d:
-                if d['svd_inv']:
+            if 'svd_sym' in d:
+                if d['svd_sym']:
                     svd_list += [<char> 'S']
                 else:
                     svd_list += [<char> 'N']
@@ -3017,8 +3027,8 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
         A list of tensor objects for which to vary the prefactor. 
     h_sh_list : list
         Each element should be a dictionary with the following keys: 'h', 'sh',
-        'ex', 'shx', and 'weights'.  For descriptions of each element, see the
-        ESHFitRunner docstring.
+        'ex', 'shx', 'weights', and svd_sym.  For descriptions of each element,
+        see the ESHFitRunner docstring.
     cfl_min : CFLMin 
         The minimization object which sets the optimization algorithm and
         corresponding options.
@@ -3042,7 +3052,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     summary += gen_pycf_summary()
     summary += h.gen_summary()
     summary += "\n"
-
+    
     chi2_offset = 0
     for i,h in enumerate(meshfit.h_list):
         h.set_coeff(x)
@@ -3054,9 +3064,13 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
                 chi2=meshfit.chi2[chi2_offset], ndof=ndof, weighting=meshfit.weights_list[i]['energy'])
         chi2_offset += 1
         summary += "\n"
-
+        
+        if 'svd_sym' in h_sh_list[i]:
+            svd = h_sh_list[i]['svd_sym']
+        else:
+            svd = False
         name = "Spin Hamiltonian %i" % i
-        sh_param = meshfit.sh_list[i].calc_param(h)
+        sh_param = meshfit.sh_list[i].calc_param(h, svd_sym=svd)
         
         ni = len(meshfit.sh_list[i].interactions)   # The number of interactions for this sh.
         summary += gen_sh_summary(sh_param, meshfit.sh_list[i], h_sh_list[i]['shx'], name,

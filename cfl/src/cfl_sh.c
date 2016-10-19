@@ -641,6 +641,7 @@ void zshi_svd(double *a, zshi_svd_w *w) {
   int info;
   char lapack_err[] = "LAPACKE_zgesvd failed with error code: 0";
   
+  memcpy(w->tmp_a, a, 9*sizeof(double));
   info = LAPACKE_dgesvd_work(LAPACK_COL_MAJOR, 'A', 'A', 3, 3, a, 3, w->s, w->u,
       3, w->vt, 3, w->work, w->lwork);
   if (info != 0) {
@@ -648,18 +649,13 @@ void zshi_svd(double *a, zshi_svd_w *w) {
     CFL_ERROR_VOID(lapack_err);
   }
 
-  /* Construct the Sigma matrix from vector s. */
-  w->s[4] = w->s[1];
-  w->s[8] = w->s[2];
-  w->s[1] = 0;
-  w->s[2] = 0;
-
   /* w->work is at least 5*MIN(M,N), which in our case is 15.  Therefore, we can
    * use w->work as a matrix multiplication workspace. */
-  cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, w->u, 3,
-      w->s, 3, 0, w->work, 3);
-  cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, w->work,
-      3, w->vt, 3, 0, a, 3);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->tmp_a, 3,
+      w->u, 3, 0, w->work, 3);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->work,
+      3, w->vt, 3, 0, a, 3);  
+
 }
 
 
