@@ -584,15 +584,15 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
 
 
 /* 
- * Allocate workspace for symmeterizing inverted spin Hamiltonian parameter
- * tensors using a singular value decomposition. 
+ * Allocate workspace for symmeterizing spin Hamiltonian parameter tensors using
+ * a singular value decomposition. 
  */
-zshi_svd_w *zshi_svd_w_alloc() {
+svd_sym_w *svd_sym_w_alloc() {
   int lwork, info;
   double *s, *u, *vt, wquery;
-  zshi_svd_w *w;
+  svd_sym_w *w;
 
-  w = (zshi_svd_w *) malloc(sizeof(zshi_svd_w));
+  w = (svd_sym_w *) malloc(sizeof(svd_sym_w));
   if (w == 0) {
     CFL_ERROR_NULL("malloc failed for w");
   }
@@ -623,21 +623,21 @@ zshi_svd_w *zshi_svd_w_alloc() {
 /* 
  * Free the spin Hamiltonian tensor symmeterization workspace. 
  */
-void zshi_svd_w_free(zshi_svd_w *w) {
+void svd_sym_w_free(svd_sym_w *w) {
   free(w->work);
   free(w);
 }
 
 /* 
- * Perform a symmeterization of an inverted spin Hamlitonian parameter tensor
- * using a singular value decomposition.
+ * Perform a symmeterization of an spin Hamiltonian parameter tensor using a
+ * singular value decomposition.
  *
  * Parameters
  * ----------
  *  a     The parameter tensor array.
  *  w     The symmeterization workspace.
  */
-void zshi_svd(double *a, zshi_svd_w *w) {
+void svd_sym(double *a, svd_sym_w *w) {
   int info;
   char lapack_err[] = "LAPACKE_zgesvd failed with error code: 0";
   
@@ -710,12 +710,12 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
   
   if (job == 'S') {
     w->job = 'S';
-    w->svd_w = (zshi_svd_w *) zshi_svd_w_alloc();
+    w->svd_w = (svd_sym_w *) svd_sym_w_alloc();
     if (w->svd_w == 0) {
       free(w);
       free(work);
       free(a);
-      CFL_ERROR_NULL("zshi_svd_w_alloc failed");
+      CFL_ERROR_NULL("svd_sym_w_alloc failed");
     }
   }
   else {
@@ -739,7 +739,7 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
  */
 void zshi_w_free(zshi_w *w) {
   if (w->job == 'S') {
-    zshi_svd_w_free(w->svd_w);
+    svd_sym_w_free(w->svd_w);
   }
   free(w->work);
   free(w->a);
@@ -775,7 +775,7 @@ void zshi(double *a, zshi_w *w) {
   }
 
   if (w->job == 'S') {
-    zshi_svd(a, w->svd_w);
+    svd_sym(a, w->svd_w);
   }
 }
 

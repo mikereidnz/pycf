@@ -116,7 +116,7 @@ typedef struct {
   double u[9];
   /* The transposed unitary matrix V. */
   double vt[9];
-} zshi_svd_w;
+} svd_sym_w;
 
 /* The spin Hamiltonian inversion workspace. */
 typedef struct {
@@ -137,7 +137,7 @@ typedef struct {
   /* The leading dimension of array b. ldb >= MAX(1,M,N) */
   int ldb;
   /* Workspace for SVD decomposition. */
-  zshi_svd_w *svd_w;
+  svd_sym_w *svd_w;
 } zshi_w;
 
 /* Workspace for crystal field Hamiltonian to spin Hamiltonian parameter
@@ -173,6 +173,9 @@ void zshp_p_w_free(zshp_p_w *shp_p_w);
 void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w);
 void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
 void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
+svd_sym_w *svd_sym_w_alloc();
+void svd_sym_w_free(svd_sym_w *w);
+void svd_sym(double *a, svd_sym_w *w);
 zshi_w *zshi_w_alloc(char job, zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
 void zshi(double *a, zshi_w *w);

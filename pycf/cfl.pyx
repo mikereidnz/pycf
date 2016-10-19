@@ -633,6 +633,36 @@ cdef sh_hpro_helper(h, sh):
 
     return (h, hpro)
 
+
+cpdef sh_svd(m):
+    r"""
+    Use a singular value decomposition to symmeterize a 3 by 3 spin Hamiltonian
+    parameter array. The intended use of this function is to allow any
+    experimental parameter values to be transformed to the same basis as the
+    projected parameter matrices.
+
+    Parameters
+    ----------
+    m : np.ndarray
+        The 3 by 3 spin Hamiltonian parameter array.
+    """
+    cdef cfl.svd_sym_w *work
+    cdef np.ndarray[double, ndim=1, mode="c"] cm
+    
+    if m.shape != (3,3):
+        raise ValueError("m must be a 3 by 3 array.")
+
+    cm = np.ascontiguousarray(m.flatten(), dtype=np.float64)
+    work = cfl.svd_sym_w_alloc()
+    if work == NULL:
+        raise MemoryError("Failed to allock SVD workspace")
+
+    cfl.svd_sym(&cm[0], work)
+    cfl.svd_sym_w_free(work)
+
+    return cm.reshape(3,3)
+
+
 cdef class SpinHamiltonian:
     r""" 
     Abstraction for spin Hamiltonian data.  Objects of type SpinHamiltonian are
@@ -1996,6 +2026,18 @@ cdef class ESHFitRunner(object):
                 self.x0[ii] =  self.coeff[p]
                 ii += 1
         
+        # Check the SVD kwarg...
+        if 'svd_sym' in kwargs:
+            if kwargs['svd_sym']:
+                svd = <char> 'S'
+                # Ensure any input spin Hamiltonian parameters are in the
+                # singular value decomposition basis.
+                for inter in shx:
+                    shx[inter] = sh_svd(shx[inter])
+            else:
+                svd = <char> 'N'
+        else:
+            svd = <char> 'N'
         # Create array of experimental spin Hamiltonian data.
         try:
             (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx, weights)
@@ -2007,15 +2049,6 @@ cdef class ESHFitRunner(object):
             raise
         shx_array = <cfl.shx_data **>PyCapsule_GetPointer(shx_array_cap, "pycfl.ShxArray")
         self.shx_array = shx_array
-        
-        # Check the SVD kwarg...
-        if 'svd_sym' in kwargs:
-            if kwargs['svd_sym']:
-                svd = <char> 'S'
-            else:
-                svd = <char> 'N'
-        else:
-            svd = <char> 'N'
 
         if (self.hpro != None):
             if self.ex.sl_index:
@@ -2242,6 +2275,8 @@ cdef class MESHFitRunner(object):
             if 'svd_sym' in d:
                 if d['svd_sym']:
                     svd_list += [<char> 'S']
+                    for inter in shx_list[i]:
+                        shx_list[i][inter] = sh_svd(shx_list[i][inter])
                 else:
                     svd_list += [<char> 'N']
             else:

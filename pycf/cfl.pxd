@@ -90,6 +90,9 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     ctypedef struct zshp_p_w:
         pass
 
+    ctypedef struct svd_sym_w:
+        pass
+
     zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, double complex **a)
     void zsh_free(zsh *sh)
     int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) 
@@ -99,12 +102,16 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     void zshp_gen_sort(double complex *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w)
     void zshp_parse(double complex *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w)
     void zshp_p(double complex *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w)
+    svd_sym_w *svd_sym_w_alloc()
+    void svd_sym_w_free(svd_sym_w *w)
+    void svd_sym(double *a, svd_sym_w *w)
     zshi_w *zshi_w_alloc(zsh_inv_data *d)
     void zshi_w_free(zshi_w *w)
     void zshi(double complex *a, zshi_w *w)
     zshp_w *zshp_w_alloc(char job, zsh *sh)
     void zshp_w_free(zshp_w *w)
     void zshp(double *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
+
 
 cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_bounds:
