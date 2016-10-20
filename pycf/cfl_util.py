@@ -335,13 +335,13 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=N
 
     s += "Label key: {}\n".format(label_key)
     if chi2 != None:
-        s += "chi2 = {: .4f}\n".format(chi2)
+        s += "weighted chi2 = {: .4f}\n".format(chi2)
         if ndof != None:
             if weighting == None:
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
             s += "sigma = {: .4f}\n".format(np.sqrt(chi2/weighting)/ndof)
             if weighting != 1:
-                s += "chi2 weighting = {: .2f}\n".format(weighting)
+                s += "weighting factor= {: .4f}\n".format(weighting)
 
     if e_shift:
         s += "Energy level shift: {: .4f}\n".format(e_shift)
@@ -472,13 +472,13 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2, chi2=None,
 
     s += "Label key: {}\n".format(label_key)
     if chi2 != None:
-        s += "chi2 = {: .4f}\n".format(chi2)
+        s += "weighted chi2 = {: .4f}\n".format(chi2)
         if ndof != None:
             if weighting == None:
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
             s += "sigma = {: .4f}\n".format(np.sqrt(chi2/weighting)/ndof)
             if weighting != 1:
-                s += "chi2 weighting = {: .2f}\n".format(weighting)
+                s += "weighting factor= {: .4f}\n".format(weighting)
     s += "\n"
     
     return s
@@ -541,9 +541,9 @@ def gen_sh_summary(param, sh, shx=None, name=None, chi2=None, ndof=None, weighti
             else:
                 s += "\n"
         if chi2 != None:
-            s += "chi2 = {: .4f}\n".format(chi2[i])
+            s += "weighted chi2 = {: .4f}\n".format(chi2[i])
             if weighting != None:
-                s += "chi2 weighting = {: .2f}\n".format(weighting[inter])
+                s += "weighting factor= {: .4f}\n".format(weighting[inter])
                 tmp_sigma += chi2[i]/weighting[inter]
         s += "\n"
     
@@ -593,7 +593,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
         co = fit_obj.coeff[p]
         if co.imag == 0:
             co = co.real
-        s += "'{0:<12}: {1: >20.2f} {2: >20.2f} {3: >18.2f}".format(p+"'", coeff[p], co, coeff[p]-co)
+        s += "'{0:<12}: {1: >20.4f} {2: >20.4f} {3: >18.4f}".format(p+"'", coeff[p], co, coeff[p]-co)
         if kwargs['cov']:
             s += "{0: >15.0f}".format(np.sqrt(np.abs(cov[i,i]))*sigma)
         if 'bounds' in kwargs:
