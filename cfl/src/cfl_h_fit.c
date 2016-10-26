@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
+   Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -636,9 +636,9 @@ inline double shchisq(double *pa, double *xpa) {
 
   chisq = 0;
   for (i = 0; i < 9; i++) {
-    chisq += pow(fabs(pa[i]) - abs(xpa[i]), 2);
+    chisq += pow(fabs(pa[i]) - fabs(xpa[i]), 2);
   }
-
+  
   return chisq;
 }
 
