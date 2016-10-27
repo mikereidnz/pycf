@@ -701,7 +701,7 @@ cdef class SpinHamiltonian:
     cdef public list required_tensors
     cpdef public int level
     cdef public int nsh
-    cdef public int nobs
+    cdef public int n_obs
     cpdef public float Sz
     cpdef public list S_matel
     cpdef public float Iz
@@ -777,7 +777,7 @@ cdef class SpinHamiltonian:
             raise MemoryError("inv_data_ptrs malloc failed")
         
         self.nsh = 0
-        self.nobs = 0
+        self.n_obs = 0
         self.required_tensors = []
         self.inv_data = []
         for i,inter in enumerate(interactions):
@@ -791,7 +791,7 @@ cdef class SpinHamiltonian:
                 self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * self.dz**2, 9)), dtype=np.complex128)]
                 self.nsh += 3
                 # Three g-values plus three Euler rotation parameters.
-                self.nobs += 6
+                self.n_obs += 6
                 self.required_tensors += ['MAGX', 'MAGY', 'MAGZ']
 
             if inter == 'hyperfine':
@@ -803,7 +803,7 @@ cdef class SpinHamiltonian:
                     dtype=np.complex128)]
                 self.nsh += 1
                 # Three hyperfine values plus three Euler rotation parameters.
-                self.nobs += 6
+                self.n_obs += 6
                 self.required_tensors += ['HYP']
 
             if inter == 'quadrupole': 
@@ -811,7 +811,7 @@ cdef class SpinHamiltonian:
                 self.inv_data += [np.asfortranarray(quadrupole_sh_coeff(self.I_matel), dtype=np.complex128)]
                 self.nsh += 1
                 # Two quadrupole values plus three Euler rotation parameters.
-                self.nobs += 5
+                self.n_obs += 5
                 self.required_tensors += ['EQHYP']
 
             a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.inv_data[i]
@@ -2233,7 +2233,7 @@ cdef class MESHFitRunner(object):
                 raise ValueError("Spin Hamiltonian must have projection data set prior to eshfit.")
             else:
                 self.coeff.update(sh.coeff_dict)
-            self.n_obs += sh.nsh
+            self.n_obs += sh.n_obs
         
             # Add small magnetic field for state-label sorting; generate hpro, if
             # required.
@@ -2253,7 +2253,7 @@ cdef class MESHFitRunner(object):
                     ex_job_list += [<char> 'N']
             else:
                 # No energy level data; passing an empty array to ExData sets
-                # nobs attribute to 0, which disables energy level chi2 fitting
+                # n_obs attribute to 0, which disables energy level chi2 fitting
                 # in cfl.
                 ex_list += [ExData(np.empty((0,2)))]
                 ex_job_list += [<char> 'N']
