@@ -2462,11 +2462,9 @@ cdef class MESHFitRunner(object):
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
                 
         self.meshfit_data = meshfit_data_alloc(self.n_h, self.eshfit_array)
-       
         self.fit_data_cap = PyCapsule_New(<void *>self.meshfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.meshfit_obj, "pycfl.MinObjF", NULL)
-        # FIXME: points to mhfit_cov for now... obviously broken. 
-        self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
+        self.cov_f_cap = PyCapsule_New(<void *>&cfl.meshfit_cov, "pycfl.MinCovF", NULL)
         
     def __dealloc__(self):
         for i in range(self.n_h):

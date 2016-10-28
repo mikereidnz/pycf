@@ -90,20 +90,14 @@ typedef struct {
 /* Data for covariance matrix estimation. */
 typedef struct {
   /* Index of parameter with respect to which we differentiate. */
-  size_t par_index;
+  int par_index;
   /* Index of current observable being differentiated w.r.t. parameters. */
-  size_t obs_index;
+  int obs_index;
   /* Storage for real-valued parameter list.  Note: par_index element will be
    * modified upon exit. */
   double *df_x;
   /* Pointer to data for minimization objective function. */
   void *obj_f_data;
-  /* Array that maps obs_index, minus the number of energy level observables, to
-   * the correct spin Hamiltonian interaction. */
-  size_t *shi_index;
-  /* Array that maps obs_index, minus the number of energy level observables, to
-   * the element of the spin Hamiltonian specified by shi_index. */
-  size_t *shel_index;
 } cov_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -189,6 +183,17 @@ typedef struct {
   int n_zx;
   /* Array of pointers to parameter type structs. */
   param_type **p;
+  /* The number of observables corresponding to this spin Hamiltonian. */
+  int n_obs; 
+  /* Used for covariance matrix estimate and is not alloced unless one of the esh
+   * cov functions is called.  Array that maps obs_index, minus the number of
+   * energy level observables, to the correct spin Hamiltonian interaction. */
+  int *shi_index;
+  /* Used for covariance matrix estimate and is not alloced unless one of the esh
+   * cov functions is called.  Array that maps obs_index, minus the number of
+   * energy level observables, to the element of the spin Hamiltonian specified
+   * by shi_index. */
+  int *shel_index;
 } eshfit_data;
 
 /* Data for fitting multiple spin Hamiltonians. */
@@ -214,11 +219,11 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro,
 void eshfit_data_free(eshfit_data *data);
 meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d);
 void meshfit_data_free(meshfit_data *data);
-double efit_obj(size_t n, double *x, double *grad, void *data);
-double mhfit_obj(size_t n, double *x, double *grad, void *data);
-double eshfit_obj(size_t n, double *x, double *grad, void *data);
-double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
-double meshfit_obj(size_t n, double *x, double *grad, void *data);
+double efit_obj(int n, double *x, double *grad, void *data);
+double mhfit_obj(int n, double *x, double *grad, void *data);
+double eshfit_obj(int n, double *x, double *grad, void *data);
+double eshfit_hpro_obj(int n, double *x, double *grad, void *data);
+double meshfit_obj(int n, double *x, double *grad, void *data);
 void efit_chi2(double *x, void *data, double *chi2);
 void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
@@ -228,6 +233,7 @@ void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj); 
+void meshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

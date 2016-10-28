@@ -1,5 +1,6 @@
 TODO
 ====
+  * opt_test doesn't build since the meshfit rewrite. 
   * Current Hamiltonian summing and coefficient multiplication is unecessarily
     memory hungry. Rather than finding intermediate sparsity patterns, write a
     function that finds the final sparsity pattern with zero entries, then
@@ -13,7 +14,6 @@ TODO
     label somehow... Only works for (2F) labels presently. 
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
-  * Add weighting to spin Hamiltonian log.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.
