@@ -1400,7 +1400,7 @@ cdef class EFitRunner(object):
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
         
         self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex), "pycfl.ExData")
 
@@ -1626,7 +1626,7 @@ cdef class MHFitRunner(object):
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
         self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
         if self.ha == NULL:
             raise MemoryError("ha alloc failed")
@@ -1980,7 +1980,7 @@ cdef class ESHFitRunner(object):
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
         if 'energy' not in weights:
             weights['energy'] = 1.0
         self.weights = weights
@@ -2338,7 +2338,7 @@ cdef class MESHFitRunner(object):
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
                     "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, len(ex)))
+                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
         
         ex_data = []
         for i in range(self.n_h):
