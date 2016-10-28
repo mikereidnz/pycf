@@ -597,13 +597,20 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     heading += "\n"
 
     s += uline_char(heading)
+    ii = 0      # Index for covariance matrix; increments two for imaginary params. 
     for i,p in enumerate(fit_obj):
         co = fit_obj.coeff[p]
         if co.imag == 0:
             co = co.real
+            if kwargs['cov']:
+                scov = "{0: >15.0f}".format(np.sqrt(np.abs(cov[ii,ii]))*sigma)
+            ii += 1
+        else: 
+            if kwargs['cov']:
+                scov = "{0: >15.0f}".format(np.complex(np.sqrt(np.abs(cov[ii,ii]))*sigma, np.sqrt(np.abs(cov[ii+1,ii+1]))*sigma))
+            ii += 2
         s += "'{0:<12}: {1: >20.4f} {2: >20.4f} {3: >18.4f}".format(p+"'", coeff[p], co, coeff[p]-co)
-        if kwargs['cov']:
-            s += "{0: >15.0f}".format(np.sqrt(np.abs(cov[i,i]))*sigma)
+        s += scov
         if 'bounds' in kwargs:
             s += "{0: >18.0f} {1: >18.0f}".format(kwargs['bounds'][p][0], kwargs['bounds'][p][1])
         if 'stepsize' in kwargs:
