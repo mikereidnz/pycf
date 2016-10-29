@@ -604,10 +604,14 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
             co = co.real
             if kwargs['cov']:
                 scov = "{0: >15.0f}".format(np.sqrt(np.abs(cov[ii,ii]))*sigma)
+            else:
+                scov = ""
             ii += 1
         else: 
             if kwargs['cov']:
                 scov = "{0: >15.0f}".format(np.complex(np.sqrt(np.abs(cov[ii,ii]))*sigma, np.sqrt(np.abs(cov[ii+1,ii+1]))*sigma))
+            else: 
+                scov = ""
             ii += 2
         s += "'{0:<12}: {1: >20.4f} {2: >20.4f} {3: >18.4f}".format(p+"'", coeff[p], co, coeff[p]-co)
         s += scov
