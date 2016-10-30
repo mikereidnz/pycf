@@ -81,7 +81,7 @@ typedef struct {
 
 /* Workspace type declaration for Hamiltonian diagonalization. */
 typedef struct {
-  /* Workspace for summing the tensors for currently set coefficents. */
+  /* Workspace for summing the tensors for currently set coefficients. */
   zhcsr **coeff_w;
   /* Length of coeff_w array. */
   int lcoeff_w;
@@ -110,7 +110,7 @@ typedef struct {
   int *bri;
   /* Array of blocks. */
   zblock **blocks;
-  /* Eigenvectors of blocks; only available if eigevector evaluation is
+  /* Eigenvectors of blocks; only available if eigenvector evaluation is
    * requested. */
   complex double **zb;
 #ifdef _OPENMP
