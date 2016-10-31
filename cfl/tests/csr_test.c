@@ -139,7 +139,7 @@ int main (void) {
     0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0};
 
-  complex double c44_a[196] = {0, 0, 0, 0, 0, 0, 0, 0.148453640934,
+  complex double c44_a[196] = {5.0, 0, 0, 0, 0, 0, 0, 0.148453640934,
     0.128564624333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
     -0.102442744767, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15870361777,
     0.188199339398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
@@ -153,7 +153,7 @@ int main (void) {
     -0.15870361777, 0.188199339398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.148453640934, 0.128564624333, 0, 0, 0, 0, 0, 0, 0};
 
-  complex double ce_zhsam_res[196] = {5.0, 0, 0, 0, 0, 0, 0, 0.148453640934,
+  complex double ce_zhsam_res[196] = {10.0, 0, 0, 0, 0, 0, 0, 0.148453640934,
     0.128564624333, 0, 0, 0, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
     -0.102442744767, 0, 0, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0.15870361777,
     0.188199339398, 0, 0, 0, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
@@ -178,11 +178,24 @@ int main (void) {
   zhcsrsam(ce_eavg, ce_c44, ce_res, ce_alpha, ce_beta);
 
   ce_res_a = (complex double *) calloc(196,sizeof(complex double));
-
   zhcsr2zha(ce_res, ce_res_a);
-
+  
   printf("ce zhsam:\n");
   equ_chk(ce_res_a, ce_zhsam_res, 196);
+
+  /* Cerium EAVG + C44 zhcsrsama test. */
+  zhcsrsama_data *zhcsrsama_d;
+  zhcsr *csr_ma[2] = {ce_eavg, ce_c44};
+  complex double ce_ca[2] = {ce_alpha, ce_beta};
+  
+  zhcsrsama_d = zhcsrsama_alloc(2, csr_ma);
+  zhcsrsama(csr_ma, ce_ca, zhcsrsama_d); 
+
+  printf("ce zhcsrsama:\n");
+  zhcsr2zha(zhcsrsama_d->hcsr_m, ce_res_a);
+  equ_chk(ce_res_a, ce_zhsam_res, 196);
+  
+  zhcsrsama_free(zhcsrsama_d);
   zhcsr_free(ce_eavg);
   zhcsr_free(ce_c44);
   zhcsr_free(ce_res);

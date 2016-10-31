@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -81,10 +81,10 @@ typedef struct {
 
 /* Workspace type declaration for Hamiltonian diagonalization. */
 typedef struct {
+  /* Array of Hermitian CSR matrices of individual tensors. */
+  zhcsr **hcsr_ma;
   /* Workspace for summing the tensors for currently set coefficients. */
-  zhcsr **coeff_w;
-  /* Length of coeff_w array. */
-  int lcoeff_w;
+  zhcsrsama_data *coeff_w;
   /* Storage for non-Hermitian CRS representation. */
   zcsr *zcsr_h;
   /* Permutation to obtain block-diagonalized ordering of the Hamiltonian. */
@@ -117,9 +117,9 @@ typedef struct {
   /* The parallelization limiting factor is the number of processors, not the
    * number of blocks. */
   int proc_limited;
+#endif
   /* The number of diagonalization workspaces. */
   int ndiag_w;
-#endif
 } zhd_w;
 
 

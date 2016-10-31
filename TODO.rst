@@ -1,11 +1,7 @@
 TODO
 ====
-  * opt_test doesn't build since the meshfit rewrite. 
-  * Current Hamiltonian summing and coefficient multiplication is unecessarily
-    memory hungry. Rather than finding intermediate sparsity patterns, write a
-    function that finds the final sparsity pattern with zero entries, then
-    simply add each matrix to that. Could also be parallelized... provided there
-    isn't too much OpenMP overhead.
+  * opt_test doesn't build since the meshfit rewrite, and some small bug in csr
+    test when run through valgrind. 
   * Currently the coupling coefficents A and Q are not consistently used with
     fitting... it makes sense to explicitly set them when one simply wants to
     invert a spin Hamiltonian, but for fitting the ESHFitRunner should take care

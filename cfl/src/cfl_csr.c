@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
+   Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -584,10 +584,8 @@ void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
 
   /* The first two cases correspond to no further elements for either b or a on
    * the current row, respectively.  The next two cases correspond to further
-   * elements for both a and b on the current row, yet one has a lower column
-   * index and hence comes first.  Finally, the only option that remains is that
-   * the column indices of both a and b match for the current row, hence we have
-   * a matching entry. */
+   * elements for a and b on the current row, respectively.  
+   */
   ai = 0;
   bi = 0;
   for (i = 0; i < c->n; i++) {
@@ -610,6 +608,190 @@ void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
           bi++;
         }
       }
+    }
+  }
+}
+
+/* Allocate storage and determine intermediate sparsity patterns for scaling
+ * and adding an array of zhcsr matrices. 
+ *
+ * Parameters
+ * ----------
+ * n          The number of zhcsr matrices.
+ * csr_ma     Array of zhcsr matrices.
+ */
+zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
+  int i, j, k, jj, vi;
+  int match, col_found, nnz;
+  int *row_ptr, *col_in;
+  complex double *val;
+  zhcsr *hcsr_m;
+  zhcsrsama_data *data;
+
+  row_ptr = (int *) calloc((csr_ma[0]->n+1), sizeof(int));
+  if (row_ptr == 0) {
+    CFL_ERROR_NULL("malloc failed for row_ptr");
+  }
+  data = (zhcsrsama_data *) malloc(sizeof(zhcsrsama_data));
+  if (data == 0) {
+    free(row_ptr);
+    CFL_ERROR_NULL("malloc failed for data");
+  }
+  data->map = (int **) malloc(n*sizeof(int *));
+  if (data->map == 0) {
+    free(data);
+    free(row_ptr);
+    CFL_ERROR_NULL("malloc failed for data->map");
+  }
+  for (i=0; i<n; i++) {
+    data->map[i] = (int *) malloc(csr_ma[i]->nnz*sizeof(int));
+    if (data->map[i] == 0) {
+      for (j=0; j<i; j++) {
+        free(data->map[j]);
+      }
+      free(data->map);
+      free(data);
+      free(row_ptr);
+      CFL_ERROR_NULL("malloc failed for data->map[i]");
+    }
+  }
+
+  col_found = 0;
+  match = 0;
+  row_ptr[0] = 0;
+  for (i=0; i<csr_ma[0]->n; i++) {
+    for (k=0; k<n; k++) {
+      row_ptr[i] += csr_ma[k]->row_ptr[i];
+    }
+    /* Subtract the total number of previous matching elements, since we only
+     * want the number of unique entries up to this row for the resultant
+     * matrix.*/ 
+    row_ptr[i] -= match;
+    for (j=0; j<csr_ma[0]->n; j++) {
+      for (k=0; k<n; k++) {
+        for (jj=csr_ma[k]->row_ptr[i]; jj<csr_ma[k]->row_ptr[i+1]; jj++) {
+          if (csr_ma[k]->col_in[jj] == j) {
+            /* Check whether a previous matrix had an element in this column, in
+             * which case this constitutes a matching entry. */
+            if (col_found) {
+              match++;
+            }
+            else {
+              col_found = 1;
+            }
+            break;
+          }
+        }
+      }
+      col_found = 0;
+    }
+  }
+  
+  nnz = 0;
+  for (i=0; i<n; i++) {
+    nnz += csr_ma[i]->nnz;
+  }
+  nnz -= match;
+  row_ptr[csr_ma[0]->n] = nnz;
+  
+  col_in = (int *) calloc(nnz, sizeof(int));
+  if (col_in == 0) {
+    for (i=0; i<n; i++) {
+      free(data->map[i]);
+    }
+    free(data->map);
+    free(data);
+    free(row_ptr);
+    CFL_ERROR_NULL("calloc failed for col_in");
+  }
+  hcsr_m = (zhcsr *) malloc(sizeof(zhcsr));
+  if (hcsr_m == 0) {
+    for (i=0; i<n; i++) {
+      free(data->map[i]);
+    }
+    free(data->map);
+    free(data);
+    free(col_in);
+    free(row_ptr);
+    CFL_ERROR_NULL("malloc failed for hcsr_m");
+  }
+  val = (complex double *) calloc(nnz, sizeof(complex double));
+  if (col_in == 0) {
+    for (i=0; i<n; i++) {
+      free(data->map[i]);
+    }
+    free(data->map);
+    free(data);
+    free(col_in);
+    free(row_ptr);
+    free(hcsr_m);
+    CFL_ERROR_NULL("calloc failed for val");
+  }
+  col_found = 0;  /* Flag for whether current column has been found before. */
+  vi = 0;         /* Index keeping track of the next val entry. */
+  for (i=0; i<csr_ma[0]->n; i++) {
+    for (j=0; j<csr_ma[0]->n; j++) {
+      for (k=0; k<n; k++) {
+        for (jj=csr_ma[k]->row_ptr[i]; jj<csr_ma[k]->row_ptr[i+1]; jj++) {
+          if (csr_ma[k]->col_in[jj] == j) {
+            data->map[k][jj] = vi;
+            if (!col_found) {
+              col_in[vi] = j;
+              col_found = 1;
+            }
+          }
+        }
+      }
+      if (col_found) {
+        vi++;
+      }
+      col_found = 0;
+    }
+  }
+  
+  hcsr_m->n = csr_ma[0]->n;
+  hcsr_m->nnz = nnz;
+  hcsr_m->val = val;
+  hcsr_m->col_in = col_in;
+  hcsr_m->row_ptr = row_ptr;
+  data->n = n;
+  data->hcsr_m = hcsr_m;
+
+  return data;
+}
+
+void zhcsrsama_free(zhcsrsama_data *data) {
+  int i;
+  
+  zhcsr_free(data->hcsr_m);
+  for (i=0; i<data->n; i++) {
+    free(data->map[i]);
+  }
+  free(data->map);
+  free(data);
+}
+
+
+/* Scale and add array of hermitian csr matrices.  This function requires an
+ * hcsr_m matrix, and associated val index mapping, allocated with the
+ * zhcsrsama_alloc function. 
+ *
+ * Parameters
+ * ----------
+ * csr_ma     Array of zhcsr matrices.
+ * ca         Array of coefficients used to scale each corresponding zhcsr
+ *            matrix.
+ * data       Data type for this scale and addition previously alloced with
+ *            zhcsrsama_alloc; contains all the required index mapping as well
+ *            as a pointer to the hcsr matrix.
+ */
+void zhcsrsama(zhcsr **csr_ma, complex double *ca, zhcsrsama_data *data) {
+  int i, j;
+  
+  memset(data->hcsr_m->val, 0, data->hcsr_m->nnz*sizeof(complex double));
+  for (i=0; i<data->n; i++) {
+    for (j=0; j<csr_ma[i]->nnz; j++) {
+      data->hcsr_m->val[data->map[i][j]] += ca[i]*csr_ma[i]->val[j];
     }
   }
 }

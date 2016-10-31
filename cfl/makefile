@@ -48,7 +48,7 @@ sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 
 h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-csr_test: cfl_h.o cfl_csr.o
+csr_test: cfl_tensor.o cfl_h.o cfl_csr.o
 
 cfl_zefoz.o: cfl_h.o cfl_zefoz.h cfl_error.h cfl_config.h
 
