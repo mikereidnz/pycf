@@ -31,11 +31,7 @@ from libc.string cimport memcpy
 from matel import matel
 from cfl_util import *
 
-# TODO: 
-#       + Add checks whether efit/eshfit data alloc functions return NULL and
-#       corresponding frees.
-#       + Python free bug if one does not provide the correct shx data dict
-#       (change zeeman to something else). 
+
 cdef class StateLabels:
     r"""
     State label type for tensors and spin Hamiltonians.  State labels are
@@ -1441,6 +1437,13 @@ cdef class EFitRunner(object):
         else:
             self.efit_data = cfl.efit_data_alloc('N', <cfl.zh *>PyCapsule_GetPointer(
                 h.h_cap, "pycfl.Hamiltonian"), self.ex_data, self.n_p, self.param_array);
+        if self.efit_data is NULL:
+            for i in range(self.n_p):
+                free(self.param_array[i])
+            free(self.param_array)
+            free(self.ex_data)
+            raise MemoryError("efit_data_alloc failed")
+
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
         self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
@@ -1681,7 +1684,7 @@ cdef class MHFitRunner(object):
                         free(param_arrays[hi][j])
                     for hj in range(self.n_h):
                         free(param_arrays[hj])
-                    free(self.param_arrays)
+                    free(param_arrays)
                     for j in range(self.n_h):
                         free(self.ex_data[j])
                     free(self.ex_data)
@@ -1713,6 +1716,17 @@ cdef class MHFitRunner(object):
                 self.job_a[i] = 'N'
         job_a = self.job_a
         self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, self.ex_data, &n_zx[0], self.param_arrays)
+        if self.mhfit_data is NULL:
+            for hi in range(self.n_h):
+                for i in range(len(self.h_param_list[hi])):
+                    free(self.param_arrays[hi][i])
+                free(self.param_arrays[hi])
+            free(param_arrays)
+            for j in range(self.n_h):
+                free(self.ex_data[j])
+            free(self.ex_data)
+            free(self.ha)
+            raise MemoryError("mhfit_data_alloc failed")
         
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
@@ -2061,6 +2075,15 @@ cdef class ESHFitRunner(object):
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
+            if self.eshfit_data is NULL:
+                for i in range(len(self.sh.interactions)):
+                    free(self.shx_array[i])
+                for i in range(self.n_p):
+                    free(param_array[i])
+                free(self.ex_data)
+                free(param_array)
+                raise MemoryError("eshfit_data_alloc failed")
+
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_cov, "pycfl.MinCovF", NULL)
             
@@ -2073,6 +2096,15 @@ cdef class ESHFitRunner(object):
                 self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
+            if self.eshfit_data is NULL:
+                for i in range(len(self.sh.interactions)):
+                    free(self.shx_array[i])
+                for i in range(self.n_p):
+                    free(param_array[i])
+                free(self.ex_data)
+                free(param_array)
+                raise MemoryError("eshfit_data_alloc failed")
+
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
             self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
 
@@ -2353,8 +2385,6 @@ cdef class MESHFitRunner(object):
                 ex_data += [PyCapsule_New(<void *>NULL, "pycfl.ExData", NULL)]
         self.ex_data = ex_data
 
-        #FIXME: The below freeing mess is probably buggy (actually, this one is
-        # probably fine now, but not so much for in mhfit). 
         # Prepare array of pointers to parameter data structs.
         param_arrays = []
         for hi,h in enumerate(h_list):
@@ -2440,26 +2470,52 @@ cdef class MESHFitRunner(object):
                 free(shx_i)
             raise MemoryError("eshfit_array alloc failed")
         
-        #FIXME: should have a try statement, free previously alloced eshfit_data
-        #objects, and all the other stuff from above. This bug exists in all the
-        #"Runner" functions.
-        #cdef char ex_job
         for i in range(self.n_h):
             if hpro_list[i] != None:
-                self.eshfit_array[i] = eshfit_data_alloc(ex_job_list[i], svd_list[i], 
+                self.eshfit_array[i] = cfl.eshfit_data_alloc(ex_job_list[i], svd_list[i], 
                     <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(hpro_list[i].h_cap, "pycfl.Hamiltonian"),
                     <cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"),
                     <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
                     <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], 
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
+                if self.eshfit_array[i] is NULL:
+                    for j in range(i):
+                        eshfit_data_free(self.eshfit_array[j])
+                    free(self.eshfit_array)
+                    for ii in range(self.n_h):
+                        pa_hi = <cfl.param_type **>PyCapsule_GetPointer(param_arrays[ii], "pycfl.ParamArrays")
+                        for j in range(len(h_param_list[ii])):
+                            free(pa_hi[j])
+                        free(pa_hi)
+                        free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[ii], "pycfl.ExData"))
+                        shx_i = <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[ii], "pycfl.ShxArray")
+                        for j in range(len(sh_list[ii].interactions)):
+                            free(shx_i[j])
+                        free(shx_i)
+                    raise MemoryError("eshfit_data_alloc failed")
             else:
-                self.eshfit_array[i] = eshfit_data_alloc(ex_job_list[i], svd_list[i], 
+                self.eshfit_array[i] = cfl.eshfit_data_alloc(ex_job_list[i], svd_list[i], 
                     <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), NULL,
                     <cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"),
                     <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
                     <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], 
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
+                if self.eshfit_array[i] is NULL:
+                    for j in range(i):
+                        eshfit_data_free(self.eshfit_array[j])
+                    free(self.eshfit_array)
+                    for ii in range(self.n_h):
+                        pa_hi = <cfl.param_type **>PyCapsule_GetPointer(param_arrays[ii], "pycfl.ParamArrays")
+                        for j in range(len(h_param_list[ii])):
+                            free(pa_hi[j])
+                        free(pa_hi)
+                        free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[ii], "pycfl.ExData"))
+                        shx_i = <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[ii], "pycfl.ShxArray")
+                        for j in range(len(sh_list[ii].interactions)):
+                            free(shx_i[j])
+                        free(shx_i)
+                    raise MemoryError("eshfit_data_alloc failed")
                 
         self.meshfit_data = meshfit_data_alloc(self.n_h, self.eshfit_array)
         self.fit_data_cap = PyCapsule_New(<void *>self.meshfit_data, "pycfl.MinData", NULL)
@@ -2485,7 +2541,7 @@ cdef class MESHFitRunner(object):
                 free(shx_i)
         if self.eshfit_array != NULL:
             for i in range(self.n_h):
-                free(self.eshfit_array[i])
+                cfl.eshfit_data_free(self.eshfit_array[i])
             free(self.eshfit_array)
 
         if self.meshfit_data != NULL:
