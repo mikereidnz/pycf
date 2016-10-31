@@ -35,7 +35,7 @@
 #define BH_DEF_ADAPT_INT      20
 
 /* Numerical derivative step-size for covariance matrix estimation. */
-#define COV_DERIV_H           1e-12
+#define COV_DERIV_H           1e-10
 
 /* The absolute error tolerance for the eigenvalues of Hamiltonian
  * diagonalization (see LAPACK zheevr for detailed description). */
@@ -47,5 +47,13 @@
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
+
+/* The maximum number of iterations that a ZEFOZ search will attempt to find a
+ * zero gradient point for a given initial field point. */
+#define CFL_ZEFOZ_MAX_ITER    10
+
+/* The maximum field difference between consecutive ZEFOZ iterations above which
+ * the search for this starting guess is terminated. */
+#define CFL_ZEFOZ_MAX_DIFF    1e8
 
 #endif /* _CFL_CONFIG_H_ */

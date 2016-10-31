@@ -51,6 +51,17 @@ typedef struct {
   int *row_ptr;
 } zcsr;
 
+/* Data for summing and scaling an array of hcrs_m matrices. */
+typedef struct {
+  /* The number of hcsr_m matrices to sum. */
+  int n;
+  /* Pointer to the resultant hcsr_m matrix. */
+  zhcsr *hcsr_m;
+  /* Array of mappings from each hcsr_m->val entry to the corresponding val
+   * entry of the resultant matrix. */
+  int **map;
+} zhcsrsama_data;
+
 #ifdef __cplusplus
 extern "C" { 
 #endif /* __cplusplus */
@@ -67,6 +78,9 @@ void zcsr2zha(zcsr *csr_m, complex double *a);
 zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b);
 void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
     complex beta);
+zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma);
+void zhcsrsama_free(zhcsrsama_data *data);
+void zhcsrsama(zhcsr **csr_ma, complex double *ca, zhcsrsama_data *data);
 zhcsr *zhcsrsm_alloc(zhcsr *hcsr_m);
 void zhcsrsm(zhcsr *hcsr_m, zhcsr *hcsr_sm, complex double s);
 void ivperm(int n, int *ix, int *perm);

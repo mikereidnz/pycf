@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -101,8 +101,27 @@ typedef struct {
   char iz_i;
 } zshp_p_w; 
 
+/* Workspace for symmeterizing spin Hamiltonian parameter tensors using an SVD
+ * of the form A = U * SIGMA * conjugate-transpose(V). */
+typedef struct {
+  /* The complex valued LAPACK workspace for the SVD. */
+  double *work;
+  /* The dimension of the array work. */
+  int lwork;
+  /* Copy of the input parameter matrix a. */
+  double tmp_a[9];
+  /* The singular value matrix. */
+  double s[9];
+  /* The unitary matrix U. */
+  double u[9];
+  /* The transposed unitary matrix V. */
+  double vt[9];
+} svd_sym_w;
+
 /* The spin Hamiltonian inversion workspace. */
 typedef struct {
+  /* Flag indicating whether to symmeterize param tensor using an SVD. */
+  char job;
   /* Spin Hamiltonian inversion data. */
   zsh_inv_data *data;
   /* Storage for inversion coefficient matrix; since zgels overwrites this upon
@@ -117,6 +136,8 @@ typedef struct {
   complex double *work;
   /* The leading dimension of array b. ldb >= MAX(1,M,N) */
   int ldb;
+  /* Workspace for SVD decomposition. */
+  svd_sym_w *svd_w;
 } zshi_w;
 
 /* Workspace for crystal field Hamiltonian to spin Hamiltonian parameter
@@ -152,12 +173,15 @@ void zshp_p_w_free(zshp_p_w *shp_p_w);
 void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w);
 void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
 void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
-zshi_w *zshi_w_alloc(zsh_inv_data *d);
+svd_sym_w *svd_sym_w_alloc();
+void svd_sym_w_free(svd_sym_w *w);
+void svd_sym(double *a, svd_sym_w *w);
+zshi_w *zshi_w_alloc(char job, zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
-void zshi(complex double *a, zshi_w *w);
-zshp_w *zshp_w_alloc(zsh *sh);
+void zshi(double *a, zshi_w *w);
+zshp_w *zshp_w_alloc(char job, zsh *sh);
 void zshp_w_free(zshp_w *w);
-void zshp(complex double *a, complex double *b, complex double *hz, int int_i,
+void zshp(double *a, complex double *b, complex double *hz, int int_i,
     zsh *sh, zshp_w *w);
 #ifdef __cplusplus
 }

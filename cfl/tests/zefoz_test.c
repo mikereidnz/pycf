@@ -9,11 +9,8 @@
 
 #include "cfl_tensor.h"
 #include "cfl_h.h"
-#include "cfl_sh.h"
+#include "cfl_zefoz.h"
 
-#include "cfl_min.h"
-#include "basinhopping.h"
-#include "cfl_h_fit.h"
 
 /*
  * Check the equality of two complex valued arrays.
@@ -25,7 +22,7 @@
  * n  Length of arrays a and b.
  *
  */
-void zequ_chk(complex double *a, complex double *b, size_t n) {
+void zequ_chk(double complex *a, double complex *b, size_t n) {
   int i;
   int p = 0;
 
@@ -73,7 +70,7 @@ void dequ_chk(double *a, double *b, size_t n) {
 int main (void) {
   int i, j;
 
-  complex double ce_eavg_a[196] = {1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  double complex ce_eavg_a[196] = {1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -83,7 +80,7 @@ int main (void) {
     0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0};
 
-  complex double ce_zeta_a[196] = {1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  double complex ce_zeta_a[196] = {1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, -2.00000020623, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -2.00000020623, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467, 0, 0, 0, 0, 0, 0, 0,
@@ -95,7 +92,7 @@ int main (void) {
     -2.00000020623, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467};
 
-  complex double ce_C20_a[196] = {-0.333333308417, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  double complex ce_C20_a[196] = {-0.333333308417, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, -0.285714264357, 0.116642359985, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0.116642359985, -0.0476190440595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0.0571428528714, 0.0903507835368, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -111,7 +108,7 @@ int main (void) {
     -0.333333308417};
     
     
-  complex double ce_C40_a[196] = {0.0909089176865, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  double complex ce_C40_a[196] = {0.0909089176865, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0.0476189568834, -0.106038314953, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, -0.106038314953, -0.168830847132, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, -0.14285687065, 0.109515900766, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -127,7 +124,7 @@ int main (void) {
     0.0909089176865};
     
   
-  complex double ce_C44_a[196] = {0, 0, 0, 0, 0, 0, 0, 0.148453640934,
+  double complex ce_C44_a[196] = {0, 0, 0, 0, 0, 0, 0, 0.148453640934,
     0.128564624333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
     -0.102442744767, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15870361777,
     0.188199339398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
@@ -142,7 +139,7 @@ int main (void) {
     -0.148453640934, 0.128564624333, 0, 0, 0, 0, 0, 0, 0};
     
     
-  complex double ce_C60_a[196] = {-0.0116550046289, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  double complex ce_C60_a[196] = {-0.0116550046289, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0.0285488142907, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.0285488142907, 0.0582750231447, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, -0.110569082302, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.110569082302,
@@ -157,7 +154,7 @@ int main (void) {
     -0.0116550046289};
     
     
-  complex double ce_C64_a[196] = {0, 0, 0, 0, 0, 0, 0, -0.127674178862,
+  double complex ce_C64_a[196] = {0, 0, 0, 0, 0, 0, 0, -0.127674178862,
     -0.110569082302, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.185017462665, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.238856517219,
     0.0755330628389, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -172,7 +169,7 @@ int main (void) {
     -0.110569082302, 0, 0, 0, 0, 0, 0, 0};
     
     
-  complex double ce_magx_a[196] = {0, 0.463984001202, -1.51229633083, 0, 0, 0,
+  double complex ce_magx_a[196] = {0, 0.463984001202, -1.51229633083, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0.463984001202, 0, 0, -0.957944299092,
     -0.101249609846, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.51229633083, 0, 0,
     0.392138052742, -1.98006068835, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -192,7 +189,7 @@ int main (void) {
     0, 0, 0, 0, 0, 0, -0.463984001202, -1.51229633083, 0};
     
         
-  complex double ce_magy_a[196] = {0, 0-0.463984001202*I, 0+1.51229633083*I, 0,
+  double complex ce_magy_a[196] = {0, 0-0.463984001202*I, 0+1.51229633083*I, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0+0.463984001202*I, 0, 0, 0+0.957944299092*I,
     0+0.101249609846*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0-1.51229633083*I, 0, 0,
     0-0.392138052742*I, 0+1.98006068835*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -214,7 +211,7 @@ int main (void) {
     0+1.51229633083*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0-0.463984001202*I,
     0-1.51229633083*I, 0}; 
     
-  complex double ce_magz_a[196] = {4.00116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  double complex ce_magz_a[196] = {4.00116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 2.14202857143, 0.350738936998, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.350738936998, 2.85797142857, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     1.28521714286, 0.45280202062, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -229,15 +226,8 @@ int main (void) {
     0.350738936998, -2.85797142857, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -4.00116};
     
-  complex double zeeman_inv_a[108] =  {0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0-0.5*I, 0+0.5*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, -0.5, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0-0.5*I,
-    0+0.5*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, -0.5, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0-0.5*I, 0+0.5*I, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, -0.5};
-
-  complex double celiyf4_coeff[8] = {1535.1277, 625.6990, 297.8906, -1328.1522,
-    -1282.4766, -191.5100, -1743.1424+692.8662*I, 0.0001};
+  double complex celiyf4_coeff[10] = {1535.1277, 625.6990, 297.8906, -1328.1522,
+    -1282.4766, -191.5100, -1743.1424+692.8662*I, 0.0, 0.0, 0.0};
 
   /* State label preparation. */
   int nstates = 14;
@@ -272,29 +262,17 @@ int main (void) {
   magy = (zt *) zt_alloc("magy", ce_magy_a, nstates, states);
   magz = (zt *) zt_alloc("magz", ce_magz_a, nstates, states);
 
-  zt *tensors[8] = {eavg, zeta, C20, C40, C44, C60, C64, magz};
-  zt *pro_tensors[3] = {magx, magy, magz};
-
-  //complex double *tt;
-  //tt = (complex double *) malloc(784*sizeof(complex double));
-  //
-  //printf("nnz=%i\n", hyp->matel->nnz);
-  //crs_zhm2zha(magz->matel, tt);
-  //for (i=0; i<784; i++) {
-  //  printf("%f, ", tt[i]);
-  //}
-  //printf("\n");
-  //free(tt);
+  zt *tensors[10] = {eavg, zeta, C20, C40, C44, C60, C64, magx, magy, magz};
 
   double *w;
-  complex double *z;
+  double complex *z;
   w = (double *) calloc(nstates,sizeof(double));
-  z = (complex double *) calloc(nstates*nstates,sizeof(complex double));
+  z = (double complex *) calloc(nstates*nstates,sizeof(double complex));
   zh *h;
   zhd_w *hd_w;
 
   /* Check diagonalization routine. */
-  h = zh_alloc(nstates, 8, tensors);
+  h = zh_alloc(nstates, 10, tensors);
   zh_set_coeff(h, celiyf4_coeff);
   hd_w = zhd_w_alloc('V', h);
   zhd('V', w, z, h, hd_w);
@@ -305,46 +283,27 @@ int main (void) {
     printf("%f ", w[i]);
   }
   printf("\n");
-  //int j;
-  //printf("Eigenvectors:\n");
-  //for (i=0; i<14; i++) {
-  //  for (j=0; j<14; j++) {
-  //    printf("%f ", z[i*14+j]);
-  //  }
-  //  printf("\n");
-  //}
-  printf("\n\n");
-
-#if 0
-  complex double *inv_a[] = {zeeman_inv_a};
-  char *inter[] = {"zeeman"};
-  zsh *ce_sh;
-  zshp_w *ce_shp_w;
-  complex double *a = (complex double *) calloc(9,sizeof(complex double));
-  double coupling[1] = {1.0};
   
+  static int zi[3] = {7, 8, 9}; 
+  double complex *zm[3] = {ce_magx_a, ce_magy_a, ce_magz_a};
+  static double Bx[4] = {0.02, 0.03, 0.04, 0.05};
+  static double By[4] = {0.02, 0.03, 0.04, 0.05};
+  static double Bz[4] = {0.02, 0.03, 0.04, 0.05};
+  zefoz_d *zdata;
+  zefoz_a *za;
+  zdata = zefoz_d_alloc(h, zi);
+  za = zefoz_a_alloc(2);
+  
+  zefoz_search(Bx, By, Bz, 4, 4, 4, 9, 13, 0.1, zm, za, zdata);
 
-  // zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a)
-  ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
-  zsh_set_pro(ce_sh, pro_tensors, 0, coupling);
-  ce_shp_w = zshp_w_alloc(ce_sh);
+  printf("%i ZEFOZ points found.\n", za->ctr);
+  //for (i=0; i<3; i++) {
+  //  printf("%f ", B_array[i]);
+  //}
+  //printf("\n");
 
-  zshp(a, NULL, z, 0, ce_sh, ce_shp_w);
-
-  for (i=0; i<3; i++) {
-    for (j=0; j<3; j++) {
-      printf("%f ", a[i*3+j]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-
-  zshp_w_free(ce_shp_w);
-  zsh_free(ce_sh);
-
-  free(a);
-#endif
-
+  zefoz_a_free(za);
+  zefoz_d_free(zdata);
   free(w);
   free(z);
   zh_free(h);

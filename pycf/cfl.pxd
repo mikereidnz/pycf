@@ -43,6 +43,7 @@ cdef extern from "../../cfl/include/cfl_tensor.h":
     zt *zt_alloc(char *name, double complex *a, int n, sl *slabels)
     zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in, double complex *val, sl *slabels)
     void zt_free(zt *t)
+    void zt_get_matel(zt *t, double complex *a)
     zt *zt_sa(char *name, zt *t1, zt *t2, double complex s1, double complex s2)
     zt *zt_s(char *name, zt *t, double complex s)
     unsigned int fnv_hash(void *buf, int len)
@@ -89,6 +90,9 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     ctypedef struct zshp_p_w:
         pass
 
+    ctypedef struct svd_sym_w:
+        pass
+
     zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, double complex **a)
     void zsh_free(zsh *sh)
     int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) 
@@ -98,12 +102,16 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     void zshp_gen_sort(double complex *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w)
     void zshp_parse(double complex *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w)
     void zshp_p(double complex *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w)
+    svd_sym_w *svd_sym_w_alloc()
+    void svd_sym_w_free(svd_sym_w *w)
+    void svd_sym(double *a, svd_sym_w *w)
     zshi_w *zshi_w_alloc(zsh_inv_data *d)
     void zshi_w_free(zshi_w *w)
     void zshi(double complex *a, zshi_w *w)
-    zshp_w *zshp_w_alloc(zsh *sh)
+    zshp_w *zshp_w_alloc(char job, zsh *sh)
     void zshp_w_free(zshp_w *w)
-    void zshp(double complex *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
+    void zshp(double *a, double complex *b, double complex *hz, int int_i, zsh *sh, zshp_w *w) nogil
+
 
 cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_bounds:
@@ -145,7 +153,8 @@ cdef extern from "../../cfl/include/basinhopping.h":
 cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct param_type:
         char type
-        size_t index
+        int xi
+        int ci
 
     ctypedef struct ex_data:
         int n_obs
@@ -158,10 +167,11 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         int *lah
         int *ildh
         int *fldh
+        double chisq_weight
 
     ctypedef struct shx_data:
-        double complex *pa
-        float chisq_weight
+        double *pa
+        double chisq_weight
 
     ctypedef struct efit_data:
         pass
@@ -172,25 +182,47 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     ctypedef struct eshfit_data:
         pass
 
+    ctypedef struct meshfit_data:
+        pass
+
     efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx, param_type **p)
     void efit_data_free(efit_data *data)
-    mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, double *weights, 
-        ex_data **exa, int *n_zx, param_type ***p)
+    mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, int *n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
-    eshfit_data *eshfit_data_alloc(char job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
-            shx_data **shx, int n_zx, int n_ushx, param_type **p)
+    eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+            shx_data **shx, int n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
-    int bh_e_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj)
-    int bh_esh_fit(double *x0, size_t nx, void *data, size_t niter, cfl_min_bounds *bounds, cfl_min_obj *min_obj) 
+    meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d)
+    void meshfit_data_free(meshfit_data *data)
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
     double mhfit_obj(size_t n, double *x, double *grad, void *data) nogil
     double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil 
     double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil 
+    double meshfit_obj(size_t n, double *x, double *grad, void *data) nogil
     void efit_chi2(double *x, void *data, double *chi2) nogil
     void mhfit_chi2(double *x, void *data, double *chi2) nogil 
     void eshfit_chi2(double *x, void *data, double *chi2) nogil
     void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil 
+    void meshfit_chi2(double *x, void *data, double *chi2) nogil
     void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil 
     void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
     void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
+    void meshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
+
+cdef extern from "../../cfl/include/cfl_zefoz.h":
+    ctypedef struct zefoz_d:
+        pass
+
+    ctypedef struct zefoz_a:
+        double *B
+        double *v
+        int ctr
+        int size
+
+    zefoz_d *zefoz_d_alloc(zh *h, int *zi)
+    void zefoz_d_free(zefoz_d *data)
+    zefoz_a *zefoz_a_alloc(int init_size)
+    void zefoz_a_free(zefoz_a *za)
+    void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz, int k, int l, double xtol, double complex **m, zefoz_a *za, zefoz_d *data) nogil
+

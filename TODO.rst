@@ -1,19 +1,9 @@
 TODO
 ====
-  * Update energy level summary printing to handle energy differences, and MHFit
-    summaries; at the moment it uses a single coeff dict for all MHFit diags,
-    which clearly is nonsense.
   * Current F->D transition labels are very limited... should store the complete
     label somehow... Only works for (2F) labels presently. 
-  * Think about the efit/eshfit->chisq weight factor... should all (spin)
-    hamiltonians be normalized, or only the principal one?
-  * Fit to multiple spin Hamiltonians
   * Try adaptive chi^2 weighting using annealing.
   * Consolidate unit testing. 
-  * Add weighting to spin Hamiltonian log.
-  * Print all parameters, even static ones, in a fit summary... Maybe add a
-    generic input section? 
-  * Add support to energy difference printing.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.
@@ -35,9 +25,9 @@ Notes on col vs row major arrays
     ensures that the matrix is again stored in a 1 by n dimensional array.
     Matrices should be passed from cython as fortran contiguous arrays, although
     for tensor matrix elements such inconsistencies don't always show up due to
-    their hermiticity.  Furthermore, some sometimes 1 dimensional arrays are
-    passed as c style arrays, since for these cases they are identical to
-    fortran style arrays.
+    their hermiticity.  Furthermore, some 1 dimensional arrays are passed as c
+    style arrays, since for these cases they are identical to fortran style
+    arrays.
 
 Turning your code into a pretzel
 --------------------------------

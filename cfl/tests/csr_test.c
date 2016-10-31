@@ -139,7 +139,7 @@ int main (void) {
     0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0};
 
-  complex double c44_a[196] = {0, 0, 0, 0, 0, 0, 0, 0.148453640934,
+  complex double c44_a[196] = {5.0, 0, 0, 0, 0, 0, 0, 0.148453640934,
     0.128564624333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
     -0.102442744767, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15870361777,
     0.188199339398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
@@ -153,7 +153,7 @@ int main (void) {
     -0.15870361777, 0.188199339398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.148453640934, 0.128564624333, 0, 0, 0, 0, 0, 0, 0};
 
-  complex double ce_zhsam_res[196] = {5.0, 0, 0, 0, 0, 0, 0, 0.148453640934,
+  complex double ce_zhsam_res[196] = {10.0, 0, 0, 0, 0, 0, 0, 0.148453640934,
     0.128564624333, 0, 0, 0, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
     -0.102442744767, 0, 0, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0.15870361777,
     0.188199339398, 0, 0, 0, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
@@ -178,11 +178,24 @@ int main (void) {
   zhcsrsam(ce_eavg, ce_c44, ce_res, ce_alpha, ce_beta);
 
   ce_res_a = (complex double *) calloc(196,sizeof(complex double));
-
   zhcsr2zha(ce_res, ce_res_a);
-
+  
   printf("ce zhsam:\n");
   equ_chk(ce_res_a, ce_zhsam_res, 196);
+
+  /* Cerium EAVG + C44 zhcsrsama test. */
+  zhcsrsama_data *zhcsrsama_d;
+  zhcsr *csr_ma[2] = {ce_eavg, ce_c44};
+  complex double ce_ca[2] = {ce_alpha, ce_beta};
+  
+  zhcsrsama_d = zhcsrsama_alloc(2, csr_ma);
+  zhcsrsama(csr_ma, ce_ca, zhcsrsama_d); 
+
+  printf("ce zhcsrsama:\n");
+  zhcsr2zha(zhcsrsama_d->hcsr_m, ce_res_a);
+  equ_chk(ce_res_a, ce_zhsam_res, 196);
+  
+  zhcsrsama_free(zhcsrsama_d);
   zhcsr_free(ce_eavg);
   zhcsr_free(ce_c44);
   zhcsr_free(ce_res);
@@ -332,33 +345,33 @@ int main (void) {
   zcsr_free(cpm);
   zcsr_free(rpm);
 
-  zcsr *c20_cpm, *c20_rpm;
-  int *pj;
+  //zcsr *c20_cpm, *c20_rpm;
+  //int *pj;
 
-  pj = (int *) calloc(c20_zm->nnz+1, sizeof(int));
+  //pj = (int *) calloc(c20_zm->nnz+1, sizeof(int));
 
-  int *pi;
-  pi = (int *) calloc(c20_zm->n, sizeof(int));
+  //int *pi;
+  //pi = (int *) calloc(c20_zm->n, sizeof(int));
 
-  for (i=0; i<c20_zm->n; i++) {
-    pi[p[i]] = i;
-  }
-  c20_rpm = (zcsr *) zcsr_row_perm_alloc(c20_zm, pi);
-  c20_cpm = (zcsr *) zcsr_col_perm_alloc(c20_rpm, pi, pj);
-  
-  zcsr_row_perm(c20_zm, c20_rpm, pi);
-  zcsr_col_perm(c20_rpm, c20_cpm, pi, pj);
+  //for (i=0; i<c20_zm->n; i++) {
+  //  pi[p[i]] = i;
+  //}
+  //c20_rpm = (zcsr *) zcsr_row_perm_alloc(c20_zm, pi);
+  //c20_cpm = (zcsr *) zcsr_col_perm_alloc(c20_rpm, pi, pj);
+  //
+  //zcsr_row_perm(c20_zm, c20_rpm, pi);
+  //zcsr_col_perm(c20_rpm, c20_cpm, pi, pj);
 
-  complex double *c20_a = (complex double *) calloc( c20_zm->n*c20_zm->n, sizeof(complex double));
-  zcsr2zha(c20_cpm, c20_a);
+  //complex double *c20_a = (complex double *) calloc( c20_zm->n*c20_zm->n, sizeof(complex double));
+  //zcsr2zha(c20_cpm, c20_a);
 
-  free(pi);
-  free(pj);
-  zcsr_free(c20_rpm);
-  zcsr_free(c20_cpm);
+  //free(pi);
+  //free(pj);
+  //zcsr_free(c20_rpm);
+  //zcsr_free(c20_cpm);
   zhcsr_free(c20_zhm);
   zcsr_free(c20_zm);
-  free(c20_a);
+  //free(c20_a);
 
   return 0;
 }  
