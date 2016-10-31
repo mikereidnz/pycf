@@ -790,6 +790,7 @@ void zhcsrsama(zhcsr **csr_ma, complex double *ca, zhcsrsama_data *data) {
   
   memset(data->hcsr_m->val, 0, data->hcsr_m->nnz*sizeof(complex double));
   for (i=0; i<data->n; i++) {
+#pragma omp parallel for private(j) schedule(dynamic)
     for (j=0; j<csr_ma[i]->nnz; j++) {
       data->hcsr_m->val[data->map[i][j]] += ca[i]*csr_ma[i]->val[j];
     }
@@ -995,6 +996,7 @@ zcsr *zcsr_row_perm_alloc(zcsr *m, int *p) {
 void zcsr_row_perm(zcsr *m, zcsr *pm, int *p) {
   int i, k, pk; 
 
+#pragma omp parallel for private(i,pk,k) schedule(dynamic)
   for (i = 0; i < m->n; i++) {
     pk = pm->row_ptr[p[i]];
     for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
@@ -1145,6 +1147,7 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
 void zcsr_col_perm(zcsr *m, zcsr *pm, int *p, int *pj) {
   int i, j, pk;
 
+#pragma omp parallel for private(i) schedule(dynamic)
   for (i = 0; i < m->nnz; i++) {
     pm->val[pj[i]] = m->val[i];
   }
