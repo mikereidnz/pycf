@@ -219,11 +219,11 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro,
 void eshfit_data_free(eshfit_data *data);
 meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d);
 void meshfit_data_free(meshfit_data *data);
-double efit_obj(int n, double *x, double *grad, void *data);
-double mhfit_obj(int n, double *x, double *grad, void *data);
-double eshfit_obj(int n, double *x, double *grad, void *data);
-double eshfit_hpro_obj(int n, double *x, double *grad, void *data);
-double meshfit_obj(int n, double *x, double *grad, void *data);
+double efit_obj(size_t n, double *x, double *grad, void *data);
+double mhfit_obj(size_t n, double *x, double *grad, void *data);
+double eshfit_obj(size_t n, double *x, double *grad, void *data);
+double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data);
+double meshfit_obj(size_t n, double *x, double *grad, void *data);
 void efit_chi2(double *x, void *data, double *chi2);
 void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);

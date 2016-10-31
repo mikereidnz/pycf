@@ -1,7 +1,5 @@
 TODO
 ====
-  * opt_test doesn't build since the meshfit rewrite, and some small bug in csr
-    test when run through valgrind. 
   * Currently the coupling coefficents A and Q are not consistently used with
     fitting... it makes sense to explicitly set them when one simply wants to
     invert a spin Hamiltonian, but for fitting the ESHFitRunner should take care

@@ -461,22 +461,28 @@ int main (void)
   /* Manually prepare array of parameter structs. */
   param_type efit_p0;
   efit_p0.type = 'r';
-  efit_p0.index = 0;
+  efit_p0.xi = 0;
+  efit_p0.ci = 0;
   param_type efit_p1;
   efit_p1.type = 'r';
-  efit_p1.index = 1;
+  efit_p1.xi = 1;
+  efit_p1.ci = 1;
   param_type efit_p2;
   efit_p2.type = 'r';
-  efit_p2.index = 2;
+  efit_p2.xi = 2;
+  efit_p2.ci = 2;
   param_type efit_p3;
   efit_p3.type = 'r';
-  efit_p3.index = 3;
+  efit_p3.xi = 3;
+  efit_p3.ci = 3;
   param_type efit_p4;
   efit_p4.type = 'r';
-  efit_p4.index = 4;
+  efit_p4.xi = 4;
+  efit_p4.ci = 4;
   param_type efit_p5;
   efit_p5.type = 'r';
-  efit_p5.index = 6;
+  efit_p5.xi = 6;
+  efit_p5.ci = 6;
   param_type **p = (param_type **) malloc(6*sizeof(param_type *));
   p[0] = &efit_p0;
   p[1] = &efit_p1;
@@ -496,6 +502,7 @@ int main (void)
   ce_ex_data.la = ex_index;
   ce_ex_data.ild = NULL;
   ce_ex_data.fld = NULL;
+  ce_ex_data.chisq_weight = 1.0;
 
   /* Run energy level fit. */
   efit_data *efit_d;
@@ -521,11 +528,10 @@ int main (void)
   param_type **pa[2] = {p, p};
   char joba[2] = {'N', 'N'};
   zh *ha[2] = {h, h};
-  double weights[2] = {1.0, 1.0};
   ex_data *exa[2] = {&ce_ex_data, &ce_ex_data};
   int n_zx_a[2] = {6, 6};
 
-  mh_fd = mhfit_data_alloc(joba, 2, ha, weights, exa, n_zx_a, pa);
+  mh_fd = mhfit_data_alloc(joba, 2, ha, exa, n_zx_a, pa);
   mhfit_lmin_obj = cfl_gsl_min_setup(&mhfit_obj, NULL, 6, mh_fd, gsl_vector_bfgs2);
   mhfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mhfit_lmin_obj);
 
@@ -566,7 +572,8 @@ int main (void)
 
   ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
   zsh_set_pro(ce_sh, shpro_tensors, 0, coupling);
-  eshfit_d = eshfit_data_alloc('N', 'N', h, NULL, &ce_ex_data, ce_sh, shx, 6, 0, p);
+
+  eshfit_d = eshfit_data_alloc('N', 'N', h, NULL, &ce_ex_data, ce_sh, shx, 6, p);
   eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, &eshfit_cov, 6, eshfit_d,
       gsl_vector_bfgs2);
   eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);

@@ -772,7 +772,7 @@ inline void sh_parse_param_data(int n_zx, param_type **p,
 
 
 /* Objective function for fit to energy levels only. */
-double efit_obj(int n, double *x, double *grad, void *data) {
+double efit_obj(size_t n, double *x, double *grad, void *data) {
   efit_data *d = data;
 
   parse_param_data(d->n_zx, d->p, d->h->coeff, x);
@@ -789,7 +789,7 @@ double efit_obj(int n, double *x, double *grad, void *data) {
 
 
 /* Objective function for multi-eigenvalue vector fit. */
-double mhfit_obj(int n, double *x, double *grad, void *data) {
+double mhfit_obj(size_t n, double *x, double *grad, void *data) {
   int i, hi;
   double chisq;
   mhfit_data *d = data;
@@ -825,7 +825,7 @@ double mhfit_obj(int n, double *x, double *grad, void *data) {
 
 /*  Objective function for fit to both energy levels and spin Hamiltonians in
  *  case the complete Hamiltonian is the same as the projection Hamiltonian. */
-double eshfit_obj(int n, double *x, double *grad, void *data) {
+double eshfit_obj(size_t n, double *x, double *grad, void *data) {
   int i;
   double chisq;
   eshfit_data *d = data;
@@ -856,7 +856,7 @@ double eshfit_obj(int n, double *x, double *grad, void *data) {
 }
 
 /*  Objective function for fit to both energy levels and spin Hamiltonians. */
-double eshfit_hpro_obj(int n, double *x, double *grad, void *data) {
+double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
   int i;
   double chisq;
   eshfit_data *d = data;
@@ -895,7 +895,7 @@ double eshfit_hpro_obj(int n, double *x, double *grad, void *data) {
 
 /*  Objective function for fit to energy levels and multiple spin Hamiltonians.
  */
-double meshfit_obj(int n, double *x, double *grad, void *data) {
+double meshfit_obj(size_t n, double *x, double *grad, void *data) {
   int i;
   double chisq = 0;
   meshfit_data *d = data;
