@@ -345,33 +345,33 @@ int main (void) {
   zcsr_free(cpm);
   zcsr_free(rpm);
 
-  zcsr *c20_cpm, *c20_rpm;
-  int *pj;
+  //zcsr *c20_cpm, *c20_rpm;
+  //int *pj;
 
-  pj = (int *) calloc(c20_zm->nnz+1, sizeof(int));
+  //pj = (int *) calloc(c20_zm->nnz+1, sizeof(int));
 
-  int *pi;
-  pi = (int *) calloc(c20_zm->n, sizeof(int));
+  //int *pi;
+  //pi = (int *) calloc(c20_zm->n, sizeof(int));
 
-  for (i=0; i<c20_zm->n; i++) {
-    pi[p[i]] = i;
-  }
-  c20_rpm = (zcsr *) zcsr_row_perm_alloc(c20_zm, pi);
-  c20_cpm = (zcsr *) zcsr_col_perm_alloc(c20_rpm, pi, pj);
-  
-  zcsr_row_perm(c20_zm, c20_rpm, pi);
-  zcsr_col_perm(c20_rpm, c20_cpm, pi, pj);
+  //for (i=0; i<c20_zm->n; i++) {
+  //  pi[p[i]] = i;
+  //}
+  //c20_rpm = (zcsr *) zcsr_row_perm_alloc(c20_zm, pi);
+  //c20_cpm = (zcsr *) zcsr_col_perm_alloc(c20_rpm, pi, pj);
+  //
+  //zcsr_row_perm(c20_zm, c20_rpm, pi);
+  //zcsr_col_perm(c20_rpm, c20_cpm, pi, pj);
 
-  complex double *c20_a = (complex double *) calloc( c20_zm->n*c20_zm->n, sizeof(complex double));
-  zcsr2zha(c20_cpm, c20_a);
+  //complex double *c20_a = (complex double *) calloc( c20_zm->n*c20_zm->n, sizeof(complex double));
+  //zcsr2zha(c20_cpm, c20_a);
 
-  free(pi);
-  free(pj);
-  zcsr_free(c20_rpm);
-  zcsr_free(c20_cpm);
+  //free(pi);
+  //free(pj);
+  //zcsr_free(c20_rpm);
+  //zcsr_free(c20_cpm);
   zhcsr_free(c20_zhm);
   zcsr_free(c20_zm);
-  free(c20_a);
+  //free(c20_a);
 
   return 0;
 }  
