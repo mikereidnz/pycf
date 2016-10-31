@@ -606,7 +606,6 @@ cdef sh_hpro_helper(h, sh):
         h = Hamiltonian([magzs] + h.tensors)
         h.set_coeff(tmp_h_coeff)
 
-
     # Check whether the provided Hamiltonian contains spin Hamiltonian
     # interaction matrix elements, in which case we create a separate
     # Hamiltonian to perform the spin Hamiltonian projection which has these
@@ -1950,8 +1949,6 @@ cdef class ESHFitRunner(object):
 
         if not sh.pro_data_set:
             raise ValueError("Spin Hamiltonian must have projection data set prior to eshfit.")
-        else:
-            self.coeff.update(sh.coeff_dict)
         
         # Add small magnetic field for state-label sorting; generate hpro, if
         # required.
@@ -2263,8 +2260,6 @@ cdef class MESHFitRunner(object):
                         "an 'sh' key that points to a SpinHamiltonian object.")
             if not sh.pro_data_set:
                 raise ValueError("Spin Hamiltonian must have projection data set prior to eshfit.")
-            else:
-                self.coeff.update(sh.coeff_dict)
             self.n_obs += sh.n_obs
         
             # Add small magnetic field for state-label sorting; generate hpro, if

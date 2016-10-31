@@ -1,9 +1,5 @@
 TODO
 ====
-  * Currently the coupling coefficents A and Q are not consistently used with
-    fitting... it makes sense to explicitly set them when one simply wants to
-    invert a spin Hamiltonian, but for fitting the ESHFitRunner should take care
-    of that...
   * Current F->D transition labels are very limited... should store the complete
     label somehow... Only works for (2F) labels presently. 
   * Try adaptive chi^2 weighting using annealing.
