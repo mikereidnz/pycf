@@ -1024,7 +1024,9 @@ cdef class SpinHamiltonian:
 
 cdef class ExData(object):
     r"""
-    Experimental energy level data for Hamiltonians. 
+    Experimental energy level data for Hamiltonians.  If both absolute and
+    difference energy levels are both present, then ex.e will be order such that
+    all absolute energy level values are before the difference energy levels. 
 
     Parameters
     ----------
@@ -1194,6 +1196,8 @@ cdef class ExData(object):
                     self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
                     
                 if len(key) == 2:
+                    # Both abs. and diff. levels present; energies are stacked
+                    # with all abs. values before the diff. values. 
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
                         data[key.index('DS')][:, 2*ll])), dtype=np.float64)
                 elif key[0] == 'AS':
@@ -1222,6 +1226,8 @@ cdef class ExData(object):
                     self.ild = np.ascontiguousarray(data[key.index('D')][:, 0]-1, dtype=np.int32)
                     self.fld = np.ascontiguousarray(data[key.index('D')][:, 1]-1, dtype=np.int32)
                 if len(key) == 2:
+                    # Both abs. and diff. levels present; energies are stacked
+                    # with all abs. values before the diff. values. 
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, 1],
                         data[key.index('D')][:, 2])), dtype=np.float64)
                 elif key[0] == 'A':

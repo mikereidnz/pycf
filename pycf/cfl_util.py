@@ -176,6 +176,7 @@ def ex_parse_abs(ex, z, labels):
     
     else:
         parsed_ex = np.zeros((ex.n_a, 2))
+        # Abs. energy values are ordered to preceed diff. values.
         parsed_ex[:, 1] = ex.e[:ex.n_a]
         parsed_ex[:, 0] = ex.la 
         # Sort ex according to index column.
@@ -204,10 +205,10 @@ def ex_parse_diff(ex, z, labels):
         Three coloumn array containing initial level indices starting at 1 in
         the zeroeth column, final level indices starting at 1 in the first
         column, and corresponding experimental energy levels differences in the
-        second column.  If the ExData object contains no absolute energy levels
+        second column.  If the ExData object contains no difference energy levels
         None is returned.
     """
-    if ex.n_a == 0:
+    if ex.n_d == 0:
         parsed_ex = None
     elif ex.sl_index:
         parsed_ex = np.zeros((ex.n_d, 3))
@@ -222,6 +223,7 @@ def ex_parse_diff(ex, z, labels):
             parsed_ex[i, 1] = np.where((np.array(labels)[pc] == s).all(axis=1))[0][0]
     else:
         parsed_ex = np.zeros((ex.n_d, 3))
+        # Diff. energy values are ordered to come after abs. values.
         parsed_ex[:, 2] = ex.e[ex.n_a:]
         parsed_ex[:, 0] = ex.ild
         parsed_ex[:, 1] = ex.fld
