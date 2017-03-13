@@ -23,6 +23,7 @@ cimport numpy as np
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
 import sys
+import copy
 from numbers import Number
 from cpython.pycapsule cimport *
 from cpython cimport Py_INCREF, Py_DECREF
@@ -382,7 +383,7 @@ cdef class Hamiltonian:
 
         # Keep copy of dict; fitting routines need to know the original type of
         # coeff elements to determine whether a parameter is real or complex.
-        self.coeff_dict = coeff
+        self.coeff_dict = copy.deepcopy(coeff)
 
         self.coeff = np.array([], dtype=np.complex128)
         for t in self.tensors:
@@ -395,6 +396,36 @@ cdef class Hamiltonian:
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
 
         return None
+
+
+    cpdef update_coeff(self, coeff):
+        r"""
+        Update the tensor coefficients for a subset of tensors.  This method can
+        only be called after an initial set_coeff call has been made. 
+
+        Parameters
+        ----------
+        coeff : dict
+            Keys have to be the same as tensor names. 
+        """
+        cdef np.ndarray[double complex, ndim=1, mode='c'] co
+        
+        if self.coeff_dict == None:
+            raise ValueError("Hamiltonian must have coefficients set prior to call of update_coeff.")
+        elif not isinstance(coeff, dict):
+            raise TypeError("coeff is not a dictionary.")
+
+        self.coeff_dict.update(coeff)
+
+        self.coeff = np.array([], dtype=np.complex128)
+        for t in self.tensors:
+            self.coeff = np.append(self.coeff, self.coeff_dict[t.get_name()])
+        
+        co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
+        cfl.zh_set_coeff(self.cfl_zh, &co[0])
+
+        return None
+
 
     @cython.boundscheck(False)
     cpdef diag(self):
@@ -1493,21 +1524,22 @@ cdef class EFitRunner(object):
         fmin = min_object.minimize(self, x)
         
         coeff = self.coeff.copy()
+        params = {}
         ri = 0
         
         for p in self:
             if (self.param_types[p] == 'c'): 
-                coeff[p] = np.complex(x[ri], x[ri+1])
+                params[p] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[p] = x[ri]
+                params[p] = x[ri]
                 ri += 1
             
         chi2 = np.ascontiguousarray(np.zeros(1, dtype=np.float64))
         cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
         self.chi2 = chi2
 
-        return(coeff, fmin)
+        return(params, fmin)
 
 
 cdef class MHFitRunner(object):
@@ -1594,6 +1626,7 @@ cdef class MHFitRunner(object):
                 self.coeff.update(h.coeff_dict)
             h_param_list += [[p for p in parameters if p in h]]
             self.n_zx[i] = len(h_param_list[i])
+        
         self.h_param_list = h_param_list
 
         # Create cython copy for passing to c func call. 
@@ -1784,22 +1817,22 @@ cdef class MHFitRunner(object):
         
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff.copy() 
+        params = {}
         ri = 0
         
         for p in self:
             if (self.param_types[p] == 'c'): 
-                coeff[p] = np.complex(x[ri], x[ri+1])
+                params[p] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[p] = x[ri]
+                params[p] = x[ri]
                 ri += 1
         
         chi2 = np.ascontiguousarray(np.zeros(self.n_h, dtype=np.float64))
         cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
         self.chi2 = chi2
 
-        return(coeff, fmin)
+        return(params, fmin)
 
 
 cdef shxdata_alloc_helper(sh, shx, weights):
@@ -2156,14 +2189,14 @@ cdef class ESHFitRunner(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         fmin = min_object.minimize(self, x)
         
-        coeff = self.coeff.copy()
+        params = {}
         ri = 0
         for p in self:
             if (self.param_types[p] == 'c'): 
-                coeff[p] = np.complex(x[ri], x[ri+1])
+                params[p] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[p] = x[ri]
+                params[p] = x[ri]
                 ri += 1
         
         chi2 = np.ascontiguousarray(np.zeros(len(self.sh.interactions)+1, dtype=np.float64))
@@ -2173,7 +2206,7 @@ cdef class ESHFitRunner(object):
             cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
         self.chi2 = chi2
 
-        return(coeff, fmin)
+        return(params, fmin)
 
 
 cdef class MESHFitRunner(object):
@@ -2575,16 +2608,16 @@ cdef class MESHFitRunner(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         fmin = min_object.minimize(self, x)
-        
-        coeff = self.coeff.copy() 
+       
+        params = {}
         ri = 0
         
         for p in self:
             if (self.param_types[p] == 'c'): 
-                coeff[p] = np.complex(x[ri], x[ri+1])
+                params[p] = np.complex(x[ri], x[ri+1])
                 ri += 2
             else:
-                coeff[p] = x[ri]
+                params[p] = x[ri]
                 ri += 1
 
         nchi2 = 0
@@ -2594,7 +2627,7 @@ cdef class MESHFitRunner(object):
         cfl.meshfit_chi2(&x[0], self.meshfit_data, &chi2[0])
         self.chi2 = chi2
 
-        return(coeff, fmin)
+        return(params, fmin)
 
 
 cdef class CFLMin:
@@ -2942,7 +2975,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     """
     efit = EFitRunner(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
-    h.set_coeff(x)
+    h.update_coeff(x)
     (w, z) = h.diag()
 
     # The number of degrees of freedom of the chi-squared distribution
@@ -3008,12 +3041,11 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
     h = mhfit.h_list[0]
-    h.set_coeff(x)
+    h.update_coeff(x)
     (w, z) = h.diag()
     summary += h.gen_summary() + "\n\n"
-
     for i,h in enumerate(mhfit.h_list):
-        h.set_coeff(x)
+        h.update_coeff(x)
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
@@ -3073,7 +3105,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     """
     eshfit = ESHFitRunner(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
-    h.set_coeff(x)
+    h.update_coeff(x)
     (w, z) = h.diag()
     
     # The number of degrees of freedom of the chi-squared distribution
@@ -3130,7 +3162,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     (x, fmin) = meshfit.fit(cfl_min)
 
     h = meshfit.h_list[0]
-    h.set_coeff(x)
+    h.update_coeff(x)
     (w, z) = h.diag()
     
     # The number of degrees of freedom of the chi-squared distribution
@@ -3145,7 +3177,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     
     chi2_offset = 0
     for i,h in enumerate(meshfit.h_list):
-        h.set_coeff(x)
+        h.update_coeff(x)
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
