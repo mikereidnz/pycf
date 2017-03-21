@@ -1405,8 +1405,8 @@ cdef class EFitRunner(object):
         if h.coeff_dict == None:
             raise ValueError("Hamiltonian must have coefficients set prior to efit.")
         else:
-            self.coeff = h.coeff_dict
-        
+            self.coeff = copy.deepcopy(h.coeff_dict)
+
         self.param_types = {}
         self.n_p_real = 0
         for p in parameters:
@@ -1623,7 +1623,7 @@ cdef class MHFitRunner(object):
             if h.coeff_dict == None:
                 raise ValueError("Hamiltonian must have coefficients set prior to mhfit.")
             else:
-                self.coeff.update(h.coeff_dict)
+                self.coeff.update(copy.deepcopy(h.coeff_dict))
             h_param_list += [[p for p in parameters if p in h]]
             self.n_zx[i] = len(h_param_list[i])
         
@@ -1984,7 +1984,7 @@ cdef class ESHFitRunner(object):
         if h.coeff_dict == None:
             raise ValueError("Hamiltonian must have coefficients set prior to eshfit.")
         else:
-            self.coeff = h.coeff_dict
+            self.coeff = copy.deepcopy(h.coeff_dict)
 
         if not sh.pro_data_set:
             raise ValueError("Spin Hamiltonian must have projection data set prior to eshfit.")
@@ -2287,7 +2287,7 @@ cdef class MESHFitRunner(object):
             if h.coeff_dict == None:
                 raise ValueError("Hamiltonian must have coefficients set prior to meshfit.") 
             else:
-                self.coeff.update(h.coeff_dict)
+                self.coeff.update(copy.deepcopy(h.coeff_dict))
             
             h_param_list += [[p for p in parameters if p in h]]
             n_zxa[i] += len(h_param_list[i])
