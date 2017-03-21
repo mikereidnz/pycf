@@ -151,6 +151,41 @@ def iqi(t, m):
     return(result)
 
 
+def bi(v, t):
+    r"""
+    Generate the `BI` term, an array of size `(2 \times j + 1)` by `(2 \times j
+    + 1)`, with `j` the angular momentum of the rank one tensor `I`.
+
+    Parameters 
+    ----------
+    v : numpy.ndarray
+        A `3` by `1` vector of magnetic field strengths `B_x`, `B_y` and `B_z`.
+    t : list
+        Elements consist of the matrix elements of `I_x`, `I_y` and `I_z`.
+
+    Returns
+    -------
+    result : array
+    """
+    tl = len(t[0])
+    l = len(t)
+    result = np.zeros([tl, tl], dtype = np.complex)
+    # All states of t are iterated through by the outer two loops.  The
+    # contribution due to each term in v cdot t is computed by the inner two
+    # loops.  This consists of a matrix multiplication of the form transpose(v)
+    # * t_element, where t_element is the matrix element corresponding to the
+    # state enumerated by tc and tr.
+    for tr in range(tl):
+        for tc in range(tl):
+            elem = 0
+            for i in range(l):
+                for j in range(l):
+                    elem += v[i] * t[j][tr, tc]
+            result[tr , tc] = elem
+    
+    return(result)
+
+
 def bgs_coeff_array(v, t):
     r"""
     Generate the `BgS` coefficient array.  This consists of a `2j+1 \times 2j+1`
@@ -472,12 +507,12 @@ class SpinH(object):
     Parameters
     ----------
     terms : list
-        Elements are strings with possible values 'bgs', 'ias' and 'iqi'.  The
-        choice of elements affects what other keyword arguments are required;
-        see below. 
+        Elements are strings with possible values 'bgs', 'ias', 'iqi', and 'bi'.
+        The choice of elements affects what other keyword arguments are
+        required; see below. 
     B : numpy.ndarray or list with numpy.ndarray elements
         A `3` by `1` vector containing values for the magnetic field strengths
-        `B_x`, `B_y` and `B_z`; if ``terms`` contains 'bgs' this keyword
+        `B_x`, `B_y` and `B_z`; if ``terms`` contains 'bgs' or 'bi' this keyword
         argument must be specified.  Furthermore, if ``'inv' = True``, this must
         be a list of magnetic field strength vectors, with a minimum of three
         linearly independent vectors required for a fully determined solution.
@@ -485,8 +520,8 @@ class SpinH(object):
         The spin projection `S_z`; if ``terms`` contains 'bgs' or 'ias' this
         keyword argument must be specified.
     I : float
-        The nuclear spin projection `I_z`; if ``terms`` contains 'ias' or 'iqi'
-        this keyword argument must be specified.
+        The nuclear spin projection `I_z`; if ``terms`` contains 'ias', 'iqi' or
+        'bi' this keyword argument must be specified.
     inv : boolean, optional
         If True, the coefficient arrays for term inversion are pre-computed.
 
@@ -497,16 +532,16 @@ class SpinH(object):
     """
     def __init__(self, terms, **kwargs):
         for t in terms:
-            if not any(t in term for term in ['bgs', 'ias', 'iqi']):
+            if not any(t in term for term in ['bgs', 'ias', 'iqi', 'bi']):
                 raise ValueError("Invalid element in terms list: {}. Allowed"
-                        "values are 'bgs', 'ias' and 'iqi'.".format(terms))
+                        "values are 'bgs', 'ias', 'iqi', 'bi'.".format(terms))
             else:
                 self.t_list = terms
         self.terms = {}
 
         # Calculate matrix elements for the specified terms.
         j_l = ['jx', 'jy', 'jz']
-        if 'bgs' in terms:
+        if 'bgs' in terms or 'bi' in terms:
             try:
                 B = kwargs['B']
                 self.B = B
@@ -528,7 +563,7 @@ class SpinH(object):
         else:
             S_m = None
 
-        if 'ias' in terms or 'iqi' in terms:
+        if 'ias' in terms or 'iqi' in terms or 'bi' in terms:
             try:
                 I = kwargs['I']
             except KeyError:
@@ -544,18 +579,18 @@ class SpinH(object):
             I_m = None
 
         # Determine Hamiltonian dimension.
-        if B != None:
+        if 'bgs' in terms:
             if I_m == None:
                 # Only the bgs term.
                 H_dim = 2*S + 1
             else:
-                # Both the bgs and iqi terms.
+                # The bgs and/or ias/iqi/bi terms.
                 H_dim = (2*S + 1) * (2*I + 1)
         elif S_m == None:
-            # Only the iqi term.
+            # Only the iqi and/or bi term.
             H_dim = 2*I + 1 
         else:
-            # Contains ias term.
+            # S_m != None and no bgs -> ias term.
             H_dim = (2*S + 1) * (2*I + 1)
         
         self.H_dim = H_dim
@@ -563,6 +598,9 @@ class SpinH(object):
         # Calculate the coefficient arrays.
         if 'inv' in kwargs:
             if kwargs['inv'] == True:
+                if 'bi' in terms:
+                    raise ValueError("Inversion for nuclear Zeeman not supported.")
+
                 self.H_terms = {}
                 self.coeff_a = {}
                 if 'bgs' in terms:
@@ -593,9 +631,10 @@ class SpinH(object):
         term : string
             Specifies the term; must be one of the values of the ``term`` list
             provided when the SpinH object was instantiated.
-        m : numpy.ndarray
-            A `3` by `3` matrix providing the parameters for the specified spin
-            Hamiltonian term.
+        m : numpy.ndarray or float
+            A `3` by `3` matrix consisting of the parameters for 'bgs', 'ias',
+            or 'iqi' terms.  For 'ib', this should be a float specifying the
+            nuclear g-factor.
         """
         if term not in self.t_list:
             raise ValueError("This SpinH object was not instantiated "
@@ -608,7 +647,7 @@ class SpinH(object):
             Parameters
             ----------
             m : numpy.ndarray
-                Matrix to for blocks.
+                Matrix which will be copied n times into block diag.
             n : int
                 Number of copies of m.
 
@@ -631,7 +670,11 @@ class SpinH(object):
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
             n = self.H_dim/(2 * self.I + 1)
             self.terms['iqi'] = __add_diag(iqi(self.I_m, m), n)
-            
+        elif term == 'bi':
+            # Create list of H_dim/(2*I + 1) length and block diagonalize.
+            n = self.H_dim/(2 * self.I + 1)
+            self.terms['bi'] = __add_diag(m*bi(self.B, self.I_m), n)
+
     def add_H_term(self, term, val):
         r"""
         Extract the specified term from the full Hamiltonian and update the
@@ -723,42 +766,6 @@ class SpinH(object):
             
         return(invert_term(self.coeff_a[term], self.H_terms[term]))
 
-
-    #def inv_term(self, term, sym=False):
-    #    r"""
-    #    Invert the specified term of this spin Hamiltonian.
-
-    #    Parameters
-    #    ----------
-    #    term : string
-    #        Specifies the term; must be one of the values of the ``term`` list
-    #        specified when the SpinH object was instantiated. 
-    #    sym : bool
-    #        Set to True to enable spin Hamiltonian symmeterization using a
-    #        singular-value decomposition.
-
-    #    Returns
-    #    -------
-    #    term_parameters : numpy.ndarray
-    #        A `9` by `1` vector consisting of stacked rows of the corresponding
-    #        `3` by `3` term parameter matrix. 
-    #    """
-    #    if not self.inv:
-    #        raise TypeError("This spectrum object does not support inv_term "
-    #                "method calls; to enable this pass the inv = True argument "
-    #                "to the constructor.")
-    #    elif term not in self.t_list:
-    #        raise ValueError("This SpinH object was not instantiated "
-    #                "with support for the specified term: {}".format(term))
-
-    #    t = invert_term(self.coeff_a[term], self.H_terms[term]).reshape(3,3)
-    #    if sym:
-    #        U, s, Vh = svd(t)
-    #        S = diagsvd(s, 3, 3)
-    #        t = np.dot(t, Vh.T).dot(U.T)
-    #        
-    #    return t
-
     def get_H(self):
         r"""
         Calculate the full Hamiltonian and return the result.
@@ -767,12 +774,18 @@ class SpinH(object):
         # Bohr magneton in MHz/T
         # http://physics.nist.gov/cgi-bin/cuu/Value?mubshhz|search_for=bohr+magneton
         mu_b = 13.996245042e3
+       
+        # Nuclear magneton in MHz/T
+        # http://physics.nist.gov/cgi-bin/cuu/Value?munshhz|search_for=nuclear+magneton
+        mu_n = 7.622593285
 
         H = np.complex(0, 0)
         for t in self.t_list:
             try:
                 if t == 'bgs':
                     H += self.terms[t]*mu_b
+                elif t == 'bi':
+                    H += self.terms[t]*mu_n
                 else:
                     H += self.terms[t]
             except KeyError:
