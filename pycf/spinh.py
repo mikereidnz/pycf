@@ -661,18 +661,18 @@ class SpinH(object):
 
         if term == 'bgs':
             # Create list of H_dim/(2*S + 1) length and block diagonalize.
-            n = self.H_dim/(2 * self.S + 1)
+            n = int(self.H_dim/(2 * self.S + 1))
             self.terms['bgs'] = __add_diag(bgs(self.B, m, self.S_m), n)
         elif term == 'ias':
             # ias term is of correct dimension.
             self.terms['ias'] = ias(self.S_m, m, self.I_m)
         elif term == 'iqi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
-            n = self.H_dim/(2 * self.I + 1)
+            n = int(self.H_dim/(2 * self.I + 1))
             self.terms['iqi'] = __add_diag(iqi(self.I_m, m), n)
         elif term == 'bi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
-            n = self.H_dim/(2 * self.I + 1)
+            n = int(self.H_dim/(2 * self.I + 1))
             self.terms['bi'] = __add_diag(m*bi(self.B, self.I_m), n)
 
     def add_H_term(self, term, val):
