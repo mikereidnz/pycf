@@ -345,16 +345,16 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=N
 
     s += "Label key: {}\n".format(label_key)
     if chi2 != None:
-        s += "weighted chi2 = {: .4f}\n".format(chi2)
+        s += "weighted chi2 = {:.4f}\n".format(chi2)
         if ndof != None:
             if weighting == None:
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
-            s += "sigma = {: .4f}\n".format(np.sqrt(chi2/weighting)/ndof)
+            s += "sigma = {:.4f}\n".format(np.sqrt(chi2/weighting)/ndof)
             if weighting != 1:
-                s += "weighting factor= {: .4f}\n".format(weighting)
+                s += "weighting factor = {:.2e}\n".format(weighting)
 
     if e_shift:
-        s += "Energy level shift: {: .4f}\n".format(e_shift)
+        s += "Energy level shift: {:.4f}\n".format(e_shift)
     
     return s
 
@@ -482,13 +482,13 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2, chi2=None,
 
     s += "Label key: {}\n".format(label_key)
     if chi2 != None:
-        s += "weighted chi2 = {: .4f}\n".format(chi2)
+        s += "weighted chi2 = {:.4f}\n".format(chi2)
         if ndof != None:
             if weighting == None:
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
-            s += "sigma = {: .4f}\n".format(np.sqrt(chi2/weighting)/ndof)
+            s += "sigma = {:.4f}\n".format(np.sqrt(chi2/weighting)/ndof)
             if weighting != 1:
-                s += "weighting factor= {: .4f}\n".format(weighting)
+                s += "weighting factor = {:.2e}\n".format(weighting)
     s += "\n"
     
     return s
@@ -551,16 +551,16 @@ def gen_sh_summary(param, sh, shx=None, name=None, chi2=None, ndof=None, weighti
             else:
                 s += "\n"
         if chi2 != None:
-            s += "weighted chi2 = {: .4f}\n".format(chi2[i])
+            s += "weighted chi2 = {:.4f}\n".format(chi2[i])
             if weighting != None:
-                s += "weighting factor= {: .4f}\n".format(weighting[inter])
+                s += "weighting factor = {:.2e}\n".format(weighting[inter])
                 tmp_sigma += chi2[i]/weighting[inter]
         s += "\n"
     
     if chi2 != None and ndof != None:
         if weighting == None:
             raise ValueError("The weight argument needs to be provided if you provide ndof.")
-        s += "sigma = {: .4f}\n".format(np.sqrt(tmp_sigma)/ndof)
+        s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma)/ndof)
 
     return s
 
