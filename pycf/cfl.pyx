@@ -2,7 +2,7 @@
 #cython: c_string_encoding=ascii
 #cython: embedsignature=True
 
-#   Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
+#   Copyright (C) 2014-2017 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -415,7 +415,7 @@ cdef class Hamiltonian:
         elif not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
 
-        self.coeff_dict.update(coeff)
+        self.coeff_dict.update(copy.deepcopy(coeff))
 
         self.coeff = np.array([], dtype=np.complex128)
         for t in self.tensors:
@@ -3047,7 +3047,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     for i,h in enumerate(mhfit.h_list):
         h.update_coeff(x)
         (w, z) = h.diag()
-
+        
         name = "Hamiltonian %i" % i
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key,
                 ex_list[i], name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
