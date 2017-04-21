@@ -580,47 +580,79 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
         Additional, optimization algorithm specific, settings to print.
 
     """
+
+    # Formatting definitions.  There are three parameter classes with different
+    # formatting options: free-ion, crystal-field and hyperfine. Any param not
+    # in CF or HYP is assumed to be in FI. 
+    cf_l = ['C20', 'C21', 'C22', 'C40', 'C41', 'C42', 'C43', 'C44', 'C60',
+            'C61', 'C62', 'C63', 'C64', 'C65', 'C66', 'c4', 'c6']
+    hyp_l = ['HYP', 'EQHYP']
+    
+    # Param class specific print formats. 
+    fmt_coeff = {'FI': '{0: >19.2f} {1: >19.2f} {2: >19.2f}',
+                 'CF': '{0: >19.2f} {1: >19.2f} {2: >19.2f}',
+                'HYP': '{0: >19.2g} {1: >19.2g} {2: >19.2g}'}
+    fmt_bounds = {'FI': '{0: >15.0f} {1: >15.0f}',
+                  'CF': '{0: >15.0f} {1: >15.0f}', 
+                  'HYP': '{0: >15.2g} {1: >15.2g}'}
+    fmt_stepsize = {'FI': '{0: >15.0f}',
+                    'CF': '{0: >15.0f}',
+                    'HYP': '{0: >15.0f}'}
+    fmt_scov = {'FI': '{0: >15.2g}',
+                'CF': '{0: >15.2g}',
+                'HYP': '{0: >15.2g}'}
+
+
     np.set_printoptions(formatter={'float': lambda x: '{:.3f}'.format(x)})
     cov = None
 
     s = "Fitting summary\n"
     s+= "===============\n\n"
     
-    heading = "Tensor name            Fitted coeff        Initial coeff         Difference"
+    heading = "Tensor name           Fitted coeff       Initial coeff          Difference"
     if kwargs['cov']:
         ndof = max(fit_obj.n_p_real - fit_obj.n_obs, 1)
         sigma = np.sqrt(np.sum(fit_obj.chi2))/ndof
         cov = np.linalg.inv(kwargs['cov_inv'])
         heading += "    Uncertainty"
     if 'bounds' in kwargs:
-        heading += "      Lower bounds       Upper bounds"
+        heading += "   Lower bounds    Upper bounds"
     if 'stepsize' in kwargs:
-        heading += "          Stepsize"
+        heading += "       Stepsize"
     heading += "\n"
 
     s += uline_char(heading)
     ii = 0      # Index for covariance matrix; increments two for imaginary params. 
     for i,p in enumerate(fit_obj):
         co = fit_obj.coeff[p]
+        if p in cf_l:
+            key = 'CF'
+        elif p in hyp_l:
+            key = 'HYP'
+        else:
+            key = 'FI'
+
         if co.imag == 0:
             co = co.real
             if kwargs['cov']:
-                scov = "{0: >15.0f}".format(np.sqrt(np.abs(cov[ii,ii]))*sigma)
+                scov = fmt_scov[key].format(np.sqrt(np.abs(cov[ii,ii]))*sigma)
             else:
                 scov = ""
             ii += 1
         else: 
             if kwargs['cov']:
-                scov = "{0: >15.0f}".format(np.complex(np.sqrt(np.abs(cov[ii,ii]))*sigma, np.sqrt(np.abs(cov[ii+1,ii+1]))*sigma))
+                scov = fmt_scov[key].format(np.complex(np.sqrt(np.abs(cov[ii,ii]))*sigma, np.sqrt(np.abs(cov[ii+1,ii+1]))*sigma))
             else: 
                 scov = ""
             ii += 2
-        s += "'{0:<12}: {1: >20.4f} {2: >20.4f} {3: >18.4f}".format(p+"'", coeff[p], co, coeff[p]-co)
+
+        s += "'{0:<12}: ".format(p+"'")
+        s += fmt_coeff[key].format(coeff[p], co, coeff[p]-co)
         s += scov
         if 'bounds' in kwargs:
-            s += "{0: >18.0f} {1: >18.0f}".format(kwargs['bounds'][p][0], kwargs['bounds'][p][1])
+            s += fmt_bounds[key].format(kwargs['bounds'][p][0], kwargs['bounds'][p][1])
         if 'stepsize' in kwargs:
-            s += "{0: >18.0f}".format(kwargs['stepsize'][p])
+            s += fmt_stepsize[key].format(kwargs['stepsize'][p])
         s += "\n"
 
     if 'bounds' in kwargs:
@@ -628,7 +660,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     if 'stepsize' in kwargs:
         del kwargs['stepsize']
 
-    np.set_printoptions(formatter={'float': lambda x: '{:15.4f}'.format(x)}, linewidth=200)
+    np.set_printoptions(formatter={'float': lambda x: '{:11.2f}'.format(x)}, linewidth=200)
     if kwargs['cov']:
         s += "\n" + uline_char("Covariance matrix:\n")
         try:
