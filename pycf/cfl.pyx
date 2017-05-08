@@ -811,10 +811,10 @@ cdef class SpinHamiltonian:
                 # Coefficient arrays are calculated for three B fields in \hat{x},
                 # \hat{y}, and \hat{z} directions, respectively.
                 self.dz = 2*self.Sz+1
-                B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
+                B_a = np.zeros([3, int(self.dz)**2, 9], dtype = np.complex)
                 for j in range(3):
                     B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.S_matel)
-                self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * self.dz**2, 9)), dtype=np.complex128)]
+                self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * int(self.dz)**2, 9)), dtype=np.complex128)]
                 self.nsh += 3
                 # Three g-values plus three Euler rotation parameters.
                 self.n_obs += 6
@@ -1033,7 +1033,7 @@ cdef class SpinHamiltonian:
             elif inter == 'quadrupole':
                 d_inter = self.dq**2
 
-            b = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(d_inter, dtype=np.complex128)
+            b = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(int(d_inter), dtype=np.complex128)
 
             zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w)
             result_list += [np.copy(a.reshape(3,3))]
