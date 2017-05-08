@@ -2973,18 +2973,21 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
+    summary = "=============\n"
+    summary+= "e_fit summary\n"
+    summary+= "=============\n"
+    summary += gen_pycf_summary()
+
     efit = EFitRunner(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
+    summary += gen_completed_str()
+
     h.update_coeff(x)
     (w, z) = h.diag()
 
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(efit.n_p_real - efit.n_obs, 1)
 
-    summary = "=============\n"
-    summary+= "e_fit summary\n"
-    summary+= "=============\n"
-    summary += gen_pycf_summary()
     summary += efit.h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1)
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
@@ -3030,13 +3033,14 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
-    mhfit = MHFitRunner(parameters, h_list, weights_list, ex_list, **kwargs)
-    (x, fmin) = mhfit.fit(cfl_min)
-
     summary = "==============\n"
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
     summary += gen_pycf_summary()
+
+    mhfit = MHFitRunner(parameters, h_list, weights_list, ex_list, **kwargs)
+    (x, fmin) = mhfit.fit(cfl_min)
+    summary += gen_completed_str()
 
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
@@ -3103,8 +3107,15 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
+    summary = "===============\n"
+    summary+= "esh_fit summary\n"
+    summary+= "===============\n"
+    summary += gen_pycf_summary()
+
     eshfit = ESHFitRunner(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
+    summary += gen_completed_str()
+
     h.update_coeff(x)
     (w, z) = h.diag()
     
@@ -3113,10 +3124,6 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
 
     sh_param = sh.calc_param(h)
     
-    summary = "===============\n"
-    summary+= "esh_fit summary\n"
-    summary+= "===============\n"
-    summary += gen_pycf_summary()
     summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
             weighting=eshfit.weights['energy'])
     summary += "\n"
@@ -3158,8 +3165,14 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
+    summary = "================\n"
+    summary+= "mesh_fit summary\n"
+    summary+= "================\n"
+    summary += gen_pycf_summary()
+
     meshfit = MESHFitRunner(parameters, h_sh_list, **kwargs)
     (x, fmin) = meshfit.fit(cfl_min)
+    summary += gen_completed_str()
 
     h = meshfit.h_list[0]
     h.update_coeff(x)
@@ -3168,10 +3181,6 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(meshfit.n_p_real - meshfit.n_obs, 1)
 
-    summary = "================\n"
-    summary+= "mesh_fit summary\n"
-    summary+= "================\n"
-    summary += gen_pycf_summary()
     summary += h.gen_summary()
     summary += "\n"
     

@@ -123,21 +123,30 @@ def L2term(i):
 
 def gen_pycf_summary():
     r"""
-    Print the pycf version and date/time.
-
+    Read input file and add to long string. Further, print the pycf version and
+    date/time.
     """
-    s = "pycf revision: {}\n".format(__version__.__version__)
-    s += "File: {}\n".format(os.path.abspath(inspect.stack()[1][1]))
-    s += "Calculation completed on: {}\n\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
-    s += "Input file\n"
-    s += "==========\n\n"
+    s = "\nInput file\n"
+    s  += "==========\n\n"
+    s += "File: {}\n\n".format(os.path.abspath(inspect.stack()[1][1]))
     with open(str(os.path.abspath(inspect.stack()[1][1])), 'r') as f:
         s += f.read()
     s += "\n\n"
 
+    s += "pycf details\n"
+    s += "============\n\n"
+    s += "pycf revision: {}\n".format(__version__.__version__)
+    s += "Calculation started at: {}\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
     return s
 
+def gen_completed_str():
+    r"""
+    Return string of fit completion time.
+    """
+    s = "Calculation completed at: {}\n\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    return s
 
 def ex_parse_abs(ex, z, labels):
     r"""
