@@ -607,7 +607,7 @@ class SpinH(object):
                     if not isinstance(B, list):
                         raise TypeError("When passing inv = True, B must be a"
                                 "list of numpy.ndarrays.")
-                    S_dimsq = (2*S + 1)**2
+                    S_dimsq = int((2*S + 1)**2)
                     B_a = np.zeros([len(B), S_dimsq, 9], dtype = np.complex)
                     for i,e in enumerate(B):
                         B_a[i, :, :] = bgs_coeff_array(e, S_m)
@@ -699,12 +699,12 @@ class SpinH(object):
                     "with support for the specified term: {}".format(term))
 
         if term == 'bgs':
-            S_dim = 2 * self.S + 1
+            S_dim = int(2 * self.S + 1)
             self.H_terms['bgs'] = np.array([v[:S_dim, :S_dim] for v in val])
         elif term == 'ias':
             self.H_terms['ias'] = val
         elif term == 'iqi':
-            I_dim = 2 * self.I + 1
+            I_dim = int(2 * self.I + 1)
             self.H_terms['iqi'] = val[:I_dim, :I_dim]
     
     def inv_term(self, term, sym=False, sym_phase=None):
