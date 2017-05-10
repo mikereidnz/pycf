@@ -665,7 +665,7 @@ class SpinH(object):
             self.terms['bgs'] = __add_diag(bgs(self.B, m, self.S_m), n)
         elif term == 'ias':
             # ias term is of correct dimension.
-            self.terms['ias'] = ias(self.S_m, m, self.I_m)
+            self.terms['ias'] = ias(self.I_m, m, self.S_m)
         elif term == 'iqi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
             n = int(self.H_dim/(2 * self.I + 1))
@@ -793,4 +793,3 @@ class SpinH(object):
                     "term.  Have you run the 'add_term' method?".format(t))
 
         return(H)
-    
