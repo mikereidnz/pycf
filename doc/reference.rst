@@ -13,14 +13,10 @@ pycf reference
 .. autoclass:: cfl.Hamiltonian
   :members:
 
-.. autoclass:: cfl.SHTerm
-  :members:
-
-.. autoclass:: cfl.SHTermData
-  :members:
-
 .. autoclass:: cfl.SpinHamiltonian
   :members:
+
+.. autofunction:: cfl.sh_svd
 
 .. autofunction:: cfl.zeeman_sh_coeff
 
@@ -40,6 +36,9 @@ pycf reference
 .. autoclass:: cfl.ESHFitRunner
   :members:
 
+.. autoclass:: cfl.MESHFitRunner
+  :members:
+
 .. autoclass:: cfl.CFLMin
   :members:
 
@@ -48,6 +47,13 @@ pycf reference
 .. autofunction:: cfl.mh_fit
 
 .. autofunction:: cfl.esh_fit
+
+.. autofunction:: cfl.mesh_fit
+
+.. autoclass:: cfl.ZEFOZSearchRunner
+  :members:
+
+.. autofunction:: cfl.zefoz
 
 
 :mod:`import_sljm` -- parse emp sljm matrix elements

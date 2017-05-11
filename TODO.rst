@@ -78,5 +78,8 @@ Distributed memory parallelization
 
 Debian/Ubuntu dependencies
 --------------------------
+Mention dependencies explicitly in install docs before showing how to perform
+install, i.e, before python setupy.py install.
+
 libgsl0-dev build-essential gfortran liblapacke-dev liblapack-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
 
