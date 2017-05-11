@@ -614,7 +614,7 @@ class SpinH(object):
                     self.coeff_a['bgs'] = np.reshape(B_a, (len(B) * S_dimsq, 9))
 
                 if 'ias' in terms:
-                    self.coeff_a['ias'] = ias_coeff_array(S_m, I_m)
+                    self.coeff_a['ias'] = ias_coeff_array(I_m, S_m)
                 if 'iqi' in terms:
                     self.coeff_a['iqi'] = iqi_coeff_array(I_m)
             elif kwargs['inv'] != False:

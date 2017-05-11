@@ -442,6 +442,7 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
   zsh_sort_t **sh_sort;
   sh_sort = shp_p_w->sh_sort;
 
+#if 0
   if (sh->iz != 0) {
     for (i = 0; i < sh->dim; i++) {
       /* The index of a non-zero eigenvector component. */
@@ -495,6 +496,7 @@ void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w) {
       }
     }
   }
+#endif
 }
 
 /*
@@ -527,9 +529,12 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
    * parameters, our matrix element state labels match those calculated here. */
   for (i = 0; i < shi_dim; i++) {
     for (j = 0; j < shi_dim; j++) {
+      /*
       ii = shp_p_w->sh_sort[i]->index;
-      jj = shp_p_w->sh_sort[j]->index;
+      jj =  shp_p_w->sh_sort[j]->index;
       a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj]*pd->coupling;
+      */
+      a[i*shi_dim+j] = shp_p_w->b[i*sh_dim + j]*pd->coupling;
     }
   }
 }
