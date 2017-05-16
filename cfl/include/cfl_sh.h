@@ -23,13 +23,6 @@
 #include "cfl_tensor.h"
 #include "cfl_h.h"
 
-/* Data type for sorting projection states according to sz and iz labels. */
-typedef struct {
-  /* Spin Hamiltonian element index. */
-  size_t index;
-  /* iz value (2*I_z). */
-  int iz;
-} zsh_sort_t;
 
 /* Data for spin Hamiltonian inversion, solving Ax=b. */
 typedef struct {
@@ -93,12 +86,6 @@ typedef struct {
   complex double *a;
   /* Array used for storing the final values of the projection. */
   complex double *b;
-  /* Data for sorting w.r.t. Iz and Sz labels of projection result. */
-  zsh_sort_t **sh_sort;
-  /* The complete spin Hamiltonian dimension; required for freeing sh_sort. */
-  size_t sh_dim;
-  /* The index of the iz label in sh->pt_slabels. */
-  char iz_i;
 } zshp_p_w; 
 
 /* Workspace for symmeterizing spin Hamiltonian parameter tensors using an SVD
@@ -149,14 +136,11 @@ typedef struct {
   zshi_w **shi_w;
   /* The number of interactions; required for freeing zshi_w. */
   int ninter;
-  /* The offset between int_i and pro_i due to there being three pro_i indices
-   * per int_i for a zeeman interaction. */
-  int zeeman_offset;
-  /* The dimension of a single Zeeman term. */
+  /* Index of the Zeeman interaction in the inter array. */
+  int zi;
+  /* Length in inv_data->b (total length m) of a single zeeman term.  For Sz=1/2
+   * this is 4. */
   int msz;
- /* The tensor index of the magz or magzs tensor, used for sorting matrix
-  * elements w.r.t. Sz. */
-  int magz_i;
 } zshp_w;
 
 /* Function prototypes. */
@@ -170,7 +154,6 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling);
 void zsh_set_inv(zsh *sh, complex double *b, char *inter);
 zshp_p_w *zshp_p_w_alloc(zsh *sh);
 void zshp_p_w_free(zshp_p_w *shp_p_w);
-void zshp_gen_sort(complex double *hz, int pro_i, zsh *sh, zshp_p_w *shp_p_w);
 void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
 void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
 svd_sym_w *svd_sym_w_alloc();

@@ -790,10 +790,7 @@ cdef class SpinHamiltonian:
         
         # Calculate the coefficient arrays and alloc spin Hamiltonian.
         n_inter = len(interactions)
-        if 'zeeman' not in interactions:
-            # One unspecified interaction, magzs. 
-            n_inter += 1
-
+       
         self.inter_array = <char **>malloc(n_inter*sizeof(char *))
         if self.inter_array == NULL:
             raise MemoryError("inter_array malloc failed")
@@ -843,11 +840,6 @@ cdef class SpinHamiltonian:
             a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.inv_data[i]
             self.inv_data_ptrs[i] = &a[0,0]
             self.inter_array[i] = inter
-        
-        # Add magzs to interactions if no Zeeman interaction is specified.
-        if 'zeeman' not in interactions:
-            self.inter_array[n_inter-1] = 'magzs'
-            self.required_tensors += ['MAGZ']
         
         csz = int(2*self.Sz)
         ciz = int(2*self.Iz)
