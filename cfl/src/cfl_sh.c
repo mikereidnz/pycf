@@ -374,7 +374,7 @@ void zshp_p_w_free(zshp_p_w *shp_p_w) {
  *  pro_i   The index for which tensor to project out the spin Hamiltonian
  *          matrix elements.
  */
-void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
+inline void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   int i, ii, j, jj, shi_dim, sh_dim;
   zsh_pro_data *pd;
   
@@ -404,7 +404,7 @@ void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
  *          elements.
  *  shp_p_w The projection workspace, allocated with zshp_p_w_alloc.
  */
-void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
+inline void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   int d;
   complex double one, zero;
   zsh_pro_data *pd;
@@ -444,7 +444,7 @@ void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
  * Allocate workspace for symmeterizing spin Hamiltonian parameter tensors using
  * a singular value decomposition. 
  */
-svd_sym_w *svd_sym_w_alloc() {
+svd_sym_w *svd_sym_w_alloc(void) {
   int lwork, info;
   double *s, *u, *vt, wquery;
   svd_sym_w *w;
@@ -613,7 +613,7 @@ void zshi_w_free(zshi_w *w) {
  *      parameter matrix of the interaction up on exit.
  *  w   The workspace allocated with zshi_w_alloc. 
  */
-void zshi(double *a, zshi_w *w) {
+inline void zshi(double *a, zshi_w *w) {
   int i, info; 
   char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
 

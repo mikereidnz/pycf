@@ -154,14 +154,11 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling);
 void zsh_set_inv(zsh *sh, complex double *b, char *inter);
 zshp_p_w *zshp_p_w_alloc(zsh *sh);
 void zshp_p_w_free(zshp_p_w *shp_p_w);
-void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
-void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w);
-svd_sym_w *svd_sym_w_alloc();
+svd_sym_w *svd_sym_w_alloc(void);
 void svd_sym_w_free(svd_sym_w *w);
 void svd_sym(double *a, svd_sym_w *w);
 zshi_w *zshi_w_alloc(char job, zsh_inv_data *d);
 void zshi_w_free(zshi_w *w);
-void zshi(double *a, zshi_w *w);
 zshp_w *zshp_w_alloc(char job, zsh *sh);
 void zshp_w_free(zshp_w *w);
 void zshp(double *a, complex double *b, complex double *hz, int int_i,
