@@ -61,11 +61,11 @@
  *          integer values.
  * iz       The nuclear spin projection I_z * 2; must be non-zero if inter
  *          contains "hyperfine" or "quadrupole". The factor of 2 ensures we're
- *          dealing with integer values.
+ *          dealing with integer values.  Set to zero for Iz = 0 isotopes.
  * a        An array of length ninter with entries corresponding to the
  *          inversion coefficient matrices with order matching that of inter.
  *          The coefficent matrix for a given interaction is A in Ax = b, where
- *          b is a columnv vector containing the matrix elements of the spin
+ *          b is a column vector containing the matrix elements of the spin
  *          Hamiltonian for this interaction.  Consequently, it is shdim*shdim
  *          by 1, where shdim is the dimension of the spin Hamiltonian for the
  *          specific interaction.  Additonally, x is the spin Hamiltonian
@@ -367,15 +367,18 @@ void zshp_p_w_free(zshp_p_w *shp_p_w) {
  *
  * Parameters
  * ----------
- *  a       Array of length shi_dim*shi_dim, with shi_dim the dimension of the
- *          spin Hamiltonian inversion term; this will be overwritten with the
- *          result upon exit.  
- *  sh      The spin Hamiltonian.
- *  pro_i   The index for which tensor to project out the spin Hamiltonian
- *          matrix elements.
+ *  a           Array of length shi_dim*shi_dim, with shi_dim the dimension of
+ *              the spin Hamiltonian inversion term; this will be overwritten
+ *              with the result upon exit.  
+ *  sh          The spin Hamiltonian.
+ *  pro_i       The index for which tensor to project out the spin Hamiltonian
+ *              matrix elements.
+ *  zeeman_flag Whether we're dealing with a Zeeman term.
+ *  shp_p_w     Projection workspace. 
  */
-inline void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
-  int i, ii, j, jj, shi_dim, sh_dim;
+inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zeeman_flag,
+    zshp_p_w *shp_p_w) {
+  int i, j, ii, jj, shi_dim, sh_dim;
   zsh_pro_data *pd;
   
   pd = sh->pro_data[pro_i];
@@ -383,12 +386,27 @@ inline void zshp_parse(complex double *a, zsh *sh, int pro_i, zshp_p_w *shp_p_w)
   shi_dim = sh->pro_data[pro_i]->shi_dim;
   sh_dim = sh->dim;
   /* We read out the shi_dim*shi_dim block corresponding to the spin Hamiltonian
-   * matrix elements specific to the interaction type. */
-  for (i = 0; i < shi_dim; i++) {
-    for (j = 0; j < shi_dim; j++) {
-      a[i*shi_dim+j] = shp_p_w->b[i*sh_dim + j]*pd->coupling;
+   * matrix elements specific to the interaction type.  The ordering after proj
+   * is with S state labels 'slow' and I state labels 'fast'.  Consequently, for
+   * Zeeman we have to  add an offset of 2 Iz + 1 to get matrix elements of Sz
+   * \pm 1 with matching Iz.*/
+  if (zeeman_flag != 0) {
+    for (i = 0; i < shi_dim; i++) {
+      for (j = 0; j < shi_dim; j++) {
+        ii = (i % 2 == 0) ? i+sh->iz+1 : i;
+        jj = (j % 2 == 0) ? j+sh->iz+1 : j;
+        a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj];
+      }
     }
   }
+  else {
+    for (i = 0; i < shi_dim; i++) {
+      for (j = 0; j < shi_dim; j++) {
+        a[i*shi_dim+j] = shp_p_w->b[i*sh_dim + j]*pd->coupling;
+      }
+    }
+  }
+
 }
 
 
@@ -408,12 +426,12 @@ inline void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   int d;
   complex double one, zero;
   zsh_pro_data *pd;
-  
+
   pd = sh->pro_data[pro_i];
   d = sh->pt_dim;
   one = 1;
   zero = 0;
- 
+
   /* The projection is a similarity transformation of the form V^dag H V, where
    * V is the eigenvector matrix of a Hamiltonian containing free-ion and
    * crystal-field interactions.  H are the matrix elements to project, i.e.,
@@ -453,7 +471,7 @@ svd_sym_w *svd_sym_w_alloc(void) {
   if (w == 0) {
     CFL_ERROR_NULL("malloc failed for w");
   }
- 
+
   info = LAPACKE_dgesvd_work(LAPACK_COL_MAJOR, 'A', 'A', 3, 3, NULL, 3, NULL,
       NULL, 3, NULL, 3, &wquery, -1);
   if (info != 0) {
@@ -470,7 +488,7 @@ svd_sym_w *svd_sym_w_alloc(void) {
   memset(w->s, 0, 9*sizeof(double));
   memset(w->u, 0, 9*sizeof(double));
   memset(w->vt, 0, 9*sizeof(double));
-  
+
   w->lwork = lwork;
 
   return w;
@@ -497,7 +515,7 @@ void svd_sym_w_free(svd_sym_w *w) {
 void svd_sym(double *a, svd_sym_w *w) {
   int info;
   char lapack_err[] = "LAPACKE_zgesvd failed with error code: 0";
-  
+
   memcpy(w->tmp_a, a, 9*sizeof(double));
   info = LAPACKE_dgesvd_work(LAPACK_COL_MAJOR, 'A', 'A', 3, 3, a, 3, w->s, w->u,
       3, w->vt, 3, w->work, w->lwork);
@@ -554,7 +572,7 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
     free(w);
     CFL_ERROR_NULL("calloc failed for work");
   }
-  
+
   /* Storage for the inversion coefficient matrix; since this is overwritten by
    * zgels we must make a copy of the inversion matrix d->a to allow for
    * repeated evaluations. */
@@ -564,7 +582,7 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
     free(work);
     CFL_ERROR_NULL("calloc failed for work");
   }
-  
+
   if (job == 'S') {
     w->job = 'S';
     w->svd_w = (svd_sym_w *) svd_sym_w_alloc();
@@ -582,7 +600,7 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
 
   w->job = job;
   w->lwork = lwork,
-  w->work = work;
+    w->work = work;
   w->a = a;
   w->a_size = d->m*9*sizeof(double complex);
   w->data = d;
@@ -674,7 +692,7 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
     CFL_ERROR_NULL("malloc failed for zshi_w");
   }
 
- /* Alloc inversion workspace. */
+  /* Alloc inversion workspace. */
   for (i = 0; i < sh->ninter; i++) {
     w->shi_w[i] = zshi_w_alloc(job, sh->inv_data[i]);
     if (w->shi_w[i] == 0) {
@@ -745,22 +763,22 @@ void zshp(double *a, complex double *b, complex double *hz, int int_i,
   if (int_i < w->zi) {
     /* Before Zeeman interaction term, so inv index matches pro index. */
     zshp_p(hz, sh, int_i, w->shp_p_w);
-    zshp_parse((sh->inv_data[int_i])->b, sh, int_i, w->shp_p_w);
+    zshp_parse((sh->inv_data[int_i])->b, sh, int_i, 0, w->shp_p_w);
   }
   else if (int_i == w->zi) {
     /* Zeeman interaction term, loop through three projections. */
     for (i = 0; i < 3; i++) {
       zshp_p(hz, sh, int_i+i, w->shp_p_w);
-      zshp_parse(&((sh->inv_data[int_i])->b[i*w->msz]), sh, int_i+i,
+      zshp_parse(&((sh->inv_data[int_i])->b[i*w->msz]), sh, int_i+i, 1,
           w->shp_p_w);
     }
   }
   else {
     /* After Zeeman term; add offset between inv and pro index. */
     zshp_p(hz, sh, int_i+2, w->shp_p_w);
-    zshp_parse((sh->inv_data[int_i])->b, sh, int_i+2, w->shp_p_w);
+    zshp_parse((sh->inv_data[int_i])->b, sh, int_i+2, 0, w->shp_p_w);
   }
-  
+
   if (b != NULL) {
     memcpy(b, (sh->inv_data[int_i])->b, w->shi_w[int_i]->ldb*sizeof(complex double));
   }
