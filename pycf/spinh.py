@@ -433,8 +433,6 @@ def su2_rotation(p, m):
                          [np.exp(I*(a)/2) * (np.sin(b/2)*np.cos(c/2)-I*np.cos(b/2)*np.sin(c/2)), 
          np.exp(I*(a)/2) * (-I*np.sin(b/2)*np.sin(c/2)+np.cos(b/2)*np.cos(c/2))]])
     
-    #rotation = np.array([[np.exp(-I*(a+c)/2) * np.cos(b/2), -np.exp(-I*(a-c)/2)*np.sin(b/2)],
-    #    [np.exp(I*(a-c)/2)*np.sin(b/2), np.exp(I*(a+c)/2)*np.cos(b/2)]])
     rm = np.copy(m)
     for i in range(int(m.shape[0]/2)):
         for j in range(int(m.shape[1]/2)):

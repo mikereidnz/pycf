@@ -819,9 +819,9 @@ cdef class SpinHamiltonian:
 
             if inter == 'hyperfine':
                 self.dh = int((2*self.Sz+1) * (2*self.Iz+1))
-                # The ordering of S_matel and I_matel is such that the states
-                # are first ordered by Iz, and then order by blocks of 2 by 2 Sz
-                # eigenvalues.
+                # The ordering of I_matel and S_matel are such that Iz is the
+                # 'fast', that is the inner, index, while Sz is the 'slow', that
+                # is the outer, index.
                 self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.I_matel, self.S_matel), 
                     dtype=np.complex128)]
                 self.nsh += 1
