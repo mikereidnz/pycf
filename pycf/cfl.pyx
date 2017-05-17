@@ -910,11 +910,13 @@ cdef class SpinHamiltonian:
         coupling_constants : dict, optional
             If hyperfine or quadrupole interactions are present, this dictionary
             has to be provided, which specifies the nuclear dipole and nuclear
-            quadrupole coupling constants, using keys 'HYP' and 'QUAD',
+            quadrupole coupling constants, using keys 'HYP' and 'EQHYP',
             respectively.
         """
         cdef cfl.zt **t_array
         cdef np.ndarray[double, ndim=1, mode="c"] cc
+        cdef double *ccptr
+
         if not isinstance(tensors, list):
             raise TypeError("The tensors argument of set_pro_data must be a list "\
                     "of Tensor objects, not an object of type %s." % type(tensors))
@@ -941,20 +943,22 @@ cdef class SpinHamiltonian:
                 except KeyError:
                     free(t_array)
                     raise KeyError("Missing the nuclear dipole coupling constant in set_pro_data call.")
-            elif rt == 'QUAD':
+            elif rt == 'EQHYP':
                 try:
-                    cc_list += [coupling_constants['QUAD']]
+                    cc_list += [coupling_constants['EQHYP']]
                 except KeyError:
                     free(t_array)
                     raise KeyError("Missing the nuclear quadrupole coupling constant in set_pro_data call.")
-            else:
-                # Default to unity for Zeeman/magz. 
-                cc_list += [1.0]
        
         self.coeff_dict = coupling_constants
         cc = np.array(cc_list, dtype=np.float64)
+        if len(cc):
+            ccptr = &cc[0]
+        else: 
+            ccptr = NULL
+
         retval = zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), 
-                t_array, self.level, &cc[0])
+                t_array, self.level, ccptr)
         
         free(t_array)
         if retval != 1:
@@ -2001,7 +2005,7 @@ cdef class ESHFitRunner(object):
             elif p == 'HYP':
                 self.n_p_real += 1
                 self.param_types[p] = "h"
-            elif p == 'QUAD':
+            elif p == 'EQHYP':
                 self.n_p_real += 1
                 self.param_types[p] = "q"
             else:
@@ -2378,7 +2382,7 @@ cdef class MESHFitRunner(object):
                 for j,h in enumerate(h_list):
                     if p not in h and p in sh_list[j]:
                         n_zxa[j] += 1
-            elif p == 'QUAD':
+            elif p == 'EQHYP':
                 x0_index[p] = self.n_p_real
                 self.n_p_real += 1
                 self.param_types[p] = "q"

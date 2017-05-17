@@ -201,14 +201,13 @@ void zsh_set_inv(zsh *sh, complex double *b, char *inter) {
  *            tensors are expected, in the order "magx", "magy", and "magz".  
  *  l         Integer specifying the initial level for which to project the spin
  *            Hamiltonian.
- *  coupling  Array with order and length matching the order and length of t,
- *            specifying the coupling constants.  This should be unity for any
- *            Zeeman terms, and the nuclear dipole and nuclear quadrupole
- *            coupling constants for 'hyperfine' and 'quadrupole' terms,
- *            respectively.
+ *  coupling  Array containing coupling constants for hyperfine and quadrupole
+ *            interactions.  Elements must only be set if the interaction is
+ *            present, and the order in which they are set must match the order
+ *            in which the corresponding tensor is provided in t.
  */
 int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
-  int i, j, ntensors, zeeman_count, zeeman_flag;
+  int i, j, ntensors, zc, zf, cc;
   long thash;
 
   /* Check for zeeman interaction, in which case we expect tensors for three
@@ -240,8 +239,9 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
     CFL_ERROR_VAL("malloc failed for pro_data", ENOMEM);
   }
 
-  zeeman_flag = 0;  /* Flag set to true when Zeeman term is encountered. */
-  zeeman_count = 0; /* Number of pro_data allocs since zeeman_flag = 1. */
+  zf = 0;  /* Flag set to true when Zeeman term is encountered. */
+  zc = 0; /* Number of pro_data allocs since zf = 1. */
+  cc = 0;           /* Coupling constant counter. */
   thash = (t[0])->slabels->th;
   for (i = 0; i < ntensors; i++) {
     sh->pro_data[i] = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
@@ -280,33 +280,36 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
     
     /* Record the size of each spin Hamiltonian interaction term; for zeeman
      * interactions we need to record the same size for three tensors. */
-    if (zeeman_flag && zeeman_count < 2) {
+    if (zf && zc < 2) {
       (sh->pro_data[i])->shi_dim = (sh->sz+1);
-      zeeman_count++;
+      zc++;
     }
-    else if (!strcmp("zeeman", sh->inter[i-zeeman_count])) {
+    else if (!strcmp("zeeman", sh->inter[i-zc])) {
       (sh->pro_data[i])->shi_dim = (sh->sz+1);
-      zeeman_flag = 1;
+      zf = 1;
     }
-    else if (!strcmp("hyperfine", sh->inter[i-zeeman_count])) {
+    else if (!strcmp("hyperfine", sh->inter[i-zc])) {
       (sh->pro_data[i])->shi_dim = (sh->sz+1)*(sh->iz+1);
       sh->pd_map[0] = i;
+      /* Set the coupling coefficient. */
+      sh->pro_data[i]->coupling = coupling[cc];
+      cc++;
     }
-    else if (!strcmp("quadrupole", sh->inter[i-zeeman_count])) {
+    else if (!strcmp("quadrupole", sh->inter[i-zc])) {
       (sh->pro_data[i])->shi_dim = (sh->iz+1);
       sh->pd_map[1] = i;
+      /* Set the coupling coefficient. */
+      sh->pro_data[i]->coupling = coupling[cc];
+      cc++;
     }
-
-    /* Set the coupling coefficient. */
-    sh->pro_data[i]->coupling = coupling[i];
   }
-  
+
   sh->ntensors = ntensors;
   sh->l = l;
   /* We have verified that all tensors have matching state labels. */
   sh->pt_slabels = t[0]->slabels;
   sh->pt_dim = t[0]->n;
-  
+
   return 1;
 }
 
@@ -346,7 +349,7 @@ zshp_p_w *zshp_p_w_alloc(zsh *sh) {
     free(a);
     CFL_ERROR_NULL("calloc failed for b");
   }
-  
+
   shp_p_w->a = a;
   shp_p_w->b = b;
 
@@ -373,14 +376,14 @@ void zshp_p_w_free(zshp_p_w *shp_p_w) {
  *  sh          The spin Hamiltonian.
  *  pro_i       The index for which tensor to project out the spin Hamiltonian
  *              matrix elements.
- *  zeeman_flag Whether we're dealing with a Zeeman term.
+ *  zf          Flag whether we're dealing with a Zeeman term.
  *  shp_p_w     Projection workspace. 
  */
-inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zeeman_flag,
-    zshp_p_w *shp_p_w) {
+inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zshp_p_w
+    *shp_p_w) {
   int i, j, ii, jj, shi_dim, sh_dim;
   zsh_pro_data *pd;
-  
+
   pd = sh->pro_data[pro_i];
 
   shi_dim = sh->pro_data[pro_i]->shi_dim;
@@ -390,7 +393,7 @@ inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zeeman_flag,
    * is with S state labels 'slow' and I state labels 'fast'.  Consequently, for
    * Zeeman we have to  add an offset of 2 Iz + 1 to get matrix elements of Sz
    * \pm 1 with matching Iz.*/
-  if (zeeman_flag != 0) {
+  if (zf != 0) {
     for (i = 0; i < shi_dim; i++) {
       for (j = 0; j < shi_dim; j++) {
         ii = (i % 2 == 0) ? i+sh->iz+1 : i;
@@ -406,7 +409,6 @@ inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zeeman_flag,
       }
     }
   }
-
 }
 
 
