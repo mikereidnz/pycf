@@ -593,7 +593,7 @@ class SpinH(object):
             # S_m != None and no bgs -> ias term.
             H_dim = (2*S + 1) * (2*I + 1)
         
-        self.H_dim = H_dim
+        self.H_dim = int(H_dim)
 
         # Calculate the coefficient arrays.
         if 'inv' in kwargs:
