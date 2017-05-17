@@ -640,40 +640,36 @@ class SpinH(object):
             raise ValueError("This SpinH object was not instantiated "
                     "with support for the specified term: {}".format(term))
 
-        def __add_diag(m, n):
+        def bgs_helper(mat, hdim):
             """
-            Generate n copies of a matrix and arrange in a block diagonal form.
-
-            Parameters
-            ----------
-            m : numpy.ndarray
-                Matrix which will be copied n times into block diag.
-            n : int
-                Number of copies of m.
-
-            Returns
-            -------
-            result : numpy.ndarray
-                A len(m) * n by len(m) * n block diagonal matrix.
+            Create matrix with dimension of hdim, with elements of mat in
+            diagonal blocks of size hdim/len(mat).
             """
-            l = [m * i for i in np.ones(n)]
-            return(block_diag(*l))
+            matd = len(mat)           # dim of bgs
+            bd = int(hdim/matd)       # block dim
+            
+            H = np.zeros([hdim, hdim], dtype=np.complex128)
+            d = np.diag([1]*bd)
+            
+            for r in range(matd):
+                for c in range(matd):
+                    H[r*bd:(r+1)*bd, c*bd:(c+1)*bd] += d * mat[r,c]
+            return H
 
         if term == 'bgs':
             # Create list of H_dim/(2*S + 1) length and block diagonalize.
-            n = int(self.H_dim/(2 * self.S + 1))
-            self.terms['bgs'] = __add_diag(bgs(self.B, m, self.S_m), n)
+            self.terms['bgs'] = bgs_helper(bgs(self.B, m, self.S_m), self.H_dim)
         elif term == 'ias':
             # ias term is of correct dimension.
             self.terms['ias'] = ias(self.I_m, m, self.S_m)
         elif term == 'iqi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
             n = int(self.H_dim/(2 * self.I + 1))
-            self.terms['iqi'] = __add_diag(iqi(self.I_m, m), n)
+            self.terms['iqi'] = block_diag(*[iqi(self.I_m, m)]*n)
         elif term == 'bi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
             n = int(self.H_dim/(2 * self.I + 1))
-            self.terms['bi'] = __add_diag(m*bi(self.B, self.I_m), n)
+            self.terms['bi'] = block_diag(*[m*bi(self.B, self.I_m)]*n)
 
     def add_H_term(self, term, val):
         r"""
@@ -745,8 +741,7 @@ class SpinH(object):
                 fmin = lambda p: su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
                 r = basinhopping(fmin, [0,0,0], minimizer_kwargs={"method": "Powell"}, 
                         callback=print_fun, niter=100)
-                #r = basinhopping(fmin, [0,0,0], minimizer_kwargs={"method": "Powell"}, 
-                #        callback=print_fun, niter=100)
+
                 self.sym_phase = r['x']
             else:
                 if len(sym_phase) != 3:
@@ -793,3 +788,5 @@ class SpinH(object):
                     "term.  Have you run the 'add_term' method?".format(t))
 
         return(H)
+
+
