@@ -1,27 +1,40 @@
 Installation
 ============
 
-Getting started
----------------
-To install pycf, get a copy of the source by running::
+Basic installation
+------------------
+First, grab a copy of the source using::
 
   git clone https://bitbucket.org/sebastianhorvath/pycf/ 
+
+This clones the master branch into a local directory called pycf.  I tend to
+merge updates into master somewhat sporadically, but generally will only include
+well tested commits.  Specific versions of pycf (printed in log files)
+correspond to the git revisions, so it should always be possible to figure out
+what source was used to produce a specific output file.  For a branch other than
+master, for example devel, use the ``-b branchname`` argument of git. 
+
+Before building, there's a number of dependencies that have to be satisfied. See
+the subsection below for details, but if you're on Debian or a derivative
+system, the following packages should take care of it:: 
+
+  sudo apt-get install build-essential gfortran liblapacke-dev liblapack-dev \
+  libgsl0-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
 
 Then, in the package root directory, execute::
 
   python setup.py install --prefix=/path/to/dir
 
-Provided you have all of the dependencies satisfied, this first builds both the
-cfl library and the python bindings, and then installs them to the specified
-``prefix`` directory.  It is typically a good idea to specify ``prefix`` to
-something other than the default (``/usr/local``).  For a non-default ``prefix``
-you need to tell the python interpreter where the modules are installed.  This
-is achieved using the ``PYTHONPATH`` environment variable, which has to be set
-to include the path to the ``site-packages`` directory into which the module was
-installed. 
+This first builds both the cfl library and the python bindings, and then
+installs them to the specified ``prefix`` directory.  It is typically a good
+idea to specify ``prefix`` to something other than the default (``/usr/local``).
+For a non-default ``prefix`` you need to tell the python interpreter where the
+modules are installed.  This is achieved using the ``PYTHONPATH`` environment
+variable, which has to be set to include the path to the ``site-packages``
+directory into which the module was installed. 
 
 Here is a quick example which installs pycf to ``opt`` in the ``$HOME``
-directory.  Assuming one is in the package root directory::
+directory.  Assuming you're in the pycf root directory::
 
   python setup.py install --prefix $HOME/opt
 
@@ -45,11 +58,6 @@ to make sure you're specifying the correct directory.  For further details on
 this convention, have a look at the Debian Python `wiki
 <https://wiki.debian.org/Python#Deviations_from_upstream>`_.
 
-The cfl library uses GNU make and can be built independently from the python
-modules.  Running ``make`` in the ``cfl`` directory should suffice provided the
-dependencies are satisfied.  There is also a ``debug`` target which builds with
-``-O1``. 
-
 
 Dependencies
 ------------
@@ -72,13 +80,6 @@ Before building you will need to satisfy the following dependencies:
 GCC, gfortran, and LAPACK can be substituded for their Intel MKL equivalent; see
 the Intel mkl section below for details.
 
-All of the above programs should be available via the package manager on most
-linux distributions.  For Debian or Debian derived distributions (including
-Ubuntu), the following packages install all the required dependencies::
-
-  sudo apt-get install build-essential gfortran liblapacke-dev liblapack-dev \
-  libgsl0-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
-
 Note that if any of the dependencies are not installed using your distributions
 package manager, and they are in a non-standard location (not listed in
 ``/etc/ld.so.conf``), then you need to specify the path to any include and lib
@@ -97,6 +98,15 @@ objects must be compiled as position independent code (``-fPIC``).  If you are
 getting ``undefined symbol`` errors at runtime, even though ldd claims
 ``cfl.so`` is fully linked, this suggests that perhaps one of the statically
 linked libraries was not position independent.
+
+
+Build cfl withe GNU make
+------------------------
+
+The cfl library uses GNU make and can be built independently from the python
+modules.  Running ``make`` in the ``cfl`` directory should suffice provided the
+dependencies are satisfied.  There is also a ``debug`` target which builds with
+``-O1``. 
 
 
 Redhat based systems
