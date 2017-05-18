@@ -6,7 +6,7 @@ Directory layout and program names
 
 pycf is a collection of python modules for crystal field theory and spin
 Hamiltonian calculations.  The primary module is cfl (for crystal field
-library), but there's also several other modules which might be useful and
+library), but there's also several other modules which might be useful and are
 consequently included here.
 
 cfl
