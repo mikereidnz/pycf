@@ -553,10 +553,10 @@ def gen_sh_summary(param, sh, shx=None, name=None, chi2=None, ndof=None, weighti
         else:
             s += uline_char("Theory\n")
         for j in range(3):
-            s += str(np.real(np.abs(param[i])).reshape(3,3)[j,:])
+            s += str(np.real(param[i]).reshape(3,3)[j,:])
             if shx != None:
-                s += "  " + str(np.abs(shx[inter].reshape(3,3)[j,:])) + "  " + str((np.abs(shx[inter]) 
-                    - np.abs(np.real(param[i]))).reshape(3,3)[j,:]) + "\n"
+                s += "  " + str(shx[inter].reshape(3,3)[j,:]) + "  " + str((shx[inter] 
+                    - np.real(param[i])).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
         if chi2 != None:

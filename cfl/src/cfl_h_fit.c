@@ -642,7 +642,7 @@ inline double shchisq(double *pa, double *xpa) {
 
   chisq = 0;
   for (i = 0; i < 9; i++) {
-    chisq += pow(fabs(pa[i]) - fabs(xpa[i]), 2);
+    chisq += pow(pa[i] - xpa[i], 2);
   }
   
   return chisq;
