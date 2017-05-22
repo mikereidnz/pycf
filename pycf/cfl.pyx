@@ -2079,7 +2079,9 @@ cdef class ESHFitRunner(object):
                 # Ensure any input spin Hamiltonian parameters are in the
                 # singular value decomposition basis.
                 for inter in shx:
-                    shx[inter] = sh_svd(shx[inter])
+                    # Disable SVD for quad, since there's no S matrix elements.
+                    if inter != 'quadrupole':
+                        shx[inter] = sh_svd(shx[inter])
             else:
                 svd = <char> 'N'
         else:
@@ -2338,7 +2340,10 @@ cdef class MESHFitRunner(object):
                 if d['svd_sym']:
                     svd_list += [<char> 'S']
                     for inter in shx_list[i]:
-                        shx_list[i][inter] = sh_svd(shx_list[i][inter])
+                        # Disable SVD for quad, since there's no S matrix
+                        # elements. 
+                        if inter != 'quadrupole':
+                            shx_list[i][inter] = sh_svd(shx_list[i][inter])
                 else:
                     svd_list += [<char> 'N']
             else:

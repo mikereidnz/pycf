@@ -696,6 +696,11 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
 
   /* Alloc inversion workspace. */
   for (i = 0; i < sh->ninter; i++) {
+    /* Disable SVD for quadrupole, irrespective of what the job flag specifies,
+     * since there's no S matrix elements. */
+    if (!strcmp("quadrupole", sh->inter[i])) {
+      job = 'N';
+    }
     w->shi_w[i] = zshi_w_alloc(job, sh->inv_data[i]);
     if (w->shi_w[i] == 0) {
       for (j = 0; j < i; j++) {
