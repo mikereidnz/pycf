@@ -465,7 +465,7 @@ cdef class Hamiltonian:
 
         return (w, z)
 
-    def gen_summary(self, ex=None, nstates=2, **kwargs):
+    def gen_summary(self, **kwargs):
         r"""
         Generate an energy level summary resulting from a diagonalization. 
 
@@ -491,7 +491,7 @@ cdef class Hamiltonian:
         """
         if self.diag_run:
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
-                    self.tensors[0].states.label_key, ex, nstates, **kwargs)
+                    self.tensors[0].states.label_key, **kwargs)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
 
@@ -3055,7 +3055,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         
         name = "Hamiltonian %i" % i
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key,
-                ex_list[i], name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
+                ex=ex_list[i], name=name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
 
         summary += "\n"
 
@@ -3128,8 +3128,8 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
             weighting=eshfit.weights['energy'])
     summary += "\n"
-    summary += gen_sh_summary(sh_param, sh, shx, chi2=eshfit.chi2[1:], ndof=ndof, 
-            weighting=eshfit.weights)
+    summary += gen_sh_summary(sh_param, sh, shx=shx, chi2=eshfit.chi2[1:], 
+            ndof=ndof, weighting=eshfit.weights)
     summary += "\n"
     summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 
@@ -3192,7 +3192,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
 
         name = "Hamiltonian %i" % i
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, 
-                h.tensors[0].states.label_key, meshfit.ex_list[i], name,
+                h.tensors[0].states.label_key, ex=meshfit.ex_list[i], name=name,
                 chi2=meshfit.chi2[chi2_offset], ndof=ndof, weighting=meshfit.weights_list[i]['energy'])
         chi2_offset += 1
         summary += "\n"
@@ -3205,7 +3205,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
         sh_param = meshfit.sh_list[i].calc_param(h, svd_sym=svd)
         
         ni = len(meshfit.sh_list[i].interactions)   # The number of interactions for this sh.
-        summary += gen_sh_summary(sh_param, meshfit.sh_list[i], h_sh_list[i]['shx'], name,
+        summary += gen_sh_summary(sh_param, meshfit.sh_list[i], shx=h_sh_list[i]['shx'], name = name,
                 chi2=meshfit.chi2[chi2_offset:chi2_offset+ni], ndof=ndof, weighting=meshfit.weights_list[i])
         chi2_offset += ni
         summary += "\n"

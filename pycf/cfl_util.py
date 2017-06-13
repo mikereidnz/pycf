@@ -172,7 +172,7 @@ def ex_parse_abs(ex, z, labels):
         returned.
     """
     if ex.n_a == 0:
-        parsed_ex = None
+        parsed_ex = np.array([])
     elif ex.sl_index:
         parsed_ex = np.zeros((ex.n_a, 2))
         parsed_ex[:, 1] = ex.e[:ex.n_a]
@@ -218,7 +218,7 @@ def ex_parse_diff(ex, z, labels):
         None is returned.
     """
     if ex.n_d == 0:
-        parsed_ex = None
+        parsed_ex = np.array([])
     elif ex.sl_index:
         parsed_ex = np.zeros((ex.n_d, 3))
         parsed_ex[:, 2] = ex.e[ex.n_a:]
@@ -241,7 +241,7 @@ def ex_parse_diff(ex, z, labels):
 
     return parsed_ex
 
-def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=None, weighting=None, e_shift=False):
+def gen_e_summary(w, z, labels, label_key, **kwargs):
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
 
@@ -302,7 +302,13 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=N
 
         return label
     
-    if ex != None:
+    if 'nstates' not in kwargs:
+        nstates = 2
+    else:
+        nstates = kwargs['nstates']
+
+    if 'ex' in kwargs:
+        ex = kwargs['ex']
         if isinstance(ex, np.ndarray):
             # Sort ex according to index column.
             ex = ex[np.argsort(ex[:, 0]), :]
@@ -313,10 +319,13 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=N
 
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError("e_summary: ex input data contains duplicate entries in the index column.")
+    else:
+        ex = np.array([])
 
-    if e_shift:
-        e_shift = -np.min(w)
-        w = w + e_shift
+    if 'e_shift' in kwargs:
+        if kwargs['e_shift']:
+            e_shift = -np.min(w)
+            w = w + e_shift
 
     s = "Energy level summary\n"
     s+= "====================\n\n"
@@ -325,7 +334,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=N
         sort_list += [np.argsort(np.abs(z[:,i]))[::-1]]
     heading = "Lev.  " + ("Percentage                 " + "State" + \
             " " * (len(fmt_label(0, labels))-4)) * nstates + "       Theory"
-    if ex != None:
+    if ex.size != 0:
         heading += "     Experiment    Difference\n"
     else:
         heading += " \n"
@@ -342,7 +351,7 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=N
                     si+1, fmt_label(si, labels))
         s += line + " {: >12.4f}".format(w[i])
 
-        if ex != None:
+        if ex.size != 0:
             if ex[ii,0] == i:
                 s += "   {: >12.4f}  {: >12.4f}".format(ex[ii,1], ex[ii,1]-w[i]) + "\n"
                 if ii != len(ex)-1:
@@ -353,22 +362,27 @@ def gen_e_summary(w, z, labels, label_key, ex=None, nstates=2, chi2=None, ndof=N
             s += "\n"
 
     s += "Label key: {}\n".format(label_key)
-    if chi2 != None:
-        s += "weighted chi2 = {:.4f}\n".format(chi2)
-        if ndof != None:
-            if weighting == None:
+    if 'chi2' in kwargs:
+        s += "weighted chi2 = {:.4f}\n".format(kwargs['chi2'])
+        if 'ndof' in kwargs:
+            if 'weighting' not in kwargs:
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
-            s += "sigma = {:.4f}\n".format(np.sqrt(chi2/weighting)/ndof)
+            else:
+                weighting = kwargs['weighting']
+            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/weighting)/kwargs['ndof'])
             if weighting != 1:
                 s += "weighting factor = {:.2e}\n".format(weighting)
+    s += "\n"
 
-    if e_shift:
-        s += "Energy level shift: {:.4f}\n".format(e_shift)
+    
+    if 'e_shift' in kwargs:
+        if kwargs['e_shift']:
+            s += "Energy level shift: {:.4f}\n".format(e_shift)
     
     return s
 
 
-def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2, chi2=None, ndof=None, weighting=None):
+def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
     r"""
     Generate a truncated energy level summary displaying only levels for which
     experimental energy level data is provided.
@@ -424,9 +438,14 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2, chi2=None,
 
         return label
     
+    if 'nstates' not in kwargs:
+        nstates = 2
+    else:
+        nstates = kwargs['nstates']
+
     if ex.n_a + ex.n_d == 0:
         return ""
-
+    
     s = "{} summary\n".format(name)
     s+= "="*len(name) + "========\n\n"
     sort_list = []
@@ -490,12 +509,14 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2, chi2=None,
         s += "\n"
 
     s += "Label key: {}\n".format(label_key)
-    if chi2 != None:
-        s += "weighted chi2 = {:.4f}\n".format(chi2)
-        if ndof != None:
-            if weighting == None:
+    if 'chi2' in kwargs:
+        s += "weighted chi2 = {:.4f}\n".format(kwargs['chi2'])
+        if 'ndof' in kwargs:
+            if 'weighting' not in kwargs:
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
-            s += "sigma = {:.4f}\n".format(np.sqrt(chi2/weighting)/ndof)
+            else:
+                weighting = kwargs['weighting']
+            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/weighting)/kwargs['ndof'])
             if weighting != 1:
                 s += "weighting factor = {:.2e}\n".format(weighting)
     s += "\n"
@@ -503,7 +524,7 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, nstates=2, chi2=None,
     return s
 
 
-def gen_sh_summary(param, sh, shx=None, name=None, chi2=None, ndof=None, weighting=None):
+def gen_sh_summary(param, sh, **kwargs):
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
     spin Hamiltonian data. 
@@ -538,9 +559,9 @@ def gen_sh_summary(param, sh, shx=None, name=None, chi2=None, ndof=None, weighti
     """
     np.set_printoptions(formatter={'float': lambda x: '{:8.5f}'.format(x)})
     
-    if name != None:
-        s = "{} summary\n".format(name)
-        s+= "="*len(name) + "========\n\n"
+    if 'name' in kwargs:
+        s = "{} summary\n".format(kwargs['name'])
+        s+= "="*len(kwargs['name']) + "========\n\n"
     else:
         s = "Spin Hamiltonian summary\n"
         s+= "========================\n\n"
@@ -548,28 +569,29 @@ def gen_sh_summary(param, sh, shx=None, name=None, chi2=None, ndof=None, weighti
     tmp_sigma = 0
     for i,inter in enumerate(sh.interactions):
         s += uline_char("%s interaction\n" % inter)
-        if shx != None:
+        if 'shx' in kwargs:
             s += uline_char("Theory                        Experiment                    Difference\n")
         else:
             s += uline_char("Theory\n")
         for j in range(3):
             s += str(np.real(param[i]).reshape(3,3)[j,:])
-            if shx != None:
+            if 'shx' in kwargs:
+                shx = kwargs['shx']
                 s += "  " + str(shx[inter].reshape(3,3)[j,:]) + "  " + str((shx[inter] 
                     - np.real(param[i])).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
-        if chi2 != None:
-            s += "weighted chi2 = {:.4f}\n".format(chi2[i])
-            if weighting != None:
-                s += "weighting factor = {:.2e}\n".format(weighting[inter])
-                tmp_sigma += chi2[i]/weighting[inter]
+        if 'chi2' in kwargs:
+            s += "weighted chi2 = {:.4f}\n".format(kwargs['chi2'][i])
+            if 'weighting' in kwargs:
+                s += "weighting factor = {:.2e}\n".format(kwargs['weighting'][inter])
+                tmp_sigma += kwargs['chi2'][i]/kwargs['weighting'][inter]
         s += "\n"
     
-    if chi2 != None and ndof != None:
-        if weighting == None:
+    if 'chi2' in kwargs and 'ndof' in kwargs:
+        if 'weighting' not in kwargs:
             raise ValueError("The weight argument needs to be provided if you provide ndof.")
-        s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma)/ndof)
+        s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma)/kwargs['ndof'])
 
     return s
 
