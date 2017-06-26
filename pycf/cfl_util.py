@@ -570,15 +570,15 @@ def gen_sh_summary(param, sh, **kwargs):
     for i,inter in enumerate(sh.interactions):
         s += uline_char("%s interaction\n" % inter)
         if 'shx' in kwargs:
-            s += uline_char("Theory                        Experiment                    Difference\n")
+            s += uline_char("Theory (abs. value)           Experiment (abs. value)       Difference\n")
         else:
-            s += uline_char("Theory\n")
+            s += uline_char("Theory (abs. value)\n")
         for j in range(3):
-            s += str(np.real(param[i]).reshape(3,3)[j,:])
+            s += str(np.abs(np.real(param[i])).reshape(3,3)[j,:])
             if 'shx' in kwargs:
                 shx = kwargs['shx']
-                s += "  " + str(shx[inter].reshape(3,3)[j,:]) + "  " + str((shx[inter] 
-                    - np.real(param[i])).reshape(3,3)[j,:]) + "\n"
+                s += "  " + str(np.abs(shx[inter]).reshape(3,3)[j,:]) + "  " + str((np.abs(shx[inter]) 
+                    - np.abs(np.real(param[i]))).reshape(3,3)[j,:]) + "\n"
             else:
                 s += "\n"
         if 'chi2' in kwargs:
