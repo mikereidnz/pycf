@@ -629,7 +629,7 @@ cdef sh_hpro_helper(h, sh):
     if 'MAGZS' not in h.coeff_dict:
         for t in sh.tensors:
             if t.get_name() == 'MAGZ':
-                magzs = 0.0001 * t
+                magzs = 1e-7 * t
                 magzs.name = 'MAGZS'
         
         tmp_h_coeff = h.coeff_dict
@@ -2642,6 +2642,11 @@ cdef class CFLMin:
         The minimization routine to employ.  Available options are:
 
             - 'basinhopping'
+            - 'gsl_nmsimplex2rand'
+            - 'gsl_nmsimplex2'
+            - 'gsl_conjugate_fr'
+            - 'gsl_conjugate_pr'
+            - 'gsl_vector_bfgs2'
             - 'nlopt_cobyla'
             - 'nlopt_bobyqa'
             - 'nlopt_sbplx'
@@ -2649,19 +2654,21 @@ cdef class CFLMin:
             - 'nlopt_esch'.
 
     bounds : dict, optional
-        Parameter bounds.  Keys specify the tensor name (note that tensors
-        created by tensor arithmetic should have their name attribute set
-        explicitly), while values correspond to tuples, the first entry of which
-        is the lower bound and the second entry the upper bound.  The number of
-        elements in bounds must match the length of the parameters list. 
+        Parameter bounds, for supported algorithms (nlopt and basinhopping).
+        Keys specify the tensor name (note that tensors created by tensor
+        arithmetic should have their name attribute set explicitly), while
+        values correspond to tuples, the first entry of which is the lower bound
+        and the second entry the upper bound.  The number of elements in bounds
+        must match the length of the parameters list. 
     cov : bool, optional
         Evaluate the covariance matrix for the fit; defaults to False.
     lmin : CFLMin, optional
-        The local minimization routine to be used by the basinhopping algorithm;
-        defaults to nlopt_bobyqa.  Implemented options fall into two categories,
-        routines from gsl, and routines from nlopt.  For the former, available
-        algorithms are:
-        
+        The local minimization routine, applicable only for basinhopping
+        algorithm; defaults to nlopt_bobyqa.  Implemented options fall into two
+        categories, routines from gsl, and routines from nlopt.  For the former,
+        available algorithms are:
+            
+            - 'gsl_nmsimplex2rand'
             - 'gsl_nmsimplex2'
             - 'gsl_conjugate_fr'
             - 'gsl_conjugate_pr'
@@ -2714,6 +2721,16 @@ cdef class CFLMin:
                 self.niter = kwargs['niter']
             else:
                 self.niter = 100
+        elif method == 'gsl_nmsimplex2rand':
+            pass
+        elif method == 'gsl_nmsimplex2':
+            pass
+        elif method == 'gsl_conjugate_fr':
+            pass
+        elif method == 'gsl_conjugate_pr':
+            pass
+        elif method == 'gsl_vector_bfgs2':
+            pass
         elif method == 'nlopt_cobyla':
             pass
         elif method == 'nlopt_bobyqa':
@@ -2931,6 +2948,18 @@ cdef class CFLMin:
         elif self.method == 'nlopt_esch':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_esch,
                     cxtol, self.cfl_bounds)
+        elif self.method == 'gsl_nmsimplex2rand':
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
+        elif self.method == 'gsl_nmsimplex2':
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
+        elif self.method == 'gsl_conjugate_fr':
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
+        elif self.method == 'gsl_conjugate_pr':
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
+        elif self.method == 'gsl_vector_bfgs2':
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
+
+
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         
