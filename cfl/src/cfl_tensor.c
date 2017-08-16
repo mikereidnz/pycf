@@ -31,6 +31,8 @@
 #include <string.h>
 #include <math.h>
 #include <complex.h>
+
+#include "cfl_config.h"
 #include "cfl_error.h"
 #include "cfl_csr.h"
 #include "cfl_tensor.h"
@@ -48,7 +50,7 @@ uint32_t fnv_hash(void *buf, int len) {
   unsigned char *bp = (unsigned char *)buf;	/* start of buffer */
   unsigned char *be = bp + len;		        /* beyond end of buffer */
   uint32_t hval;
-
+  
   hval = FNV1_32_INIT;
   /* FNV-1 hash each octet in the buffer. */
   while (bp < be) {
@@ -57,7 +59,7 @@ uint32_t fnv_hash(void *buf, int len) {
     /* xor the bottom with the current octet */
     hval ^= (uint32_t)*bp++;
   }
-
+  
   /* return our new hash value */
   return hval;
 }

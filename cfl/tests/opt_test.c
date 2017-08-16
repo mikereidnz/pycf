@@ -479,10 +479,13 @@ int main (void)
   efit_p4.type = 'r';
   efit_p4.xi = 4;
   efit_p4.ci = 4;
+  //FIXME: this used to have xi = 6, ci = 6; changed to stop out of bounds
+  //memory reading. However, diag test for Ce fails now. I suspect there's an
+  //issue with the params used above and the new paramtype setup.
   param_type efit_p5;
   efit_p5.type = 'r';
-  efit_p5.xi = 6;
-  efit_p5.ci = 6;
+  efit_p5.xi = 5;
+  efit_p5.ci = 5;
   param_type **p = (param_type **) malloc(6*sizeof(param_type *));
   p[0] = &efit_p0;
   p[1] = &efit_p1;
