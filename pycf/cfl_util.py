@@ -800,6 +800,9 @@ def bal_bounds(coeff, bounds):
     """
     bal_b = {}
     for c in bounds:
-        bal_b[c] = (coeff[c]-bounds[c], coeff[c]+bounds[c])
+        try:
+            bal_b[c] = (coeff[c]-bounds[c], coeff[c]+bounds[c])
+        except KeyError:
+            pass
 
     return bal_b

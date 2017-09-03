@@ -629,7 +629,7 @@ cdef sh_hpro_helper(h, sh):
     if 'MAGZS' not in h.coeff_dict:
         for t in sh.tensors:
             if t.get_name() == 'MAGZ':
-                magzs = 1e-7 * t
+                magzs = 1e-6 * t
                 magzs.name = 'MAGZS'
         
         tmp_h_coeff = h.coeff_dict
