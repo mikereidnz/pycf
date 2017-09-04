@@ -710,7 +710,7 @@ cdef class SpinHamiltonian:
         'quadrupole'.  
     level : int
         The level of the complete Hamiltonian for which to project the spin
-        Hamiltonian.
+        Hamiltonian; uses 1 as base index (ground state = 1).
     S : float
         The spin projection `S_z`; if ``interactions`` contains 'zeeman' or
         'hyperfine' this keyword argument must be specified.
@@ -764,7 +764,9 @@ cdef class SpinHamiltonian:
 
         if 'level' not in kwargs:
             raise KeyError("SpinHamiltonian: missing keyword argument 'level'.")
-        self.level = kwargs['level']
+        elif kwargs['level'] < 1:
+            raise ValueError("level kwarg uses 1 base index.")
+        self.level = kwargs['level']-1  # we use zero base index internally. 
            
         # Calculate matrix elements for the specified interactions.
         j_l = ['jx', 'jy', 'jz']

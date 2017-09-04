@@ -200,7 +200,7 @@ void zsh_set_inv(zsh *sh, complex double *b, char *inter) {
  *            of interactions used to alloc sh; for "zeeman" interactions three
  *            tensors are expected, in the order "magx", "magy", and "magz".  
  *  l         Integer specifying the initial level for which to project the spin
- *            Hamiltonian.
+ *            Hamiltonian; zero based indexing.
  *  coupling  Array containing coupling constants for hyperfine and quadrupole
  *            interactions.  Elements must only be set if the interaction is
  *            present, and the order in which they are set must match the order
@@ -239,9 +239,9 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
     CFL_ERROR_VAL("malloc failed for pro_data", ENOMEM);
   }
 
-  zf = 0;  /* Flag set to true when Zeeman term is encountered. */
-  zc = 0; /* Number of pro_data allocs since zf = 1. */
-  cc = 0;           /* Coupling constant counter. */
+  zf = 0;       /* Flag set to true when Zeeman term is encountered. */
+  zc = 0;       /* Number of pro_data allocs since zf = 1. */
+  cc = 0;       /* Coupling constant counter. */
   thash = (t[0])->slabels->th;
   for (i = 0; i < ntensors; i++) {
     sh->pro_data[i] = (zsh_pro_data *) malloc(sizeof(zsh_pro_data));
@@ -391,13 +391,14 @@ inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zshp_p_w
   /* We read out the shi_dim*shi_dim block corresponding to the spin Hamiltonian
    * matrix elements specific to the interaction type.  The ordering after proj
    * is with S state labels 'slow' and I state labels 'fast'.  Consequently, for
-   * Zeeman we have to  add an offset of 2 Iz + 1 to get matrix elements of Sz
-   * \pm 1 with matching Iz.*/
+   * Zeeman we have to add an offset of 2 Iz (sh->iz is multplied by 2 by
+   * default, extra +1 comes from incrementing index) to get matrix elements of
+   * Sz \pm 1 with matching Iz.*/
   if (zf != 0) {
     for (i = 0; i < shi_dim; i++) {
       for (j = 0; j < shi_dim; j++) {
-        ii = (i % 2 == 0) ? i+sh->iz+1 : i;
-        jj = (j % 2 == 0) ? j+sh->iz+1 : j;
+        ii = (i % 2 == 0) ? i+sh->iz : i;
+        jj = (j % 2 == 0) ? j+sh->iz : j;
         a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj];
       }
     }
