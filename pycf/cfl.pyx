@@ -2703,7 +2703,10 @@ cdef class CFLMin:
         routine is from nlopt, the ``xtol`` argument can be used to set the
         relative tolerance in parameters x to be used as a stopping criteria.
         Defaults to 1e-5.
-
+    dry_run : boor, optional
+        Don't run the actual minimization, but perform all the data prep and
+        generate a summary with the initial parameters.  Useful for checking how
+        well a set parameters fit the prepared input data.
     """
     cpdef public str method
     cpdef public dict kwargs
@@ -2964,9 +2967,15 @@ cdef class CFLMin:
 
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
-        
-        with nogil:
-            retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
+        if 'dry_run' in self.kwargs:
+            if self.kwargs['dry_run'] == True:
+                fmin = 0
+            else:
+                with nogil:
+                    retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
+        else:
+            with nogil:
+                retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
 
         # Assign some kwargs to self for summary printing.
         self.kwargs['retval'] = retval
@@ -3009,7 +3018,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     summary+= "e_fit summary\n"
     summary+= "=============\n"
     summary += gen_pycf_summary()
-
+   
     efit = EFitRunner(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
     summary += gen_completed_str()
@@ -3069,7 +3078,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
     summary += gen_pycf_summary()
-
+    
     mhfit = MHFitRunner(parameters, h_list, weights_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
     summary += gen_completed_str()
