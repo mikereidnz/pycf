@@ -704,12 +704,16 @@ void nlopt_free(void *data) {
  *                + nlopt_bobyqa
  *                + nlopt_sbplx
  *  xtol        Stopping criteria for relative tolerance in parameters x.
+ *              Criterion is disabled if non-positive.
+ *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
+ *              be slightly exceeded depnding on optimization function
+ *              evaluation time.  Criterion is disabled if non-positive. 
  *  bounds      Linear bounds on the parameters.
  */
 cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj),
-    size_t n, void *data, nlopt_min_alg algorithm, double xtol, cfl_min_bounds
-    *bounds) {
+    size_t n, void *data, nlopt_min_alg algorithm, double xtol, double maxtime,
+    cfl_min_bounds *bounds) {
   cfl_min_obj *obj;
   nlopt_opt opt;
 
@@ -745,6 +749,7 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
 
   nlopt_set_min_objective(opt, (nlopt_func) f, data);
   nlopt_set_xtol_rel(opt, xtol);
+  nlopt_set_maxtime(opt, maxtime);
 
   obj->min_f = &nlopt_min_f;
   obj->n = n;

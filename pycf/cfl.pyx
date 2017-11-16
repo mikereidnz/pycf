@@ -2703,6 +2703,12 @@ cdef class CFLMin:
         routine is from nlopt, the ``xtol`` argument can be used to set the
         relative tolerance in parameters x to be used as a stopping criteria.
         Defaults to 1e-5.
+    maxtime : float, optional
+        The maximum wall time in seconds.  Only used by nlopt routines and
+        forces the optimization to return if exceeded, providing the best
+        solution so far.  This time is not a hard limit, and it may take a
+        little longer to return depending on the evaluation time of each
+        iteration. 
     dry_run : boor, optional
         Don't run the actual minimization, but perform all the data prep and
         generate a summary with the initial parameters.  Useful for checking how
@@ -2713,6 +2719,7 @@ cdef class CFLMin:
     cdef int niter
     cdef size_t nx
     cdef double xtol
+    cdef double maxtime
     cdef cfl.cfl_min_bounds *cfl_bounds
     cdef cfl.cfl_min_obj *min_obj
     cdef cfl.cfl_min_obj *bh_lmin_obj 
@@ -2773,6 +2780,7 @@ cdef class CFLMin:
         cdef np.ndarray[double, ndim=1, mode="c"] cx0
         cdef size_t cnx
         cdef double cxtol
+        cdef double cmaxtime
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
         cdef void (*cov_f_ptr)(double *, double *, cfl_min_obj *)
         cdef void *data_ptr
@@ -2863,6 +2871,12 @@ cdef class CFLMin:
         else:
             cxtol = 1e-5
 
+        # Disable maxtime if not provided.
+        if 'maxtime' in self.kwargs:
+            cmaxtime = self.kwargs['maxtime']
+        else:
+            cmaxtime = -1
+
         if self.method == 'basinhopping':
             # Create real valued stepsize list, if stepsize is provided.
             if 'stepsize' in self.kwargs:
@@ -2916,18 +2930,18 @@ cdef class CFLMin:
                     lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
                 elif lmin == 'nlopt_cobyla':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_cobyla,
-                            cxtol, self.cfl_bounds)
+                            cxtol, cmaxtime, self.cfl_bounds)
                 elif lmin == 'nlopt_bobyqa':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
-                            cxtol, self.cfl_bounds)
+                            cxtol, cmaxtime, self.cfl_bounds)
                 elif lmin == 'nlopt_sbplx':
                     lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_sbplx,
-                            cxtol, self.cfl_bounds)
+                            cxtol, cmaxtime, self.cfl_bounds)
                 else:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
                 lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
-                        cxtol, self.cfl_bounds)
+                        cxtol, cmaxtime, self.cfl_bounds)
            
             min_obj = cfl_bh_min_setup(self.niter, stepsize_ptr, target_accept_rate, step_adapt_int,
                     self.cfl_bounds, lmin_obj)
@@ -2936,23 +2950,24 @@ cdef class CFLMin:
             # objects until the CFLMin destructor is called.
             self.nx = cnx
             self.xtol = cxtol
+            self.maxtime = cmaxtime
             self.bh_lmin_obj = lmin_obj
             self.min_obj = min_obj
         elif self.method == 'nlopt_cobyla':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_cobyla,
-                    cxtol, self.cfl_bounds)
+                    cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_bobyqa':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
-                    cxtol, self.cfl_bounds)
+                    cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_sbplx':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_sbplx,
-                    cxtol, self.cfl_bounds)
+                    cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_crs2_lm':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_crs2_lm,
-                    cxtol, self.cfl_bounds)
+                    cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_esch':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_esch,
-                    cxtol, self.cfl_bounds)
+                    cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'gsl_nmsimplex2rand':
             min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
         elif self.method == 'gsl_nmsimplex2':
