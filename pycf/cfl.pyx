@@ -39,8 +39,8 @@ cdef class StateLabels:
     generally not entered manually but should be generated with
     :class:`import_sljm.ImportSLJM`.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     label_key : string
         String identifying the type of each state label.  Valid keys are: S, L,
         J, M and I, and the order in which they are listed must correspond to
