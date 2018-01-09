@@ -42,6 +42,13 @@ directory to the ``LIBRARY_PATH`` environment variable.
 
 Compiling in an amd64 environment
 =================================
+Note: below instructions fail with Debian Stretch (2018-01-09), but I will
+retain the text just in case. For Stretch, after trying to install a bunch of
+i386 packages manually (such as ``libc6:i386``), I finally got the necessary
+dependencies by installing ``gcc-multilib``. I is a meta package which installs
+all kinds of libraries, and I assume it made all my previous, manual, installs
+redundant.  Old instructions for Jessie follow below.
+
 If you have a 64-bit enviroment, you will need to install the 32-bit c
 libraries, called ``libc6:i386`` and ``libglib2.0-0:i386`` on Debian Jessie.
 Furthermore you will need to explicitly specify the path to shared 32-bit

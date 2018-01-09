@@ -759,6 +759,7 @@ class SpectrumData(BaseEmp):
               ``axial``, ``sigma`` or ``pi``;
             - ``temp`` an int or float specifying the temperature;
             - ``linewidth`` an int or float specifying the Lorentzian linewidth;
+            - ``xrange`` a list of length two, with xmin and xmax limits;
             - ``npoints`` an optional argument specifying the number of points
               for the spectrum curve;
 
@@ -835,8 +836,10 @@ class SpectrumData(BaseEmp):
         # intensity is calculated; further a Lorentzian of corresponding height
         # is cumulatively added to yield the spectrum for the plotting region.
         transitions = spectrum.transitions
-        xmin = float(transitions[0]['energy'])
-        xmax = float(transitions[len(transitions) - 1]['energy'])
+        xmin = spectrum['plotargs']['xrange'][0]
+        xmax = spectrum['plotargs']['xrange'][1]
+        #xmin = float(transitions[0]['energy'])
+        #xmax = float(transitions[len(transitions) - 1]['energy'])
 
         # Determine the smallest initial energy level.  This is required for the
         # Boltzmann factor which is calculated using energies scaled s.t. the
