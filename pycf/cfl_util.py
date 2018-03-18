@@ -643,7 +643,6 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     heading = "Tensor name           Fitted coeff       Initial coeff          Difference"
     if kwargs['cov']:
         ndof = max(fit_obj.n_p_real - fit_obj.n_obs, 1)
-        sigma = np.sqrt(np.sum(fit_obj.chi2))/ndof
         cov = np.linalg.inv(kwargs['cov_inv'])
         heading += "    Uncertainty"
     if 'bounds' in kwargs:
@@ -666,13 +665,13 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
         if co.imag == 0:
             co = co.real
             if kwargs['cov']:
-                scov = fmt_scov[key].format(np.sqrt(np.abs(cov[ii,ii]))*sigma)
+                scov = fmt_scov[key].format(np.sqrt(np.abs(cov[ii,ii])))
             else:
                 scov = ""
             ii += 1
         else: 
             if kwargs['cov']:
-                scov = fmt_scov[key].format(np.complex(np.sqrt(np.abs(cov[ii,ii]))*sigma, np.sqrt(np.abs(cov[ii+1,ii+1]))*sigma))
+                scov = fmt_scov[key].format(np.complex(np.sqrt(np.abs(cov[ii,ii])), np.sqrt(np.abs(cov[ii+1,ii+1]))))
             else: 
                 scov = ""
             ii += 2
