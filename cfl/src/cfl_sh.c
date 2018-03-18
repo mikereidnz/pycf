@@ -397,8 +397,8 @@ inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zshp_p_w
   if (zf != 0) {
     for (i = 0; i < shi_dim; i++) {
       for (j = 0; j < shi_dim; j++) {
-        ii = (i % 2 == 0) ? i+sh->iz : i;
-        jj = (j % 2 == 0) ? j+sh->iz : j;
+        ii = (i % 2 == 0) ? i : i+sh->iz;
+        jj = (j % 2 == 0) ? j : j+sh->iz;
         a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj];
       }
     }
