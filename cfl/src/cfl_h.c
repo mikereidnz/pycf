@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
+   Copyright (C) 2014-2018 Sebastian Horvath (sebastian.horvath@gmail.com)
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -399,6 +399,157 @@ void dvperm(int n, double *dx, int *perm) {
   }
 }
 
+/* Helper function for allocating diag workspaces for each block.
+ *
+ * Parameters
+ * ----------
+ *  job       If 'N', blocks only contain workspace for eigenvalue calculations.
+ *            If 'V', space is alloced for both eigenvalue and eigenvector eval.
+ *  nblock    The number of blocks.
+ *  block_dim Dimension of each block.
+ *  hd_w      Hamiltonian diag workspace struct; only referenced if job = 'V'.
+ */
+zblock **zhd_w_block_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
+  int i, j, k;
+  zblock **blocks;
+  complex double **zb;
+
+  blocks = (zblock **) malloc(nblocks*sizeof(zblock *));
+  if (blocks == 0) {
+    CFL_ERROR_NULL("malloc failed for blocks");
+  }
+  zb = (complex double **) malloc(nblocks*sizeof(complex double *));
+  if (zb == 0) {
+    free(blocks);
+    CFL_ERROR_NULL("malloc failed for zb");
+  }
+
+  k=0;
+  for (i = 0; i < nblocks; i++) {
+    blocks[i] = (zblock *) malloc(sizeof(zblock));
+    if (blocks[i] == 0) {
+      for (j = 0; j < i; j++) {
+        free(blocks[j]->a);
+        free(blocks[j]);
+      }
+      free(zb);
+      free(blocks);
+      CFL_ERROR_NULL("malloc failed for blocks[i]");
+    }
+
+    k += block_dim[i];
+    blocks[i]->dim = block_dim[i];
+    blocks[i]->a = (complex double *) calloc(block_dim[i]*block_dim[i],
+        sizeof(complex double));
+    if (blocks[i]->a == 0) {
+      for (j = 0; j < i; j++) {
+        free(blocks[j]->a);
+        free(blocks[j]);
+      }
+      free(blocks[i]);
+      free(zb);
+      free(blocks);
+      CFL_ERROR_NULL("malloc failed for blocks[i]->a");
+    }
+    if (job == 'V') {
+      zb[i] = (complex double *) calloc(block_dim[i]*block_dim[i],
+          sizeof(complex double));
+      if (zb[i] == 0) { 
+        for (j = 0; j < i; j++) {
+          free(blocks[j]->a);
+          free(blocks[j]);
+          free(zb[i]);
+        }
+        free(blocks[i]->a);
+        free(blocks[i]);
+        free(zb);
+        free(blocks);
+        CFL_ERROR_NULL("calloc failed for zb[i]");
+      }
+    }
+    else {
+      zb[i] = NULL;
+    }
+  }
+  hd_w->zb = zb;
+
+  return blocks;
+}
+
+
+void zhd_w_block_free(zhd_w *hd_w) {
+  int i;
+
+  for (i=0; i<hd_w->nblocks; i++) {
+    free(hd_w->blocks[i]->a);
+    free(hd_w->blocks[i]);
+  }
+  free(hd_w->blocks);
+  if (hd_w->zb[0] != NULL) {
+    for (i = 0; i < hd_w->nblocks; i++) {
+      free(hd_w->zb[i]);
+    }
+  }
+  free(hd_w->zb);
+}
+
+/* 
+ * Helper function for allocating diagonalization workspace array. 
+ *
+ * Parameters
+ * ----------
+ *  job       If 'N', blocks only contain workspace for eigenvalue calculations.
+ *            If 'V', space is alloced for both eigenvalue and eigenvector eval.
+ *  nblocks   The number of blocks in the Hamiltonian. 
+ *  block_dim Dimension of each block to be allocated.  If all blocks should be
+ *            of a single size, that value is assumed to be the first element of
+ *            the array.
+ *  hd_w      Hamiltonian diag workspace struct.
+ */
+zheevr_w **diag_w_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
+  int i, j;
+  zheevr_w **diag_w;
+
+  diag_w = (zheevr_w **) malloc(nblocks*sizeof(zheevr_w *));
+#ifdef _OPENMP
+  for (i = 0; i < hd_w->ndiag_w; i++) {
+    if (hd_w->proc_limited) {
+      diag_w[i] = (zheevr_w *) zheevr_w_alloc(job, block_dim[0], hd_w->abstol);
+    }
+    else {
+      diag_w[i] = (zheevr_w *) zheevr_w_alloc(job, block_dim[i], hd_w->abstol);
+    }
+    if (diag_w[i] == 0) {
+      for (j = 0; j < i; j++) {
+        zheevr_w_free(diag_w[j]);
+      }
+      free(hd_w->diag_w);
+      CFL_ERROR_NULL("zheevr_w_alloc failed for diag_w[i]");
+    }
+  }
+#else
+  /* OpenMP is disabled; we alloc a single diag workspace, which is sufficient
+   * to diagonalize the largest block. */
+  diag_w[0] = (zheevr_w *) zheevr_w_alloc(job, block_dim[0], hd_w->abstol);
+  if (diag_w[0] == 0) {
+    free(hd_w->diag_w);
+    CFL_ERROR_NULL("zheevr_w_alloc failed for diag_w[i]");
+  }
+#endif /* _OPENMP */ 
+  
+  return diag_w;
+}
+
+
+void diag_w_free(zhd_w *hd_w) {
+  int i;
+
+  for (i=0; i<hd_w->ndiag_w; i++) {
+    zheevr_w_free(hd_w->diag_w[i]);
+  }
+  free(hd_w->diag_w);
+}
+
 
 /*
  * Allocate workspace for the Hamiltonian diagonalization. 
@@ -474,7 +625,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
    * required to the safe minimum machine precision. */
   hd_w->abstol = LAPACKE_dlamch('S');
 
-  /* Alloc space for blocks. */
+  /* Find dimension of individual blocks, then alloc block space. */
   block_dim = (int *) calloc(nblocks, sizeof(int));
   if (block_dim == 0) {
     free(hd_w->w_perm);
@@ -488,8 +639,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
   for (i = 0; i < zcsr_h->n; i++) {
     block_dim[labels[i]] += 1;
   }
-
-  hd_w->blocks = (zblock **) malloc(nblocks*sizeof(zblock *));
+  
+  hd_w->blocks = zhd_w_block_alloc(job, nblocks, block_dim, hd_w);
   if (hd_w->blocks == 0) {
     free(block_dim);
     free(hd_w->w_perm);
@@ -498,88 +649,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     zhcsrsama_free(hd_w->coeff_w);
     free(hd_w->hcsr_ma);
     free(hd_w);
-    CFL_ERROR_NULL("malloc failed for hd_w->blocks");
-  }
-  hd_w->zb = (complex double **) malloc(nblocks*sizeof(complex double *));
-  if (hd_w->zb == 0) {
-    free(hd_w->blocks);
-    free(block_dim);
-    free(hd_w->w_perm);
-    free(labels);
-    zcsr_free(zcsr_h);
-    zhcsrsama_free(hd_w->coeff_w);
-    free(hd_w->hcsr_ma);
-    free(hd_w);
-    CFL_ERROR_NULL("malloc failed for hd_w->zb");
-  }
-
-  k=0;
-  for (i = 0; i < nblocks; i++) {
-    hd_w->blocks[i] = (zblock *) malloc(sizeof(zblock));
-    if (hd_w->blocks[i] == 0) {
-      for (j = 0; j < i; j++) {
-        free(hd_w->blocks[j]->a);
-        free(hd_w->blocks[j]);
-      }
-      free(hd_w->zb);
-      free(hd_w->blocks);
-      free(block_dim);
-      free(hd_w->w_perm);
-      free(labels);
-      zcsr_free(zcsr_h);
-      zhcsrsama_free(hd_w->coeff_w);
-      free(hd_w->hcsr_ma);
-      free(hd_w);
-      CFL_ERROR_NULL("malloc failed for hd_w->blocks[i]");
-    }
-
-    k += block_dim[i];
-    hd_w->blocks[i]->dim = block_dim[i];
-    hd_w->blocks[i]->a = (complex double *) calloc(block_dim[i]*block_dim[i],
-        sizeof(complex double));
-    if (hd_w->blocks[i]->a == 0) {
-      for (j = 0; j < i; j++) {
-        free(hd_w->blocks[j]->a);
-        free(hd_w->blocks[j]);
-      }
-      free(hd_w->blocks[i]);
-      free(hd_w->zb);
-      free(hd_w->blocks);
-      free(block_dim);
-      free(hd_w->w_perm);
-      free(labels);
-      zcsr_free(zcsr_h);
-      zhcsrsama_free(hd_w->coeff_w);
-      free(hd_w->hcsr_ma);
-      free(hd_w);
-      CFL_ERROR_NULL("malloc failed for hd_w->blocks[i]->a");
-    }
-    if (job == 'V') {
-      hd_w->zb[i] = (complex double *) calloc(block_dim[i]*block_dim[i],
-          sizeof(complex double));
-      if (hd_w->zb[i] == 0) { 
-        for (j = 0; j < i; j++) {
-          free(hd_w->blocks[j]->a);
-          free(hd_w->blocks[j]);
-          free(hd_w->zb[i]);
-        }
-        free(hd_w->blocks[i]->a);
-        free(hd_w->blocks[i]);
-        free(hd_w->zb);
-        free(hd_w->blocks);
-        free(block_dim);
-        free(hd_w->w_perm);
-        free(labels);
-        zcsr_free(zcsr_h);
-        zhcsrsama_free(hd_w->coeff_w);
-        free(hd_w->hcsr_ma);
-        free(hd_w);
-        CFL_ERROR_NULL("calloc failed for hd_w->zb[i]");
-      }
-    }
-    else {
-      hd_w->zb[i] = NULL;
-    }
+    CFL_ERROR_NULL("zhd_w_block_alloc failed");
   }
 
   /* Allocate diag workspaces; the number of workspaces and size depends on
@@ -591,7 +661,6 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
       max_block_dim = block_dim[i];
     }
   }
-
 #ifdef _OPENMP
   if (h->num_procs == -1) {
     hd_w->ndiag_w = omp_get_num_procs();
@@ -615,20 +684,17 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
 #else
   hd_w->ndiag_w = 1;
 #endif /* _OPENMP */
+  
 
-  hd_w->diag_w = (zheevr_w **) malloc(nblocks*sizeof(zheevr_w *));
+#ifdef _OPENMP
+  if (hd_w->proc_limited) {
+    hd_w->diag_w = diag_w_alloc(job, hd_w->ndiag_w, &max_block_dim, hd_w);
+  }
+  else {
+    hd_w->diag_w = diag_w_alloc(job, nblocks, block_dim[i], hd_w);
+  }
   if (hd_w->diag_w == 0) {
-    for (j = 0; j < nblocks; j++) {
-      free(hd_w->blocks[j]->a);
-      free(hd_w->blocks[j]);
-    }
-    if (job == 'V') {
-      for (j = 0; j < nblocks; j++) {
-        free(hd_w->zb[j]);
-      }
-    }
-    free(hd_w->zb);
-    free(hd_w->blocks);
+    zhd_w_block_free(hd_w);
     free(block_dim);
     free(hd_w->w_perm);
     free(labels);
@@ -636,63 +702,15 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     zhcsrsama_free(hd_w->coeff_w);
     free(hd_w->hcsr_ma);
     free(hd_w);
-    CFL_ERROR_NULL("zheevr_w_alloc failed for hd_w->diag_w");
+    CFL_ERROR_NULL("diag_w_alloc failed for hd_w->diag_w");
   }
 
-#ifdef _OPENMP
-  for (i = 0; i < hd_w->ndiag_w; i++) {
-    if (hd_w->proc_limited) {
-      hd_w->diag_w[i] = (zheevr_w *) zheevr_w_alloc(job, max_block_dim,
-          hd_w->abstol);
-    }
-    else {
-      hd_w->diag_w[i] = (zheevr_w *) zheevr_w_alloc(job, block_dim[i],
-          hd_w->abstol);
-    }
-    if (hd_w->diag_w[i] == 0) {
-      for (j = 0; j < i; j++) {
-        zheevr_w_free(hd_w->diag_w[j]);
-      }
-      free(hd_w->diag_w);
-      for (j = 0; j < nblocks; j++) {
-        free(hd_w->blocks[j]->a);
-        free(hd_w->blocks[j]);
-      }
-      if (job == 'V') {
-        for (j = 0; j < nblocks; j++) {
-          free(hd_w->zb[j]);
-        }
-      }
-      free(hd_w->zb);
-      free(hd_w->blocks);
-      free(block_dim);
-      free(hd_w->w_perm);
-      free(labels);
-      zcsr_free(zcsr_h);
-      zhcsrsama_free(hd_w->coeff_w);
-      free(hd_w->hcsr_ma);
-      free(hd_w);
-      CFL_ERROR_NULL("zheevr_w_alloc failed for hd_w->diag_w[i]");
-    }
-  }
 #else
   /* OpenMP is disabled; we alloc a single diag workspace, which is sufficient
    * to diagonalize the largest block. */
-  hd_w->diag_w[0] = (zheevr_w *) zheevr_w_alloc(job, max_block_dim,
-      hd_w->abstol);
-  if (hd_w->diag_w[0] == 0) {
-    free(hd_w->diag_w);
-    for (j = 0; j < nblocks; j++) {
-      free(hd_w->blocks[j]->a);
-      free(hd_w->blocks[j]);
-    }
-    if (job == 'V') {
-      for (j = 0; j < nblocks; j++) {
-        free(hd_w->zb[j]);
-      }
-    }
-    free(hd_w->zb);
-    free(hd_w->blocks);
+  hd_w->diag_w = diag_w_alloc(job, nblocks, &max_block_dim, hd_w);
+  if (hd_w->diag_w == 0) {
+    zhd_w_block_free(hd_w);
     free(block_dim);
     free(hd_w->w_perm);
     free(labels);
@@ -700,7 +718,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     zhcsrsama_free(hd_w->coeff_w);
     free(hd_w->hcsr_ma);
     free(hd_w);
-    CFL_ERROR_NULL("zheevr_w_alloc failed for hd_w->diag_w[i]");
+    CFL_ERROR_NULL("diag_w_alloc failed for hd_w->diag_w");
   }
 #endif /* _OPENMP */ 
   
@@ -710,21 +728,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
   if (nblocks != 1) {
     hd_w->blk_perm = (int *) calloc(zcsr_h->n, sizeof(int));
     if (hd_w->blk_perm == 0) {
-      for (i=0; i<hd_w->ndiag_w; i++) {
-        zheevr_w_free(hd_w->diag_w[i]);
-      }
-      free(hd_w->diag_w);
-      for (i = 0; i < nblocks; i++) {
-        free(hd_w->blocks[i]->a);
-        free(hd_w->blocks[i]);
-      }
-      if (job == 'V') {
-        for (i = 0; i < nblocks; i++) {
-          free(hd_w->zb[i]);
-        }
-      }
-      free(hd_w->zb);
-      free(hd_w->blocks);
+      diag_w_free(hd_w);
+      zhd_w_block_free(hd_w);
       free(block_dim);
       free(hd_w->w_perm);
       free(labels);
@@ -740,21 +745,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     lptr = (int **) malloc(zcsr_h->n*sizeof(int *));
     if (lptr == 0) {
       free(hd_w->blk_perm);
-      for (i=0; i<hd_w->ndiag_w; i++) {
-        zheevr_w_free(hd_w->diag_w[i]);
-      }
-      free(hd_w->diag_w);
-      for (i = 0; i < nblocks; i++) {
-        free(hd_w->blocks[i]->a);
-        free(hd_w->blocks[i]);
-      }
-      if (job == 'V') {
-        for (i = 0; i < nblocks; i++) {
-          free(hd_w->zb[i]);
-        }
-      }
-      free(hd_w->zb);
-      free(hd_w->blocks);
+      diag_w_free(hd_w);
+      zhd_w_block_free(hd_w);
       free(block_dim);
       free(hd_w->w_perm);
       free(labels);
@@ -780,21 +772,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     hd_w->blk_pj = (int *) calloc(zcsr_h->nnz+1, sizeof(int));
     if (hd_w->blk_pj == 0) {
       free(hd_w->blk_perm);
-      for (i=0; i<hd_w->ndiag_w; i++) {
-        zheevr_w_free(hd_w->diag_w[i]);
-      }
-      free(hd_w->diag_w);
-      for (i = 0; i < nblocks; i++) {
-        free(hd_w->blocks[i]->a);
-        free(hd_w->blocks[i]);
-      }
-      if (job == 'V') {
-        for (i = 0; i < nblocks; i++) {
-          free(hd_w->zb[i]);
-        }
-      }
-      free(hd_w->zb);
-      free(hd_w->blocks);
+      diag_w_free(hd_w);
+      zhd_w_block_free(hd_w);
       free(block_dim);
       free(hd_w->w_perm);
       free(labels);
@@ -808,21 +787,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     if (hd_w->blk_rp_h == 0) {
       free(hd_w->blk_pj);
       free(hd_w->blk_perm);
-      for (i=0; i<hd_w->ndiag_w; i++) {
-        zheevr_w_free(hd_w->diag_w[i]);
-      }
-      free(hd_w->diag_w);
-      for (i = 0; i < nblocks; i++) {
-        free(hd_w->blocks[i]->a);
-        free(hd_w->blocks[i]);
-      }
-      if (job == 'V') {
-        for (i = 0; i < nblocks; i++) {
-          free(hd_w->zb[i]);
-        }
-      }
-      free(hd_w->zb);
-      free(hd_w->blocks);
+      diag_w_free(hd_w);
+      zhd_w_block_free(hd_w);
       free(block_dim);
       free(hd_w->w_perm);
       free(labels);
@@ -838,21 +804,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
       zcsr_free(hd_w->blk_rp_h);
       free(hd_w->blk_pj);
       free(hd_w->blk_perm);
-      for (i=0; i<hd_w->ndiag_w; i++) {
-        zheevr_w_free(hd_w->diag_w[i]);
-      }
-      free(hd_w->diag_w);
-      for (i = 0; i < nblocks; i++) {
-        free(hd_w->blocks[i]->a);
-        free(hd_w->blocks[i]);
-      }
-      if (job == 'V') {
-        for (i = 0; i < nblocks; i++) {
-          free(hd_w->zb[i]);
-        }
-      }
-      free(hd_w->zb);
-      free(hd_w->blocks);
+      diag_w_free(hd_w);
+      zhd_w_block_free(hd_w);
       free(block_dim);
       free(hd_w->w_perm);
       free(labels);
@@ -876,21 +829,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
         zcsr_free(hd_w->blk_rp_h);
         free(hd_w->blk_pj);
         free(hd_w->blk_perm);
-        for (i=0; i<hd_w->ndiag_w; i++) {
-          zheevr_w_free(hd_w->diag_w[i]);
-        }
-        free(hd_w->diag_w);
-        for (i = 0; i < nblocks; i++) {
-          free(hd_w->blocks[i]->a);
-          free(hd_w->blocks[i]);
-        }
-        if (job == 'V') {
-          for (i = 0; i < nblocks; i++) {
-            free(hd_w->zb[i]);
-          }
-        }
-        free(hd_w->zb);
-        free(hd_w->blocks);
+        diag_w_free(hd_w);
+        zhd_w_block_free(hd_w);
         free(block_dim);
         free(hd_w->w_perm);
         free(labels);
@@ -937,21 +877,8 @@ void zhd_w_free(zhd_w *hd_w) {
       free(hd_w->crd_blk_perm);
     }
   }
-  for (i=0; i<hd_w->ndiag_w; i++) {
-    zheevr_w_free(hd_w->diag_w[i]);
-  }
-  free(hd_w->diag_w);
-  for (i=0; i<hd_w->nblocks; i++) {
-    free(hd_w->blocks[i]->a);
-    free(hd_w->blocks[i]);
-  }
-  if (hd_w->zb[0] != NULL) {
-    for (i = 0; i < hd_w->nblocks; i++) {
-      free(hd_w->zb[i]);
-    }
-  }
-  free(hd_w->zb);
-  free(hd_w->blocks);
+  diag_w_free(hd_w);
+  zhd_w_block_free(hd_w);
   free(hd_w->w_perm);
   zcsr_free(hd_w->zcsr_h);
   zhcsrsama_free(hd_w->coeff_w);
@@ -1030,3 +957,4 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
     zh_parse_ev(z,  h->n, hd_w);
   }
 }
+
