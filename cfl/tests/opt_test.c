@@ -165,7 +165,8 @@ int main (void)
   double nlopt_x1[2] = {10.0, -5.0};
   cfl_min_obj *nlopt_min_obj;
 
-  nlopt_min_obj = cfl_nlopt_min_setup(&gsl_test_f1, NULL, 2, gsl_par, nlopt_cobyla, 1e-6, NULL);
+  nlopt_min_obj = cfl_nlopt_min_setup(&gsl_test_f1, NULL, 2, gsl_par, nlopt_cobyla, 1e-6, -1, NULL);
+
   status = cfl_min(nlopt_x1, &fmin, NULL, nlopt_min_obj);
 
   printf("nlopt cobyla:\n");
@@ -636,7 +637,7 @@ int main (void)
   eshfit_d = eshfit_data_alloc('N', sh_a, 3, 0, h, h, celiyf4_coeff, &ce_ex_data,
       shx, 6, p);
 
-  eshfit_lmin_obj = cfl_nlopt_min_setup(&eshfit_hpro_obj, &eshfit_hpro_cov, 6, eshfit_d, nlopt_sbplx, 1e-6, NULL);
+  eshfit_lmin_obj = cfl_nlopt_min_setup(&eshfit_hpro_obj, &eshfit_hpro_cov, 6, eshfit_d, nlopt_sbplx, 1e-6, -1, NULL);
   eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
 
   status = cfl_min(ce_x0, &fmin, cov, eshfit_min_obj);
