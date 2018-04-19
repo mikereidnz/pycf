@@ -41,85 +41,20 @@ def uline_char(s):
         return s + ul
 
 def term2L(c):
-    r"""
-    Convert an L quantum number term character to its numerical value.
-
-    Parameters
-    ----------
-    c : string
-        The L quantum number term character to be converted. 
-    """
-    if c == 'S': 
-        return 0
-    elif c == 'P':
-        return 1
-    elif c == 'D':
-        return 2
-    elif c == 'F':
-        return 3
-    elif c == 'G':
-        return 4
-    elif c == 'H':
-        return 5
-    elif c == 'I':
-        return 6
-    elif c == 'K':
-        return 7
-    elif c == 'L':
-        return 8
-    elif c == 'M':
-        return 9
-    elif c == 'N':
-        return 10
-    elif c == 'O':
-        return 11
-    elif c == 'P':
-        return 12
-    elif c == 'Q':
-        return 13
-    else:
-        raise NotImplementedError("L quantum number term symbols beyond Q are not supported; found: {}.".format(c))
+    "Convert an L quantum number term character to its numerical value."
+    try:
+        return 'SPDFGHIKLMNOQRTUV'.index(c)
+    except ValueError:
+       raise ValueError("Unsupported L quantum number: {}.".format(c))
 
 def L2term(i):
-    r"""
-    Convert an L quantum number numerical value to its term character.
-
-    Parameters
-    ----------
-    i : integer
-        The L quantum number numerical value to be converted. 
-    """
-    if i == 0: 
-        return 'S'
-    elif i == 1:
-        return 'P'
-    elif i == 2:
-        return 'D'
-    elif i == 3:
-        return 'F'
-    elif i == 4:
-        return 'G'
-    elif i == 5:
-        return 'H'
-    elif i == 6:
-        return 'I'
-    elif i == 7:
-        return 'K'
-    elif i == 8:
-        return 'L'
-    elif i == 9:
-        return 'M'
-    elif i == 10:
-        return 'N'
-    elif i == 11:
-        return 'O'
-    elif i == 12:
-        return 'P'
-    elif i == 13:
-        return 'Q'
-    else:
-        raise NotImplementedError("L quantum number values greater than 12 are not supported; found: {}.".format(i))
-
+    "Convert an L quantum number numerical value to its term character."
+    if i < 0: 
+        raise ValueError("Unsupported L quantum number: {}.".format(c))
+    try:
+        return 'SPDFGHIKLMNOQRTUV'[i]
+    except IndexError:
+        raise ValueError("Unsupported L quantum number: {}.".format(c))
 
 def gen_pycf_summary():
     r"""
