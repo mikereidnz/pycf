@@ -89,7 +89,10 @@ class ImportSLJM(object):
         label_key = ['L', 'J', 'M']
         for l in state_labels:
             label_key += [k for k in gi if (l[gi[k]] and k not in label_key)]
-
+        
+        # FIXME: T, which was intended as 'seniority', is labeled as X in
+        # Nielson and Koster; should adopt this, but make sure if I change it
+        # here nothing else get's messed up.
         # Rearrange label key to cannonical order.
         sort_key = ['T', 'F', 'S', 'L', 'J', 'M', 'I']
         label_key.sort(key=lambda l: sort_key.index(l))
