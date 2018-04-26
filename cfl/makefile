@@ -40,6 +40,8 @@ libcfl.a: cfl_zefoz.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_
 
 zefoz_test: cfl_zefoz.o cfl_h.o cfl_tensor.o cfl_csr.o
 
+nlls_test: cfl_h_fit.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
+
 opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
 
 sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o 

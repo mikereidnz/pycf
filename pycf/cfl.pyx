@@ -1558,7 +1558,7 @@ cdef class EFit(object):
         ----------
         coeff : dict
             The usual coeff dict; if coefficients for only a subset of tensors
-            are provided, the remainder are held kept at their initial value.
+            are provided, the remainder are held at their initial value.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
@@ -1566,7 +1566,8 @@ cdef class EFit(object):
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        chi2 = 0
+        
+        chi2 = np.ascontiguousarray(np.zeros(1, dtype=np.float64))
         with nogil:
             cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
         
@@ -1867,7 +1868,7 @@ cdef class MHFit(object):
         ----------
         coeff : dict
             The usual coeff dict; if coefficients for only a subset of tensors
-            are provided, the remainder are held kept at their initial value.
+            are provided, the remainder are held at their initial value.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
@@ -1875,7 +1876,8 @@ cdef class MHFit(object):
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        chi2 = 0
+        
+        chi2 = np.ascontiguousarray(np.zeros(self.n_h, dtype=np.float64))
         with nogil:
             cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
         
@@ -2264,7 +2266,7 @@ cdef class ESHFit(object):
         ----------
         coeff : dict
             The usual coeff dict; if coefficients for only a subset of tensors
-            are provided, the remainder are held kept at their initial value.
+            are provided, the remainder are held at their initial value.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
@@ -2272,7 +2274,8 @@ cdef class ESHFit(object):
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        chi2 = 0
+        
+        chi2 = np.ascontiguousarray(np.zeros(len(self.sh.interactions)+1, dtype=np.float64))
         with nogil:
             cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
         
@@ -2699,7 +2702,7 @@ cdef class MESHFit(object):
         ----------
         coeff : dict
             The usual coeff dict; if coefficients for only a subset of tensors
-            are provided, the remainder are held kept at their initial value.
+            are provided, the remainder are held at their initial value.
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
@@ -2707,7 +2710,11 @@ cdef class MESHFit(object):
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        chi2 = 0
+        
+        nchi2 = 0
+        for sh in self.sh_list:
+            nchi2 += len(sh.interactions) + 1      # +1 for each energy level chi2.
+        chi2 = np.ascontiguousarray(np.zeros(nchi2, dtype=np.float64))
         with nogil:
             cfl.meshfit_chi2(&x[0], self.meshfit_data, &chi2[0])
         

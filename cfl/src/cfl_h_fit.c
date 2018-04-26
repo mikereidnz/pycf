@@ -1019,7 +1019,8 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
   }
 }
 
-/*  Objective function for fit to energy levels and multiple spin Hamiltonians.
+/* 
+ * Function used to get an initial estimate of chi^2 values.
  */
 void meshfit_chi2(double *x, void *data, double *chi2) {
   int i, chi2_index;
