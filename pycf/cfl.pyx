@@ -411,7 +411,8 @@ cdef class Hamiltonian:
         cdef np.ndarray[double complex, ndim=1, mode='c'] co
         
         if self.coeff_dict == None:
-            raise ValueError("Hamiltonian must have coefficients set prior to call of update_coeff.")
+            raise ValueError("Hamiltonian must have coefficients set prior to call of" \
+                    "update_coeff.")
         elif not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
 
@@ -813,7 +814,8 @@ cdef class SpinHamiltonian:
                 B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
                 for j in range(3):
                     B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.S_matel)
-                self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * self.dz**2, 9)), dtype=np.complex128)]
+                self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * self.dz**2, 9)),
+                    dtype=np.complex128)]
                 self.nsh += 3
                 # Three g-values plus three Euler rotation parameters.
                 self.n_obs += 6
@@ -1033,7 +1035,8 @@ cdef class SpinHamiltonian:
 
             b = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(d_inter, dtype=np.complex128)
 
-            zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), shp_w)
+            zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, 
+                "pycfl.SpinHamiltonian"), shp_w)
             result_list += [np.copy(a.reshape(3,3))]
             
             if inter == 'zeeman':
@@ -1120,9 +1123,11 @@ cdef class ExData(object):
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
 
         if not (isinstance(data, np.ndarray) or isinstance(data, tuple)):
-            raise TypeError("The ex data argument must either be of type np.ndarray or tuple, not %s." % type(data))
+            raise TypeError("The ex data argument must either be of type np.ndarray or " \
+                    "tuple, not %s." % type(data))
         if not (isinstance(key, str) or isinstance(key, tuple) or key==None):
-            raise TypeError("The key argument must either be of type np.ndarray or tuple, not %s." % type(key))
+            raise TypeError("The key argument must either be of type np.ndarray or tuple, " \
+                    "not %s." % type(key))
         if isinstance(data, tuple):
             if key == None:
                 raise ValueError("Missing key argument; this must be specified if data is a tuple.")
@@ -1346,8 +1351,19 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
     
     return ex_data_cap
 
-
-cdef class EFitRunner(object):
+cdef set_param_helper(fit_obj):
+    "Helper for updating real-valued parameter array of Fit objects"
+    ii = 0
+    for p in fit_obj.parameters:
+        if fit_obj.param_types[p] == 'c':
+            fit_obj.x0[ii] = np.real(fit_obj.coeff[p])
+            fit_obj.x0[ii+1] = np.imag(fit_obj.coeff[p])
+            ii += 2
+        else:
+            fit_obj.x0[ii] = fit_obj.coeff[p]
+            ii += 1
+    
+cdef class EFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     energy level data. 
@@ -1387,7 +1403,6 @@ cdef class EFitRunner(object):
     cdef np.ndarray x0
     cdef cfl.efit_data *efit_data
     cpdef public object obj_f_cap
-    cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     def __init__(self, parameters, h, ex, **kwargs):
@@ -1428,14 +1443,14 @@ cdef class EFitRunner(object):
         self.n_obs = self.ex.n_obs
         
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
-            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
-                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
+            raise ValueError("The total (real and imaginary) number of \
+                    parameters, %i, exceeds the number of observables, %i." %
+                    (self.n_p_real, self.n_obs))
         
-        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex), "pycfl.ExData")
+        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(
+                exdata_alloc_helper(self.ex), "pycfl.ExData")
 
         # Prepare array of pointers to parameter data structs.
-        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
             free(self.ex_data)
@@ -1454,17 +1469,13 @@ cdef class EFitRunner(object):
             param_array[i].type = ord(self.param_types[p])
             param_array[i].ci = h.index(p)
             param_array[i].xi = ii
-
-            if self.param_types[p] == 'c':
-                self.x0[ii] = np.real(self.coeff[p])
-                self.x0[ii+1] = np.imag(self.coeff[p])
-                ii += 2
-            else:
-                self.x0[ii] = self.coeff[p]
-                ii += 1
-
+        
         self.param_array = param_array 
-
+        
+        # Set initial values
+        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
+        set_param_helper(fit_obj)
+        
         if self.ex.sl_index:
             self.efit_data = cfl.efit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(
                 h.h_cap, "pycfl.Hamiltonian"), self.ex_data, self.n_p, self.param_array);
@@ -1480,7 +1491,6 @@ cdef class EFitRunner(object):
 
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
-        self.cov_f_cap = PyCapsule_New(<void *>&cfl.efit_cov, "pycfl.MinCovF", NULL)
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1539,8 +1549,31 @@ cdef class EFitRunner(object):
 
         return(params, fmin)
 
+    @cython.boundscheck(False)
+    def eval(self, coeff):
+        r"""
+        Return chi2 obtained for the provided coefficients. 
 
-cdef class MHFitRunner(object):
+        Parameters
+        ----------
+        coeff : dict
+            The usual coeff dict; if coefficients for only a subset of tensors
+            are provided, the remainder are held kept at their initial value.
+        """
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        
+        self.coeff.update(copy.deepcopy(coeff))
+        set_param_helper(self)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
+        chi2 = 0
+        with nogil:
+            cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
+        
+        return chi2
+
+
+cdef class MHFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     multiple Hamiltonians.  Typically, this would consist of one Hamiltonian at
@@ -1597,7 +1630,6 @@ cdef class MHFitRunner(object):
     cdef cfl.mhfit_data *mhfit_data
     cdef np.ndarray job_a
     cpdef public object obj_f_cap
-    cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     cpdef public list weights_list
@@ -1616,7 +1648,7 @@ cdef class MHFitRunner(object):
       
         self.coeff = {}                                # Local copy of all coefficients of any H/SH.
         h_param_list = []                              # Array of arrays specifying parameters of each H.
-        self.n_zx = np.empty(self.n_h, dtype=np.int32) # The number of complex valued parameters for each Hamiltonian
+        self.n_zx = np.empty(self.n_h, dtype=np.int32) # Number of complex valued params for each Hamiltonian
         for i,h in enumerate(h_list):
             if h.coeff_dict == None:
                 raise ValueError("Hamiltonian must have coefficients set prior to mhfit.")
@@ -1663,9 +1695,10 @@ cdef class MHFitRunner(object):
             kwargs['ignore_ndof'] = False
         
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
-            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
-                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
+            raise ValueError("The total (real and imaginary) number of \
+                    parameters, %i, exceeds the number of observables, %i." %
+                    (self.n_p_real, self.n_obs))
+
         self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
         if self.ha == NULL:
             raise MemoryError("ha alloc failed")
@@ -1679,8 +1712,8 @@ cdef class MHFitRunner(object):
         
         for i in range(self.n_h):
             try:
-                self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex_list[i], 
-                    weights_list[i]), "pycfl.ExData")
+                self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(
+                        exdata_alloc_helper(self.ex_list[i], weights_list[i]), "pycfl.ExData")
             except:
                 for j in range(i):
                     free(self.ex_data[j])
@@ -1731,19 +1764,12 @@ cdef class MHFitRunner(object):
                 param_arrays[hi][i].ci = h_list[hi].index(p)
                 param_arrays[hi][i].xi = x0_index[p]
         
+        self.param_arrays = param_arrays
+        
         # Set initial values.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        ii = 0
-        for p in parameters:
-            if self.param_types[p] == 'c':
-                self.x0[ii] = np.real(self.coeff[p])
-                self.x0[ii+1] = np.imag(self.coeff[p])
-                ii += 2
-            else:
-                self.x0[ii] = self.coeff[p]
-                ii += 1
-        
-        self.param_arrays = param_arrays
+        set_param_helper(fit_obj)
+
         self.job_a = np.empty(self.n_h, dtype=np.dtype('S'))
         for i,ex in enumerate(self.ex_list):
             if ex.sl_index:
@@ -1751,7 +1777,8 @@ cdef class MHFitRunner(object):
             else:
                 self.job_a[i] = 'N'
         job_a = self.job_a
-        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, self.ex_data, &n_zx[0], self.param_arrays)
+        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, self.ex_data, 
+                &n_zx[0], self.param_arrays)
         if self.mhfit_data is NULL:
             for hi in range(self.n_h):
                 for i in range(len(self.h_param_list[hi])):
@@ -1766,7 +1793,6 @@ cdef class MHFitRunner(object):
         
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
-        self.cov_f_cap = PyCapsule_New(<void *>&cfl.mhfit_cov, "pycfl.MinCovF", NULL)
 
     def __dealloc__(self):
         if self.ha != NULL:
@@ -1831,6 +1857,29 @@ cdef class MHFitRunner(object):
         self.chi2 = chi2
 
         return(params, fmin)
+
+    @cython.boundscheck(False)
+    def eval(self, coeff):
+        r"""
+        Return chi2 obtained for the provided coefficients. 
+
+        Parameters
+        ----------
+        coeff : dict
+            The usual coeff dict; if coefficients for only a subset of tensors
+            are provided, the remainder are held kept at their initial value.
+        """
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        
+        self.coeff.update(copy.deepcopy(coeff))
+        set_param_helper(self)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
+        chi2 = 0
+        with nogil:
+            cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
+        
+        return chi2
 
 
 cdef shxdata_alloc_helper(sh, shx, weights):
@@ -1906,7 +1955,7 @@ cdef shxdata_alloc_helper(sh, shx, weights):
     return (shx_array_cap, shx_list)
 
 
-cdef class ESHFitRunner(object):
+cdef class ESHFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     energy level and spin Hamiltonian data.
@@ -1967,7 +2016,6 @@ cdef class ESHFitRunner(object):
     cdef np.ndarray x0
     cdef cfl.eshfit_data *eshfit_data
     cpdef public object obj_f_cap
-    cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     cpdef dict weights
@@ -2026,9 +2074,10 @@ cdef class ESHFitRunner(object):
 
         self.n_obs += sh.nsh
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
-            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
-                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
+            raise ValueError("The total (real and imaginary) number of \
+                    parameters, %i, exceeds the number of observables, %i." %
+                    (self.n_p_real, self.n_obs))
+
         if 'energy' not in weights:
             weights['energy'] = 1.0
         self.weights = weights
@@ -2043,7 +2092,6 @@ cdef class ESHFitRunner(object):
             raise MemoryError("param_array alloc failed")
         self.param_array = param_array 
        
-        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         ii = 0
         for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
@@ -2066,14 +2114,11 @@ cdef class ESHFitRunner(object):
             # Set the index of the ith param in the x array.
             param_array[i].xi = ii
 
-            if self.param_types[p] == 'c':
-                self.x0[ii] = np.real(self.coeff[p])
-                self.x0[ii+1] = np.imag(self.coeff[p])
-                ii += 2
-            else:
-                self.x0[ii] =  self.coeff[p]
-                ii += 1
         
+        # Set initial values
+        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
+        set_param_helper(fit_obj)
+                
         # Check the SVD kwarg...
         if 'svd_sym' in kwargs:
             if kwargs['svd_sym']:
@@ -2102,12 +2147,14 @@ cdef class ESHFitRunner(object):
 
         if (self.hpro != None):
             if self.ex.sl_index:
-                self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
+                    "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
             else:
-                self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, 
+                    "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
@@ -2121,15 +2168,16 @@ cdef class ESHFitRunner(object):
                 raise MemoryError("eshfit_data_alloc failed")
 
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
-            self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_cov, "pycfl.MinCovF", NULL)
             
         else:
             if self.ex.sl_index:
-                self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
+                    "pycfl.Hamiltonian"), 
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
             else:
-                self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
+                    "pycfl.Hamiltonian"), 
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
             if self.eshfit_data is NULL:
@@ -2142,7 +2190,6 @@ cdef class ESHFitRunner(object):
                 raise MemoryError("eshfit_data_alloc failed")
 
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
-            self.cov_f_cap = PyCapsule_New(<void *>&cfl.eshfit_cov, "pycfl.MinCovF", NULL)
 
         self.fit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
     
@@ -2208,8 +2255,31 @@ cdef class ESHFitRunner(object):
 
         return(params, fmin)
 
+    @cython.boundscheck(False)
+    def eval(self, coeff):
+        r"""
+        Return chi2 obtained for the provided coefficients. 
 
-cdef class MESHFitRunner(object):
+        Parameters
+        ----------
+        coeff : dict
+            The usual coeff dict; if coefficients for only a subset of tensors
+            are provided, the remainder are held kept at their initial value.
+        """
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        
+        self.coeff.update(copy.deepcopy(coeff))
+        set_param_helper(self)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
+        chi2 = 0
+        with nogil:
+            cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
+        
+        return chi2
+
+
+cdef class MESHFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
     multiple Hamiltonians and spin Hamiltonians.  For now, this is restricted to
@@ -2231,7 +2301,7 @@ cdef class MESHFitRunner(object):
     h_sh_list : list
         Each element should be a dictionary with the following keys: 'h', 'sh',
         'ex', 'shx', 'weights', and svd_sym.  For descriptions of each element,
-        see the ESHFitRunner docstring.
+        see the ESHFit docstring.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -2257,7 +2327,6 @@ cdef class MESHFitRunner(object):
     cdef cfl.eshfit_data **eshfit_array
     cdef cfl.meshfit_data *meshfit_data
     cpdef public object obj_f_cap
-    cpdef public object cov_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     cpdef public list weights_list
@@ -2405,9 +2474,9 @@ cdef class MESHFitRunner(object):
             kwargs['ignore_ndof'] = False
      
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
-            raise ValueError("The total (real and imaginary) number of parameters, %i, exceeds "
-                    "the number of observables, %i.  If you must nevertheless proceed, you can do "
-                    "so at your own peril by setting the kwarg ignore_ndof=True." % (self.n_p_real, self.n_obs))
+           raise ValueError("The total (real and imaginary) number of \
+                    parameters, %i, exceeds the number of observables, %i." %
+                    (self.n_p_real, self.n_obs))
         
         ex_data = []
         for i in range(self.n_h):
@@ -2458,18 +2527,8 @@ cdef class MESHFitRunner(object):
         
         # Set initial values.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        ii = 0
-        for p in parameters:
-            if self.param_types[p] == 'c':
-                self.x0[ii] = np.real(self.coeff[p])
-                self.x0[ii+1] = np.imag(self.coeff[p])
-                ii += 2
-            else:
-                self.x0[ii] = self.coeff[p]
-                ii += 1
-        
-        self.param_arrays = param_arrays
-        
+        set_param_helper(self)
+
         # Create list of experimental spin Hamiltonian data arrays.
         shx_arrays = []
         for shi, sh in enumerate(sh_list):
@@ -2557,7 +2616,6 @@ cdef class MESHFitRunner(object):
         self.meshfit_data = meshfit_data_alloc(self.n_h, self.eshfit_array)
         self.fit_data_cap = PyCapsule_New(<void *>self.meshfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.meshfit_obj, "pycfl.MinObjF", NULL)
-        self.cov_f_cap = PyCapsule_New(<void *>&cfl.meshfit_cov, "pycfl.MinCovF", NULL)
         
     def __dealloc__(self):
         for i in range(self.n_h):
@@ -2632,6 +2690,29 @@ cdef class MESHFitRunner(object):
 
         return(params, fmin)
 
+    @cython.boundscheck(False)
+    def eval(self, coeff):
+        r"""
+        Return chi2 obtained for the provided coefficients. 
+
+        Parameters
+        ----------
+        coeff : dict
+            The usual coeff dict; if coefficients for only a subset of tensors
+            are provided, the remainder are held kept at their initial value.
+        """
+        cdef np.ndarray[double, ndim=1, mode="c"] x
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2
+        
+        self.coeff.update(copy.deepcopy(coeff))
+        set_param_helper(self)
+        x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
+        chi2 = 0
+        with nogil:
+            cfl.meshfit_chi2(&x[0], self.meshfit_data, &chi2[0])
+        
+        return chi2
+
 
 cdef class CFLMin:
     r"""
@@ -2662,8 +2743,6 @@ cdef class CFLMin:
         values correspond to tuples, the first entry of which is the lower bound
         and the second entry the upper bound.  The number of elements in bounds
         must match the length of the parameters list. 
-    cov : bool, optional
-        Evaluate the covariance matrix for the fit; defaults to False.
     lmin : CFLMin, optional
         The local minimization routine, applicable only for basinhopping
         algorithm; defaults to nlopt_bobyqa.  Implemented options fall into two
@@ -2725,9 +2804,6 @@ cdef class CFLMin:
     cdef cfl.cfl_min_obj *bh_lmin_obj 
 
     def __cinit__(self, method, **kwargs):
-        if 'cov' not in kwargs:
-            kwargs['cov'] = False
-
         if method == 'basinhopping':
             if 'niter' in kwargs:
                 self.niter = kwargs['niter']
@@ -2770,7 +2846,7 @@ cdef class CFLMin:
 
         Parameters
         ----------
-        fit_obj : EFitRunner or ESHFitRunner
+        fit_obj : EFit or ESHFit
             The object for which to perform the fit. 
         x0 : np.ndarray
             Real valued vector.  Upon entry, these are the initial guesses for
@@ -2782,7 +2858,6 @@ cdef class CFLMin:
         cdef double cxtol
         cdef double cmaxtime
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
-        cdef void (*cov_f_ptr)(double *, double *, cfl_min_obj *)
         cdef void *data_ptr
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
@@ -2793,14 +2868,10 @@ cdef class CFLMin:
         cdef double *stepsize_ptr
         cdef float target_accept_rate
         cdef int step_adapt_int
-        cdef np.ndarray[double, ndim=2, mode="c"] cov_inv
-        cdef double *cov_ptr
         
         cnx = <size_t> len(x0)
         obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(
                 fit_obj.obj_f_cap, "pycfl.MinObjF")
-        cov_f_ptr = <void (*)(double *, double *, cfl_min_obj *)>PyCapsule_GetPointer(
-                fit_obj.cov_f_cap, "pycfl.MinCovF")
         data_ptr = <void *>PyCapsule_GetPointer(fit_obj.fit_data_cap, "pycfl.MinData")
 
         # If bounds are specified, convert them to real valued lists the order of
@@ -2858,13 +2929,6 @@ cdef class CFLMin:
         else:
             self.cfl_bounds = NULL
 
-        if self.kwargs['cov']:
-            self.kwargs['cov_inv'] = np.zeros([fit_obj.n_p_real, fit_obj.n_p_real])
-            cov_inv = <np.ndarray[double, ndim=2, mode="c"]> self.kwargs['cov_inv']
-            cov_ptr = &cov_inv[0,0]
-        else:
-            cov_ptr = NULL
-
         # Set xtol to default if not provided. 
         if 'xtol' in self.kwargs:
             cxtol = self.kwargs['xtol']
@@ -2919,28 +2983,28 @@ cdef class CFLMin:
             if 'lmin' in self.kwargs:
                 lmin = self.kwargs['lmin']
                 if lmin == 'gsl_nmsimplex2rand':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
                 elif lmin == 'gsl_nmsimplex2':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
                 elif lmin == 'gsl_conjugate_fr':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
                 elif lmin == 'gsl_conjugate_pr':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
                 elif lmin == 'gsl_vector_bfgs2':
-                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
+                    lmin_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
                 elif lmin == 'nlopt_cobyla':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_cobyla,
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla,
                             cxtol, cmaxtime, self.cfl_bounds)
                 elif lmin == 'nlopt_bobyqa':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa,
                             cxtol, cmaxtime, self.cfl_bounds)
                 elif lmin == 'nlopt_sbplx':
-                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_sbplx,
+                    lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx,
                             cxtol, cmaxtime, self.cfl_bounds)
                 else:
                     raise ValueError("Unknown lmin argument: %s" % lmin)
             else:
-                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
+                lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa,
                         cxtol, cmaxtime, self.cfl_bounds)
            
             min_obj = cfl_bh_min_setup(self.niter, stepsize_ptr, target_accept_rate, step_adapt_int,
@@ -2954,30 +3018,30 @@ cdef class CFLMin:
             self.bh_lmin_obj = lmin_obj
             self.min_obj = min_obj
         elif self.method == 'nlopt_cobyla':
-            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_cobyla,
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla,
                     cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_bobyqa':
-            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_bobyqa,
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa,
                     cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_sbplx':
-            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_sbplx,
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_sbplx,
                     cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_crs2_lm':
-            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_crs2_lm,
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_crs2_lm,
                     cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'nlopt_esch':
-            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, nlopt_esch,
+            min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_esch,
                     cxtol, cmaxtime, self.cfl_bounds)
         elif self.method == 'gsl_nmsimplex2rand':
-            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2rand)
         elif self.method == 'gsl_nmsimplex2':
-            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_nmsimplex2)
         elif self.method == 'gsl_conjugate_fr':
-            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_fr)
         elif self.method == 'gsl_conjugate_pr':
-            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
         elif self.method == 'gsl_vector_bfgs2':
-            min_obj = cfl_gsl_min_setup(obj_f_ptr, cov_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
+            min_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
 
 
 
@@ -2987,10 +3051,10 @@ cdef class CFLMin:
                 fmin = 0
             else:
                 with nogil:
-                    retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
+                    retval = cfl.cfl_min(&cx0[0], &fmin, min_obj)
         else:
             with nogil:
-                retval = cfl.cfl_min(&cx0[0], &fmin, cov_ptr, min_obj)
+                retval = cfl.cfl_min(&cx0[0], &fmin, min_obj)
 
         # Assign some kwargs to self for summary printing.
         self.kwargs['retval'] = retval
@@ -3006,7 +3070,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
 
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
-    coefficients when the are set also determines whether they are fit as real
+    coefficients when they are set also determines whether they are fit as real
     or complex parameters. 
     
     Parameters
@@ -3034,7 +3098,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     summary+= "=============\n"
     summary += gen_pycf_summary()
    
-    efit = EFitRunner(parameters, h, ex, **kwargs)
+    efit = EFit(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
     summary += gen_completed_str()
 
@@ -3054,13 +3118,13 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
 
 def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     r"""
-    Class used to store data required by, and to run, a crystal field fit using
-    multiple eigenvalue vectors.  Typically, this would consist of one vector of
-    energy levels at zero field without hyperfine or quadrupole interactions,
-    complemented by a set of eigenvalue vectors at linearly independent magnetic
-    field orientations and possibly containing hyperfine interactions.  These
-    additional eigenvalues can either be measured or synthetically calculated
-    for specific crystal field levels from spin Hamiltonian data.  
+    Fit to multiple Hamiltonians simultaneously.  Typically, this would consist
+    of one vector of energy levels at zero field without hyperfine or quadrupole
+    interactions, complemented by a set of eigenvalue vectors at linearly
+    independent magnetic field orientations and possibly containing hyperfine
+    interactions.  These additional eigenvalues can either be measured or
+    synthetically calculated for specific crystal field levels from spin
+    Hamiltonian data.  
 
     The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
@@ -3094,7 +3158,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     summary+= "==============\n"
     summary += gen_pycf_summary()
     
-    mhfit = MHFitRunner(parameters, h_list, weights_list, ex_list, **kwargs)
+    mhfit = MHFit(parameters, h_list, weights_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
     summary += gen_completed_str()
 
@@ -3121,7 +3185,8 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
 
 def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     r"""
-    Fit parameters to energy level data. 
+    Fit parameters to energy level data and spin Hamiltonian data
+    simultaneously. 
 
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
@@ -3168,7 +3233,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     summary+= "===============\n"
     summary += gen_pycf_summary()
 
-    eshfit = ESHFitRunner(parameters, h, sh, ex, shx, weights, **kwargs)
+    eshfit = ESHFit(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
     summary += gen_completed_str()
 
@@ -3193,12 +3258,11 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
 
 def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     r"""
-    Class used to store data required by, and to run, a crystal field fit using
-    multiple Hamiltonians and spin Hamiltonians.  For now, this is restricted to
-    a single spin Hamiltonian per CF Hamiltonian.  Thus, one can fit one excited
-    state spin Hamiltonian, excluding hyperfine, in conjunction with electronic
-    energy level data.  This is can then combined with a hyperfine spin
-    Hamiltonian for the ground state. 
+    Fit multiple crystal-field Hamiltonians and spin Hamiltonians
+    simultaneously.  For now, this is restricted to a single spin Hamiltonian
+    per CF Hamiltonian.  Thus, one can fit one excited state spin Hamiltonian,
+    excluding hyperfine, in conjunction with electronic energy level data.  This
+    is can then combined with a hyperfine spin Hamiltonian for the ground state. 
     
     The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of each
@@ -3213,7 +3277,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     h_sh_list : list
         Each element should be a dictionary with the following keys: 'h', 'sh',
         'ex', 'shx', 'weights', and svd_sym.  For descriptions of each element,
-        see the ESHFitRunner docstring.
+        see the ESHFit docstring.
     cfl_min : CFLMin 
         The minimization object which sets the optimization algorithm and
         corresponding options.
@@ -3226,7 +3290,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     summary+= "================\n"
     summary += gen_pycf_summary()
 
-    meshfit = MESHFitRunner(parameters, h_sh_list, **kwargs)
+    meshfit = MESHFit(parameters, h_sh_list, **kwargs)
     (x, fmin) = meshfit.fit(cfl_min)
     summary += gen_completed_str()
 
@@ -3270,7 +3334,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     return {'fmin': fmin, 'coeff': x, 'summary': summary}
 
 
-cdef class ZEFOZSearchRunner:
+cdef class ZEFOZSearch:
     r"""
     Perform search for ZEFOZ points.
 
@@ -3432,7 +3496,7 @@ def zefoz(start, stop, num, k, l, h, xtol=0.01, init_size=200):
         number if there's a lot of expected ZEFOZ points.
     """
 
-    zsearch = ZEFOZSearchRunner(h, xtol, init_size)
+    zsearch = ZEFOZSearch(h, xtol, init_size)
     (B, v) = zsearch.run_search(start, stop, num, k, l)
     
     B=B.reshape(len(B)/3,3)

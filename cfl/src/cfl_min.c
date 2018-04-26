@@ -695,8 +695,6 @@ void nlopt_free(void *data) {
  * Parameters
  * ----------
  *  obj_f       Pointer to the objective function.
- *  cov_f       Function to calculate the covariance matrix; set to NULL if not
- *              required.
  *  n           The number of parameters to be varied.
  *  data        Generic data to be passed to the objective function.
  *  algorithm   The minimization algorithm.  Implemented options are:
@@ -711,7 +709,7 @@ void nlopt_free(void *data) {
  *  bounds      Linear bounds on the parameters.
  */
 cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
-      void *data), void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj),
+      void *data), 
     size_t n, void *data, nlopt_min_alg algorithm, double xtol, double maxtime,
     cfl_min_bounds *bounds) {
   cfl_min_obj *obj;
@@ -756,7 +754,6 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
   obj->min_data = opt;
   obj->min_obj_free = nlopt_free;
   obj->obj_f_data = data;
-  obj->cov_f = cov_f;
 
   return obj;
 }
@@ -767,8 +764,6 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
  * Parameters
  * ----------
  *  obj_f       Pointer to the objective function.
- *  cov_f       Function to calculate the covariance matrix; set to NULL if not
- *              required.
  *  n           The number of parameters to be varied.
  *  data        Generic data to be passed to the objective function.
  *  algorithm   The minimization algorithm; implemented options are:
@@ -779,8 +774,7 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
  *              + gsl_vector_bfgs2
  */
 cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
-      *grad, void *data), void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj
-        *obj), size_t n, void *data, gsl_min_alg algorithm) {
+      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm) {
   int (*min_f)(double *x, double *fmin, void *w);
   void (*min_obj_free)(void *obj);
   void *min_data;
@@ -828,7 +822,6 @@ cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
   obj->min_f = min_f;
   obj->min_obj_free = min_obj_free;
   obj->obj_f_data = data;
-  obj->cov_f = cov_f;
 
   return obj;
 }
@@ -842,21 +835,12 @@ cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
  *  x0      The starting values of the parameters to be fit. 
  *  fmin    Point to a double valued variable which will be overwritten with the
  *          objective function value upon return.
- *  cov_inv Pointer to space that will be overwritten with the inverse of the
- *          covariance matrix; set to NULL to disable. 
  *  obj     The cfl_min_obj for which to run the minimization.
  */
-int cfl_min(double *x0, double *fmin, double *cov_inv, cfl_min_obj *obj) {
+int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) {
   int status;
 
   status = obj->min_f(x0, fmin, obj->min_data);
-
-  if (cov_inv != NULL) {
-    if (obj->cov_f == NULL) {
-      CFL_ERROR_VAL("Non NULL cov argument yet cov_f as not been specified", 1);
-    }
-    obj->cov_f(x0, cov_inv, obj);
-  }
 
   return status;
 }

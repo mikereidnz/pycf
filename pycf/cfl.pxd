@@ -131,12 +131,10 @@ cdef extern from "../../cfl/include/cfl_min.h":
         pass
 
     cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), 
-            void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), 
             size_t n, void *data, nlopt_min_alg algorithm, double xtol, double maxtime, cfl_min_bounds *bounds)
     cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data), 
-            void (*cov_f)(double *x0, double *cov_inv, cfl_min_obj *obj), 
             size_t n, void *data, gsl_min_alg algorithm)
-    int cfl_min(double *x0, double *fmin, double *cov_inv, cfl_min_obj *obj) nogil
+    int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) nogil
     void cfl_min_free(cfl_min_obj *obj)
 
 
@@ -199,11 +197,7 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     void eshfit_chi2(double *x, void *data, double *chi2) nogil
     void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil 
     void meshfit_chi2(double *x, void *data, double *chi2) nogil
-    void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil 
-    void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
-    void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
-    void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
-    void meshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj) nogil
+
 
 cdef extern from "../../cfl/include/cfl_zefoz.h":
     ctypedef struct zefoz_d:

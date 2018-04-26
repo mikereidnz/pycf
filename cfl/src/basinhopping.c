@@ -327,7 +327,6 @@ cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accep
   obj->min_f = &bh_min;
   obj->min_obj_free = bh_work_free;
   obj->obj_f_data = lmin->obj_f_data;
-  obj->cov_f = lmin->cov_f;
 
   return obj;
 }
