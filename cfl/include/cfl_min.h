@@ -42,7 +42,7 @@ typedef enum {
 
 /* Local minimization object. */
 typedef struct cfl_min_obj {
-  /* Pointer to the cfl minimization function.  Note: this is not the objective
+  /* Pointer to the cfl minimization function.  Note: this is NOT the objective
    * function. */
   int (*min_f)(double *x, double *fmin, void *d);
   /* Number of parameters. */
@@ -103,18 +103,6 @@ typedef struct {
   gsl_multimin_data *gsl_data;
 } gsl_multimin_f_work;
 
-/* Work space allocation and initialization data type for gradient based gsl
- * multimin functions. */
-typedef struct {
-  /* Pointer to minimizer. */
-  gsl_multimin_fdfminimizer *s;
-  /* Objective function in gsl form. */
-  gsl_multimin_function_fdf *f;
-  /* Pointer to parameter gsl_vector. */
-  gsl_vector *v;
-  /* Pointer to gsl_min_wrapper data struct. */
-  gsl_multimin_data *gsl_data;
-} gsl_multimin_fdf_work;
 
 /* Work space allocation and initialization data type for gradient based gsl
  * multimin functions with numerical derivative estimation. */
@@ -137,22 +125,17 @@ extern "C" {
 gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
       double *grad, void *data), size_t n, void *data, const
     gsl_multimin_fminimizer_type *T); 
-gsl_multimin_fdf_work *gsl_multimin_fdf_alloc(double (*f)(size_t n, double *x,
-      double *grad, void *data), size_t n, void *data, const
-    gsl_multimin_fdfminimizer_type *T);
 gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
       double *grad, void *data), size_t n, void *data, const
     gsl_multimin_fdfminimizer_type *T);
 void gsl_multimin_f_free(void *work);
-void gsl_multimin_fdf_free(void *work);
 void gsl_multimin_fndf_free(void *work);
 int gsl_multimin_f(double *x, double *fmin, void *work);
-int gsl_multimin_fdf(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
 cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
     double maxtime, cfl_min_bounds *bounds);
-cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
+cfl_min_obj *cfl_gsl_min_setup(double (*f)(size_t n, double *x, double
       *grad, void *data), size_t n, void *data, gsl_min_alg algorithm);
 int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
 void cfl_min_free(cfl_min_obj *obj);

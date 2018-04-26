@@ -229,11 +229,6 @@ void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
 void meshfit_chi2(double *x, void *data, double *chi2);
-void efit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
-void mhfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
-void eshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
-void eshfit_hpro_cov(double *x0, double *cov_inv, cfl_min_obj *obj); 
-void meshfit_cov(double *x0, double *cov_inv, cfl_min_obj *obj);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

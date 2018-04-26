@@ -79,8 +79,8 @@ double gsl_test_f1(size_t n, double *x, double *grad, void *params) {
 double gsl_test_f2(size_t n, double *x, double *grad, void *params) {
   double *p = (double *)params;
 
-  grad[0] = 2.0 * p[2] * (x[0] - p[0]);
-  grad[1] = 2.0 * p[3] * (x[1] - p[1]); 
+  //grad[0] = 2.0 * p[2] * (x[0] - p[0]);
+  //grad[1] = 2.0 * p[3] * (x[1] - p[1]); 
   
   return p[2] * (x[0] - p[0]) * (x[0] - p[0]) +
            p[3] * (x[1] - p[1]) * (x[1] - p[1]) + p[4]; 
@@ -126,23 +126,23 @@ int main (void)
     printf("Warning: gsl_multimin_f minimization failure\n");
   }
 
-  printf("gsl_multimin_f:\n");
+  printf("Nelder-Mead simplex:\n");
   dequ_chk(gsl_result, gsl_x1, 2);
   gsl_multimin_f_free(gsl_w1);
 
   /* Fletcher-Reeves conjugate gradient algorithm. */
-  gsl_multimin_fdf_work *gsl_w2;
-  gsl_w2 = gsl_multimin_fdf_alloc(&gsl_test_f2, 2, gsl_par, gsl_multimin_fdfminimizer_conjugate_fr);
+  gsl_multimin_fndf_work *gsl_w2;
+  gsl_w2 = gsl_multimin_fndf_alloc(&gsl_test_f2, 2, gsl_par, gsl_multimin_fdfminimizer_conjugate_fr);
 
-  status = gsl_multimin_fdf(gsl_x2, &fmin, (void *)gsl_w2);
+  status = gsl_multimin_fndf(gsl_x2, &fmin, (void *)gsl_w2);
 
   if (status) {
-    printf("Warning: gsl_multimin_fdf minimization failure\n");
+    printf("Warning: gsl_multimin_fndf minimization failure\n");
   }
 
-  printf("gsl_multimin_fdf:\n");
+  printf("Fletcher-Reeves conjugate:\n");
   dequ_chk(gsl_result, gsl_x2, 2);
-  gsl_multimin_fdf_free(gsl_w2);
+  gsl_multimin_fndf_free(gsl_w2);
 
   /* Vector Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm with numerical
    * derivative estimation. */
@@ -155,7 +155,7 @@ int main (void)
     printf("Warning: gsl_multimin_fndf minimization failure\n");
   }
 
-  printf("gsl_multimin_fndf:\n");
+  printf("Vector BFGS:\n");
   dequ_chk(gsl_result, gsl_x3, 2);
   gsl_multimin_fndf_free(gsl_w3);
 
@@ -165,9 +165,9 @@ int main (void)
   double nlopt_x1[2] = {10.0, -5.0};
   cfl_min_obj *nlopt_min_obj;
 
-  nlopt_min_obj = cfl_nlopt_min_setup(&gsl_test_f1, NULL, 2, gsl_par, nlopt_cobyla, 1e-6, -1, NULL);
+  nlopt_min_obj = cfl_nlopt_min_setup(&gsl_test_f1, 2, gsl_par, nlopt_cobyla, 1e-6, -1, NULL);
 
-  status = cfl_min(nlopt_x1, &fmin, NULL, nlopt_min_obj);
+  status = cfl_min(nlopt_x1, &fmin, nlopt_min_obj);
 
   printf("nlopt cobyla:\n");
   dequ_chk(gsl_result, nlopt_x1, 2);
@@ -193,9 +193,9 @@ int main (void)
   /* Basinhopping test with derivative free gsl local minimization. */
   cfl_min_obj *lmin_obj1, *bhmin_obj1;
 
-  lmin_obj1 = cfl_gsl_min_setup(&bh_test_f1, NULL, 2, bh_par, gsl_nmsimplex2);
+  lmin_obj1 = cfl_gsl_min_setup(&bh_test_f1, 2, bh_par, gsl_nmsimplex2);
   bhmin_obj1 = cfl_bh_min_setup(5, NULL, 0.5, 10, &bounds, lmin_obj1);
-  status = cfl_min(bh_x1, &fmin, NULL, bhmin_obj1);
+  status = cfl_min(bh_x1, &fmin, bhmin_obj1);
   printf("bh with gsl_nmsimplex2 local minimization:\n");
   dequ_chk(bh_result1, bh_x1, 2);
 
@@ -206,9 +206,9 @@ int main (void)
    * gradient estimation. */
   cfl_min_obj *lmin_obj2, *bhmin_obj2;
 
-  lmin_obj2 = cfl_gsl_min_setup(&bh_test_f2, NULL, 2, bh_par, gsl_vector_bfgs2);
+  lmin_obj2 = cfl_gsl_min_setup(&bh_test_f2, 2, bh_par, gsl_vector_bfgs2);
   bhmin_obj2 = cfl_bh_min_setup(5, NULL, 0.5, 10, &bounds, lmin_obj2);
-  status = cfl_min(bh_x2, &fmin, NULL, bhmin_obj2);
+  status = cfl_min(bh_x2, &fmin, bhmin_obj2);
   printf("bh with gsl_vector_bfgs2 local minimization:\n");
   dequ_chk(bh_result2, bh_x2, 2);
 
@@ -513,13 +513,11 @@ int main (void)
   cfl_min_obj *efit_lmin_obj, *efit_min_obj;
   
   efit_d = efit_data_alloc('N', h, &ce_ex_data, 6, p);
-  efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, &efit_cov, 6, efit_d, gsl_vector_bfgs2);
+  efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, 6, efit_d, gsl_vector_bfgs2);
   efit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, efit_lmin_obj);
 
-  double *cov;
-  cov = malloc(36*sizeof(double));
 
-  status = cfl_min(ce_x0, &fmin, cov, efit_min_obj);
+  status = cfl_min(ce_x0, &fmin, efit_min_obj);
 
   cfl_min_free(efit_min_obj);
   cfl_min_free(efit_lmin_obj);
@@ -536,10 +534,10 @@ int main (void)
   int n_zx_a[2] = {6, 6};
 
   mh_fd = mhfit_data_alloc(joba, 2, ha, exa, n_zx_a, pa);
-  mhfit_lmin_obj = cfl_gsl_min_setup(&mhfit_obj, NULL, 6, mh_fd, gsl_vector_bfgs2);
+  mhfit_lmin_obj = cfl_gsl_min_setup(&mhfit_obj, 6, mh_fd, gsl_vector_bfgs2);
   mhfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, mhfit_lmin_obj);
 
-  status = cfl_min(ce_x0, &fmin, NULL, mhfit_min_obj);
+  status = cfl_min(ce_x0, &fmin, mhfit_min_obj);
 
   cfl_min_free(mhfit_min_obj);
   cfl_min_free(mhfit_lmin_obj);
@@ -578,10 +576,10 @@ int main (void)
   zsh_set_pro(ce_sh, shpro_tensors, 0, coupling);
 
   eshfit_d = eshfit_data_alloc('N', 'N', h, NULL, &ce_ex_data, ce_sh, shx, 6, p);
-  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, &eshfit_cov, 6, eshfit_d,
+  eshfit_lmin_obj = cfl_gsl_min_setup(&eshfit_obj, 6, eshfit_d,
       gsl_vector_bfgs2);
   eshfit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, eshfit_lmin_obj);
-  status = cfl_min(ce_x0, &fmin, cov, eshfit_min_obj);
+  status = cfl_min(ce_x0, &fmin, eshfit_min_obj);
 
   cfl_min_free(eshfit_min_obj);
   cfl_min_free(eshfit_lmin_obj);
@@ -673,7 +671,6 @@ int main (void)
   zt_free(magy);
   zt_free(magz);
   sl_free(states);
-  free(cov);
   free(l);
   
   return 0;
