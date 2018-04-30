@@ -24,6 +24,7 @@
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_deriv.h>
+#include <gsl/gsl_multifit_nlinear.h>
 
 #include <nlopt.h>
 
@@ -31,6 +32,7 @@
 #include "cfl_error.h"
 #include "basinhopping.h"
 #include "cfl_min.h"
+
 
 /* Overview
  * ========
@@ -74,7 +76,32 @@
  * Since the cfl_min interface is quite similar to nlopt, the setup function
  * simply creates an nlopt object and sets the implemented optional parameters.
  *
+ * gsl nonlinear least squares
+ * ---------------------------
+ * Layout describing how this section works: 
+ *   + cfl_nls_setup returns a generic cfl_min_obj, the common data type for all
+ *   of the optimization procedures.  The setup function also allocates
+ *   workspace and performs some initializations. 
+ *   + cfl_min_obj contains a pointer to the optimization function which is
+ *   called when the object is passed to cfl_min; in this case, the optimization
+ *   function is gsl_nls_f. 
+ *   + gsl_nls_f calls the multifit driver, using the preallocated workspace and
+ *   settings; these settings include information about the number of
+ *   parameters, number of observables, the objective function to be called gsl
+ *   multifit, as well as any data to be passed to the objective function.
+ *   + the objective function is gsl_nls_f_wrapper, which knows how to handle
+ *   the cfl_nls_data type to unpack which optimization function to call from
+ *   cfl_h_fit, as well as pass data destined to that function.
+ *
+ * This complexity is necessary since we want the ability to run any of the
+ * objective functions, with any of the optimization functions.  The further
+ * (perhaps unjustifiable) abstraction of the minimization routine interface was
+ * choosen to enable one to pass any of the local optimization routines to
+ * basinhopping.  
  */
+ 
+ 
+ 
 
 
 /* Wrapper for gsl minimization; used to construct a function of type
@@ -490,6 +517,75 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
     return 1;
 }
 
+
+/*
+ * Generate cfl_min_obj settings object for gsl based minimization routines. 
+ *
+ * Parameters
+ * ----------
+ *  obj_f       Pointer to the objective function.
+ *  n           The number of parameters to be varied.
+ *  data        Generic data to be passed to the objective function.
+ *  algorithm   The minimization algorithm; implemented options are:
+ *              + gsl_nmsimplex2rand
+ *              + gsl_nmsimplex2 
+ *              + gsl_conjugate_fr 
+ *              + gsl_conjugate_pr
+ *              + gsl_vector_bfgs2
+ */
+cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
+      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm) {
+  int (*min_f)(double *x, double *fmin, void *w);
+  void (*min_obj_free)(void *obj);
+  void *min_data;
+  cfl_min_obj *obj;
+
+  obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
+  if (obj == 0) {
+    CFL_ERROR_NULL("malloc failed for obj");
+  }
+
+  switch (algorithm) {
+    case gsl_nmsimplex2rand:
+      min_data = gsl_multimin_f_alloc(obj_f, n, data,
+          gsl_multimin_fminimizer_nmsimplex2rand);
+      min_f = &gsl_multimin_f;
+      min_obj_free = gsl_multimin_f_free;
+      break;
+    case gsl_nmsimplex2:
+      min_data = gsl_multimin_f_alloc(obj_f, n, data,
+          gsl_multimin_fminimizer_nmsimplex2rand);
+      min_f = &gsl_multimin_f;
+      min_obj_free = gsl_multimin_f_free;
+      break;
+    case gsl_conjugate_fr:
+      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
+          gsl_multimin_fdfminimizer_conjugate_fr);
+      min_f = &gsl_multimin_fndf;
+      min_obj_free = gsl_multimin_fndf_free;
+      break;
+    case gsl_conjugate_pr:
+      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
+          gsl_multimin_fdfminimizer_conjugate_pr);
+      min_f = &gsl_multimin_fndf;
+      min_obj_free = gsl_multimin_fndf_free;
+      break;
+    case gsl_vector_bfgs2:
+      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
+          gsl_multimin_fdfminimizer_vector_bfgs2);
+      min_f = &gsl_multimin_fndf;
+      min_obj_free = gsl_multimin_fndf_free;
+  }
+
+  obj->min_data = min_data;
+  obj->n = n;
+  obj->min_f = min_f;
+  obj->min_obj_free = min_obj_free;
+  obj->obj_f_data = data;
+
+  return obj;
+}
+
 /* Wrapper for nlopt minimization. */
 int nlopt_min_f(double *x, double *min, void *data) {
   return nlopt_optimize((nlopt_opt )data, x, min);
@@ -569,74 +665,153 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
   return obj;
 }
 
+
+/* Function to be called by GSL nonlinear least-squares to perform fit. */
+int gsl_nls_f_wrapper(const gsl_vector *x, void *data, gsl_vector *y) {
+  cfl_nls_data *d = (cfl_nls_data *) data;
+  int i;
+  
+  /* These GSL vectors are a pain; they are vector views with memory blocks that
+   * aren't contiguous (alloced by gsl_multifit_nlinear_winit), but all of the
+   * cfl_h_fit machinery requires contiguous blocks... so we need to write/read
+   * them into contiguous blocks. */
+  for (i=0; i<d->p; i++) {
+    d->x[i] = gsl_vector_get(x, i);
+  }
+  d->f(d->x, d->data, d->y);
+  for (i=0; i<d->n; i++) {
+    gsl_vector_set(y, i, d->y[i]);
+  }
+
+  return GSL_SUCCESS;
+}
+
+
+/* Function that actually runs the least-squares fit; assigned to min_f. */
+int gsl_nls_f(double *x0, double *fmin, void *data) {
+  int info, status;
+  gsl_matrix *J;
+  cfl_nls_data *d = (cfl_nls_data *) data;
+
+  gsl_vector_view x = gsl_vector_view_array(x0, d->p);
+  gsl_vector_view wts = gsl_vector_view_array(d->wts, d->n);
+
+  gsl_multifit_nlinear_winit (&x.vector, &wts.vector, &(d->fdf), d->w);
+  status = gsl_multifit_nlinear_driver(d->niter, d->xtol, d->gtol,
+      d->ftol, NULL, NULL, &info, d->w);
+  
+  /* compute covariance of best fit parameters */
+  J = gsl_multifit_nlinear_jac(d->w);
+  gsl_matrix_view covar = gsl_matrix_view_array(d->covar, d->p, d->p);
+  gsl_multifit_nlinear_covar(J, GSL_COV_EPSREL, &covar.matrix);
+  
+  return status;
+}
+
+void gsl_nls_free(void *data) {
+  cfl_nls_data *d = (cfl_nls_data *) data;
+  
+  gsl_multifit_nlinear_free(d->w);
+  free(d->x);
+  free(d->y);
+  free(d);
+}
+
+
 /*
- * Generate cfl_min_obj settings object for gsl based minimization routines. 
+ * Generate cfl_nls_obj settings object for gsl based non-linear least squares. 
  *
  * Parameters
  * ----------
- *  obj_f       Pointer to the objective function.
- *  n           The number of parameters to be varied.
- *  data        Generic data to be passed to the objective function.
- *  algorithm   The minimization algorithm; implemented options are:
- *              + gsl_nmsimplex2rand
- *              + gsl_nmsimplex2 
- *              + gsl_conjugate_fr 
- *              + gsl_conjugate_pr
- *              + gsl_vector_bfgs2
+ *  obj_f               Pointer to the objective function.
+ *  n                   The number of observables.
+ *  p                   The number of parameters to be varied.
+ *  data                Generic data to be passed to the objective function.
+ *  wts                 Array of length n, specifying the weighting for each
+ *                      observable.
+ *  xtol, gtol, ftol    Tolerances; see GSL reference, section 39.8. 
+ *  covar               Pointer to p*p array; will be overwritten by the
+ *                      covariance matrix on exit.
+ *  niter               The maximum number of iterations.
  */
-cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
-      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm) {
-  int (*min_f)(double *x, double *fmin, void *w);
-  void (*min_obj_free)(void *obj);
-  void *min_data;
-  cfl_min_obj *obj;
+cfl_min_obj *cfl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
+    int p, void *data, double *wts, double xtol, double gtol, double ftol,
+    double *covar, int niter) {
+  cfl_min_obj *obj; 
+  cfl_nls_data *d;
 
   obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
   if (obj == 0) {
     CFL_ERROR_NULL("malloc failed for obj");
   }
 
-  switch (algorithm) {
-    case gsl_nmsimplex2rand:
-      min_data = gsl_multimin_f_alloc(obj_f, n, data,
-          gsl_multimin_fminimizer_nmsimplex2rand);
-      min_f = &gsl_multimin_f;
-      min_obj_free = gsl_multimin_f_free;
-      break;
-    case gsl_nmsimplex2:
-      min_data = gsl_multimin_f_alloc(obj_f, n, data,
-          gsl_multimin_fminimizer_nmsimplex2rand);
-      min_f = &gsl_multimin_f;
-      min_obj_free = gsl_multimin_f_free;
-      break;
-    case gsl_conjugate_fr:
-      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
-          gsl_multimin_fdfminimizer_conjugate_fr);
-      min_f = &gsl_multimin_fndf;
-      min_obj_free = gsl_multimin_fndf_free;
-      break;
-    case gsl_conjugate_pr:
-      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
-          gsl_multimin_fdfminimizer_conjugate_pr);
-      min_f = &gsl_multimin_fndf;
-      min_obj_free = gsl_multimin_fndf_free;
-      break;
-    case gsl_vector_bfgs2:
-      min_data = gsl_multimin_fndf_alloc(obj_f, n, data,
-          gsl_multimin_fdfminimizer_vector_bfgs2);
-      min_f = &gsl_multimin_fndf;
-      min_obj_free = gsl_multimin_fndf_free;
+  d = (cfl_nls_data *) malloc(sizeof(cfl_nls_data));
+  if (d == 0) {
+    free(obj);
+    CFL_ERROR_NULL("malloc failed for d");
   }
-
-  obj->min_data = min_data;
-  obj->n = n;
-  obj->min_f = min_f;
-  obj->min_obj_free = min_obj_free;
+  d->x = (double *) calloc(p,sizeof(double));
+  if (d->x == 0) {
+    free(obj);
+    free(d);
+    CFL_ERROR_NULL("malloc failed for d->x");
+  }
+  d->y = (double *) calloc(n,sizeof(double));
+  if (d->y == 0) {
+    free(obj);
+    free(d->x);
+    free(d);
+    CFL_ERROR_NULL("malloc failed for d->y");
+  }
+  obj->min_f = &gsl_nls_f;
+  obj->n = p;
+  obj->min_data = d;
+  obj->min_obj_free = &gsl_nls_free;
   obj->obj_f_data = data;
 
+  d->T = gsl_multifit_nlinear_trust;
+  d->fdf_params = gsl_multifit_nlinear_default_parameters();
+
+  d->wts = wts;
+  d->niter = 20;
+  d->xtol = 1e-8;
+  d->gtol = 1e-8;
+  d->ftol = 0.0;
+  d->n = n;
+  d->p = p;
+  d->covar = covar;
+
+  /* d->data is the data that will be passed to the actual objective function,
+   * that is, cfl_h_fit.c functions.  We need to assign this to d here, since
+   * the gsl fdf generic data field (fdf.params void ptr assigned below) has to
+   * be occupied by d itself, which also contains a ptr to the objective
+   * function to be call (this call is performed by gsl_nls_f_wrapper). */
+  d->data = data;
+  d->f = f;
+
+  /* define the function to be minimized */
+  d->fdf.f = gsl_nls_f_wrapper;
+  d->fdf.df = NULL;   /* set to NULL for finite-difference Jacobian */
+  d->fdf.fvv = NULL;     /* not using geodesic acceleration */
+  d->fdf.n = n;
+  d->fdf.p = p;
+  d->fdf.params = d;
+
+  /* allocate workspace with default parameters */
+  d->w = gsl_multifit_nlinear_alloc (d->T, &(d->fdf_params), n, p);
+  if (d->w == 0) {
+    free(d);
+    CFL_ERROR_NULL("gsl_multifit_nlinear_alloc failed for w");
+  }
+  
   return obj;
 }
 
+/* Generic freeing function, to be used for all objects of type cfl_min_obj. */
+void cfl_min_free(cfl_min_obj *obj) {
+   obj->min_obj_free(obj->min_data);
+   free(obj);
+}
 
 /*
  * Perform minimization for a cfl_min_obj object. 
@@ -655,11 +830,5 @@ int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) {
 
   return status;
 }
-
-void cfl_min_free(cfl_min_obj *obj) {
-   obj->min_obj_free(obj->min_data);
-   free(obj);
-}
-  
 
 

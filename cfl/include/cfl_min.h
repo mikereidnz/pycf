@@ -21,6 +21,7 @@
 
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
+#include <gsl/gsl_multifit_nlinear.h>
 #include <nlopt.h>
 
 typedef enum {
@@ -41,7 +42,7 @@ typedef enum {
 
 
 /* Local minimization object. */
-typedef struct cfl_min_obj {
+typedef struct {
   /* Pointer to the cfl minimization function.  Note: this is NOT the objective
    * function. */
   int (*min_f)(double *x, double *fmin, void *d);
@@ -117,6 +118,46 @@ typedef struct {
   gsl_multimin_data *gsl_data;
 } gsl_multimin_fndf_work;
 
+/* Storage for GSL nonlinear least-squares fitting. */
+typedef struct {
+  /* Pointer to the objective function. */
+  void (*f)(double *x, void *data, double *y); 
+  //int (*f)(const gsl_vector *xv, void *data, gsl_vector *f);
+  /* Data to be passed to the objective function. */
+  void *data;
+  /* Weighting for each observable; length n. */
+  double *wts;
+  /* Maximum number of iterations. */
+  int niter;
+  /* Multifit type information. */
+  const gsl_multifit_nlinear_type *T;
+  /* Workspace. */
+  gsl_multifit_nlinear_workspace *w;
+  /* multifit function. */
+  gsl_multifit_nlinear_fdf fdf;
+  /* multifit parameters. */
+  gsl_multifit_nlinear_parameters fdf_params;
+  /* Number of parameters. */
+  size_t p;
+  /* Number of observables. */
+  size_t n;
+  /* Tolerances; see GSL reference, section 39.8. */
+  double xtol;
+  double gtol;
+  double ftol;
+  /* Covariance matrix. */
+  double *covar;
+  /* Contiguous storage for parameters. */
+  double *x;
+  /* Contiguous storage for least-square differences. */
+  double *y;
+} cfl_nls_data;
+
+typedef struct {
+  size_t n;
+  double *y;
+} nls_data;
+
 
 /* Function prototypes. */
 #ifdef __cplusplus
@@ -137,8 +178,11 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
     double maxtime, cfl_min_bounds *bounds);
 cfl_min_obj *cfl_gsl_min_setup(double (*f)(size_t n, double *x, double
       *grad, void *data), size_t n, void *data, gsl_min_alg algorithm);
-int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
+cfl_min_obj *cfl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
+    int p, void *data, double *wts, double xtol, double gtol, double ftol,
+    double *covar, int niter);
 void cfl_min_free(cfl_min_obj *obj);
+int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

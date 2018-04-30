@@ -1,11 +1,11 @@
 CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
-CFLAGS=-g -O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -I/usr/include/lapacke
-#CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke 
+#CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -I/usr/include/lapacke
+CFLAGS=-g -O -fPIC -I/usr/include/lapacke 
 LDLIBS=-llapacke -llapack -lblas -lgfortran -lgslcblas -lgsl -lm -lnlopt
 LDFLAGS=
-MKL_CFLAGS=-mkl -g -O3 -fPIC -std=c99 -ansi-alias -xhost -lpthread -openmp
+MKL_CFLAGS=-mkl -O3 -fPIC -std=c99 -ansi-alias -xhost -lpthread -openmp
 MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 MKL_LDFLAGS=-Wl,-rpath,$(INTEL_PATH)/lib/intel64/ -Wl,-rpath,$(INTEL_PATH)/mkl/lib/intel64/
 ARFLAGS=rcs
@@ -40,7 +40,7 @@ libcfl.a: cfl_zefoz.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_
 
 zefoz_test: cfl_zefoz.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-nlls_test: cfl_h_fit.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
+nls_test: cfl_h_fit.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
 
 opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o cfl_error.h 
 

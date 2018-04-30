@@ -34,6 +34,9 @@
 /* The default number of interations between adaptive stepsize updates. */
 #define BH_DEF_ADAPT_INT      20
 
+/* GSL nonlinear least squares fit. */
+/* Controls which columns are treated linearly independent; see GSL ref 39.10 */
+#define GSL_COV_EPSREL        0.0
 /* Numerical derivative step-size for covariance matrix estimation. */
 #define COV_DERIV_H           1e-10
 

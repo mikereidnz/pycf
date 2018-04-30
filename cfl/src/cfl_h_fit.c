@@ -23,6 +23,7 @@
 #include <complex.h>
 
 #include <gsl/gsl_deriv.h>
+#include <gsl/gsl_vector.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -204,18 +205,10 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
     CFL_ERROR_NULL("calloc failed for iwork");
   }
 
-  lwork = (long *) calloc(n,sizeof(long));
-  if (lwork == 0) {
-    free(data->job);
-    free(iwork);
-    free(data);
-    CFL_ERROR_NULL("calloc failed for lwork");
-  }
   data->hi = (int *) calloc(n,sizeof(int));
   if (data->hi == 0) {
     free(data->job);
     free(iwork);
-    free(lwork);
     free(data);
     CFL_ERROR_NULL("calloc failed for data->hi");
   }
@@ -236,7 +229,16 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
     data->hi[i] = i;
     ha[i]->num_procs = num_procs;
   }
+
 #else
+  lwork = (long *) calloc(n,sizeof(long));
+  if (lwork == 0) {
+    free(iwork);
+    free(data->job);
+    free(data->hi);
+    free(data);
+    CFL_ERROR_NULL("calloc failed for lwork");
+  }
   /* We only need a diag workspace for each unique Hamiltonian. */
   nhd_w = 0;
   for (i = 0; i < n; i++) {
@@ -256,25 +258,42 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
       }
     }
   }
+  free(lwork);
 #endif /* _OPENMP */
 
-  data->hd_w = (zhd_w **) malloc(nhd_w*sizeof(zhd_w *));
-  if (data->hd_w == 0) {
+  /* For non-linear least squares, we need the cumulative number of real-valued parameters
+   * for each Hamiltonian. */
+  data->n_rx_rt = (int *) malloc(n*sizeof(int));
+  if (data->n_rx_rt == 0) {
     free(data->job);
     free(data->hi);
     free(data);
     free(iwork);
-    free(lwork);
+    CFL_ERROR_NULL("malloc failed for data->n_rx_rt");
+  }
+
+  data->n_rx_rt[0] = 0;
+  for (i=1; i<n; i++) {
+    data->n_rx_rt[i] = data->n_rx_rt[i-1]+exa[i]->n_obs;
+  }
+
+  data->hd_w = (zhd_w **) malloc(nhd_w*sizeof(zhd_w *));
+  if (data->hd_w == 0) {
+    free(data->n_rx_rt);
+    free(data->job);
+    free(data->hi);
+    free(data);
+    free(iwork);
     CFL_ERROR_NULL("malloc failed for data->hd_w");
   }
   data->eval = (double **) malloc(nhd_w*sizeof(double *));
   if (data->eval == 0) {
+    free(data->n_rx_rt);
     free(data->job);
     free(data->hi);
     free(data->hd_w);
     free(data);
     free(iwork);
-    free(lwork);
     CFL_ERROR_NULL("malloc failed for data->eval");
   }
 
@@ -285,11 +304,11 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
         free(data->eval[j]);
         free(data->hd_w[j]);
       }
+      free(data->n_rx_rt);
       free(data->job);
       free(data->hi);
       free(data);
       free(iwork);
-      free(lwork);
       CFL_ERROR_NULL("calloc failed for data->eval[i]");
     }
     
@@ -305,11 +324,11 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
         free(data->hd_w[j]);
       }
       free(data->eval[i]);
+      free(data->n_rx_rt);
       free(data->job);
       free(data->hi);
       free(data);
       free(iwork);
-      free(lwork);
       CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w[i]");
     }
   }
@@ -321,11 +340,11 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
         free(data->eval[i]);
         free(data->hd_w[i]);
       }
+      free(data->n_rx_rt);
       free(data->job);
       free(data->hi);
       free(data);
       free(iwork);
-      free(lwork);
       CFL_ERROR_NULL("malloc failed for data->evect");
     }
     for (i = 0; i < nhd_w; i++) {
@@ -339,11 +358,11 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
           free(data->eval[j]);
           free(data->hd_w[j]);
         }
+        free(data->n_rx_rt);
         free(data->job);
         free(data->hi);
         free(data);
         free(iwork);
-        free(lwork);
         CFL_ERROR_NULL("calloc failed for data->evect[i]");
       }
     }
@@ -353,7 +372,6 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
   }
 
   free(iwork);
-  free(lwork);
 
   data->n = n;
   data->ha = ha;
@@ -368,6 +386,7 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
 void mhfit_data_free(mhfit_data *data) {
   int i;
 
+  free(data->n_rx_rt);
   free(data->job);
   free(data->hi);
   for (i = 0; i < data->nhd_w; i++) {
@@ -380,6 +399,7 @@ void mhfit_data_free(mhfit_data *data) {
     }
     free(data->evect);
   }
+
   free(data->eval);
   free(data->hd_w);
   free(data);
@@ -1040,4 +1060,69 @@ void meshfit_chi2(double *x, void *data, double *chi2) {
   }
 }
 
+
+/* Chi^2 for energy levels, non-linear least squares implementation. */
+inline void nls_echisq(double *e, ex_data *d, double *y, double weight) {
+  int i, ii;
+
+  ii = 0;
+  /* The chisq contribution due to absolute energy level data. */
+  for (i = 0; i < d->n_a; i++) {
+    y[ii] = e[d->la[i]] - d->e[i];
+  }
+  /* The chisq contribution due to difference energy level data. */ 
+  for (i = 0; i < d->n_d; i++) {
+    y[ii] = fabs(e[d->fld[i]] - e[d->ild[i]]) - d->e[i+d->n_a];
+  }
+}
+
+/* Objective function for non-linear least squares implementation. */
+void efit_nls(double *x, void *data, double *y) {
+  efit_data *d = data;
+
+  parse_param_data(d->n_zx, d->p, d->h->coeff, x);
+  if (d->job == 'S') {
+    zhd('V', d->eval, d->evect, d->h, d->hd_w);
+    find_sort_indices(d->ex, d->h, d->evect); 
+  }
+  else {
+    zhd('N', d->eval, NULL, d->h, d->hd_w);
+  }
+
+  nls_echisq(d->eval, d->ex, y, 1.0);
+}
+
+/* Objective function for multi-eigenvalue vector fit. */
+void mhfit_nls(double *x, void *data, double *y) {
+  int i, hi;
+  mhfit_data *d = data;
+  
+  if (d->sl_sort) {
+#pragma omp parallel for private(i, hi) schedule(static)
+    for (i = 0; i < d->n; i++) {
+      hi = d->hi[i];
+      parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
+      if (d->job[i] == 'S') {
+        zhd('V', d->eval[hi], d->evect[hi], d->ha[i], d->hd_w[hi]);
+        find_sort_indices(d->exa[i], d->ha[i], d->evect[hi]);
+      }
+      else {
+        zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
+      }
+      nls_echisq(d->eval[hi], d->exa[i], &y[d->n_rx_rt[i]],
+          d->exa[i]->chisq_weight);
+    }
+  }
+  else {
+#pragma omp parallel for private(i, hi) schedule(static)
+    for (i = 0; i < d->n; i++) {
+      hi = d->hi[i];
+      parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
+      zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
+      
+      nls_echisq(d->eval[hi], d->exa[i], &y[d->n_rx_rt[i]],
+          d->exa[i]->chisq_weight);
+    }
+  }
+}
 

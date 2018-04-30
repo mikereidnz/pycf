@@ -87,18 +87,6 @@ typedef struct {
   double chisq_weight;
 } shx_data;
 
-/* Data for covariance matrix estimation. */
-typedef struct {
-  /* Index of parameter with respect to which we differentiate. */
-  int par_index;
-  /* Index of current observable being differentiated w.r.t. parameters. */
-  int obs_index;
-  /* Storage for real-valued parameter list.  Note: par_index element will be
-   * modified upon exit. */
-  double *df_x;
-  /* Pointer to data for minimization objective function. */
-  void *obj_f_data;
-} cov_data;
 
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {
@@ -147,6 +135,8 @@ typedef struct {
   int *n_zx;
   /* Array of length n to arrays of pointers to parameter type structs. */
   param_type ***p;
+  /* Running total of number of real-valued params, up to nth Hamiltonian. */ 
+  int *n_rx_rt;
 } mhfit_data;
 
 /* Data for Hamiltonian fitting objective function. */
@@ -229,6 +219,8 @@ void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
 void meshfit_chi2(double *x, void *data, double *chi2);
+void efit_nls(double *x, void *data, double *y); 
+void mhfit_nls(double *x, void *data, double *y);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
