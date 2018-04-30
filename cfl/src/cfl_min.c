@@ -773,10 +773,10 @@ cfl_min_obj *cfl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
   d->fdf_params = gsl_multifit_nlinear_default_parameters();
 
   d->wts = wts;
-  d->niter = 20;
-  d->xtol = 1e-8;
-  d->gtol = 1e-8;
-  d->ftol = 0.0;
+  d->niter = niter;
+  d->xtol = xtol;
+  d->gtol = gtol;
+  d->ftol = ftol;
   d->n = n;
   d->p = p;
   d->covar = covar;
