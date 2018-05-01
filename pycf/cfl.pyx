@@ -1401,7 +1401,7 @@ cdef class EFit(object):
     cdef public ExData ex
     cdef cfl.param_type **param_array
     cpdef public np.ndarray x0
-    cdef np.ndarray wts
+    cdef public np.ndarray wts
     cdef cfl.efit_data *efit_data
     cpdef public object obj_f_cap
     cpdef public object nls_f_cap
@@ -1636,7 +1636,7 @@ cdef class MHFit(object):
     cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
     cpdef public np.ndarray x0
-    cdef np.ndarray wts
+    cdef public np.ndarray wts
     cdef cfl.mhfit_data *mhfit_data
     cdef np.ndarray job_a
     cpdef public object obj_f_cap
@@ -2869,9 +2869,9 @@ cdef class CFLMin:
             pass
         elif method == 'gsl_nls':
             if 'niter' in kwargs:
-                self.inter = kwargs['niter']
+                self.niter = kwargs['niter']
             else:
-                self.niter = 30
+                self.niter = 100
         else:
             raise NotImplementedError("Method '%s' is not an existing option." % method)
 
@@ -2980,7 +2980,7 @@ cdef class CFLMin:
             self.cfl_bounds = NULL
         
         if self.method == 'gsl_nls':
-            if fit_obj.nls_f_ptr == None:
+            if fit_obj.nls_f_cap == None:
                 raise NotImplementedError("gls_nls is not an existing option for requested fitting mode.")
             else:
                 nls_f_ptr = <void (*)(double *, void *, double *)>PyCapsule_GetPointer(
@@ -3002,7 +3002,7 @@ cdef class CFLMin:
                     dtype=np.float64)
             self.kwargs['covar'] = covar
             covar_ptr = &covar[0,0]
-            cwts = <np.ndarray[double, ndim=1, mode="c"]>fit_obj.wts[0]
+            cwts = <np.ndarray[double, ndim=1, mode="c"]>fit_obj.wts
             wts_ptr = &cwts[0]
         else:
             # Set xtol to default if not provided. 

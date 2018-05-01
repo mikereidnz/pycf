@@ -675,13 +675,19 @@ int gsl_nls_f_wrapper(const gsl_vector *x, void *data, gsl_vector *y) {
    * aren't contiguous (alloced by gsl_multifit_nlinear_winit), but all of the
    * cfl_h_fit machinery requires contiguous blocks... so we need to write/read
    * them into contiguous blocks. */
+  
+  printf("gsl_nls_f call, x= ");
   for (i=0; i<d->p; i++) {
     d->x[i] = gsl_vector_get(x, i);
+    printf("%f ", d->x[i]);
   }
+  printf("\nf= ");
   d->f(d->x, d->data, d->y);
   for (i=0; i<d->n; i++) {
     gsl_vector_set(y, i, d->y[i]);
+    printf("%f ", d->y[i]);
   }
+  printf("\n");
 
   return GSL_SUCCESS;
 }

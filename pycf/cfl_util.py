@@ -633,13 +633,11 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     if kwargs['cov']:
         s += "\n" + uline_char("Covariance matrix:\n")
         try:
-            cov = np.linalg.inv(kwargs['cov_inv'])
             s += str(cov) + "\n"
         except:
             s += "Singular covariance matrix; cannot invert.\n"
-
-        del kwargs['cov_inv']
-    
+        
+        del kwargs['covar']
     del kwargs['cov']
 
     s += "\nNumber of observables: {}\n".format(kwargs['n_obs'])
