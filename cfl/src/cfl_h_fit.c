@@ -1069,10 +1069,12 @@ inline void nls_echisq(double *e, ex_data *d, double *y, double weight) {
   /* The chisq contribution due to absolute energy level data. */
   for (i = 0; i < d->n_a; i++) {
     y[ii] = e[d->la[i]] - d->e[i];
+    ii++;
   }
   /* The chisq contribution due to difference energy level data. */ 
   for (i = 0; i < d->n_d; i++) {
     y[ii] = fabs(e[d->fld[i]] - e[d->ild[i]]) - d->e[i+d->n_a];
+    ii++;
   }
 }
 

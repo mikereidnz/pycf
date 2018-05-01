@@ -676,18 +676,13 @@ int gsl_nls_f_wrapper(const gsl_vector *x, void *data, gsl_vector *y) {
    * cfl_h_fit machinery requires contiguous blocks... so we need to write/read
    * them into contiguous blocks. */
   
-  printf("gsl_nls_f call, x= ");
   for (i=0; i<d->p; i++) {
     d->x[i] = gsl_vector_get(x, i);
-    printf("%f ", d->x[i]);
   }
-  printf("\nf= ");
   d->f(d->x, d->data, d->y);
   for (i=0; i<d->n; i++) {
     gsl_vector_set(y, i, d->y[i]);
-    printf("%f ", d->y[i]);
   }
-  printf("\n");
 
   return GSL_SUCCESS;
 }
@@ -695,7 +690,7 @@ int gsl_nls_f_wrapper(const gsl_vector *x, void *data, gsl_vector *y) {
 
 /* Function that actually runs the least-squares fit; assigned to min_f. */
 int gsl_nls_f(double *x0, double *fmin, void *data) {
-  int info, status;
+  int i, info, status;
   gsl_matrix *J;
   cfl_nls_data *d = (cfl_nls_data *) data;
 
@@ -705,7 +700,10 @@ int gsl_nls_f(double *x0, double *fmin, void *data) {
   gsl_multifit_nlinear_winit (&x.vector, &wts.vector, &(d->fdf), d->w);
   status = gsl_multifit_nlinear_driver(d->niter, d->xtol, d->gtol,
       d->ftol, NULL, NULL, &info, d->w);
-  
+  for (i=0; i<d->p; i++) {
+    x0[i] = gsl_vector_get(d->w->x, i);
+  }
+
   /* compute covariance of best fit parameters */
   J = gsl_multifit_nlinear_jac(d->w);
   gsl_matrix_view covar = gsl_matrix_view_array(d->covar, d->p, d->p);
