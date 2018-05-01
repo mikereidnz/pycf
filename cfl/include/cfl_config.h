@@ -9,6 +9,9 @@
 #endif
 #define MKL_Complex16 double complex
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
 /* gsl multimin defaults. */
 /* Absolute tolerance used for stopping criteria. */
 #define GSL_MIN_EPSABS          1e-2
@@ -36,20 +39,13 @@
 
 /* GSL nonlinear least squares fit. */
 /* Controls which columns are treated linearly independent; see GSL ref 39.10 */
-#define GSL_COV_EPSREL        0.0
+#define GSL_COV_EPSREL        1e-10
 /* Numerical derivative step-size for covariance matrix estimation. */
 #define COV_DERIV_H           1e-10
 
 /* The absolute error tolerance for the eigenvalues of Hamiltonian
  * diagonalization (see LAPACK zheevr for detailed description). */
 #define ZHEEVR_ABSTOL         -1.0
-
-/* The starting value of the chi^2 fit that each Hamiltonian/Spin Hamiltonian
- * contribution to the total chi^2 is normalized to. */
-#define CFL_MIN_START_CHI2    1e5
-
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
 
 /* The maximum number of iterations that a ZEFOZ search will attempt to find a
  * zero gradient point for a given initial field point. */

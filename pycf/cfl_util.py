@@ -604,13 +604,13 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
         if co.imag == 0:
             co = co.real
             if kwargs['cov']:
-                scov = fmt_scov[key].format(np.sqrt(np.abs(cov[ii,ii])))
+                scov = fmt_scov[key].format(np.sqrt(cov[ii,ii]))
             else:
                 scov = ""
             ii += 1
         else: 
             if kwargs['cov']:
-                scov = fmt_scov[key].format(np.complex(np.sqrt(np.abs(cov[ii,ii])), np.sqrt(np.abs(cov[ii+1,ii+1]))))
+                scov = fmt_scov[key].format(np.complex(np.sqrt(cov[ii,ii]), np.sqrt(cov[ii+1,ii+1])))
             else: 
                 scov = ""
             ii += 2
@@ -632,10 +632,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     np.set_printoptions(formatter={'float': lambda x: '{:11.2f}'.format(x)}, linewidth=200)
     if kwargs['cov']:
         s += "\n" + uline_char("Covariance matrix:\n")
-        try:
-            s += str(cov) + "\n"
-        except:
-            s += "Singular covariance matrix; cannot invert.\n"
+        s += str(cov) + "\n"
         
         del kwargs['covar']
     del kwargs['cov']
