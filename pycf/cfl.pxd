@@ -134,6 +134,8 @@ cdef extern from "../../cfl/include/cfl_min.h":
             size_t n, void *data, nlopt_min_alg algorithm, double xtol, double maxtime, cfl_min_bounds *bounds)
     cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data), 
             size_t n, void *data, gsl_min_alg algorithm)
+    cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n, int p, 
+            void *data, double *wts, double xtol, double gtol, double ftol, double *covar, int niter)
     int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) nogil
     void cfl_min_free(cfl_min_obj *obj)
 
@@ -197,7 +199,8 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     void eshfit_chi2(double *x, void *data, double *chi2) nogil
     void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil 
     void meshfit_chi2(double *x, void *data, double *chi2) nogil
-
+    void efit_nls(double *x, void *data, double *y) 
+    void mhfit_nls(double *x, void *data, double *y)
 
 cdef extern from "../../cfl/include/cfl_zefoz.h":
     ctypedef struct zefoz_d:

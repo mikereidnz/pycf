@@ -576,10 +576,14 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     s+= "===============\n\n"
     
     heading = "Tensor name           Fitted coeff       Initial coeff          Difference"
-    if kwargs['cov']:
+    if 'covar' in kwargs:
         ndof = max(fit_obj.n_p_real - fit_obj.n_obs, 1)
-        cov = np.linalg.inv(kwargs['cov_inv'])
+        cov = kwargs['covar']
         heading += "    Uncertainty"
+        kwargs['cov'] = True
+    else:
+        kwargs['cov'] = False
+
     if 'bounds' in kwargs:
         heading += "   Lower bounds    Upper bounds"
     if 'stepsize' in kwargs:

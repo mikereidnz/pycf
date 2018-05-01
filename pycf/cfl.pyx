@@ -182,7 +182,7 @@ cdef class Tensor:
 
     def __sub__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
-            raise TypeError("Only objects of type Tensor can be added to Tensors")
+            raise TypeError("Only objects of type Tensor can be subtracted from Tensors")
         # We check whether name has been explicitly set, otherwise use
         # arithmetic name.
         if t1.name == None:
@@ -568,7 +568,7 @@ cpdef hyperfine_sh_coeff(t1, t2):
                 for t2c in range(t2l):
                     for i in range(l):
                         for j in range(l):
-                            a[t1r+t1l*t2r, t1c+t1l*t2c, i, j]= t1[i][t1r, t1c] * t2[j][t2r, t2c]
+                            a[t1r+t1l*t2r,t1c+t1l*t2c,i,j]=t1[i][t1r,t1c]*t2[j][t2r,t2c]
 
     return(np.reshape(a, (t1l*t2l*t1l*t2l, l*l)))
 
@@ -808,8 +808,8 @@ cdef class SpinHamiltonian:
         self.inv_data = []
         for i,inter in enumerate(interactions):
             if inter == 'zeeman':
-                # Coefficient arrays are calculated for three B fields in \hat{x},
-                # \hat{y}, and \hat{z} directions, respectively.
+                # Coefficient arrays are calculated for three B fields in x, y,
+                # and z directions, respectively.
                 self.dz = int(2*self.Sz+1)
                 B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
                 for j in range(3):
@@ -882,7 +882,7 @@ cdef class SpinHamiltonian:
             try:
                 return self.tensors.index(tensor)
             except ValueError:
-                raise ValueError("SpinHamiltonian: he tensor {} is not an "\
+                raise ValueError("SpinHamiltonian: the tensor {} is not an "\
                         "element of this Hamiltonian".format(tensor.get_name()))
 
         elif isinstance(tensor, str):
@@ -1057,7 +1057,7 @@ cdef class SpinHamiltonian:
 cdef class ExData(object):
     r"""
     Experimental energy level data for Hamiltonians.  If both absolute and
-    difference energy levels are both present, then ex.e will be order such that
+    difference energy levels are present, then ex.e will be ordered such that
     all absolute energy level values are before the difference energy levels. 
 
     Parameters
@@ -1400,9 +1400,11 @@ cdef class EFit(object):
     cdef cfl.ex_data *ex_data
     cdef public ExData ex
     cdef cfl.param_type **param_array
-    cdef np.ndarray x0
+    cpdef public np.ndarray x0
+    cdef np.ndarray wts
     cdef cfl.efit_data *efit_data
     cpdef public object obj_f_cap
+    cpdef public object nls_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     def __init__(self, parameters, h, ex, **kwargs):
@@ -1449,6 +1451,11 @@ cdef class EFit(object):
         
         self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(
                 exdata_alloc_helper(self.ex), "pycfl.ExData")
+        
+        # Weights array for GSL nonlinear least-squares; since individual energy
+        # level weighting isn't really implemented, we could in principle forego
+        # this alloc... but to make self.wts interoperable we just use ones.
+        self.wts = np.ascontiguousarray(np.ones(self.n_obs), dtype=np.float64)
 
         # Prepare array of pointers to parameter data structs.
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
@@ -1474,7 +1481,7 @@ cdef class EFit(object):
         
         # Set initial values
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        set_param_helper(fit_obj)
+        set_param_helper(self)
         
         if self.ex.sl_index:
             self.efit_data = cfl.efit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(
@@ -1491,6 +1498,7 @@ cdef class EFit(object):
 
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
+        self.nls_f_cap = PyCapsule_New(<void *>&cfl.efit_nls, "pycfl.NlsObjF", NULL)
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1627,10 +1635,12 @@ cdef class MHFit(object):
     cdef list ex_list
     cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
-    cdef np.ndarray x0
+    cpdef public np.ndarray x0
+    cdef np.ndarray wts
     cdef cfl.mhfit_data *mhfit_data
     cdef np.ndarray job_a
     cpdef public object obj_f_cap
+    cpdef public object nls_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     cpdef public list weights_list
@@ -1684,7 +1694,8 @@ cdef class MHFit(object):
         self.n_obs = 0
         self.ex_list = []
         if (len(ex_list) != self.n_h):
-            raise ValueError("The number of Hamiltonians does not match the number of elements in ex_list.")
+            raise ValueError("The number of Hamiltonians does not match the \
+                    number of elements in ex_list.")
         for i,ex in enumerate(ex_list):
             if not isinstance(ex, ExData):
                 self.ex_list += [ExData(ex)]
@@ -1700,6 +1711,15 @@ cdef class MHFit(object):
                     parameters, %i, exceeds the number of observables, %i." %
                     (self.n_p_real, self.n_obs))
 
+        # Weights assignment for GSL nonlinear least-squares. 
+        self.wts = np.ascontiguousarray(np.zeros(self.n_obs), dtype=np.float64)
+        i = 0
+        for wi,ex in enumerate(self.ex_list):
+            for ii in range(ex.n_obs):
+                self.wts[i] = weights_list[wi]
+                i += 1
+        
+        # Hamiltonian array
         self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
         if self.ha == NULL:
             raise MemoryError("ha alloc failed")
@@ -1769,7 +1789,7 @@ cdef class MHFit(object):
         
         # Set initial values.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        set_param_helper(fit_obj)
+        set_param_helper(self)
 
         self.job_a = np.empty(self.n_h, dtype=np.dtype('S'))
         for i,ex in enumerate(self.ex_list):
@@ -1794,6 +1814,7 @@ cdef class MHFit(object):
         
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
+        self.nls_f_cap = PyCapsule_New(<void *>&cfl.mhfit_nls, "pycfl.NlsObjF", NULL)
 
     def __dealloc__(self):
         if self.ha != NULL:
@@ -2015,9 +2036,10 @@ cdef class ESHFit(object):
     cdef cfl.param_type **param_array
     cdef cfl.shx_data **shx_array
     cdef list shx_list
-    cdef np.ndarray x0
+    cpdef public np.ndarray x0
     cdef cfl.eshfit_data *eshfit_data
     cpdef public object obj_f_cap
+    cpdef public object nls_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     cpdef dict weights
@@ -2119,7 +2141,7 @@ cdef class ESHFit(object):
         
         # Set initial values
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        set_param_helper(fit_obj)
+        set_param_helper(self)
                 
         # Check the SVD kwarg...
         if 'svd_sym' in kwargs:
@@ -2194,7 +2216,8 @@ cdef class ESHFit(object):
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
 
         self.fit_data_cap = PyCapsule_New(<void *>self.eshfit_data, "pycfl.MinData", NULL)
-    
+        self.nls_f_cap = None
+
     def __dealloc__(self):
         if self.ex_data != NULL:
             free(self.ex_data)
@@ -2326,10 +2349,11 @@ cdef class MESHFit(object):
     cdef list param_arrays
     cdef list shx_list
     cdef list shx_arrays
-    cdef np.ndarray x0
+    cpdef public np.ndarray x0
     cdef cfl.eshfit_data **eshfit_array
     cdef cfl.meshfit_data *meshfit_data
     cpdef public object obj_f_cap
+    cpdef public object nls_f_cap
     cpdef public object fit_data_cap
     cpdef public np.ndarray chi2
     cpdef public list weights_list
@@ -2619,7 +2643,8 @@ cdef class MESHFit(object):
         self.meshfit_data = meshfit_data_alloc(self.n_h, self.eshfit_array)
         self.fit_data_cap = PyCapsule_New(<void *>self.meshfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.meshfit_obj, "pycfl.MinObjF", NULL)
-        
+        self.nls_f_cap = None
+
     def __dealloc__(self):
         for i in range(self.n_h):
             ex_i = <cfl.ex_data *>PyCapsule_GetPointer(self.ex_data[i], "pycfl.ExData")
@@ -2741,7 +2766,13 @@ cdef class CFLMin:
             - 'nlopt_bobyqa'
             - 'nlopt_sbplx'
             - 'nlopt_crs2_lm'
-            - 'nlopt_esch'.
+            - 'nlopt_esch'
+
+        It is also possible to use the GSL nonlinear least-squares method, which
+        will use a finite difference method to estimate the Jacobian and,
+        accordingly, return the covariance matrix.  This assumes that the
+        solution landscape can be approximated by a well conditioned function
+        near the minimum.  The corresponding method argument is 'gsl_nls'.
 
     bounds : dict, optional
         Parameter bounds, for supported algorithms (nlopt and basinhopping).
@@ -2836,8 +2867,13 @@ cdef class CFLMin:
             pass
         elif method == 'nlopt_esch':
             pass
+        elif method == 'gsl_nls':
+            if 'niter' in kwargs:
+                self.inter = kwargs['niter']
+            else:
+                self.niter = 30
         else:
-            raise NotImplementedError("Minimization method '%s' is not an existing option." % method)
+            raise NotImplementedError("Method '%s' is not an existing option." % method)
 
         self.method = method
         self.kwargs = kwargs
@@ -2863,9 +2899,16 @@ cdef class CFLMin:
         cdef np.ndarray[double, ndim=1, mode="c"] cx0
         cdef size_t cnx
         cdef double cxtol
+        cdef double cgtol
+        cdef double cftol
         cdef double cmaxtime
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
+        cdef void (*nls_f_ptr)(double *, void *, double *)
         cdef void *data_ptr
+        cdef double *covar_ptr
+        cdef double *wts_ptr
+        cdef np.ndarray[double, ndim=1, mode="c"] cwts
+        cdef np.ndarray[double, ndim=2, mode="c"] covar
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
         cdef double fmin = 0
@@ -2875,7 +2918,7 @@ cdef class CFLMin:
         cdef double *stepsize_ptr
         cdef float target_accept_rate
         cdef int step_adapt_int
-        
+
         cnx = <size_t> len(x0)
         obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(
                 fit_obj.obj_f_cap, "pycfl.MinObjF")
@@ -2935,12 +2978,38 @@ cdef class CFLMin:
             self.cfl_bounds = cfl_bounds
         else:
             self.cfl_bounds = NULL
-
-        # Set xtol to default if not provided. 
-        if 'xtol' in self.kwargs:
-            cxtol = self.kwargs['xtol']
+        
+        if self.method == 'gsl_nls':
+            if fit_obj.nls_f_ptr == None:
+                raise NotImplementedError("gls_nls is not an existing option for requested fitting mode.")
+            else:
+                nls_f_ptr = <void (*)(double *, void *, double *)>PyCapsule_GetPointer(
+                        fit_obj.nls_f_cap, "pycfl.NlsObjF")
+            if 'xtol' in self.kwargs:
+                cxtol = self.kwargs['xtol']
+            else:
+                cxtol = 1e-8
+            if 'gtol' in self.kwargs:
+                cgtol = self.kwargs['gtol']
+            else:
+                cgtol = 1e-8
+            if 'ftol' in self.kwargs:
+                cftol = self.kwargs['ftol']
+            else:
+                cftol = 0
+            
+            covar = np.ascontiguousarray(np.zeros([fit_obj.n_p_real, fit_obj.n_p_real]),
+                    dtype=np.float64)
+            self.kwargs['covar'] = covar
+            covar_ptr = &covar[0,0]
+            cwts = <np.ndarray[double, ndim=1, mode="c"]>fit_obj.wts[0]
+            wts_ptr = &cwts[0]
         else:
-            cxtol = 1e-5
+            # Set xtol to default if not provided. 
+            if 'xtol' in self.kwargs:
+                cxtol = self.kwargs['xtol']
+            else:
+                cxtol = 1e-5
 
         # Disable maxtime if not provided.
         if 'maxtime' in self.kwargs:
@@ -3049,7 +3118,10 @@ cdef class CFLMin:
             min_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_conjugate_pr)
         elif self.method == 'gsl_vector_bfgs2':
             min_obj = cfl_gsl_min_setup(obj_f_ptr, cnx, data_ptr, gsl_vector_bfgs2)
-
+        elif self.method == 'gsl_nls':
+            min_obj = cfl_gsl_nls_setup(nls_f_ptr, fit_obj.n_obs,
+                    fit_obj.n_p_real, data_ptr, wts_ptr, cxtol, cgtol, cftol,
+                    covar_ptr, self.niter)
 
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
