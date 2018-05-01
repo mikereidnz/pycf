@@ -564,9 +564,9 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     fmt_stepsize = {'FI': '{0: >15.0f}',
                     'CF': '{0: >15.0f}',
                     'HYP': '{0: >15.0f}'}
-    fmt_scov = {'FI': '{0: >15.2g}',
-                'CF': '{0: >15.2g}',
-                'HYP': '{0: >15.2g}'}
+    fmt_scov = {'FI': '{0: >17.2g}',
+                'CF': '{0: >17.2g}',
+                'HYP': '{0: >17.2g}'}
 
 
     np.set_printoptions(formatter={'float': lambda x: '{:.3f}'.format(x)})
@@ -579,7 +579,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     if 'covar' in kwargs:
         ndof = max(fit_obj.n_p_real - fit_obj.n_obs, 1)
         cov = kwargs['covar']
-        heading += "    Uncertainty"
+        heading += "      Uncertainty"
         kwargs['cov'] = True
     else:
         kwargs['cov'] = False
