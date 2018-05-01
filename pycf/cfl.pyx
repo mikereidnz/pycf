@@ -1457,7 +1457,11 @@ cdef class EFit(object):
         # this alloc... but to make self.wts interoperable we just use ones.
         self.wts = np.ascontiguousarray(np.ones(self.n_obs), dtype=np.float64)
 
+
+        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex), "pycfl.ExData")
+
         # Prepare array of pointers to parameter data structs.
+        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
             free(self.ex_data)
@@ -1476,12 +1480,16 @@ cdef class EFit(object):
             param_array[i].type = ord(self.param_types[p])
             param_array[i].ci = h.index(p)
             param_array[i].xi = ii
-        
+
+            if self.param_types[p] == 'c':
+                self.x0[ii] = np.real(self.coeff[p])
+                self.x0[ii+1] = np.imag(self.coeff[p])
+                ii += 2
+            else:
+                self.x0[ii] = self.coeff[p]
+                ii += 1
+
         self.param_array = param_array 
-        
-        # Set initial values
-        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        set_param_helper(self)
         
         if self.ex.sl_index:
             self.efit_data = cfl.efit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(
@@ -2116,6 +2124,7 @@ cdef class ESHFit(object):
             raise MemoryError("param_array alloc failed")
         self.param_array = param_array 
        
+        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         ii = 0
         for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
@@ -2138,11 +2147,14 @@ cdef class ESHFit(object):
             # Set the index of the ith param in the x array.
             param_array[i].xi = ii
 
-        
-        # Set initial values
-        self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
-        set_param_helper(self)
-                
+            if self.param_types[p] == 'c':
+                self.x0[ii] = np.real(self.coeff[p])
+                self.x0[ii+1] = np.imag(self.coeff[p])
+                ii += 2
+            else:
+                self.x0[ii] =  self.coeff[p]
+                ii += 1
+
         # Check the SVD kwarg...
         if 'svd_sym' in kwargs:
             if kwargs['svd_sym']:
