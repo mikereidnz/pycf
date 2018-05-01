@@ -775,7 +775,7 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
 
   d->T = gsl_multifit_nlinear_trust;
   d->fdf_params = gsl_multifit_nlinear_default_parameters();
-
+  d->fdf_params.solver = gsl_multifit_nlinear_solver_svd;
   d->wts = wts;
   d->niter = niter;
   d->xtol = xtol;
