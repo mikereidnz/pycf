@@ -173,12 +173,12 @@ void gsl_multimin_f_free(void *work);
 void gsl_multimin_fndf_free(void *work);
 int gsl_multimin_f(double *x, double *fmin, void *work);
 int gsl_multimin_fndf(double *x, double *fmin, void *work);
+cfl_min_obj *cfl_gsl_min_setup(double (*f)(size_t n, double *x, double
+      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm);
 cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, nlopt_min_alg algorithm, double xtol,
     double maxtime, cfl_min_bounds *bounds);
-cfl_min_obj *cfl_gsl_min_setup(double (*f)(size_t n, double *x, double
-      *grad, void *data), size_t n, void *data, gsl_min_alg algorithm);
-cfl_min_obj *cfl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
+cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
     int p, void *data, double *wts, double xtol, double gtol, double ftol,
     double *covar, int niter);
 void cfl_min_free(cfl_min_obj *obj);

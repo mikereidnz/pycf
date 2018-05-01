@@ -719,7 +719,7 @@ void gsl_nls_free(void *data) {
 
 
 /*
- * Generate cfl_nls_obj settings object for gsl based non-linear least squares. 
+ * Generate cfl_min_obj settings object for gsl based non-linear least squares. 
  *
  * Parameters
  * ----------
@@ -734,7 +734,7 @@ void gsl_nls_free(void *data) {
  *                      covariance matrix on exit.
  *  niter               The maximum number of iterations.
  */
-cfl_min_obj *cfl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
+cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
     int p, void *data, double *wts, double xtol, double gtol, double ftol,
     double *covar, int niter) {
   cfl_min_obj *obj; 

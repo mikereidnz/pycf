@@ -186,7 +186,7 @@ int main (void) {
   double gtol = 1e-8;
   double ftol = 0.0;
   efit_d = efit_data_alloc('N', h, &ce_ex_data, 4, p);
-  efit_min_obj = cfl_nls_setup(&efit_nls, 4, 4, efit_d, &weights[0], xtol, gtol,
+  efit_min_obj = cfl_gsl_nls_setup(&efit_nls, 4, 4, efit_d, &weights[0], xtol, gtol,
       ftol, covar, 20);
   status = cfl_min(ce_x0, &fmin, efit_min_obj);
   
