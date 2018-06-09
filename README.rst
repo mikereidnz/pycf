@@ -19,18 +19,19 @@ that can be used for spin Hamiltonian calculations.
 
 pyemp
 =====
-There's also a python wrapper for Michael F. Reid's F-shell empirical crystal
-field theory routines.  It facilitates automatic generation of emp input files
-and parsing their output.  Currently wrapped erun applications are 'cfit',
-'inten', 'vtrans', and 'spectrum'.  This wrapper can be found in the file
+There's also a python wrapper for Mike Reid's F-shell empirical crystal field
+theory routines.  It facilitates automatic generation of emp input files and
+parsing their output.  Currently wrapped erun applications are 'cfit', 'inten',
+'vtrans', and 'spectrum'.  This wrapper can be found in the file
 ``pycf/pycf/pyemp.py``.  
 
 
 Installation
 ============
 
-Note: I've only tested this on linux, and the instructions below have been
-tested for Debian (incl. Ubuntu) and Redhat derived distributions only. 
+Note: the instructions below are only applicable to linux, and have been tested
+for Debian (incl. Ubuntu) and Fedora.  While porting to Windows is presumably
+not too much work, I have no experience with this. 
 
 
 Basic installation
