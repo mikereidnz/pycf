@@ -1,5 +1,7 @@
 TODO
 ====
+  * Check that gsl_rng_get in bh_takestep is actually what we want to use (int
+    vs float return). 
   * Current F->D transition labels are very limited... should store the complete
     label somehow... Only works for (2F) labels presently. 
   * Try adaptive chi^2 weighting using annealing.

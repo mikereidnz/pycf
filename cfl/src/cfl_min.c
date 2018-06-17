@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2018 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_deriv.h>
 #include <gsl/gsl_multifit_nlinear.h>
+#include <gsl/gsl_rng.h>
 
 #include <nlopt.h>
 
@@ -810,6 +811,172 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
   
   return obj;
 }
+
+/*
+ * Allocate workspace for simulated annelaing. 
+ *
+ * Parameters
+ * ----------
+ *  f       Pointer to the objective function
+ *  data    Data to be passed to the objective function. 
+ *  n       The number of parameters to be varied. 
+ *  niter   The total number of iterations to perform.
+ *  Tstart  The temperature to start for the simulated annealing cycle. 
+ *  Tend    The stopping temperature. 
+ *  maxtime Stopping criteria - maximum time in seconds (not absolute, may be
+ *          slightly exceeded depnding on optimization function evaluation time.
+ *          Criterion is disabled if non-positive. 
+ */
+siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
+      *data), void *data, int n, int niter, double Tstart, double Tend, 
+    double maxtime) {
+  int i, j;
+  double *xnew;
+  siman_data *d;
+  const gsl_rng_type *rt;
+
+  d = (siman_data *) malloc(sizeof(siman_data));
+  if (d == 0) {
+    CFL_ERROR_NULL("malloc failed for d");
+  }
+  xnew = (double *) calloc(n,sizeof(double));
+  if (xnew == 0) {
+    free(d);
+    CFL_ERROR_NULL("calloc failed for x");
+  }
+
+  gsl_rng_env_setup();
+  rt = gsl_rng_default;
+  d->rng = gsl_rng_alloc(rt);
+  if (d->rng == 0) {
+    free(d);
+    free(xnew);
+    CFL_ERROR_NULL("gsl_rng_alloc failed for rng");
+  }
+
+  d->x_accept = (double **) malloc(sizeof(double *));
+  if (d->x_accept == 0) {
+    free(xnew);
+    gsl_rng_free(d->rng);
+    free(d);
+    CFL_ERROR_NULL("malloc failed for d->x_accept");
+  }
+
+  for (i=0; i<niter; i++) {
+    d->x_accept[i] = (double *) malloc(sizeof(double)*n);
+    if (d->x_accept[i] == 0) {
+      for(j=0; j<i; j++) {
+        free(d->x_accept[j]);
+      }
+      free(d->x_accept);
+      gsl_rng_free(d->rng);
+      free(xnew);
+      free(d);
+    }
+  }
+  
+  d->f = f; 
+  d->data = data; 
+  d->xnew = xnew;
+  d->n = n;
+  d->niter = niter;
+  d->Tstart;
+  d->Tend;
+  d->maxtime = maxtime;
+  
+  return d;
+}
+
+void siman_data_free(void *data) {
+  int i;
+  siman_data *d = (siman_data *) data;
+  for(i=0; i<d->niter; i++) {
+    free(d->x_accept[i]);
+  }
+  free(d->x_accept);
+  free(d->xnew);
+  gsl_rng_free(d->rng);
+  free(d);
+}
+
+
+/* Run simulated annealing optimization. */
+int siman_f(double *x, double *fmin, void *data) {
+  int i, j, naccept;
+  double u, chi2, T, Tdec;
+  siman_data *d = (siman_data *) data;
+  
+  T = d->Tstart;
+  Tdec = exp(log(d->Tend/d->Tstart)/(d->niter));
+
+  naccept = 0;
+  for (i=0; i<d->niter; i++) {
+    memcpy(d->xnew, x, sizeof(double)*d->n);
+
+    u = gsl_rng_uniform(d->rng);
+    j = (int) floor(u*d->n);
+
+    u = gsl_rng_uniform(d->rng);
+
+    d->xnew[j] += tan(M_PI*0.999*(u-0.5));
+    chi2 = d->f(d->n, x, NULL, d->data);
+
+    u = gsl_rng_uniform(d->rng);
+    if (u < exp((d->accepted_chi2-chi2)/(2*T))) {
+        x[j] = d->xnew[j];
+        memcpy(d->x_accept[naccept], x, sizeof(double)*d->n);
+        d->accepted_chi2 = chi2;
+        naccept++;
+    }
+
+    if (T > 1) {
+        T *= Tdec; 
+    }
+  }
+  d->naccept = naccept;
+}
+
+
+/*
+ * Generate cfl_min_obj settings object for simulated annealing optimization. 
+ *  
+ * Parameters
+ * ----------
+ *  obj_f       Pointer to the objective function.
+ *  n           The number of parameters to be varied.
+ *  data        Generic data to be passed to the objective function.
+ *  niter       The number of iterations to perform. 
+ *  Tstart      The temperature to start for the simulated annealing schedule.  
+ *  Tend        The stopping temperature. 
+ *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
+ *              be slightly exceeded depnding on optimization function
+ *              evaluation time.  Criterion is disabled if non-positive. 
+ */
+cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
+      void *data), size_t n, void *data, int niter, double Tstart, double Tend,
+    double maxtime) {
+  cfl_min_obj *obj;
+  siman_data *d;
+
+  obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
+  if (obj == 0) {
+    CFL_ERROR_NULL("malloc failed for obj");
+  }
+  
+  d = siman_data_alloc(f, data, n, niter, Tstart, Tend, maxtime);
+  if (d == 0) {
+    free(obj);
+    CFL_ERROR_NULL("malloc failed for d");
+  }
+
+  obj->min_f = &siman_f;
+  obj->n = n;
+  obj->min_data = d;
+  obj->min_obj_free = &siman_data_free;
+  obj->obj_f_data = data;
+
+}
+
 
 /* Generic freeing function, to be used for all objects of type cfl_min_obj. */
 void cfl_min_free(cfl_min_obj *obj) {

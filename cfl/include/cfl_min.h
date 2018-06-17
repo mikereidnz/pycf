@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
+    Copyright (C) 2014-2018 Sebastian Horvath (sebastian.horvath@gmail.com)
  
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_multifit_nlinear.h>
+#include <gsl/gsl_rng.h>
 #include <nlopt.h>
 
 typedef enum {
@@ -158,6 +159,33 @@ typedef struct {
   double *y;
 } nls_data;
 
+/* Simulated annealing data. */
+typedef struct {
+  /* Pointer to the objective function. */
+  double (*f)(size_t n, double *x, double *grad, void *data);
+  /* Data for objective function f. */
+  void *data; 
+  /* Storage used for currently accepted parameter set. */
+  double *xnew; 
+  /* Number of observables. */
+  int n; 
+  /* The total number of iterations. */
+  int niter; 
+  /* Previously accepted chi2 value. */
+  double accepted_chi2;
+  /* Array of accepted parameter vectors. */
+  double **x_accept;
+  /* The temperature to start for the simulated annealing cycle. */
+  double Tstart;
+  /* The stopping temperature. */
+  double Tend; 
+  /* Maximum running time for optimization in seconds. */
+  double maxtime;
+  /* The number of accepted steps. */
+  int naccept; 
+  /* Random number generator. */
+  gsl_rng *rng; 
+} siman_data; 
 
 /* Function prototypes. */
 #ifdef __cplusplus
