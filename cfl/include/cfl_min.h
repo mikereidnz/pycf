@@ -171,6 +171,12 @@ typedef struct {
   int n; 
   /* The total number of iterations. */
   int niter; 
+  /* Pointer to parameter bounds. */
+  cfl_min_bounds *bounds;
+  /* Array of length n.  Multiplicative factor for stepsize of magnitude
+   * tan(M_PI*0.999*(u-0.5)), with u a random number in the interval (0...1],
+   * for each parameter in x. */
+  double *stepsize;
   /* Previously accepted chi2 value. */
   double accepted_chi2;
   /* Array of accepted parameter vectors. */
@@ -209,6 +215,9 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
 cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
     int p, void *data, double *wts, double xtol, double gtol, double ftol,
     double *covar, int niter);
+cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
+      void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
+    double *stepsize, double Tstart, double Tend, double maxtime);
 void cfl_min_free(cfl_min_obj *obj);
 int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
 #ifdef __cplusplus

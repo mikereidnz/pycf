@@ -156,9 +156,18 @@ int main (void) {
   p[3] = &efit_p3;
   p[4] = &efit_p4;
   p[5] = &efit_p5;
+
+
   
   /* Set up the experimental data struct. */
-  double ce_x0[4] = {2000, 900, 200, -1000};
+  double ce_x0[4] = {2000, 900, 200, 1000};
+
+  double bounds_u[4] = {2500, 1500, 5000, 2500};
+  double bounds_l[4] = {10, 10, 0, 0};
+  cfl_min_bounds bounds;
+  bounds.l = bounds_l;
+  bounds.u = bounds_u;
+
   zh *h;
   h = zh_alloc(nstates, 4, tensors);
   zh_set_coeff(h, celiyf4_coeff);
@@ -166,6 +175,7 @@ int main (void) {
   ex_data ce_ex_data;
   int ex_index[6] = {1, 2, 7, 8, 11, 13};
   double weights[6] = {1, 1, 1, 1, 1, 1}; 
+  double stepsize[4] = {1, 1, 1, 1};
   ce_ex_data.n_obs = 4;
   ce_ex_data.n_a = 4;
   ce_ex_data.n_d = 0;
@@ -179,14 +189,14 @@ int main (void) {
   /* Run energy level fit. */
   efit_data *efit_d;
   cfl_min_obj *efit_min_obj;
- 
+   
   double xtol = 1e-8;
   double gtol = 1e-8;
   double ftol = 0.0;
   efit_d = efit_data_alloc('N', h, &ce_ex_data, 4, p);
-  efit_min_obj = cfl_gsl_nls_setup(&efit_nls, 4, 4, efit_d, &weights[0], xtol, gtol,
-      ftol, covar, 20);
+  efit_min_obj = cfl_siman_min_setup(&efit_obj, 4, efit_d, 3000000, &bounds, stepsize, 1000*1000, 5*5, 0);
   status = cfl_min(ce_x0, &fmin, efit_min_obj);
+ 
   printf("x0 = ");
   for (i=0; i<4; i++) {
     printf("%f ", ce_x0[i]);
