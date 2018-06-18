@@ -650,7 +650,8 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
     s += "{0:<20} {1: <}\n".format("method:", method)
     for k in kwargs:
-        s += "{0:<20} {1: <}\n".format(k+":", kwargs[k])
+        if k != 'xaccept':
+            s += "{0:<20} {1: <}\n".format(k+":", kwargs[k])
 
     return s
 

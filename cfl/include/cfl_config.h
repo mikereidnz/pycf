@@ -12,6 +12,9 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+/* Max time that simulated annealing algorithm will run if no maxtime is
+ * specified (in seconds). */
+#define SIMAN_MAXTIME           1000000
 /* gsl multimin defaults. */
 /* Absolute tolerance used for stopping criteria. */
 #define GSL_MIN_EPSABS          1e-2

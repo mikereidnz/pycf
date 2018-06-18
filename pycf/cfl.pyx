@@ -2769,6 +2769,7 @@ cdef class CFLMin:
         The minimization routine to employ.  Available options are:
 
             - 'basinhopping'
+            - 'siman'
             - 'gsl_nmsimplex2rand'
             - 'gsl_nmsimplex2'
             - 'gsl_conjugate_fr'
@@ -2779,6 +2780,11 @@ cdef class CFLMin:
             - 'nlopt_sbplx'
             - 'nlopt_crs2_lm'
             - 'nlopt_esch'
+        
+        For simulated annealing ('siman'), all accepted steps are returned as
+        part of the fitting result dictionary with keyword argument 'xaccept'.
+        This can be used estimate the posterior distribution and get a handle on
+        the uncertainty of ones parameters. 
 
         It is also possible to use the GSL nonlinear least-squares method, which
         will use a finite difference method to estimate the Jacobian and,
@@ -2787,7 +2793,7 @@ cdef class CFLMin:
         near the minimum.  The corresponding method argument is 'gsl_nls'.
 
     bounds : dict, optional
-        Parameter bounds, for supported algorithms (nlopt and basinhopping).
+        Parameter bounds, for supported algorithms (nlopt, basinhopping, siman).
         Keys specify the tensor name (note that tensors created by tensor
         arithmetic should have their name attribute set explicitly), while
         values correspond to tuples, the first entry of which is the lower bound
@@ -2812,21 +2818,29 @@ cdef class CFLMin:
             - 'nlopt_sbplx'.
 
     stepsize : dict, optional 
-        The stepsize for parameter variation; this argument is  only referenced
-        if the basinhopping algorithm is selected.  Keys specify the tensor
-        name, while values correspond to the stepsize.  If adaptive stepsize is
-        enabled, then this dictionary is used as the starting stepsize, and all
-        step sizes are scaled by the same factor in order to achieve the target
-        acceptance rate.  In other words, this kwarg is then used to set the
-        relative proportion between the step sizes. 
+        The stepsize for parameter variation; this argument is only used if the
+        basinhopping or siman algorithm is selected.  Keys specify the tensor
+        name, while values correspond to the stepsize.  For basinhopping, if
+        adaptive stepsize is enabled, then this dictionary is used as the
+        starting stepsize, and all step sizes are scaled by the same factor in
+        order to achieve the target acceptance rate.  In other words, this kwarg
+        is then used to set the relative proportion between the step sizes.  For
+        simulated annealing, this is a multiplicative factor A for a stepsize of
+        magnitude A*tan(PI*0.999*(u-0.5)), with u a random number in the
+        interval (0...1], specified for each parameter.
     niter : int, optional
-        The number of basinhopping iterations to complete; defaults to 100. 
+        The number of iterations to complete, used by basinhopping, siman, and
+        gsl_nls; defaults to 100, 1e6, and 100, respectively.  
     target_accept_rate : float, optional
         The target acceptance rate for basinhopping steps; used for adaptive
         stepsize tuning.  To disable adaptive stepsize, set this parameter to 0.
         The default is 0.5.
     step_adapt_int : int, optional
         The number of iterations between adaptive stepsize checks; defaults to 20.
+    Tstart : float
+        Starting temperature for simulated annealing schedule; defaults to 1e6.  
+    Tstop : float
+        Final temperature for simulated annealing; defaults to 25.  
     xtol : float, optional
         If either the global optimization or a local basinhopping minimization
         routine is from nlopt, the ``xtol`` argument can be used to set the
@@ -2838,7 +2852,7 @@ cdef class CFLMin:
         solution so far.  This time is not a hard limit, and it may take a
         little longer to return depending on the evaluation time of each
         iteration. 
-    dry_run : boor, optional
+    dry_run : bool, optional
         Don't run the actual minimization, but perform all the data prep and
         generate a summary with the initial parameters.  Useful for checking how
         well a set parameters fit the prepared input data.
@@ -2849,6 +2863,8 @@ cdef class CFLMin:
     cdef size_t nx
     cdef double xtol
     cdef double maxtime
+    cdef double Tstart
+    cdef double Tend
     cdef cfl.cfl_min_bounds *cfl_bounds
     cdef cfl.cfl_min_obj *min_obj
     cdef cfl.cfl_min_obj *bh_lmin_obj 
@@ -2856,7 +2872,7 @@ cdef class CFLMin:
     def __cinit__(self, method, **kwargs):
         if method == 'basinhopping':
             if 'niter' in kwargs:
-                self.niter = kwargs['niter']
+                self.niter = int(kwargs['niter'])
             else:
                 self.niter = 100
         elif method == 'gsl_nmsimplex2rand':
@@ -2881,9 +2897,14 @@ cdef class CFLMin:
             pass
         elif method == 'gsl_nls':
             if 'niter' in kwargs:
-                self.niter = kwargs['niter']
+                self.niter = int(kwargs['niter'])
             else:
                 self.niter = 100
+        elif method == 'siman':
+            if 'niter' in kwargs:
+                self.niter = int(kwargs['niter'])
+            else:
+                self.niter = int(1e6)
         else:
             raise NotImplementedError("Method '%s' is not an existing option." % method)
 
@@ -2914,6 +2935,8 @@ cdef class CFLMin:
         cdef double cgtol
         cdef double cftol
         cdef double cmaxtime
+        cdef double cTstart
+        cdef double cTend
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
         cdef void (*nls_f_ptr)(double *, void *, double *)
         cdef void *data_ptr
@@ -2921,6 +2944,8 @@ cdef class CFLMin:
         cdef double *wts_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] cwts
         cdef np.ndarray[double, ndim=2, mode="c"] covar
+        cdef double *xaccept_ptr
+        cdef np.ndarray[double, ndim=2, mode="c"] xaccept
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
         cdef double fmin = 0
@@ -2990,7 +3015,39 @@ cdef class CFLMin:
             self.cfl_bounds = cfl_bounds
         else:
             self.cfl_bounds = NULL
+       
+        # Create real valued stepsize list, if stepsize is provided.
+        if 'stepsize' in self.kwargs:
+            cstepsize = np.zeros(fit_obj.n_p_real)
+            rpi = 0
+            
+            stepsize = self.kwargs['stepsize']
+            for p in fit_obj:
+                if fit_obj.param_types[p] == 'c':
+                    try:
+                        if not isinstance(stepsize[p], complex):
+                            raise ValueError("%s stepsize is not complex, yet the "
+                                    "corresponding Hamiltonian coefficient is." % p)
+                    except KeyError:
+                        raise KeyError("Missing stepsize key %s." % p)
+                    cstepsize[rpi] = np.real(stepsize[p])
+                    cstepsize[rpi+1] = np.imag(stepsize[p])
+                    rpi += 2
+                else:
+                    try:
+                        cstepsize[rpi] = np.real(stepsize[p])
+                    except KeyError:
+                        raise KeyError("Missing stepsize key %s." % p)
+                    rpi += 1
+
+        # Disable maxtime if not provided.
+        if 'maxtime' in self.kwargs:
+            cmaxtime = self.kwargs['maxtime']
+        else:
+            cmaxtime = -1
         
+        # Allocate covariance matrix for non-linear least-squares fit, and set
+        # nlls specific tolerances. 
         if self.method == 'gsl_nls':
             if fit_obj.nls_f_cap == None:
                 raise NotImplementedError("gls_nls is not an existing option for requested fitting mode.")
@@ -3023,37 +3080,8 @@ cdef class CFLMin:
             else:
                 cxtol = 1e-5
 
-        # Disable maxtime if not provided.
-        if 'maxtime' in self.kwargs:
-            cmaxtime = self.kwargs['maxtime']
-        else:
-            cmaxtime = -1
-
         if self.method == 'basinhopping':
-            # Create real valued stepsize list, if stepsize is provided.
             if 'stepsize' in self.kwargs:
-                cstepsize = np.zeros(fit_obj.n_p_real)
-                rpi = 0
-                
-                stepsize = self.kwargs['stepsize']
-                for p in fit_obj:
-                    if fit_obj.param_types[p] == 'c':
-                        try:
-                            if not isinstance(stepsize[p], complex):
-                                raise ValueError("%s stepsize is not complex, yet the "
-                                        "corresponding Hamiltonian coefficient is." % p)
-                        except KeyError:
-                            raise KeyError("Missing stepsize key %s." % p)
-                        cstepsize[rpi] = np.real(stepsize[p])
-                        cstepsize[rpi+1] = np.imag(stepsize[p])
-                        rpi += 2
-                    else:
-                        try:
-                            cstepsize[rpi] = np.real(stepsize[p])
-                        except KeyError:
-                            raise KeyError("Missing stepsize key %s." % p)
-                        rpi += 1
-    
                 stepsize_ptr = &cstepsize[0]
             else:
                 stepsize_ptr = NULL
@@ -3097,14 +3125,30 @@ cdef class CFLMin:
            
             min_obj = cfl_bh_min_setup(self.niter, stepsize_ptr, target_accept_rate, step_adapt_int,
                     self.cfl_bounds, lmin_obj)
-            
-            # Assign to self to guarantee there exists a reference to these
-            # objects until the CFLMin destructor is called.
-            self.nx = cnx
-            self.xtol = cxtol
-            self.maxtime = cmaxtime
             self.bh_lmin_obj = lmin_obj
-            self.min_obj = min_obj
+        elif self.method == 'siman': 
+            if 'stepsize' not in self.kwargs:
+                cstepsize = np.ones(fit_obj.n_p_real)
+            stepsize_ptr = &cstepsize[0]
+            if 'Tstart' in self.kwargs:
+                cTstart = self.kwargs['Tstart']
+            else:
+                cTstart = 1e6
+            if 'Tend' in self.kwargs:
+                cTend = self.kwargs['Tend']
+            else:
+                cTend = 25
+            
+            self.Tstart = cTstart
+            self.Tend = cTend
+            
+            xaccept = np.ascontiguousarray(np.zeros([self.niter, fit_obj.n_p_real]),
+                    dtype=np.float64)
+            self.kwargs['xaccept'] = xaccept
+            xaccept_ptr = &xaccept[0,0]
+
+            min_obj = cfl_siman_min_setup(obj_f_ptr, cnx, data_ptr, self.niter,
+                    self.cfl_bounds, stepsize_ptr, cTstart, cTend, xaccept_ptr, cmaxtime)
         elif self.method == 'nlopt_cobyla':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla,
                     cxtol, cmaxtime, self.cfl_bounds)
@@ -3135,6 +3179,12 @@ cdef class CFLMin:
                     fit_obj.n_p_real, data_ptr, wts_ptr, cxtol, cgtol, cftol,
                     covar_ptr, self.niter)
 
+        # Assign to self to guarantee there exists a reference to these
+        # objects until the CFLMin destructor is called.
+        self.xtol = cxtol
+        self.maxtime = cmaxtime
+        self.min_obj = min_obj
+        self.nx = cnx
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         if 'dry_run' in self.kwargs:
@@ -3146,6 +3196,10 @@ cdef class CFLMin:
         else:
             with nogil:
                 retval = cfl.cfl_min(&cx0[0], &fmin, min_obj)
+        
+        if self.method == 'siman':
+            # If siman, trim the returned xaccept array. 
+            self.kwargs['xaccept'] = self.kwargs['xaccept'][:retval, :]
 
         # Assign some kwargs to self for summary printing.
         self.kwargs['retval'] = retval
@@ -3203,7 +3257,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
 
-    return {'fmin': fmin, 'coeff': x, 'summary': summary}
+    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
 
 
@@ -3271,7 +3325,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
 
     summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, **cfl_min.kwargs)
     
-    return {'fmin': fmin, 'coeff': x, 'summary': summary}
+    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
 
 def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
@@ -3344,7 +3398,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     summary += "\n"
     summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 
-    return {'fmin': fmin, 'coeff': x, 'summary': summary}
+    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
 
 def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
@@ -3422,7 +3476,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     
     summary += gen_fit_summary(x, meshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 
-    return {'fmin': fmin, 'coeff': x, 'summary': summary}
+    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
 
 cdef class ZEFOZSearch:

@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multimin.h>
@@ -826,6 +827,7 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
  *  stepsize    Array of length n.  Multiplicative factor for stepsize of
  *              magnitude tan(M_PI*0.999*(u-0.5)), with u a random number in the
  *              interval (0...1], for each parameter in x.
+ *  xaccept     Accepted parameter values; array should of length niter*n. 
  *  Tstart      The temperature to start for the simulated annealing cycle. 
  *  Tend        The stopping temperature. 
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
@@ -834,7 +836,7 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
  */
 siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
       *data), void *data, int n, int niter, cfl_min_bounds *bounds, double
-    *stepsize, double Tstart, double Tend, double maxtime) {
+    *stepsize, double Tstart, double Tend, double *xaccept, double maxtime) {
   int i, j;
   double *xnew;
   siman_data *d;
@@ -859,27 +861,6 @@ siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
     CFL_ERROR_NULL("gsl_rng_alloc failed for rng");
   }
 
-  d->x_accept = (double **) malloc(sizeof(double *)*niter);
-  if (d->x_accept == 0) {
-    free(xnew);
-    gsl_rng_free(d->rng);
-    free(d);
-    CFL_ERROR_NULL("malloc failed for d->x_accept");
-  }
-
-  for (i=0; i<niter; i++) {
-    d->x_accept[i] = (double *) malloc(sizeof(double)*n);
-    if (d->x_accept[i] == 0) {
-      for(j=0; j<i; j++) {
-        free(d->x_accept[j]);
-      }
-      free(d->x_accept);
-      gsl_rng_free(d->rng);
-      free(xnew);
-      free(d);
-    }
-  }
-  
   d->f = f; 
   d->data = data; 
   d->xnew = xnew;
@@ -889,6 +870,10 @@ siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
   d->stepsize = stepsize;
   d->Tstart = Tstart;
   d->Tend = Tend;
+  d->xaccept = xaccept;
+  if (maxtime == -1) {
+    maxtime = SIMAN_MAXTIME;
+  }
   d->maxtime = maxtime;
   
   return d;
@@ -897,10 +882,6 @@ siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
 void siman_data_free(void *data) {
   int i;
   siman_data *d = (siman_data *) data;
-  for(i=0; i<d->niter; i++) {
-    free(d->x_accept[i]);
-  }
-  free(d->x_accept);
   free(d->xnew);
   gsl_rng_free(d->rng);
   free(d);
@@ -912,6 +893,9 @@ int siman_f(double *x, double *fmin, void *data) {
   int i, j, naccept;
   double u, chi2, T, Tdec, delta, tmp_x;
   siman_data *d = (siman_data *) data;
+  time_t tic, toc;
+  
+  tic = time(NULL);
 
   T = d->Tstart;
   
@@ -920,6 +904,10 @@ int siman_f(double *x, double *fmin, void *data) {
 
   naccept = 0;
   for (i=0; i<d->niter; i++) {
+    toc = time(NULL);
+    if (toc-tic >= d->maxtime) {
+      break;
+    }
     memcpy(d->xnew, x, sizeof(double)*d->n);
     
     u = gsl_rng_uniform(d->rng);
@@ -943,7 +931,7 @@ int siman_f(double *x, double *fmin, void *data) {
     u = gsl_rng_uniform(d->rng);
     if (u < exp((d->accepted_chi2-chi2)/(2*T))) {
         x[j] = d->xnew[j];
-        memcpy(d->x_accept[naccept], x, sizeof(double)*d->n);
+        memcpy(&(d->xaccept[naccept*d->n]), x, sizeof(double)*d->n);
         d->accepted_chi2 = chi2;
         naccept++;
     }
@@ -952,7 +940,6 @@ int siman_f(double *x, double *fmin, void *data) {
         T *= Tdec; 
     }
   }
-  d->naccept = naccept;
 
   return naccept;
 }
@@ -972,6 +959,7 @@ int siman_f(double *x, double *fmin, void *data) {
  *  stepsize    Array of length n.  Multiplicative factor for stepsize of
  *              magnitude tan(M_PI*0.999*(u-0.5)), with u a random number in the
  *              interval (0...1], for each parameter in x.
+ *  xaccept     Accepted parameter values; array should of length niter*n. 
  *  Tstart      The temperature to start for the simulated annealing schedule.  
  *  Tend        The stopping temperature. 
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
@@ -980,7 +968,7 @@ int siman_f(double *x, double *fmin, void *data) {
  */
 cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
-    double *stepsize, double Tstart, double Tend, double maxtime) {
+    double *stepsize, double Tstart, double Tend, double *xaccept, double maxtime) {
   cfl_min_obj *obj;
   siman_data *d;
 
@@ -989,7 +977,8 @@ cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
     CFL_ERROR_NULL("malloc failed for obj");
   }
   
-  d = siman_data_alloc(f, data, n, niter, bounds, stepsize, Tstart, Tend, maxtime);
+  d = siman_data_alloc(f, data, n, niter, bounds, stepsize, Tstart, Tend,
+      xaccept, maxtime);
   if (d == 0) {
     free(obj);
     CFL_ERROR_NULL("malloc failed for d");
