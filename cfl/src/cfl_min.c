@@ -825,8 +825,8 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
  *  bounds      Pointer to a bounds object; in case of no bounds, pass a NULL
  *              pointer.
  *  stepsize    Array of length n.  Multiplicative factor for stepsize of
- *              magnitude tan(M_PI*0.999*(u-0.5)), with u a random number in the
- *              interval (0...1], for each parameter in x.
+ *              magnitude (u*2-1), with u a random number in the interval
+ *              (0...1], for each parameter in x.
  *  chi2accept  Accepted chi2 values, same order as xaccept.
  *  xaccept     Accepted parameter values; array should of length niter*n. 
  *  Tstart      The temperature to start for the simulated annealing cycle. 
@@ -979,8 +979,8 @@ int siman_f(double *x, double *fmin, void *data) {
  *  bounds      Pointer to a bounds object; in case of no bounds, pass a NULL
  *              pointer.
  *  stepsize    Array of length n.  Multiplicative factor for stepsize of
- *              magnitude tan(M_PI*0.999*(u-0.5)), with u a random number in the
- *              interval (0...1], for each parameter in x.
+ *              magnitude (u*2-1), with u a random number in the interval
+ *              (0...1], for each parameter in x.
  *  chi2accept  Accepted chi2 values, same order as xaccept.
  *  xaccept     Accepted parameter values; array should of length niter*n. 
  *  Tstart      The temperature to start for the simulated annealing schedule.  
