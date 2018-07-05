@@ -2838,13 +2838,13 @@ cdef class CFLMin:
     step_adapt_int : int, optional
         The number of iterations between adaptive stepsize checks; defaults to 20.
     Tstart : float
-        Starting temperature for simulated annealing schedule; defaults to 1e6.  
+        Starting temperature for simulated annealing schedule; defaults to 1e3.  
     Tmin : float
-        Minimum temperature for simulated annealing; defaults to 1. 
+        Minimum temperature for simulated annealing; defaults to 1e-3. 
     muT : float
         The damping constant for the simulated annealing cooling schedule.  For
         consecutive iterations, the temperature is decreased by a factor of
-        1/muT until the minimum temperature is reached.  Defaults to 1.0000005,
+        1/muT until the minimum temperature is reached.  Defaults to 1.000005,
         but this will need to be adjusted depending on the initial fmin value.
     k : float
         Boltzmann constant; used in exp(-E/kT) to decide whether a step should
@@ -3151,11 +3151,11 @@ cdef class CFLMin:
             if 'Tmin' in self.kwargs:
                 cTmin = self.kwargs['Tmin']
             else:
-                cTmin = 1
+                cTmin = 1e-3
             if 'muT' in self.kwargs:
                 cmuT = self.kwargs['muT']
             else:
-                cmuT = 1.0000005
+                cmuT = 1.000005
             if 'k' in self.kwargs:
                 ck = self.kwargs['k']
             else:

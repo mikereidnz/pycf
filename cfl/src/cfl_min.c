@@ -913,7 +913,7 @@ int siman_f(double *x, double *fmin, void *data) {
   *fmin = d->chi2accept[nac];
   best_i = nac;
   memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
-
+  
   for (i=0; i<d->niter-1; i++) {
     toc = time(NULL);
     if (toc-tic >= d->maxtime) {
@@ -937,7 +937,7 @@ int siman_f(double *x, double *fmin, void *data) {
     }
     d->xnew[j] += delta;   
     
-    chi2 = d->f(d->n, x, NULL, d->data);
+    chi2 = d->f(d->n, d->xnew, NULL, d->data);
     if (chi2 < *fmin) {
       x[j] = d->xnew[j];
       nac++;
