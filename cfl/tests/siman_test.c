@@ -187,6 +187,7 @@ int main (void) {
   
   int niter = 3000000;
   double *xaccept = (double *) calloc(4*niter,sizeof(double));
+  double *chi2accept = (double *) calloc(niter,sizeof(double));
   /* Run energy level fit. */
   efit_data *efit_d;
   cfl_min_obj *efit_min_obj;
@@ -195,14 +196,17 @@ int main (void) {
   double gtol = 1e-8;
   double ftol = 0.0;
   efit_d = efit_data_alloc('N', h, &ce_ex_data, 4, p);
-  efit_min_obj = cfl_siman_min_setup(&efit_obj, 4, efit_d, niter, &bounds, stepsize, 1000*1000, 5*5, xaccept, 0);
+  efit_min_obj = cfl_siman_min_setup(&efit_obj, 4, efit_d, niter, &bounds,
+      stepsize, 10000, 80, 1.0000005, chi2accept, xaccept, -1);
   status = cfl_min(ce_x0, &fmin, efit_min_obj);
- 
+  
+  printf("fmin = %f\n", fmin);
   printf("x0 = ");
   for (i=0; i<4; i++) {
     printf("%f ", ce_x0[i]);
   }
   printf("\n");
+  free(chi2accept);
   free(xaccept);
   cfl_min_free(efit_min_obj);
   efit_data_free(efit_d);

@@ -827,16 +827,19 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
  *  stepsize    Array of length n.  Multiplicative factor for stepsize of
  *              magnitude tan(M_PI*0.999*(u-0.5)), with u a random number in the
  *              interval (0...1], for each parameter in x.
+ *  chi2accept  Accepted chi2 values, same order as xaccept.
  *  xaccept     Accepted parameter values; array should of length niter*n. 
  *  Tstart      The temperature to start for the simulated annealing cycle. 
- *  Tend        The stopping temperature. 
+ *  Tmin        The minimum temperature.
+ *  muT         The damping factor for the cooling schedule. 
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
  *              be slightly exceeded depending on optimization function
  *              evaluation time.  Criterion is disabled if non-positive. 
  */
 siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
       *data), void *data, int n, int niter, cfl_min_bounds *bounds, double
-    *stepsize, double Tstart, double Tend, double *xaccept, double maxtime) {
+    *stepsize, double Tstart, double Tmin, double muT, double *chi2accept,
+    double *xaccept, double maxtime) {
   int i, j;
   double *xnew;
   siman_data *d;
@@ -869,7 +872,9 @@ siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
   d->bounds = bounds;
   d->stepsize = stepsize;
   d->Tstart = Tstart;
-  d->Tend = Tend;
+  d->Tmin = Tmin;
+  d->muT = muT;
+  d->chi2accept = chi2accept;
   d->xaccept = xaccept;
   if (maxtime == -1) {
     maxtime = SIMAN_MAXTIME;
@@ -890,7 +895,9 @@ void siman_data_free(void *data) {
 
 /* Run simulated annealing optimization. */
 int siman_f(double *x, double *fmin, void *data) {
-  int i, j, naccept;
+  int i, j;
+  int nac;      /* Number of accepted steps. */
+  int best_i;    /* Index of best fit. */
   double u, chi2, T, Tdec, delta, tmp_x;
   siman_data *d = (siman_data *) data;
   time_t tic, toc;
@@ -898,12 +905,14 @@ int siman_f(double *x, double *fmin, void *data) {
   tic = time(NULL);
 
   T = d->Tstart;
-  
-  Tdec = exp(log(d->Tend/d->Tstart)/(d->niter));
-  d->accepted_chi2 = d->f(d->n, x, NULL, d->data);
+  Tdec = 1.0 / d->muT;
+  nac = 0;
+  d->chi2accept[nac] = d->f(d->n, x, NULL, d->data);
+  *fmin = d->chi2accept[nac];
+  best_i = nac;
+  memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
 
-  naccept = 0;
-  for (i=0; i<d->niter; i++) {
+  for (i=0; i<d->niter-1; i++) {
     toc = time(NULL);
     if (toc-tic >= d->maxtime) {
       break;
@@ -915,33 +924,44 @@ int siman_f(double *x, double *fmin, void *data) {
 
     u = gsl_rng_uniform(d->rng);
 
-    delta = tan(M_PI*0.999*(u-0.5))*d->stepsize[j];
+    delta = (u*2-1)*d->stepsize[j];
     if (d->bounds != NULL) {
       tmp_x = delta+d->xnew[j];
       while (!(tmp_x < d->bounds->u[j] && tmp_x > d->bounds->l[j])) {
         u = gsl_rng_uniform(d->rng);
-        delta = tan(M_PI*0.999*(u-0.5))*d->stepsize[j];
+        delta = (u*2-1)*d->stepsize[j];
         tmp_x = delta+d->xnew[j];
       }
     }
     d->xnew[j] += delta;   
-
-    chi2 = d->f(d->n, x, NULL, d->data);
     
-    u = gsl_rng_uniform(d->rng);
-    if (u < exp((d->accepted_chi2-chi2)/(2*T))) {
-        x[j] = d->xnew[j];
-        memcpy(&(d->xaccept[naccept*d->n]), x, sizeof(double)*d->n);
-        d->accepted_chi2 = chi2;
-        naccept++;
+    chi2 = d->f(d->n, x, NULL, d->data);
+    if (chi2 < *fmin) {
+      x[j] = d->xnew[j];
+      nac++;
+      memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
+      d->chi2accept[nac] = chi2;
+      *fmin = chi2;
+      best_i = nac;
+    } 
+    else {
+      u = gsl_rng_uniform(d->rng);
+      //printf("boltzmanfact = %f, chi2_accept=%f, chi2=%f, T=%f\n", exp((d->chi2accept[nac]-chi2)/(2*T)), d->chi2accept[nac], chi2, T);
+      if (u < exp((d->chi2accept[nac]-chi2)/(2*T))) {
+          x[j] = d->xnew[j];
+          nac++;
+          memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
+          d->chi2accept[nac] = chi2;
+      }
     }
-
-    if (T > 1) {
+    
+    if (T > d->Tmin) {
         T *= Tdec; 
     }
   }
+  memcpy(x, &(d->xaccept[best_i*d->n]), sizeof(double)*d->n);
 
-  return naccept;
+  return nac;
 }
 
 
@@ -959,16 +979,19 @@ int siman_f(double *x, double *fmin, void *data) {
  *  stepsize    Array of length n.  Multiplicative factor for stepsize of
  *              magnitude tan(M_PI*0.999*(u-0.5)), with u a random number in the
  *              interval (0...1], for each parameter in x.
+ *  chi2accept  Accepted chi2 values, same order as xaccept.
  *  xaccept     Accepted parameter values; array should of length niter*n. 
  *  Tstart      The temperature to start for the simulated annealing schedule.  
- *  Tend        The stopping temperature. 
+ *  Tmin        The minimum temperature.
+ *  muT         The damping factor for the cooling schedule. 
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
  *              be slightly exceeded depending on optimization function
  *              evaluation time.  Criterion is disabled if non-positive. 
  */
 cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
-    double *stepsize, double Tstart, double Tend, double *xaccept, double maxtime) {
+    double *stepsize, double Tstart, double Tmin, double muT, double
+    *chi2accept, double *xaccept, double maxtime) {
   cfl_min_obj *obj;
   siman_data *d;
 
@@ -977,8 +1000,8 @@ cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
     CFL_ERROR_NULL("malloc failed for obj");
   }
   
-  d = siman_data_alloc(f, data, n, niter, bounds, stepsize, Tstart, Tend,
-      xaccept, maxtime);
+  d = siman_data_alloc(f, data, n, niter, bounds, stepsize, Tstart, Tmin, muT,
+      chi2accept, xaccept, maxtime);
   if (d == 0) {
     free(obj);
     CFL_ERROR_NULL("malloc failed for d");

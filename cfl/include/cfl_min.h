@@ -177,14 +177,16 @@ typedef struct {
    * tan(M_PI*0.999*(u-0.5)), with u a random number in the interval (0...1],
    * for each parameter in x. */
   double *stepsize;
-  /* Previously accepted chi2 value. */
-  double accepted_chi2;
+  /* Accepted chi2 values. */
+  double *chi2accept;
   /* Array of accepted parameter vectors. */
   double *xaccept;
   /* The temperature to start for the simulated annealing cycle. */
   double Tstart;
-  /* The stopping temperature. */
-  double Tend; 
+  /* The minimum temperature. */
+  double Tmin; 
+  /* The damping factor for the cooling schedule. */
+  double muT;
   /* Maximum running time for optimization in seconds. */
   double maxtime;
   /* Random number generator. */
@@ -215,8 +217,8 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
     double *covar, int niter);
 cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
-    double *stepsize, double Tstart, double Tend, double *xaccept, double 
-    maxtime);
+    double *stepsize, double Tstart, double Tmin, double muT, double
+    *chi2accept, double *xaccept, double maxtime);
 void cfl_min_free(cfl_min_obj *obj);
 int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
 #ifdef __cplusplus

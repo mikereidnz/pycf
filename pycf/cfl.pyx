@@ -2826,8 +2826,8 @@ cdef class CFLMin:
         order to achieve the target acceptance rate.  In other words, this kwarg
         is then used to set the relative proportion between the step sizes.  For
         simulated annealing, this is a multiplicative factor A for a stepsize of
-        magnitude A*tan(PI*0.999*(u-0.5)), with u a random number in the
-        interval (0...1], specified for each parameter.
+        magnitude A*(u*2-1) with u a random number in the interval (0...1],
+        specified for each parameter.
     niter : int, optional
         The number of iterations to complete, used by basinhopping, siman, and
         gsl_nls; defaults to 100, 1e6, and 100, respectively.  
@@ -2839,8 +2839,13 @@ cdef class CFLMin:
         The number of iterations between adaptive stepsize checks; defaults to 20.
     Tstart : float
         Starting temperature for simulated annealing schedule; defaults to 1e6.  
-    Tstop : float
-        Final temperature for simulated annealing; defaults to 25.  
+    Tmin : float
+        Minimum temperature for simulated annealing; defaults to 1. 
+    muT : float
+        The damping constant for the simulated annealing cooling schedule.  For
+        consecutive iterations, the temperature is decreased by a factor of
+        1/muT until the minimum temperature is reached.  Defaults to 1.0000005,
+        but this will need to be adjusted depending on the initial fmin value.
     xtol : float, optional
         If either the global optimization or a local basinhopping minimization
         routine is from nlopt, the ``xtol`` argument can be used to set the
@@ -2864,7 +2869,8 @@ cdef class CFLMin:
     cdef double xtol
     cdef double maxtime
     cdef double Tstart
-    cdef double Tend
+    cdef double Tmin
+    cdef double muT
     cdef cfl.cfl_min_bounds *cfl_bounds
     cdef cfl.cfl_min_obj *min_obj
     cdef cfl.cfl_min_obj *bh_lmin_obj 
@@ -2936,7 +2942,8 @@ cdef class CFLMin:
         cdef double cftol
         cdef double cmaxtime
         cdef double cTstart
-        cdef double cTend
+        cdef double cTmin
+        cdef double cmuT
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
         cdef void (*nls_f_ptr)(double *, void *, double *)
         cdef void *data_ptr
@@ -2944,7 +2951,9 @@ cdef class CFLMin:
         cdef double *wts_ptr
         cdef np.ndarray[double, ndim=1, mode="c"] cwts
         cdef np.ndarray[double, ndim=2, mode="c"] covar
+        cdef double *chi2accept_ptr
         cdef double *xaccept_ptr
+        cdef np.ndarray[double, ndim=1, mode="c"] chi2accept
         cdef np.ndarray[double, ndim=2, mode="c"] xaccept
         cdef cfl.cfl_min_obj *min_obj
         cdef cfl.cfl_min_obj *lmin_obj
@@ -3133,22 +3142,31 @@ cdef class CFLMin:
             if 'Tstart' in self.kwargs:
                 cTstart = self.kwargs['Tstart']
             else:
-                cTstart = 1e6
-            if 'Tend' in self.kwargs:
-                cTend = self.kwargs['Tend']
+                cTstart = 1e3
+            if 'Tmin' in self.kwargs:
+                cTmin = self.kwargs['Tmin']
             else:
-                cTend = 25
+                cTmin = 1
+            if 'muT' in self.kwargs:
+                cmuT = self.kwargs['muT']
+            else:
+                cmuT = 1.0000005
             
             self.Tstart = cTstart
-            self.Tend = cTend
-            
+            self.Tmin = cTmin
+            self.muT = cmuT
+
+            chi2accept = np.ascontiguousarray(np.zeros([self.niter]), dtype=np.float64)
+            self.kwargs['chi2accept'] = chi2accept
+            chi2accept_ptr = &chi2accept[0]
+           
             xaccept = np.ascontiguousarray(np.zeros([self.niter, fit_obj.n_p_real]),
                     dtype=np.float64)
             self.kwargs['xaccept'] = xaccept
             xaccept_ptr = &xaccept[0,0]
 
-            min_obj = cfl_siman_min_setup(obj_f_ptr, cnx, data_ptr, self.niter,
-                    self.cfl_bounds, stepsize_ptr, cTstart, cTend, xaccept_ptr, cmaxtime)
+            min_obj = cfl_siman_min_setup(obj_f_ptr, cnx, data_ptr, self.niter, self.cfl_bounds, 
+                    stepsize_ptr, cTstart, cTmin, cmuT, chi2accept_ptr, xaccept_ptr, cmaxtime)
         elif self.method == 'nlopt_cobyla':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla,
                     cxtol, cmaxtime, self.cfl_bounds)
@@ -3198,8 +3216,9 @@ cdef class CFLMin:
                 retval = cfl.cfl_min(&cx0[0], &fmin, min_obj)
         
         if self.method == 'siman':
-            # If siman, trim the returned xaccept array. 
+            # If siman, trim the returned chi2accept and xaccept array. 
             self.kwargs['xaccept'] = self.kwargs['xaccept'][:retval, :]
+            self.kwargs['chi2accept'] = self.kwargs['chi2accept'][:retval]
 
         # Assign some kwargs to self for summary printing.
         self.kwargs['retval'] = retval

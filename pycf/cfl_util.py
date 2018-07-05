@@ -650,7 +650,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
     s += "{0:<20} {1: <}\n".format("method:", method)
     for k in kwargs:
-        if k != 'xaccept':
+        if k not in ['chi2accept', 'xaccept']:
             s += "{0:<20} {1: <}\n".format(k+":", kwargs[k])
 
     return s
