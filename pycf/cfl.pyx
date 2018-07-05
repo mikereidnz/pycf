@@ -2846,6 +2846,9 @@ cdef class CFLMin:
         consecutive iterations, the temperature is decreased by a factor of
         1/muT until the minimum temperature is reached.  Defaults to 1.0000005,
         but this will need to be adjusted depending on the initial fmin value.
+    k : float
+        Boltzmann constant; used in exp(-E/kT) to decide whether a step should
+        be accepted.  Defaults to unity.
     xtol : float, optional
         If either the global optimization or a local basinhopping minimization
         routine is from nlopt, the ``xtol`` argument can be used to set the
@@ -2871,6 +2874,7 @@ cdef class CFLMin:
     cdef double Tstart
     cdef double Tmin
     cdef double muT
+    cdef double k
     cdef cfl.cfl_min_bounds *cfl_bounds
     cdef cfl.cfl_min_obj *min_obj
     cdef cfl.cfl_min_obj *bh_lmin_obj 
@@ -2944,6 +2948,7 @@ cdef class CFLMin:
         cdef double cTstart
         cdef double cTmin
         cdef double cmuT
+        cdef double ck
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
         cdef void (*nls_f_ptr)(double *, void *, double *)
         cdef void *data_ptr
@@ -3151,11 +3156,16 @@ cdef class CFLMin:
                 cmuT = self.kwargs['muT']
             else:
                 cmuT = 1.0000005
-            
+            if 'k' in self.kwargs:
+                ck = self.kwargs['k']
+            else:
+                ck = 1.0
+
             self.Tstart = cTstart
             self.Tmin = cTmin
             self.muT = cmuT
-
+            self.k = ck
+            
             chi2accept = np.ascontiguousarray(np.zeros([self.niter]), dtype=np.float64)
             self.kwargs['chi2accept'] = chi2accept
             chi2accept_ptr = &chi2accept[0]
@@ -3166,7 +3176,7 @@ cdef class CFLMin:
             xaccept_ptr = &xaccept[0,0]
 
             min_obj = cfl_siman_min_setup(obj_f_ptr, cnx, data_ptr, self.niter, self.cfl_bounds, 
-                    stepsize_ptr, cTstart, cTmin, cmuT, chi2accept_ptr, xaccept_ptr, cmaxtime)
+                    stepsize_ptr, cTstart, cTmin, cmuT, ck, chi2accept_ptr, xaccept_ptr, cmaxtime)
         elif self.method == 'nlopt_cobyla':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla,
                     cxtol, cmaxtime, self.cfl_bounds)

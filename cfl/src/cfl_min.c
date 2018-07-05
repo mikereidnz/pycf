@@ -832,14 +832,15 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
  *  Tstart      The temperature to start for the simulated annealing cycle. 
  *  Tmin        The minimum temperature.
  *  muT         The damping factor for the cooling schedule. 
+ *  k           Boltzmann constant.
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
  *              be slightly exceeded depending on optimization function
  *              evaluation time.  Criterion is disabled if non-positive. 
  */
 siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
       *data), void *data, int n, int niter, cfl_min_bounds *bounds, double
-    *stepsize, double Tstart, double Tmin, double muT, double *chi2accept,
-    double *xaccept, double maxtime) {
+    *stepsize, double Tstart, double Tmin, double muT, double k, double
+    *chi2accept, double *xaccept, double maxtime) {
   int i, j;
   double *xnew;
   siman_data *d;
@@ -874,6 +875,7 @@ siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
   d->Tstart = Tstart;
   d->Tmin = Tmin;
   d->muT = muT;
+  d->k = k;
   d->chi2accept = chi2accept;
   d->xaccept = xaccept;
   if (maxtime == -1) {
@@ -947,7 +949,7 @@ int siman_f(double *x, double *fmin, void *data) {
     else {
       u = gsl_rng_uniform(d->rng);
       //printf("boltzmanfact = %f, chi2_accept=%f, chi2=%f, T=%f\n", exp((d->chi2accept[nac]-chi2)/(2*T)), d->chi2accept[nac], chi2, T);
-      if (u < exp((d->chi2accept[nac]-chi2)/(2*T))) {
+      if (u < exp((d->chi2accept[nac]-chi2)/(d->k*T))) {
           x[j] = d->xnew[j];
           nac++;
           memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
@@ -983,14 +985,15 @@ int siman_f(double *x, double *fmin, void *data) {
  *  xaccept     Accepted parameter values; array should of length niter*n. 
  *  Tstart      The temperature to start for the simulated annealing schedule.  
  *  Tmin        The minimum temperature.
- *  muT         The damping factor for the cooling schedule. 
+ *  muT         The damping factor for the cooling schedule.
+ *  k           Boltzmann constant.
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
  *              be slightly exceeded depending on optimization function
  *              evaluation time.  Criterion is disabled if non-positive. 
  */
 cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
-    double *stepsize, double Tstart, double Tmin, double muT, double
+    double *stepsize, double Tstart, double Tmin, double muT, double k, double
     *chi2accept, double *xaccept, double maxtime) {
   cfl_min_obj *obj;
   siman_data *d;
@@ -1001,7 +1004,7 @@ cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
   }
   
   d = siman_data_alloc(f, data, n, niter, bounds, stepsize, Tstart, Tmin, muT,
-      chi2accept, xaccept, maxtime);
+      k, chi2accept, xaccept, maxtime);
   if (d == 0) {
     free(obj);
     CFL_ERROR_NULL("malloc failed for d");

@@ -187,6 +187,8 @@ typedef struct {
   double Tmin; 
   /* The damping factor for the cooling schedule. */
   double muT;
+  /* Boltzmann constant. */
+  double k;
   /* Maximum running time for optimization in seconds. */
   double maxtime;
   /* Random number generator. */
@@ -217,7 +219,7 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
     double *covar, int niter);
 cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
-    double *stepsize, double Tstart, double Tmin, double muT, double
+    double *stepsize, double Tstart, double Tmin, double muT, double k, double
     *chi2accept, double *xaccept, double maxtime);
 void cfl_min_free(cfl_min_obj *obj);
 int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);

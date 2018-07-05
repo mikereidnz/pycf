@@ -197,7 +197,7 @@ int main (void) {
   double ftol = 0.0;
   efit_d = efit_data_alloc('N', h, &ce_ex_data, 4, p);
   efit_min_obj = cfl_siman_min_setup(&efit_obj, 4, efit_d, niter, &bounds,
-      stepsize, 10000, 80, 1.0000005, chi2accept, xaccept, -1);
+      stepsize, 10000, 80, 1.0000005, 2, chi2accept, xaccept, -1);
   status = cfl_min(ce_x0, &fmin, efit_min_obj);
   
   printf("fmin = %f\n", fmin);

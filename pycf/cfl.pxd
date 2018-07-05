@@ -138,7 +138,7 @@ cdef extern from "../../cfl/include/cfl_min.h":
             void *data, double *wts, double xtol, double gtol, double ftol, double *covar, int niter)
     cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), 
             size_t n, void *data, int niter, cfl_min_bounds *bounds, double *stepsize, double Tstart, 
-            double Tmin, double muT, double *chi2accept, double *xaccept, double maxtime)
+            double Tmin, double muT, double k, double *chi2accept, double *xaccept, double maxtime)
     int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) nogil
     void cfl_min_free(cfl_min_obj *obj)
 
