@@ -3673,8 +3673,8 @@ def zefoz(start, stop, num, k, l, h, xtol=0.01, init_size=200):
     zsearch = ZEFOZSearch(h, xtol, init_size)
     (B, v) = zsearch.run_search(start, stop, num, k, l)
     
-    B=B.reshape(len(B)/3,3)
-    v=v.reshape(len(v)/3,3)
+    B=B.reshape(len(B)//3,3)
+    v=v.reshape(len(v)//3,3)
     
     return (B, v)
 
