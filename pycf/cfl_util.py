@@ -22,7 +22,7 @@ import re
 
 from datetime import datetime
 import os, inspect
-import __version__
+from pycf.__version__ import __version__ 
 
 def uline_char(s):
     """Underline all non-whitespace characters in a string, except for single
@@ -70,7 +70,7 @@ def gen_pycf_summary():
 
     s += "pycf details\n"
     s += "============\n\n"
-    s += "pycf revision: {}\n".format(__version__.__version__)
+    s += "pycf revision: {}\n".format(__version__)
     s += "Calculation started at: {}\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     return s

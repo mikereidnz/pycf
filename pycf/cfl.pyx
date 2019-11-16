@@ -17,6 +17,7 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 from __future__ import division
 cimport cfl, cython
 cimport numpy as np
@@ -29,8 +30,8 @@ from cpython.pycapsule cimport *
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
-from matel import matel
-from cfl_util import *
+from pycf.matel import matel
+from pycf.cfl_util import *
 
 
 cdef class StateLabels:

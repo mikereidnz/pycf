@@ -28,7 +28,7 @@ import numpy as np
 from numpy.linalg import lstsq
 from scipy.linalg import block_diag, svd, diagsvd
 from scipy.optimize import basinhopping
-from matel import matel
+from pycf.matel import matel
 
 
 def bgs(v, m, t):

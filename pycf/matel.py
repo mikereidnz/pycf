@@ -24,7 +24,7 @@
 
 from __future__ import division
 import numpy as np
-import njsymbols as nj
+import pycf.njsymbols as nj
 
 
 def t_q(j1, j2, m1, m2, q):

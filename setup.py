@@ -45,14 +45,14 @@ if 'clean' in sys.argv:
     if ret != 0:
         raise RuntimeError("Clean failed for cfl.")
 else:
-    popen = subprocess.Popen(['make'], cwd='./cfl', stdout=subprocess.PIPE)
-    lines = iter(popen.stdout.readline, "")
+    popen = subprocess.Popen(['make'], cwd='./cfl', stdout=subprocess.PIPE, universal_newlines=True)
     
     output = ""
-    for line in lines:
+    for line in iter(popen.stdout.readline, ''):
+
         sys.stdout.write(line)
         output += line
-
+    
     popen.wait()
     if popen.returncode != 0:
         raise RuntimeError("Building cfl failed.")

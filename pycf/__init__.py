@@ -1,1 +1,1 @@
-from __version__ import __version__ 
+from pycf.__version__ import __version__ 

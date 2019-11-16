@@ -104,7 +104,7 @@ Before building you will need to satisfy the following dependencies:
   * `gsl <https://www.gnu.org/software/gsl/>`_ - the GNU scientific library
   * `nlopt <http://ab-initio.mit.edu/wiki/index.php/NLopt>`_ - nonlinear
     optimization library
-  * python (tested with version 2.7)
+  * python (tested with versions 2.7 and 3.5)
   * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
   * numpy (version >= 1.7) 
   * scipy 
@@ -131,6 +131,18 @@ objects must be compiled as position independent code (``-fPIC``).  If you are
 getting ``undefined symbol`` errors at runtime, even though ldd claims
 ``cfl.so`` is fully linked, this suggests that perhaps one of the statically
 linked libraries was not position independent.
+
+python3
+-------
+
+pycf should also be fully functional with python3.5. While the original code was
+written in python2.7, the current codebase should be python3 compliant.  There
+may be some corner-cases that have not been ported to python3 correctly,
+although those should be easy enough to fix. Let me know if you discover any!
+
+Note: the python3 versions of the above listed Debian packages are called 3::
+
+  python3-numpy python3-scipy python3-matplotlib cython3
 
 
 Build cfl withe GNU make

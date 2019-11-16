@@ -21,8 +21,8 @@ from __future__ import division
 import numpy as np
 from scipy.sparse import csr_matrix
 import re
-import cfl
-from cfl_util import *
+import pycf.cfl as cfl
+from pycf.cfl_util import *
 
 def get_tensor_dim(source):
     "Generator for extracting tensor dimensions from ``*.mi_`` files."
