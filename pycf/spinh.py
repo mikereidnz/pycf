@@ -31,10 +31,10 @@ from scipy.optimize import basinhopping
 from pycf.matel import matel
 
 
-def bgs(v, m, t):
+def bmj(v, m, t):
     r"""
-    Generate the `BgS` term, an array of size `(2 \times j + 1)` by `(2 \times j
-    + 1)`, with `j` the angular momentum of the rank one tensor `S`.
+    Generate the `BgS` or `BMI` term, an array of size `(2 \times j + 1)` by `(2 \times j
+    + 1)`, with `j` the angular momentum of the tensor `S` or `I`.
 
     Parameters 
     ----------
@@ -186,23 +186,23 @@ def bi(v, t):
     return(result)
 
 
-def bgs_coeff_array(v, t):
+def bmj_coeff_array(v, t):
     r"""
-    Generate the `BgS` coefficient array.  This consists of a `2j+1 \times 2j+1`
-    by `3 \times 3` array containing the matrix elements of the terms `B_a S_b`,
-    with `a,b \in \{x, y, z\}` and `j` the angular momentum of the rank one
-    tensor `S`.  Here the rows enumerate the `2j+1 \times 2j+1` different state
-    combinations while the columns enumerate all combinations of `a` and `b`.
-    This array is independent of `S` and is intended to be computed once, then
-    employed with numpy's :func:`lstsq` function to calculate `g` given a `BgS`
-    matrix.
+    Generate the `BgS` or `BMI` coefficient array.  This consists of a `2j+1
+    \times 2j+1` by `3 \times 3` array containing the matrix elements of the
+    terms `B_a J_b`, with `a,b \in \{x, y, z\}` and `j` the angular momentum of
+    the rank one tensor `S` or `I`.  Here the rows enumerate the `2j+1 \times
+    2j+1` different state combinations while the columns enumerate all
+    combinations of `a` and `b`.  This array is independent of `S`/`I` and is
+    intended to be computed once, then employed with numpy's :func:`lstsq`
+    function to calculate `g` or `M` given a `BgS` or `BMI` matrix.
 
     Parameters
     ----------
     v : numpy.ndarray
         A `3` by `1` vector of magnetic field strengths `B_x`, `B_y` and `B_z`.
     t : list
-        Elements consist of the matrix elements of `S_x`, `S_y` and `S_z`.
+        Elements consist of the matrix elements of `J_x`, `J_y` and `J_z`.
 
     Returns
     -------
@@ -212,15 +212,15 @@ def bgs_coeff_array(v, t):
 
     tl = len(t[0])
     l = len(t)
-    bgs_a = np.zeros([tl, tl, l, l], dtype = np.complex)
+    bmj_a = np.zeros([tl, tl, l, l], dtype = np.complex)
 
     for tr in range(tl):
         for tc in range(tl):
             for i in range(l):
                 for j in range(l):
-                    bgs_a[tr, tc, i, j] = v[i] * t[j][tr, tc]
+                    bmj_a[tr, tc, i, j] = v[i] * t[j][tr, tc]
 
-    return(np.reshape(bgs_a, (tl*tl, l*l)))
+    return(np.reshape(bmj_a, (tl*tl, l*l)))
 
 
 def ias_coeff_array(t1, t2):
@@ -312,13 +312,13 @@ def invert_term(coeff_a, b):
         The matrix elements of the term.
     coeff_a : np.ndarray
         The appropriate coefficient array, generated with either
-        :func:`bgs_coeff_array`, :func:`ias_coeff_array` or
+        :func:`bmj_coeff_array`, :func:`ias_coeff_array` or
         :func:`iqi_coeff_array`.
-    b : numpy.ndarray
-        For a 'BgS' term, b must be a `3 \times 2 \times 2` array, corresponding
-        to individual 'BgS' matrix elements for a field along three linearly
-        independent directions. For an 'IAS' term, b must be a `2 (I + 1) \times
-        2` np.ndarray corresponding to the `IAS` matrix elements. 
+    b : numpy.ndarray For a 'BgS' or 'BMI' term, b must be a `3 \times (2j + 1)
+        \times (2j + 1)` array `(j = S or I)`, corresponding to individual
+        'BgS'/'BMI' matrix elements for a field along three linearly independent
+        directions. For an 'IAS' term, b must be a `2 (I + 1) \times 2`
+        np.ndarray corresponding to the `IAS` matrix elements. 
 
     Returns
     -------
@@ -502,12 +502,17 @@ class SpinH(object):
     :func:`add_H_term` method.  The spin Hamiltonian parameters can then be
     calculated using the :func:`inv_term` method. 
 
+    Note: units are Tesla for magnetic field values and MHz for energies.
+
     Parameters
     ----------
     terms : list
-        Elements are strings with possible values 'bgs', 'ias', 'iqi', and 'bi'.
-        The choice of elements affects what other keyword arguments are
+        Elements are strings with possible values 'bgs', 'ias', 'iqi', 'bi', and
+        'bmi'.  The choice of elements affects what other keyword arguments are
         required; see below. 
+    kramers : bool
+        Set to True for Kramers ions and False for non-Kramers ions. Default is
+        True.
     B : numpy.ndarray or list with numpy.ndarray elements
         A `3` by `1` vector containing values for the magnetic field strengths
         `B_x`, `B_y` and `B_z`; if ``terms`` contains 'bgs' or 'bi' this keyword
@@ -518,8 +523,8 @@ class SpinH(object):
         The spin projection `S_z`; if ``terms`` contains 'bgs' or 'ias' this
         keyword argument must be specified.
     I : float
-        The nuclear spin projection `I_z`; if ``terms`` contains 'ias', 'iqi' or
-        'bi' this keyword argument must be specified.
+        The nuclear spin projection `I_z`; if ``terms`` contains 'ias', 'iqi',
+        'bi', or 'bmi' this keyword argument must be specified.
     inv : boolean, optional
         If True, the coefficient arrays for term inversion are pre-computed.
 
@@ -529,8 +534,16 @@ class SpinH(object):
 
     """
     def __init__(self, terms, **kwargs):
+        # Bohr magneton in MHz/T
+        # http://physics.nist.gov/cgi-bin/cuu/Value?mubshhz|search_for=bohr+magneton
+        self.mu_b = 13.996245042e3
+       
+        # Nuclear magneton in MHz/T
+        # http://physics.nist.gov/cgi-bin/cuu/Value?munshhz|search_for=nuclear+magneton
+        self.mu_n = 7.622593285
+
         for t in terms:
-            if not any(t in term for term in ['bgs', 'ias', 'iqi', 'bi']):
+            if not any(t in term for term in ['bgs', 'ias', 'iqi', 'bi', 'bmi']):
                 raise ValueError("Invalid element in terms list: {}. Allowed"
                         "values are 'bgs', 'ias', 'iqi', 'bi'.".format(terms))
             else:
@@ -539,7 +552,7 @@ class SpinH(object):
 
         # Calculate matrix elements for the specified terms.
         j_l = ['jx', 'jy', 'jz']
-        if 'bgs' in terms or 'bi' in terms:
+        if 'bgs' in terms or 'bi' in terms or 'bmi' in terms:
             try:
                 B = kwargs['B']
                 self.B = B
@@ -561,7 +574,7 @@ class SpinH(object):
         else:
             S_m = None
 
-        if 'ias' in terms or 'iqi' in terms or 'bi' in terms:
+        if 'ias' in terms or 'iqi' in terms or 'bi' in terms or 'bmi' in terms:
             try:
                 I = kwargs['I']
             except KeyError:
@@ -576,20 +589,28 @@ class SpinH(object):
         else:
             I_m = None
 
-        # Determine Hamiltonian dimension.
-        if 'bgs' in terms:
-            if I_m == None:
-                # Only the bgs term.
-                H_dim = 2*S + 1
-            else:
-                # The bgs and/or ias/iqi/bi terms.
-                H_dim = (2*S + 1) * (2*I + 1)
-        elif S_m == None:
-            # Only the iqi and/or bi term.
-            H_dim = 2*I + 1 
+        if 'kramers' not in kwargs:
+            self.kramers = True
         else:
-            # S_m != None and no bgs -> ias term.
-            H_dim = (2*S + 1) * (2*I + 1)
+            self.kramers = kwargs['kramers']
+
+        # Determine Hamiltonian dimension.
+        if self.kramers:
+            if 'bgs' in terms:
+                if I_m == None:
+                    # Only the bgs term.
+                    H_dim = 2*S + 1
+                else:
+                    # The bgs and/or ias/iqi/bi terms.
+                    H_dim = (2*S + 1) * (2*I + 1)
+            elif S_m == None:
+                # Only the iqi and/or bi term.
+                H_dim = 2*I + 1 
+            else:
+                # S_m != None and no bgs -> ias term.
+                H_dim = (2*S + 1) * (2*I + 1)
+        else:
+            H_dim = 2*I + 1
         
         self.H_dim = int(H_dim)
 
@@ -597,7 +618,8 @@ class SpinH(object):
         if 'inv' in kwargs:
             if kwargs['inv'] == True:
                 if 'bi' in terms:
-                    raise ValueError("Inversion for nuclear Zeeman not supported.")
+                    raise ValueError("Nuclear Zeeman cannot be inverted"
+                            " (no parameter matrix).")
 
                 self.H_terms = {}
                 self.coeff_a = {}
@@ -608,31 +630,41 @@ class SpinH(object):
                     S_dimsq = int((2*S + 1)**2)
                     B_a = np.zeros([len(B), S_dimsq, 9], dtype = np.complex)
                     for i,e in enumerate(B):
-                        B_a[i, :, :] = bgs_coeff_array(e, S_m)
+                        B_a[i, :, :] = bmj_coeff_array(e, S_m)
                     self.coeff_a['bgs'] = np.reshape(B_a, (len(B) * S_dimsq, 9))
 
                 if 'ias' in terms:
                     self.coeff_a['ias'] = ias_coeff_array(I_m, S_m)
                 if 'iqi' in terms:
                     self.coeff_a['iqi'] = iqi_coeff_array(I_m)
+                if 'bmi' in terms:
+                    if not isinstance(B, list):
+                        raise TypeError("When passing inv = True, B must be a"
+                                "list of numpy.ndarrays.")
+                    I_dimsq = int((2*I + 1)**2)
+                    B_a = np.zeros([len(B), I_dimsq, 9], dtype = np.complex)
+                    for i,e in enumerate(B):
+                        B_a[i, :, :] = bmj_coeff_array(e, I_m)
+                    self.coeff_a['bmi'] = np.reshape(B_a, (len(B) * I_dimsq, 9))
+
             elif kwargs['inv'] != False:
                 raise ValueError("Invalid value for keyword argument 'inv'; "
-                        "valid values are either True or False")
+                        "valid values are either True or False.")
             self.inv = kwargs['inv']
     
     def add_term(self, term, m):
         r"""
-        Add the specified term to the spin Hamiltonian.
+        Add the specified parameter matrix to the spin Hamiltonian.
 
         Parameters
         ----------
         term : string
-            Specifies the term; must be one of the values of the ``term`` list
-            provided when the SpinH object was instantiated.
+            Specifies the parameter type; must be one of the values of the
+            ``term`` list provided when the SpinH object was instantiated.
         m : numpy.ndarray or float
             A `3` by `3` matrix consisting of the parameters for 'bgs', 'ias',
-            or 'iqi' terms.  For 'ib', this should be a float specifying the
-            nuclear g-factor.
+            'iqi', or 'bmi' terms.  For 'ib', this should be a float specifying
+            the nuclear g-factor.
         """
         if term not in self.t_list:
             raise ValueError("This SpinH object was not instantiated "
@@ -651,12 +683,12 @@ class SpinH(object):
             
             for r in range(matd):
                 for c in range(matd):
-                    H[r*bd:(r+1)*bd, c*bd:(c+1)*bd] += d * mat[r,c]
+                    H[r*bd:(r+1)*bd, c*bd:(c+1)*bd] += d * mat[r,c][r,c]
             return H
 
         if term == 'bgs':
             # Create list of H_dim/(2*S + 1) length and block diagonalize.
-            self.terms['bgs'] = bgs_helper(bgs(self.B, m, self.S_m), self.H_dim)
+            self.terms['bgs'] = bgs_helper(bmj(self.B, m, self.S_m), self.H_dim)
         elif term == 'ias':
             # ias term is of correct dimension.
             self.terms['ias'] = ias(self.I_m, m, self.S_m)
@@ -668,11 +700,16 @@ class SpinH(object):
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
             n = int(self.H_dim/(2 * self.I + 1))
             self.terms['bi'] = block_diag(*[m*bi(self.B, self.I_m)]*n)
+        elif term == 'bmi':
+            # bmi is of correct dimension for non-Kramers ions. 
+            self.terms['bmi'] = bmj(self.B, m, self.I_m)
+
 
     def add_H_term(self, term, val):
         r"""
-        Extract the specified term from the full Hamiltonian and update the
-        appropriate term value of the SpinH object.
+        Extract the elements of the specified term from a spin Hamiltonian with
+        full dimension and update the appropriate term value of the SpinH
+        object.
 
         Parameters
         ----------
@@ -700,6 +737,9 @@ class SpinH(object):
         elif term == 'iqi':
             I_dim = int(2 * self.I + 1)
             self.H_terms['iqi'] = val[:I_dim, :I_dim]
+        elif term == 'bmi':
+            self.H_terms['bmi'] = np.array(val)
+
     
     def inv_term(self, term, sym=False, sym_phase=None):
         r"""
@@ -724,9 +764,9 @@ class SpinH(object):
             `3` by `3` term parameter matrix. 
         """
         if not self.inv:
-            raise TypeError("This spectrum object does not support inv_term "
-                    "method calls; to enable this pass the inv = True argument "
-                    "to the constructor.")
+            raise TypeError("This SpinH object does not support inv_term method"
+                    " calls; to enable this pass the inv = True argument to the"
+                    " constructor.")
         elif term not in self.t_list:
             raise ValueError("This SpinH object was not instantiated "
                     "with support for the specified term: {}".format(term))
@@ -756,29 +796,25 @@ class SpinH(object):
 
         else:
             self.sym_phase = [0, 0, 0]
+
+        m = invert_term(self.coeff_a[term], self.H_terms[term])
+
+        if term == 'bgs' or term == 'bmi':
+            m /= self.mu_b 
             
-        return(invert_term(self.coeff_a[term], self.H_terms[term]))
+        return(m)
 
     def get_H(self):
         r"""
         Calculate the full Hamiltonian and return the result.
         """
-
-        # Bohr magneton in MHz/T
-        # http://physics.nist.gov/cgi-bin/cuu/Value?mubshhz|search_for=bohr+magneton
-        mu_b = 13.996245042e3
-       
-        # Nuclear magneton in MHz/T
-        # http://physics.nist.gov/cgi-bin/cuu/Value?munshhz|search_for=nuclear+magneton
-        mu_n = 7.622593285
-
         H = np.complex(0, 0)
         for t in self.t_list:
             try:
-                if t == 'bgs':
-                    H += self.terms[t]*mu_b
+                if t == 'bgs' or t == 'bmi':
+                    H += self.terms[t]*self.mu_b
                 elif t == 'bi':
-                    H += self.terms[t]*mu_n
+                    H += self.terms[t]*self.mu_n
                 else:
                     H += self.terms[t]
             except KeyError:
