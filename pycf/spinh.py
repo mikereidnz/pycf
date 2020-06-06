@@ -194,7 +194,7 @@ def bgs_coeff_array(v, t):
     tensor `S`.  Here the rows enumerate the `2j+1 \times 2j+1` different state
     combinations while the columns enumerate all combinations of `a` and `b`.
     This array is independent of `S` and is intended to be computed once, then
-    employed with numpy's :func:`lstsq` function to calculate `S` given a `BgS`
+    employed with numpy's :func:`lstsq` function to calculate `g` given a `BgS`
     matrix.
 
     Parameters

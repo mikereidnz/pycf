@@ -507,7 +507,7 @@ void svd_sym_w_free(svd_sym_w *w) {
 }
 
 /* 
- * Perform a symmeterization of an spin Hamiltonian parameter tensor using a
+ * Perform a symmeterization of a spin Hamiltonian parameter tensor using a
  * singular value decomposition.
  *
  * Parameters
