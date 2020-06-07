@@ -704,11 +704,6 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
   int i, j;
   zshp_w *w;
 
-  if (sh->sz != 1) {
-    CFL_ERROR_NULL("projecting spin hamiltonians with "
-        "sz != 1 is presently not implemented")
-  }
-
   w = (zshp_w *) malloc(sizeof(zshp_w));
   if (w == 0) {
     CFL_ERROR_NULL("malloc faild for w");

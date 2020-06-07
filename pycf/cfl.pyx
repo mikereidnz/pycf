@@ -1061,9 +1061,9 @@ cdef class SpinHamiltonian:
             result_list += [np.copy(a.reshape(3,3))]
             
             if inter == 'zeeman':
-                sh_matel['magx'] = b[0:4].reshape(self.dz, self.dz)
-                sh_matel['magy'] = b[4:8].reshape(self.dz, self.dz)
-                sh_matel['magz'] = b[8:12].reshape(self.dz, self.dz)
+                sh_matel['magx'] = b[0:self.dz*self.dz].reshape(self.dz, self.dz)
+                sh_matel['magy'] = b[self.dz*self.dz:2*self.dz*self.dz].reshape(self.dz, self.dz)
+                sh_matel['magz'] = b[2*self.dz*self.dz:3*self.dz*self.dz].reshape(self.dz, self.dz)
             elif inter == 'hyperfine':
                 sh_matel['hyperfine'] = b.reshape(self.dh, self.dh)
             elif inter == 'quadrupole':

@@ -683,7 +683,7 @@ class SpinH(object):
             
             for r in range(matd):
                 for c in range(matd):
-                    H[r*bd:(r+1)*bd, c*bd:(c+1)*bd] += d * mat[r,c][r,c]
+                    H[r*bd:(r+1)*bd, c*bd:(c+1)*bd] += d * mat[r,c]
             return H
 
         if term == 'bgs':
