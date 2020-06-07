@@ -502,17 +502,17 @@ cpdef zeeman_sh_coeff(v, t):
     r"""
     Generate the Zeeman interaction spin Hamiltonian 'coefficient array'.  This
     consists of a `2j+1 \times 2j+1` by `3 \times 3` array containing the matrix
-    elements of the terms `B_a S_b`, with `a,b \in \{x, y, z\}` and `j` the
-    angular momentum of the rank one tensor `S`.  Here the rows enumerate the
-    `2j+1 \times 2j+1` different state combinations while the columns enumerate
-    all combinations of `a` and `b`.
+    elements of the terms `B_a J_b`, with `a,b \in \{x, y, z\}` and `j` the
+    angular momentum of the rank one tensor `J` (either 'S' or 'I').  Here the
+    rows enumerate the `2j+1 \times 2j+1` different state combinations while the
+    columns enumerate all combinations of `a` and `b`.
 
     Parameters
     ----------
     v : numpy.ndarray
         A `3` by `1` vector of magnetic field strengths `B_x`, `B_y` and `B_z`.
     t : list
-        Elements consist of the matrix elements of `S_x`, `S_y` and `S_z`.
+        Elements consist of the matrix elements of `J_x`, `J_y` and `J_z`.
 
     Returns
     -------
@@ -719,6 +719,9 @@ cdef class SpinHamiltonian:
     I : float
         The nuclear spin projection `I_z`; if ``interactions`` contains
         'hyperfine' or 'quadrupole' this keyword argument must be specified.
+    kramers : bool
+        Default is True; specifies whether this is a Kramers ion spin
+        Hamiltonian.
 
     Returns
     -------
@@ -744,9 +747,11 @@ cdef class SpinHamiltonian:
     cdef int dz
     cdef int dh
     cdef int dq
+    cdef int kramers
     def __init__(self, interactions, **kwargs):
         cdef int csz
         cdef int ciz
+        cdef int ckramers
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] a
 
         if not isinstance(interactions, list):
@@ -755,15 +760,11 @@ cdef class SpinHamiltonian:
             if i not in ['zeeman', 'hyperfine', 'quadrupole']:
                 raise ValueError("Invalid element in interactions list: '{}'.".format(i))
         self.interactions = interactions
-        if 'S' in kwargs:
-            if not any((i in interactions for i in ['zeeman', 'hyperfine'])):
-                raise ValueError("SpinHamiltonian: the S_z spin projection was specified yet the "\
-                        "interactions list contains neither the zeeman key nor the hyperfine key.")
-        if 'I' in kwargs:
-            if not any((i in interactions for i in ['hyperfine', 'quadrupole'])):
-                raise ValueError("SpinHamiltonian: the I_z spin projection was specified yet the "\
-                "interactions list contains neither the hyperfine key nor the quadrupole key.")
-
+        if 'kramers' in kwargs:
+            self.kramers = int(kwargs['kramers'])
+        else:
+            self.kramers = 1
+        
         if 'level' not in kwargs:
             raise KeyError("SpinHamiltonian: missing keyword argument 'level'.")
         elif kwargs['level'] < 1:
@@ -772,25 +773,36 @@ cdef class SpinHamiltonian:
            
         # Calculate matrix elements for the specified interactions.
         j_l = ['jx', 'jy', 'jz']
-        if 'zeeman' in interactions or 'hyperfine' in interactions:
-            try: 
-                self.Sz = kwargs['S']
-            except KeyError:
-                raise KeyError("SpinHamiltonian: missing keyword argument S.")
-            # Calculate the matrix elements of spin operator.
-            self.S_matel = [matel(j_l[i], self.Sz) for i in range(3)]
-        else:
-            self.S_matel = None
+        if self.kramers:
+            if 'zeeman' in interactions or 'hyperfine' in interactions:
+                try: 
+                    self.Sz = kwargs['S']
+                except KeyError:
+                    raise KeyError("SpinHamiltonian: missing keyword argument S.")
+                # Calculate the matrix elements of spin operator.
+                self.S_matel = [matel(j_l[i], self.Sz) for i in range(3)]
+            else:
+                self.S_matel = None
 
-        if 'hyperfine' in interactions or 'quadrupole' in interactions:
-            try:
-                self.Iz = kwargs['I']
-            except KeyError:
-                raise KeyError("SpinHamiltonian: missing keyword argument I.")
-            # Calculate the matrix elements of nuclear spin operator.
-            self.I_matel = [matel(j_l[i], self.Iz) for i in range(3)]
+            if 'hyperfine' in interactions or 'quadrupole' in interactions:
+                try:
+                    self.Iz = kwargs['I']
+                except KeyError:
+                    raise KeyError("SpinHamiltonian: missing keyword argument I.")
+                # Calculate the matrix elements of nuclear spin operator.
+                self.I_matel = [matel(j_l[i], self.Iz) for i in range(3)]
+            else:
+                self.I_matel = None
         else:
-            self.I_matel = None
+            if 'zeeman' in interactions or 'quadrupole' in interactions:
+                try:
+                    self.Iz = kwargs['I']
+                except KeyError:
+                    raise KeyError("SpinHamiltonian: missing keyword argument I.")
+                # Calculate the matrix elements of nuclear spin operator.
+                self.I_matel = [matel(j_l[i], self.Iz) for i in range(3)]
+            else:
+                self.I_matel = None
         
         # Calculate the coefficient arrays and alloc spin Hamiltonian.
         n_inter = len(interactions)
@@ -811,10 +823,17 @@ cdef class SpinHamiltonian:
             if inter == 'zeeman':
                 # Coefficient arrays are calculated for three B fields in x, y,
                 # and z directions, respectively.
-                self.dz = int(2*self.Sz+1)
-                B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
-                for j in range(3):
-                    B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.S_matel)
+                if self.kramers:
+                    self.dz = int(2*self.Sz+1)
+                    B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
+                    for j in range(3):
+                        B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.S_matel)
+                else:
+                    self.dz = int(2*self.Iz+1)
+                    B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
+                    for j in range(3):
+                        B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.I_matel)
+
                 self.inv_data += [np.asfortranarray(np.reshape(B_a, (3 * self.dz**2, 9)),
                     dtype=np.complex128)]
                 self.nsh += 3
@@ -848,7 +867,8 @@ cdef class SpinHamiltonian:
         
         csz = int(2*self.Sz)
         ciz = int(2*self.Iz)
-        self.cfl_zsh = cfl.zsh_alloc(self.inter_array, len(interactions), csz, ciz, self.inv_data_ptrs);
+        ckramers = int(self.kramers)
+        self.cfl_zsh = cfl.zsh_alloc(self.inter_array, len(interactions), csz, ciz, ckramers, self.inv_data_ptrs);
         if self.cfl_zsh == NULL:
             raise MemoryError("Failed to alloc zsh")
         else:
@@ -910,7 +930,7 @@ cdef class SpinHamiltonian:
             These must have the following name attributes: 'MAGX', 'MAGY', and
             'MAGZ' for Zeeman interactions; 'HYP' for hyperfine interactions;
             'EQHYP' for quadrupole interactions.  Finally, even if the
-            SpinHamiltonian does not describe Zeeman interactions the 'MAGZ'
+            SpinHamiltonian does not include Zeeman interactions the 'MAGZ'
             tensor must be provided for state-label sorting. 
         coupling_constants : dict, optional
             If hyperfine or quadrupole interactions are present, this dictionary
@@ -1041,9 +1061,9 @@ cdef class SpinHamiltonian:
             result_list += [np.copy(a.reshape(3,3))]
             
             if inter == 'zeeman':
-                sh_matel['magx'] = b[0:4].reshape(2,2)
-                sh_matel['magy'] = b[4:8].reshape(2,2)
-                sh_matel['magz'] = b[8:12].reshape(2,2)
+                sh_matel['magx'] = b[0:4].reshape(self.dz, self.dz)
+                sh_matel['magy'] = b[4:8].reshape(self.dz, self.dz)
+                sh_matel['magz'] = b[8:12].reshape(self.dz, self.dz)
             elif inter == 'hyperfine':
                 sh_matel['hyperfine'] = b.reshape(self.dh, self.dh)
             elif inter == 'quadrupole':

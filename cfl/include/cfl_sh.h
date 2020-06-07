@@ -53,7 +53,7 @@ typedef struct {
   size_t dim;
   /* State labels corresponding to eigenvalues; currently not implemented. */
   sl *slabels;
-  /* Array of strings specifing the type of interactions described by the spin
+  /* Array of strings specifying the type of interactions described by the spin
    * Hamiltonian. */
   char **inter;
   /* The number of interactions described by the spin Hamiltonian. */
@@ -62,6 +62,9 @@ typedef struct {
   int sz;
   /* The nuclear spin projection I_z * 2 (to ensure integer values). */
   int iz;
+  /* Set to 1 for Kramers ion spin Hamiltonians, and 0 for a non-Kramers ion
+   * spin Hamiltonians. */
+  int kramers;
   /* The spin Hamiltonian inversion data. */
   zsh_inv_data **inv_data;
   /* The number of tensors to project. */
@@ -148,7 +151,8 @@ typedef struct {
 extern "C" { 
 #endif /* __cplusplus */
 
-zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a);
+zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers, 
+    complex double **a);
 void zsh_free(zsh *sh);
 int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling);
 void zsh_set_inv(zsh *sh, complex double *b, char *inter);

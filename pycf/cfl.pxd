@@ -93,7 +93,7 @@ cdef extern from "../../cfl/include/cfl_sh.h":
     ctypedef struct svd_sym_w:
         pass
 
-    zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, double complex **a)
+    zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers, double complex **a)
     void zsh_free(zsh *sh)
     int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) 
     void zsh_set_inv(zsh *sh, double complex *b, char *inter)

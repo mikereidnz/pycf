@@ -62,19 +62,22 @@
  * iz       The nuclear spin projection I_z * 2; must be non-zero if inter
  *          contains "hyperfine" or "quadrupole". The factor of 2 ensures we're
  *          dealing with integer values.  Set to zero for Iz = 0 isotopes.
+ * kramers  Set to 1 for Kramers ion spin Hamiltonians, and 0 for a non-Kramers
+ *          ion spin Hamiltonians. 
  * a        An array of length ninter with entries corresponding to the
  *          inversion coefficient matrices with order matching that of inter.
- *          The coefficent matrix for a given interaction is A in Ax = b, where
+ *          The coefficient matrix for a given interaction is A in Ax = b, where
  *          b is a column vector containing the matrix elements of the spin
  *          Hamiltonian for this interaction.  Consequently, it is shdim*shdim
  *          by 1, where shdim is the dimension of the spin Hamiltonian for the
- *          specific interaction.  Additonally, x is the spin Hamiltonian
+ *          specific interaction.  Additionally, x is the spin Hamiltonian
  *          parameter matrix stacked into a 9 by 1 column.  For the zeeman
  *          inversion array, A must consists of three inversion arrays,
  *          concatenated into one large array, for magnetic fields along x, y,
  *          and z directions, in that order.
  */
-zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a) {
+zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
+    complex double **a) {
   int i, j, m;
   zsh *sh;
   zsh_inv_data **inv_data;
@@ -105,18 +108,32 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a) 
      * the spin projection by 2 to calculate the number of states.  The factor
      * of 3 for zeeman is required since we form a column of 3 Zeeman spin
      * Hamiltonian states stacked on top of each other. */
-    if (!strcmp("zeeman", inter[i])) {
-      m = (sz+1)*(sz+1)*3;
-    }
-    else if (!strcmp("hyperfine", inter[i])) {
-      m = (sz+1)*(iz+1)*(sz+1)*(iz+1); 
-    }
-    else if (!strcmp("quadrupole", inter[i])) {
-      m = (iz+1)*(iz+1);
+    if (kramers) {
+      if (!strcmp("zeeman", inter[i])) {
+        m = (sz+1)*(sz+1)*3;
+      }
+      else if (!strcmp("hyperfine", inter[i])) {
+        m = (sz+1)*(iz+1)*(sz+1)*(iz+1); 
+      }
+      else if (!strcmp("quadrupole", inter[i])) {
+        m = (iz+1)*(iz+1);
+      }
+      else {
+        CFL_ERROR_NULL("inter array contained invalid interaction type");
+      }
     }
     else {
-      CFL_ERROR_NULL("inter array contained invalid interaction type");
+      if (!strcmp("zeeman", inter[i])) {
+        m = (iz+1)*(iz+1)*3;
+      }
+      else if (!strcmp("quadrupole", inter[i])) {
+        m = (iz+1)*(iz+1);
+      }
+      else {
+        CFL_ERROR_NULL("inter array contained invalid interaction type");
+      }
     }
+
     (inv_data[i])->a = a[i];
     (inv_data[i])->b = (complex double *) calloc(m, sizeof(complex double));
     if ((inv_data[i])->b == 0) {
@@ -137,6 +154,7 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, complex double **a) 
   sh->ninter = ninter; 
   sh->sz = sz;
   sh->iz = iz;
+  sh->kramers = kramers;
   sh->inv_data = inv_data;
   sh->ntensors = 0;
   sh->pro_data = NULL;
@@ -168,10 +186,10 @@ void zsh_free(zsh *sh) {
  *
  * Parameters
  * ----------
- *  sh      Pointer to the spin Hamlitonian for which to set matrix elements.
+ *  sh      Pointer to the spin Hamiltonian for which to set matrix elements.
  *  b       Pointer to array of matrix elements; these will be copied to storage
  *          already allocated with zsh_alloc.
- *  inter   The string identifing the interaction for which to copy matrix
+ *  inter   The string identifying the interaction for which to copy matrix
  *          elements. 
  */
 void zsh_set_inv(zsh *sh, complex double *b, char *inter) {
@@ -185,16 +203,16 @@ void zsh_set_inv(zsh *sh, complex double *b, char *inter) {
 }
 
 
-/* Set the projection data for a spin Hamiltonian.  The tensor matrix elements
- * are copied to dense storage, so the **t memory can be freed after calling
- * this function.
+/* Alloc memory and set the projection data for a spin Hamiltonian.  The tensor
+ * matrix elements are copied to dense storage, so the **t memory can be freed
+ * after calling this function.
  *
  * The return value, upon success, is 1, otherwise, the return value is EINVAL,
  * or ENOMEM. 
  *
  * Parameters
  * ----------
- *  sh        Pointer to the spin Hamlitonian for which to set pro_data.
+ *  sh        Pointer to the spin Hamiltonian for which to set pro_data.
  *  t         Pointer to array of tensors for which to project to spin
  *            Hamiltonian space.  The order of tensors in t must match the order
  *            of interactions used to alloc sh; for "zeeman" interactions three
@@ -281,11 +299,23 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
     /* Record the size of each spin Hamiltonian interaction term; for zeeman
      * interactions we need to record the same size for three tensors. */
     if (zf && zc < 2) {
-      (sh->pro_data[i])->shi_dim = (sh->sz+1);
+      if (sh->kramers) {
+        (sh->pro_data[i])->shi_dim = (sh->sz+1);
+      }
+      else {
+        (sh->pro_data[i])->shi_dim = (sh->iz+1);
+      }
+      sh->pro_data[i]->coupling = 1;
       zc++;
     }
     else if (!strcmp("zeeman", sh->inter[i-zc])) {
-      (sh->pro_data[i])->shi_dim = (sh->sz+1);
+      if (sh->kramers) {
+        (sh->pro_data[i])->shi_dim = (sh->sz+1);
+      }
+      else {
+        (sh->pro_data[i])->shi_dim = (sh->iz+1);
+      }
+      sh->pro_data[i]->coupling = 1;
       zf = 1;
     }
     else if (!strcmp("hyperfine", sh->inter[i-zc])) {
@@ -389,12 +419,14 @@ inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zshp_p_w
   shi_dim = sh->pro_data[pro_i]->shi_dim;
   sh_dim = sh->dim;
   /* We read out the shi_dim*shi_dim block corresponding to the spin Hamiltonian
-   * matrix elements specific to the interaction type.  The ordering after proj
-   * is with S state labels 'slow' and I state labels 'fast'.  Consequently, for
-   * Zeeman we have to add an offset of 2 Iz (sh->iz is multplied by 2 by
-   * default, extra +1 comes from incrementing index) to get matrix elements of
-   * Sz \pm 1 with matching Iz.*/
-  if (zf != 0) {
+   * matrix elements specific to the interaction type.  For Kramers ions the
+   * ordering after proj is with S state labels 'slow' and I state labels
+   * 'fast'.  Consequently, for Zeeman we have to add an offset of 2 Iz (sh->iz
+   * is multiplied by 2 by default, extra +1 comes from incrementing index) to
+   * get matrix elements of Sz \pm 1 with matching Iz.  For non-Kramers ions,
+   * Zeeman is the same as hyperfine and quadrupole (w/ coupling constant set to
+   * 1). */
+  if (zf != 0 && sh->kramers) {
     for (i = 0; i < shi_dim; i++) {
       for (j = 0; j < shi_dim; j++) {
         ii = (i % 2 == 0) ? i : i+sh->iz;
@@ -697,9 +729,10 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
 
   /* Alloc inversion workspace. */
   for (i = 0; i < sh->ninter; i++) {
-    /* Disable SVD for quadrupole, irrespective of what the job flag specifies,
-     * since there's no S matrix elements. */
-    if (!strcmp("quadrupole", sh->inter[i])) {
+    /* Disable SVD for quadrupole and all non-Kramers spin Hamiltonian
+     * interactions, irrespective of what the job flag specifies, since there's
+     * no S matrix elements. */
+    if (!strcmp("quadrupole", sh->inter[i]) || !sh->kramers) {
       job = 'N';
     }
     w->shi_w[i] = zshi_w_alloc(job, sh->inv_data[i]);
