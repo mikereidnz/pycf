@@ -3303,7 +3303,14 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(efit.n_p_real - efit.n_obs, 1)
 
-    summary += efit.h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1)
+    if efit.ex.n_d != 0:
+        summary += h.gen_summary() + "\n\n"
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
+                h.tensors[0].states.label_key, ex=efit.ex, name="Fitted energy " \
+                "levels", chi2=efit.chi2[0], ndof=ndof, weighting=1)
+    else:
+        summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1)
+
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
 
@@ -3440,8 +3447,18 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
 
     sh_param = sh.calc_param(h)
     
-    summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
-            weighting=eshfit.weights['energy'])
+    if eshfit.ex.n_d != 0:
+        summary += h.gen_summary() + "\n\n"
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
+                h.tensors[0].states.label_key, ex=eshfit.ex, name="Fitted " \
+                "energy levels", chi2=eshfit.chi2[0], ndof=ndof,
+                weighting=eshfit.weights['energy'])
+    else:
+        summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
+                weighting=eshfit.weights['energy'])
+
+    #summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
+    #        weighting=eshfit.weights['energy'])
     summary += "\n"
     summary += gen_sh_summary(sh_param, sh, shx=shx, chi2=eshfit.chi2[1:], 
             ndof=ndof, weighting=eshfit.weights)
