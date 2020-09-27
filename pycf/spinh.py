@@ -799,9 +799,6 @@ class SpinH(object):
 
         m = invert_term(self.coeff_a[term], self.H_terms[term])
 
-        if term == 'bgs' or term == 'bmi':
-            m /= self.mu_b 
-            
         return(m)
 
     def get_H(self):
