@@ -3376,7 +3376,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         
         name = "Hamiltonian %i" % i
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key,
-                ex=ex_list[i], name=name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
+                ex=mhfit.ex_list[i], name=name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
 
         summary += "\n"
 
