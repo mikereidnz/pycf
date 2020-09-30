@@ -61,7 +61,7 @@ else:
         subprocess.call(['touch', 'pycf/cfl.pyx'])
 
 popen = subprocess.Popen(['git', 'rev-parse', '--short', 'HEAD'], stdout=subprocess.PIPE)
-version = popen.communicate()[0]
+version = str(popen.communicate()[0])
 if popen.returncode == 0:
     f = open('pycf/__version__.py', 'w')
     f.write('\n__version__ = "%s"\n\n' % version.rstrip())
