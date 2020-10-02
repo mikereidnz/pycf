@@ -34,14 +34,14 @@ def Xi_val(t, l, re):
     
     
     xi_tl = {
-    '12' : [-1.78, -1.58, -1.08, -0.83, -0.57, -0.4, -0.23],
-    '32' : [1.54, 1.35, 0.88, 0.64, 0.36, 0.30, 0.24],
-    '34' : [1.75, 1.50, 0.90, 0.64, 0.37, 0.29, 0.21],
+    '12' : [-1.78, -1.58, -1.08, -0.83, -0.57, -0.40, -0.23],
+    '32' : [ 1.54,  1.35,  0.88,  0.64,  0.36,  0.30,  0.24],
+    '34' : [ 1.75,  1.50,  0.90,  0.64,  0.37,  0.29,  0.21],
     '54' : [-2.26, -1.98, -1.27, -0.89, -0.44, -0.30, -0.16],
-    '56' : [-5.45, -4.62, -2.70, -1.84, -0.92, -0.66, -0.4],
-    '76' : [4.54, 3.96, 2.58, 1.78, 0.71, 0.43, 0.15],
+    '56' : [-5.45, -4.62, -2.70, -1.84, -0.92, -0.66, -0.40],
+    '76' : [ 4.54,  3.96,  2.58,  1.78,  0.71,  0.43,  0.15],
     }
-    
+   
     re_list =  ['Pr', 'Nd', 'Eu', 'Tb', 'Er', 'Tm', 'Yb']
     try:
         i = re_list.index(re)
@@ -52,8 +52,11 @@ def Xi_val(t, l, re):
         v = xi_tl['%i%i' % (t, l)][i]
     except ValueError:
         raise ValueError("Invalid parameters: t=%i, l=%i" % (t, l))
+    
+    v *= 1e10 # Scale units to Angstrom^(t+1) erg^-1 
 
-    return v*1e10
+    return v
+
 
 def RInt4f(re,l):
     """
@@ -70,15 +73,19 @@ def RInt4f(re,l):
     Returns
     -------
     rint : float
-        The radial integral, in units of Angstrom^{-2}, Angstrom^{-4}, and
-        Angstrom^{-6} depending on lambda. 
+        The radial integral, in units of Angstrom^2, Angstrom^4, and
+        Angstrom^6 depending on lambda. 
 
     """
     
     # Bohr radius in Angstrom
     # (https://physics.nist.gov/cgi-bin/cuu/Value?bohrrada0)
     a0 = 0.529177210903
-
+    
+    # Units in Freeman and Watson are specified as a0^{-lambda}, but I can't
+    # make sense of inverse length for the radial integrals?  Treating as
+    # a0^{lambda} gives consistent units throughout and reasonable values; going
+    # with that for now, but this is disconcerting. 
     rint = [[1.200, 3.455, 21.226],
             [1.086, 2.822, 15.726], 
             [1.001, 2.401, 12.396],
@@ -100,9 +107,10 @@ def RInt4f(re,l):
     except ValueError:
         raise ValueError("Invalid parameter: l=%s" % l)
     
-    val = rint[i][li]*a0**li
+    val = rint[i][li]*a0**l
 
     return val
+
 
 class LData(object):
     """
@@ -159,7 +167,7 @@ def Ckq(k, q, theta, phi):
     Ckq : float
         Value of spherical harmonic.
     """
-    C = np.sqrt((2*k+1)/(4*np.pi)) * sph_harm(q, k, phi, theta)
+    C = np.sqrt((4*np.pi)/(2*k+1)) * sph_harm(q, k, phi, theta)
     
     return C 
 
@@ -191,33 +199,33 @@ def A_SC(l, t, p, lat, Xi):
         The transition intensity parameter A^{\lambda}_{tp} in cm^(-1).
 
     """
+    # To avoid overflowing our 64bit double, we'll rescale Xi by a factor
+    # 10^(-10) and e2 by 10^(10).  These variables are always multiplied later,
+    # so this avoids tiny numbers. 
+    Xi = Xi*10**(-10)
+    e2 = (4.80320425**2)*10**(-10)   # proton charge squared in esu
+    prefac_chg = -(-1)**p * e2 * lat.q_L * Xi *(2*l+1)/(np.sqrt(2*t+1))
+    prefac_pol = 2*(-1)**p * e2 * lat.q_Ln * (t+1) * lat.alpha_L_bar * Xi *(2*l+1)/(np.sqrt(2*t+1))
+    A_chg = 0
+    A_pol = 0
+    for L in lat:
+        C = Ckq(t, -p, L[1], L[2])
+        A_chg += C * L[0]**(-(t+1))
+        A_pol += C * L[0]**(-(t+4))
     
-    if (t == l+1) or (t == l-1):
-        # To avoid overflowing our 64bit double, we'll rescale Xi to somewhere
-        # near unity (of magnitude ~10^10 in units of Angstrom^(t+1) erg^-1) and
-        # use an exponent of -10 rather than -20 for e^2. All instances of e^2
-        # are later multiplied by Xi.
-        Xi = Xi*10**(-10)
-        e2 = (4.80320425**2)*10**(-10)   # proton charge squared in esu
-        prefac_chg = -(-1)**p * e2 * lat.q_L
-        prefac_pol = 2*(-1)**p * e2 * lat.q_Ln * (t+1) * lat.alpha_L_bar
-        A_chg = 0
-        A_pol = 0
-        for L in lat:
-            C = Ckq(t, -p, L[1], L[2])
-            A_chg += C * L[0]**(-(t+1))
-            A_pol += C * L[0]**(-(t+4))
-        
-        A = -(prefac_chg*A_chg + prefac_pol*A_pol)*Xi*(2*l+1)/(np.sqrt(2*t+1))
-    else:
-        A = 0
+    A_chg = -prefac_chg*A_chg
+    A_pol = -prefac_pol*A_pol
+    
+    A_chg = np.real(A_chg)
+    A_pol = np.real(A_pol)
 
-    return A
+    return (A_chg, A_pol)
+
 
 def A_DC(l, t, p, lat, rint):
     """
-    Calculate the A^lambda_tp parameters for dynamic coupling, following Reid
-    and Richardson, J. Chem. Phys. 79(12) 1983, pg 5739. 
+    Calculate the A^lambda_tp parameters for dynamic coupling assuming isotropic
+    ligands, following Reid and Richardson, J. Chem. Phys. 79(12) 1983, pg 5739. 
 
 
     Parameters
@@ -246,8 +254,53 @@ def A_DC(l, t, p, lat, rint):
     
     for L in lat:
         A += Ckq(l+1, -p, L[1], L[2]) * L[0]**(-(t+2)) * lat.alpha_L_bar
+
     # Convert to cm from A
     A *= prefac*10**(-8)
     
+    A = np.real(A)
+
     return A
 
+
+def Altp(re, ligands):
+    """
+    Calculate the A^lambda_tp parameters for static coupling (both charge and
+    polarization), as well as isotropic dynamic coupling. 
+
+    Parameters
+    ----------
+    re : str
+        Rare-earth ion at substitutional site. 
+    ligands : LData
+        Ligands for which to perform calculation. 
+
+
+    Returns
+    -------
+    A_list : list
+        Elements are lists of length two, with the first element in the sublist
+        containing a string that specifies the parameter designation.  The
+        second element in the sublist is a list with four elements, the static
+        coupling charge and polarization parameters, the dynamic coupling
+        parameter for isotropic ligands, and the total A parameter value.
+
+    """
+    A_list = [] 
+    l_list = [2, 4, 6]
+    for l in l_list:
+        for t in [l-1, l+1]:
+            print("%i%i" % (l,t))
+            for p in range(0, t+1):
+                # Static portion
+                Xi = Xi_val(t, l, re)
+                (A_chg, A_pol) = A_SC(l, t, p, ligands, Xi)
+
+                # Dynamic portion
+                rint = RInt4f(re, l)
+                A_dyniso = A_DC(l, t, p, ligands, rint)
+
+                if (np.abs(A_chg)+np.abs(A_pol)+np.abs(A_dyniso)) > 1e-15:
+                    A_list += [['A%i%i%i' % (l, t, p), [A_chg, A_pol, A_dyniso, A_chg+A_pol+A_dyniso]]]
+
+    return A_list
