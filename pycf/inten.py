@@ -253,12 +253,14 @@ def A_DC(l, t, p, lat, rint):
     A = 0
     
     for L in lat:
-        A += Ckq(l+1, -p, L[1], L[2]) * L[0]**(-(t+2)) * lat.alpha_L_bar
+        A += Ckq(l+1, -p, L[1], L[2]) * L[0]**(-(l+2)) * lat.alpha_L_bar
 
     # Convert to cm from A
     A *= prefac*10**(-8)
     
     A = np.real(A)
+    if t != l+1:
+        A = 0
 
     return A
 
