@@ -238,11 +238,10 @@ def A_DC(l, t, p, Ln, ligands):
 
     """
     
+    A = 0
     if t == l+1:
         rint = RInt4f(l, Ln)
-        
         prefac = 7*wigner_3j(3,l,3,0,0,0)*np.sqrt((l+1)*(2*l+1)) * rint * (-1)**p
-        A = 0
         
         for L in ligands:
             c = L.coords
@@ -252,8 +251,6 @@ def A_DC(l, t, p, Ln, ligands):
         A *= prefac*10**(-8)
         
         A = np.real(A)
-    else:
-        A = 0
 
     return A
 
