@@ -62,27 +62,34 @@ class ImportSLJM(object):
         The path/name of the SLJM calc output files, specifically, the files
         ``name.txt`` containing the matrix elements in plain text, ``name.mi_``
         containing the tensor dimensions, and the states file ``name.st_``.
-    dim : int
-        The dimension of the tensors.
+    sl_name : string,optional
+        When loading matrix elements for intensity calculations, the state label
+        file is usually still the same as for cfl/cfit when following Mike's
+        convention.  This optional argument allows one to specify the state
+        label file with a different base name than the intensity matrix element
+        file.  It should be specified without the extension, like name above.
     """
-    def __init__(self, name):
+    def __init__(self, name, sl_name=False):
         # Create list of tuples of the form ('tensor_name', 'tensor_dim')
         tensor_dims = []
         with open("%s.mi_" % name, 'r' ) as f:
             for td in get_tensor_dim(f):
                 tensor_dims += td
+        
+        if not sl_name:
+            sl_name = name
 
         # Get the number of states and state labels from *.st file.
-        with open("%s.st_" % name, 'r') as f:
+        with open("%s.st_" % sl_name, 'r') as f:
             for d in get_state_number(f):
                 dim = int(d[0])
 
-        with open("%s.st_" % name, 'r') as f:
+        with open("%s.st_" % sl_name, 'r') as f:
             state_labels = re.findall(r'[^[]*\[(\(?2?F?\s?\)?)(\d+)(\w)(\d?)\s*(\d+)\s*([\d-]*),?\s*([\d-]*)[)>]', f.read())
         if dim != len(state_labels):
             raise RuntimeError("Parsing state labels file %s.st_ failed.  This "
                     "is indicative of either a limitation of the parsing regex,"
-                    " or a corrupt *.st_ file." % name)
+                    " or a corrupt *.st_ file." % sl_name)
        
         # Index of regex group for each label type.
         gi = {'S':1, 'L':2, 'J':4, 'M':5, 'I':6, 'T':3, 'F': 0}
