@@ -17,7 +17,6 @@ def Xi_val(t, l, Ln):
 
     Yb values are linearly interpolated from values for Er and Tm.
  
-
     Parameters
     ----------
     t : int
@@ -32,7 +31,6 @@ def Xi_val(t, l, Ln):
     xi : float
         value
     """
-    
     
     xi_tl = {
     '12' : [-1.78, -1.58, -1.08, -0.83, -0.57, -0.40, -0.23],
@@ -78,7 +76,6 @@ def RInt4f(l, Ln):
         Angstrom^6 depending on lambda. 
 
     """
-    
     # Bohr radius in Angstrom
     # (https://physics.nist.gov/cgi-bin/cuu/Value?bohrrada0)
     a0 = 0.529177210903
@@ -165,7 +162,6 @@ def A_SC(l, t, p, Ln, q_Ln, ligands):
     point-charge model, following Reid and Richardson, J. Chem. Phys. 79(12)
     1983, pg 5739. 
 
-
     Parameters
     ----------
     l: int
@@ -185,9 +181,7 @@ def A_SC(l, t, p, Ln, q_Ln, ligands):
     -------
     A : float
         The transition intensity parameter A^{\lambda}_{tp} in cm^(-1).
-
     """
-
     Xi = Xi_val(t, l, Ln)
     # To avoid overflowing our 64bit double, we'll rescale Xi by a factor
     # 10^(-10) and e2 by 10^(10).  These variables are always multiplied later,
@@ -217,7 +211,6 @@ def A_DC(l, t, p, Ln, ligands):
     Calculate the A^lambda_tp parameters for dynamic coupling assuming isotropic
     ligands, following Reid and Richardson, J. Chem. Phys. 79(12) 1983, pg 5739. 
 
-
     Parameters
     ----------
     l: int
@@ -235,14 +228,12 @@ def A_DC(l, t, p, Ln, ligands):
     -------
     A : float
         The transition intensity parameter A^{\lambda}_{tp} in cm^(-1).
-
     """
     
+    A = 0
     if t == l+1:
         rint = RInt4f(l, Ln)
-        
         prefac = 7*wigner_3j(3,l,3,0,0,0)*np.sqrt((l+1)*(2*l+1)) * rint * (-1)**p
-        A = 0
         
         for L in ligands:
             c = L.coords
@@ -252,8 +243,6 @@ def A_DC(l, t, p, Ln, ligands):
         A *= prefac*10**(-8)
         
         A = np.real(A)
-    else:
-        A = 0
 
     return A
 
@@ -274,9 +263,6 @@ class AltpData(object):
         The charge of the lanthanide dopant ion, in units of proton charge. 
     ligands : list
         List of Ligand objects. 
-
-
-
     """
     def __init__(self, Ln, q_Ln, ligands):
         self.Ln = Ln
@@ -331,5 +317,3 @@ class AltpData(object):
         s += "\n"
         
         return s
-
-
