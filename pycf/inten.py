@@ -6,8 +6,9 @@ from __future__ import division
 import numpy as np
 from scipy.special import sph_harm
 from pycf.njsymbols import wigner_3j
+from pycf.cfl_util import *
 
-def Xi_val(t, l, re):
+def Xi_val(t, l, Ln):
     """
     Xi(t, l) parameters in Angstrom^(t+1) erg^-1 from Krupke Phys Rev 145, 1
     (1966).
@@ -23,8 +24,8 @@ def Xi_val(t, l, re):
         Degree of the parameter.
     l: int
         Transition intensity lambda parameter, with values of (2, 4, 6).
-    re : string
-        Rare-earth ion.
+    Ln : string
+        The chemical symbol of the Lanthanide dopant.
 
     Returns
     -------
@@ -42,11 +43,11 @@ def Xi_val(t, l, re):
     '76' : [ 4.54,  3.96,  2.58,  1.78,  0.71,  0.43,  0.15],
     }
    
-    re_list =  ['Pr', 'Nd', 'Eu', 'Tb', 'Er', 'Tm', 'Yb']
+    Ln_list =  ['Pr', 'Nd', 'Eu', 'Tb', 'Er', 'Tm', 'Yb']
     try:
-        i = re_list.index(re)
+        i = Ln_list.index(Ln)
     except ValueError:
-        raise ValueError("Invalid parameter: re=%s" % re)
+        raise ValueError("Invalid parameter: Ln=%s" % Ln)
     
     try:
         v = xi_tl['%i%i' % (t, l)][i]
@@ -58,7 +59,7 @@ def Xi_val(t, l, re):
     return v
 
 
-def RInt4f(re,l):
+def RInt4f(l, Ln):
     """
     Radial integrals of the form <4f|r^\lambda|4f> for the RE3+ ions, from
     Freeman and Watson, 10.1103/PhysRev.127.2058. 
@@ -67,8 +68,8 @@ def RInt4f(re,l):
     ----------
     l : int
         The power lambda, with available values of (2, 4, 6). 
-    re : string
-        Rare-earth ion
+    Ln : string
+        The chemical symbol of the Lanthanide dopant.
 
     Returns
     -------
@@ -95,13 +96,13 @@ def RInt4f(re,l):
             [0.666, 1.126, 3.978 ],
             [0.613, 0.960, 3.104 ]]
     
-    re_list =  ['Ce', 'Pr', 'Nd', 'Sm', 'Eu', 'Dy', 'Er', 'Yb']
+    Ln_list =  ['Ce', 'Pr', 'Nd', 'Sm', 'Eu', 'Dy', 'Er', 'Yb']
     l_list = [2, 4, 6]
-
+    
     try:
-        i = re_list.index(re)
+        i = Ln_list.index(Ln)
     except ValueError:
-        raise ValueError("Invalid parameter: re=%s" % re)
+        raise ValueError("Invalid parameter: Ln=%s" % Ln)
     try:
         li = l_list.index(l)
     except ValueError:
@@ -112,39 +113,25 @@ def RInt4f(re,l):
     return val
 
 
-class LData(object):
+class Ligand(object):
     """
-    Class for holding data about ligands that comprise the crystal lattice.
+    Class for holding data of a specific ligand type. 
 
     Parameters
     ----------
-    q_Ln : int
-        The charge of the lanthanide ion, in units of proton charge. 
-    q_L : int
-        The charge of the ligand ion, in units of proton charge. 
-    alpha_L_bar : float
-        Mean polarizability of ligand species in Angstrom^3. 
-    L_a : np.array
-        Array of ligand coordinates, n by 3, where n is the number of
-        ligands. Each row consists of coordinates [R, theta, phi], that is,
+    coords : np.array
+        Array of ligand coordinates, of the form [R, theta, phi], that is,
         the ligand radius (Angstrom), polar angle (radians), and azimuthal
         angle (radians), respectively.
+    q : float
+        The charge of the ligand ion, in units of proton charge. 
+    alpha_bar : float
+        Mean polarizability of ligand species in Angstrom^3. 
     """
-    def __init__(self, q_Ln, q_L, alpha_L_bar, L_a):
-
-        self.q_L = q_L
-        self.q_Ln = q_Ln
-        self.alpha_L_bar = alpha_L_bar 
-        self.L_a = L_a
-        self.nL = len(L_a)
-
-    def __iter__(self):
-        """
-        L is a vector of ligand coordinates [R, theta, phi].
-        """
-        for L in self.L_a:
-            yield L
-
+    def __init__(self, coords, q, alpha_bar):
+        self.coords = coords
+        self.q = q
+        self.alpha_bar = alpha_bar
 
 
 def Ckq(k, q, theta, phi):
@@ -172,7 +159,7 @@ def Ckq(k, q, theta, phi):
     return C 
 
 
-def A_SC(l, t, p, lat, Xi):
+def A_SC(l, t, p, Ln, q_Ln, ligands):
     """
     Calculate the A^lambda_tp parameters for static coupling using a
     point-charge model, following Reid and Richardson, J. Chem. Phys. 79(12)
@@ -187,11 +174,12 @@ def A_SC(l, t, p, lat, Xi):
         Degree of the parameter.
     p : int
         Order of the parameter.
-    lat : LData
-        Ligand data for next nearest neighbors.
-    Xi : float
-        Xi(t, l) parameter, in Angstrom^(t+1) erg^-1. 
-
+    Ln : string
+        The chemical symbol of the Lanthanide dopant.
+    q_Ln : float
+        The charge of the Lanthanide dopant.
+    ligands : list
+        List of Ligand objects. 
 
     Returns
     -------
@@ -199,22 +187,24 @@ def A_SC(l, t, p, lat, Xi):
         The transition intensity parameter A^{\lambda}_{tp} in cm^(-1).
 
     """
+
+    Xi = Xi_val(t, l, Ln)
     # To avoid overflowing our 64bit double, we'll rescale Xi by a factor
     # 10^(-10) and e2 by 10^(10).  These variables are always multiplied later,
     # so this avoids tiny numbers. 
     Xi = Xi*10**(-10)
     e2 = (4.80320425**2)*10**(-10)   # proton charge squared in esu
-    prefac_chg = -(-1)**p * e2 * lat.q_L * Xi *(2*l+1)/(np.sqrt(2*t+1))
-    prefac_pol = 2*(-1)**p * e2 * lat.q_Ln * (t+1) * lat.alpha_L_bar * Xi *(2*l+1)/(np.sqrt(2*t+1))
+    prefac = -(-1)**p * e2 * Xi *(2*l+1)/(np.sqrt(2*t+1))
     A_chg = 0
     A_pol = 0
-    for L in lat:
-        C = Ckq(t, -p, L[1], L[2])
-        A_chg += C * L[0]**(-(t+1))
-        A_pol += C * L[0]**(-(t+4))
+    for L in ligands:
+        c = L.coords
+        C = Ckq(t, -p, c[1], c[2])
+        A_chg += C * c[0]**(-(t+1)) * L.q
+        A_pol += C * c[0]**(-(t+4)) * L.alpha_bar
     
-    A_chg = -prefac_chg*A_chg
-    A_pol = -prefac_pol*A_pol
+    A_chg = prefac * (-1) * A_chg
+    A_pol = prefac * 2 * q_Ln * (t+1) * A_pol
     
     A_chg = np.real(A_chg)
     A_pol = np.real(A_pol)
@@ -222,7 +212,7 @@ def A_SC(l, t, p, lat, Xi):
     return (A_chg, A_pol)
 
 
-def A_DC(l, t, p, lat, rint):
+def A_DC(l, t, p, Ln, ligands):
     """
     Calculate the A^lambda_tp parameters for dynamic coupling assuming isotropic
     ligands, following Reid and Richardson, J. Chem. Phys. 79(12) 1983, pg 5739. 
@@ -236,73 +226,110 @@ def A_DC(l, t, p, lat, rint):
         Degree of the parameter.
     p : int
         Order of the parameter.
-    lat : LData
-        Ligand data for next nearest neighbors.
-    rint : float
-        The radial integral <4f|r^\lambda|4f>, in units of Angstrom^{-2},
-        Angstrom^{-4}, and Angstrom^{-6} depending on lambda.
-        
+    Ln : string
+        The chemical symbol of the Lanthanide dopant.
+    ligands : list
+        List of Ligand objects. 
+
     Returns
     -------
     A : float
         The transition intensity parameter A^{\lambda}_{tp} in cm^(-1).
 
     """
-
-    prefac = 7*wigner_3j(3,l,3,0,0,0) * np.sqrt((l+1)*(2*l+1)) * rint * (-1)**p
-    A = 0
     
-    for L in lat:
-        A += Ckq(l+1, -p, L[1], L[2]) * L[0]**(-(l+2)) * lat.alpha_L_bar
+    if t == l+1:
+        rint = RInt4f(l, Ln)
+        
+        prefac = 7*wigner_3j(3,l,3,0,0,0)*np.sqrt((l+1)*(2*l+1)) * rint * (-1)**p
+        A = 0
+        
+        for L in ligands:
+            c = L.coords
+            A += Ckq(l+1, -p, c[1], c[2]) * c[0]**(-(l+2)) * L.alpha_bar
 
-    # Convert to cm from A
-    A *= prefac*10**(-8)
-    
-    A = np.real(A)
-    if t != l+1:
+        # Convert to cm from A
+        A *= prefac*10**(-8)
+        
+        A = np.real(A)
+    else:
         A = 0
 
     return A
 
 
-def Altp(re, ligands):
+class AltpData(object):
     """
-    Calculate the A^lambda_tp parameters for static coupling (both charge and
-    polarization), as well as isotropic dynamic coupling. 
+    Class for holding data required for calculating Altp parameters. 
 
     Parameters
     ----------
-    re : str
-        Rare-earth ion at substitutional site. 
-    ligands : LData
-        Ligands for which to perform calculation. 
+    Ln : string
+        The lanthanide chemical symbol, with available options Pr, Nd, Eu, Er,
+        and Yb. Tb and Tm are currently missing radial integrals, whereas Ce,
+        Sm, and Dy are missing values for Xi(t, lambda), and Ho is missing both.
+        To implement them, update the appropriate functions and add them to the
+        available list. 
+    q_Ln : int
+        The charge of the lanthanide dopant ion, in units of proton charge. 
+    ligands : list
+        List of Ligand objects. 
 
 
-    Returns
-    -------
-    A_list : list
-        Elements are lists of length two, with the first element in the sublist
-        containing a string that specifies the parameter designation.  The
-        second element in the sublist is a list with four elements, the static
-        coupling charge and polarization parameters, the dynamic coupling
-        parameter for isotropic ligands, and the total A parameter value.
 
     """
-    A_list = [] 
-    l_list = [2, 4, 6]
-    for l in l_list:
-        for t in [l-1, l+1]:
-            print("%i%i" % (l,t))
-            for p in range(0, t+1):
-                # Static portion
-                Xi = Xi_val(t, l, re)
-                (A_chg, A_pol) = A_SC(l, t, p, ligands, Xi)
+    def __init__(self, Ln, q_Ln, ligands):
+        self.Ln = Ln
+        self.q_Ln = q_Ln
+        self.ligands = ligands
+        self.nL = len(ligands)
+        
+    def eval_params(self):
+        """
+        Evaluate the Altp parameters and return them.  After running this
+        function, the AltpData object also has the attributes A_statchg,
+        A_statpol, A_dyniso, and A_total, corresponding to static charge
+        contribution, static polarziation contribution, and dynamic contribution
+        assuming isotropic ligands.
 
-                # Dynamic portion
-                rint = RInt4f(re, l)
-                A_dyniso = A_DC(l, t, p, ligands, rint)
+        Returns
+        -------
+        A_list : list
+            Elements are lists of length two, with the first element in the sublist
+            containing a string that specifies the parameter designation.  The
+            second element in the sublist is a list with four elements, the static
+            coupling charge and polarization parameters, the dynamic coupling
+            parameter for isotropic ligands, and the total A parameter value.
+        """
+        A_list = [] 
+        l_list = [2, 4, 6]
 
-                if (np.abs(A_chg)+np.abs(A_pol)+np.abs(A_dyniso)) > 1e-15:
-                    A_list += [['A%i%i%i' % (l, t, p), [A_chg, A_pol, A_dyniso, A_chg+A_pol+A_dyniso]]]
+        for l in l_list:
+            for t in [l-1, l+1]:
+                for p in range(0, t+1):
+                    # Static portion
+                    (A_statchg, A_statpol) = A_SC(l, t, p, self.Ln, self.q_Ln, self.ligands)
 
-    return A_list
+                    # Dynamic portion
+                    A_dyniso = A_DC(l, t, p, self.Ln, self.ligands)
+
+                    A_total = A_statchg+A_statpol+A_dyniso
+                    if (np.abs(A_total)) > 1e-15:
+                        A_list += [['A%i%i%i' % (l, t, p), [A_statchg, 
+                            A_statpol, A_dyniso, A_statchg+A_dyniso, A_total]]]
+                        
+        self.A_list = list(A_list)
+        
+        return A_list
+
+    def gen_summary(self):
+        s = ""
+        heading = "Param   A_statchg    A_statpol     A_dyniso  A_statchg+A_dyniso      A_total\n"
+        s += uline_char(heading)
+        for A in self.A_list:
+            s += "%s  % .4e  % .4e  % .4e         % .4e  % .4e\n" % (A[0], *A[1])
+        s += "\n"
+        
+        return s
+
+
