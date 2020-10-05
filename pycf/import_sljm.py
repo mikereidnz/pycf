@@ -45,7 +45,7 @@ def get_state_number(source):
             parse = True
             yield [0]
         elif done:
-            raise StopIteration
+            return
         elif parse:
             done = True
             yield re.findall(r'(\d+)\s+STATES', line)
