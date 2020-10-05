@@ -691,7 +691,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     hd_w->diag_w = diag_w_alloc(job, hd_w->ndiag_w, &max_block_dim, hd_w);
   }
   else {
-    hd_w->diag_w = diag_w_alloc(job, nblocks, block_dim[i], hd_w);
+    hd_w->diag_w = diag_w_alloc(job, nblocks, block_dim, hd_w);
   }
   if (hd_w->diag_w == 0) {
     zhd_w_block_free(hd_w);
