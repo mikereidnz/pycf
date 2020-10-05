@@ -2437,9 +2437,9 @@ cdef class MESHFit(object):
             if 'ex' in d:
                 ex = d['ex']
                 if not isinstance(ex, ExData):
-                    ex_list += [ExData(ex)]
-                else:
-                    ex_list += [ex]
+                    ex = ExData(ex)
+                
+                ex_list += [ex]
                 self.n_obs += ex_list[i].n_obs
                 n_ex += 1
                 if ex.sl_index:
