@@ -1069,6 +1069,8 @@ cdef class SpinHamiltonian:
             elif inter == 'quadrupole':
                 sh_matel['quadrupole'] = b.reshape(self.dq, self.dq)
         
+        zshp_w_free(shp_w)
+ 
         if matel:
             return ((result_list, sh_matel))
         else:

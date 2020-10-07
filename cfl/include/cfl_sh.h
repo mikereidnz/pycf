@@ -100,6 +100,8 @@ typedef struct {
   int lwork;
   /* Copy of the input parameter matrix a. */
   double tmp_a[9];
+  /* Output from the first dgemm multiplication. */
+  double dgemm_a[9];
   /* The singular value matrix. */
   double s[9];
   /* The unitary matrix U. */

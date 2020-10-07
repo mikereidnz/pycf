@@ -562,8 +562,8 @@ void svd_sym(double *a, svd_sym_w *w) {
   /* w->work is at least 5*MIN(M,N), which in our case is 15.  Therefore, we can
    * use w->work as a matrix multiplication workspace. */
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->tmp_a, 3,
-      w->u, 3, 0, w->work, 3);
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->work,
+      w->u, 3, 0, w->dgemm_a, 3);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->dgemm_a,
       3, w->vt, 3, 0, a, 3);  
 
 }
@@ -649,7 +649,9 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
  */
 void zshi_w_free(zshi_w *w) {
   if (w->job == 'S') {
-    svd_sym_w_free(w->svd_w);
+    if (w->svd_w != NULL) {
+      svd_sym_w_free(w->svd_w);
+    }
   }
   free(w->work);
   free(w->a);
