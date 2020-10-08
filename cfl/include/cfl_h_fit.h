@@ -54,6 +54,8 @@ typedef struct {
   /* Array of length n_obs; the first n_a elements are absolute energy level
    * values, and the remaining elements are energy differences. */
   double *e;
+  /* chi^2 weighting, of the same length and in the same order as e. */
+  double *w;
   /* Array of length n_a mapping the index of e to the level index of the
    * Hamiltonian.  Used for absolute energy level values.*/
   int *la;
@@ -75,8 +77,6 @@ typedef struct {
    * of the final level of the Hamiltonian.  Used for energy difference values
    * with state label sorting. */
   int *fldh;
-  /* chi^2 weighting. */
-  double chisq_weight;
 } ex_data;
 
 /* Experimental spin Hamiltonian data. */
@@ -86,7 +86,6 @@ typedef struct {
   /* chi^2 weighting. */
   double chisq_weight;
 } shx_data;
-
 
 /* Data for Hamiltonian fitting objective function. */
 typedef struct {

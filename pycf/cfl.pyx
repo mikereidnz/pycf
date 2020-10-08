@@ -1127,6 +1127,14 @@ cdef class ExData(object):
         specifies the type of each of the m state label entries passed via the
         data argument.  It must match the label_key of Hamiltonian to be fit to
         this experimental data.
+    weights : np.ndarray or tuple, optional
+        This argument can be used to specify a relative weighting between energy
+        levels.  The overall weighting, used in fitting functions such as MHFit
+        or ESHFit still scales the weighting of relative Hamiltonians, but this
+        allows finer control within the energy level data specific to a single
+        Hamiltonian.  If it is a tuple, each element must be an np.ndarray with
+        a one-to-one correspondence to the energy levels in provided via the
+        data parameter. 
     """
     cpdef public int sl_index
     cpdef public int n_obs
@@ -1136,18 +1144,33 @@ cdef class ExData(object):
     cpdef public np.ndarray id_states
     cpdef public np.ndarray fd_states
     cpdef public np.ndarray e
+    cpdef public np.ndarray w
     cpdef public np.ndarray la
     cpdef public np.ndarray ild
     cpdef public np.ndarray fld
     cpdef public np.ndarray lah
     cpdef public np.ndarray ildh
     cpdef public np.ndarray fldh
-    def __init__(self, data, key=None, label_key=None):
+    def __init__(self, data, key=None, label_key=None, weights=None):
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
-
+        
         if not (isinstance(data, np.ndarray) or isinstance(data, tuple)):
             raise TypeError("The ex data argument must either be of type np.ndarray or " \
                     "tuple, not %s." % type(data))
+        if weights is None:
+            if isinstance(data, np.ndarray):
+                weights = np.ones(data.shape[0], dtype=np.float64)
+            else:
+                weights = (np.ones(data[0].shape[0], dtype=np.float64), 
+                        np.ones(data[1].shape[0], dtype=np.float64))
+        else:
+            if isinstance(weights, np.ndarray):
+                if data.shape[0] != len(weights):
+                    raise ValueError("Weights must be of the same length as data.")
+
+        if not (isinstance(weights, np.ndarray) or isinstance(weights, tuple)):
+            raise TypeError("The weights argument must either be of type np.ndarray or " \
+                    "tuple, not %s." % type(weights))
         if not (isinstance(key, str) or isinstance(key, tuple) or key==None):
             raise TypeError("The key argument must either be of type np.ndarray or tuple, " \
                     "not %s." % type(key))
@@ -1157,16 +1180,22 @@ cdef class ExData(object):
             elif len(data) != 2:
                 raise ValueError("The data argument can at most contain two elements; " \
                         "one absolute energy array and one difference energy array.")
+            elif not all(isinstance(e, np.ndarray) for e in data):
+                raise TypeError("Elements of the data tuple must be of type np.ndarray.")
             elif not isinstance(key, tuple):
                 raise TypeError("If the data argument is a tuple with two " \
                         "elements the key argument must also be a tuple with two elements.")
             elif len(key) != 2:
                 raise ValueError("The key tuple must be the same length as the data tuple.")
-            elif not all(isinstance(d, np.ndarray) for d in data):
-                raise TypeError("Elements of the data tuple must be of type np.ndarray.")
             elif not all(isinstance(k, str) for k in key):
                 raise TypeError("Elements of the key tuple must be of type str.")
-        
+            elif not isinstance(weights, tuple):
+                raise TypeError("Weights must be of type tuple if data is specified as a tuple")
+            elif not all(isinstance(e, np.ndarray) for e in weights):
+                raise TypeError("Elements of the weights tuple must be of type np.ndarray.")
+            elif len(weights) != 2:
+                raise ValueError("The weights argument can at most contain two elements; " \
+                        "one for the absolute energy array and one for the difference energy array.")
         if key != None:
             if not isinstance(key, tuple):
                 # A single key is provided; we therefore make both data and key
@@ -1174,6 +1203,7 @@ cdef class ExData(object):
                 # forced in case of state labels (type(data) != np.ndarray).
                 key = [key]
                 data = [data]
+                weights = [weights]
             
             if any(d.ndim != 2 for d in data):
                 raise ValueError("All data arrays must be two dimensional.")
@@ -1195,17 +1225,21 @@ cdef class ExData(object):
 
                 if k not in ['A', 'D', 'AS', 'DS']:
                     raise ValueError("Invalid key argument; allowed options are 'A', 'D', 'AS', and 'DS'.")
-
         if isinstance(data, np.ndarray):
             if not data.shape[1] == 2:
                 raise ValueError("Incorrect ex data shape; expected a two column array.")
             # No energy level differences.
             self.n_a = data.shape[0]
             self.n_d = 0
+            
+            self.e = np.ascontiguousarray(data[:, 1], dtype=np.float64)
+            self.w = np.ascontiguousarray(weights, dtype=np.float64)
+            
             # Subtract one, since we need an index starting at zero, whereas ex
             # levels start at 1. 
-            self.e = np.ascontiguousarray(data[:, 1], dtype=np.float64)
             self.la = np.ascontiguousarray(data[:, 0]-1, dtype=np.int32)
+
+            
             if len(self.la) != len(set(self.la)):
                 raise ValueError("ex data contains duplicate absolute state label entries.")
         else:
@@ -1253,15 +1287,21 @@ cdef class ExData(object):
                     self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
                     
                 if len(key) == 2:
-                    # Both abs. and diff. levels present; energies are stacked
-                    # with all abs. values before the diff. values. 
+                    # Both abs. and diff. levels present; energies and weights
+                    # are stacked with all abs. values before the diff. values. 
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
                         data[key.index('DS')][:, 2*ll])), dtype=np.float64)
+                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('AS')],
+                        weights[key.index('DS')])), dtype=np.float64)
+
                 elif key[0] == 'AS':
                     self.e = np.ascontiguousarray(data[key.index('AS')][:, ll], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('AS')], dtype=np.float64)
                     self.n_d = 0
+
                 elif key[0] == 'DS':
                     self.e = np.ascontiguousarray(data[key.index('DS')][:, 2*ll], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
                     self.n_a = 0
                     self.la = np.zeros(0)
             else:
@@ -1283,15 +1323,19 @@ cdef class ExData(object):
                     self.ild = np.ascontiguousarray(data[key.index('D')][:, 0]-1, dtype=np.int32)
                     self.fld = np.ascontiguousarray(data[key.index('D')][:, 1]-1, dtype=np.int32)
                 if len(key) == 2:
-                    # Both abs. and diff. levels present; energies are stacked
-                    # with all abs. values before the diff. values. 
+                    # Both abs. and diff. levels present; energies and weights
+                    # are stacked with all abs. values before the diff. values. 
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, 1],
                         data[key.index('D')][:, 2])), dtype=np.float64)
+                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('A')],
+                        weights[key.index('D')])), dtype=np.float64)
                 elif key[0] == 'A':
                     self.e = np.ascontiguousarray(data[key.index('A')][:, 1], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('A')], dtype=np.float64)
                     self.n_d = 0
                 elif key[0] == 'D':
                     self.e = np.ascontiguousarray(data[key.index('D')][:, 2], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('D')], dtype=np.float64)
                     self.n_a = 0
                     self.la = np.zeros(0)
         
@@ -1306,11 +1350,12 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
     ----------
     ex : ExData
         Experimental energy level data object.
-    weights: float, optional
-        Specifies the chi^2 weighting factor for this ex data object.  Defaults
-        to unity.
+    weight: float, optional
+        Specifies the absolute weighting factor of this ex dataset with respect
+        to other ex datasets, or spin Hamiltonians.
     """
     cdef np.ndarray[double, ndim=1, mode="c"] ex_e
+    cdef np.ndarray[double, ndim=1, mode="c"] ex_w
     cdef np.ndarray[int, ndim=1, mode="c"] ex_la
     cdef np.ndarray[int, ndim=1, mode="c"] ex_ild
     cdef np.ndarray[int, ndim=1, mode="c"] ex_fld
@@ -1318,7 +1363,7 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
     cdef np.ndarray[int, ndim=1, mode="c"] ex_ildh
     cdef np.ndarray[int, ndim=1, mode="c"] ex_fldh
     cdef cfl.ex_data *ex_data
-    
+
     ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
     if ex_data == NULL:
         raise MemoryError("ex_data alloc failed")
@@ -1327,11 +1372,16 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
     ex_data.n_a = ex.n_a
     ex_data.n_d = ex.n_d
     ex_e = <np.ndarray[double, ndim=1, mode="c"]> ex.e
+    # Perform global weighting; ex.w is array of ones unless specified otherwise
+    # to ExData constructor. 
+    ex_w = <np.ndarray[double, ndim=1, mode="c"]> ex.w * weight
     # Set to NULL ptr if it's an empty energy array.
     if ex.n_obs:
         ex_data.e = &ex_e[0]
+        ex_data.w = &ex_w[0]
     else:
         ex_data.e = NULL
+        ex_data.w = NULL
 
     if ex.n_a:
         ex_la = <np.ndarray[int, ndim=1, mode="c"]> ex.la
@@ -1368,8 +1418,6 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
         ex_data.ildh = NULL
         ex_data.fldh = NULL
    
-    # Set chi squared weighting.
-    ex_data.chisq_weight = weight
     ex_data_cap = PyCapsule_New(<void *>ex_data, "pycfl.ExData", NULL)
     
     return ex_data_cap

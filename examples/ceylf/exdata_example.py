@@ -14,7 +14,7 @@ from pycf.cfl_util import *
 # Options:  abs - absolute energy level values 
 #           abs_diff - absolute energy level data incl. level differences
 #           sl_diff - state label energy level data incl. level differences
-data_sel = 'abs_diff'
+data_sel = 'abs'
 
 t = ImportSLJM("matel/f1cf")
 coeff = {
@@ -42,7 +42,9 @@ if data_sel == 'abs':
         [9,  2312.8],
         [12, 2428.8],
         [14, 3157.8]])
-    exdata = cfl.ExData(ex, 'A')
+    weights = np.ones(len(ex))
+    exdata = cfl.ExData(ex, 'A', weights=weights)
+
 elif data_sel == 'abs_diff':
     # Mixture of absolute and difference energy level data
     ex_abs = np.array([
@@ -50,11 +52,13 @@ elif data_sel == 'abs_diff':
         [3,     216],
         [8,    2216],
         [9,  2312.6]])
+    w_abs = np.array([1, 2, 1, 2])
     ex_diff = np.array([
         [9,  12, 116.0], 
         [12, 14, 729.0]])
-    
-    exdata = cfl.ExData((ex_abs, ex_diff), ('A', 'D'))
+    w_diff = np.array([2, 1]) 
+    exdata = cfl.ExData((ex_abs, ex_diff), ('A', 'D'), weights=(w_abs, w_diff))
+
 elif data_sel == 'sl_diff':
     # State label energy level data, both absolute and difference. State labels
     # are specified with the quantum numbers of the principal component using

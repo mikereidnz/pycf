@@ -159,13 +159,13 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
         int n_a
         int n_d
         double *e
+        double *w
         int *la
         int *ild
         int *fld
         int *lah
         int *ildh
         int *fldh
-        double chisq_weight
 
     ctypedef struct shx_data:
         double *pa

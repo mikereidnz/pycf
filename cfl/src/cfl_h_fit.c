@@ -65,11 +65,11 @@
  *
  * Fitting is performed by a weighted chi^2 method.  Weights for both energy
  * level data and spin Hamiltonian data can be specified in the ex and shx
- * structs, respectively.  There's a global weighting factor for all energy
- * level data pertaining to a single CF Hamiltonian, whereas spin Hamiltonian
- * interactions can be weighted individually.  Furthermore, a the *fit_chi2
- * functions can be employed to get initial and final values for the chi2
- * contribution of each fit component.
+ * structs, respectively.  There's a weight for each energy level pertaining to
+ * a single CF Hamiltonian, and each spin Hamiltonian interactions can be
+ * weighted individually.  Furthermore, a the *fit_chi2 functions can be
+ * employed to get initial and final values for the chi2 contribution of each
+ * fit component.
  *
  * The basic work flow consists of workspace allocation using the function
  * appropriate to the problem being solved, running the corresponding *fit_chi2
@@ -632,11 +632,12 @@ inline double echisq(double *e, ex_data *d) {
   chisq = 0;
   /* The chisq contribution due to absolute energy level data. */
   for (i = 0; i < d->n_a; i++) {
-    chisq += pow(e[d->la[i]] - d->e[i], 2);
+    chisq += d->w[i] * pow(e[d->la[i]] - d->e[i], 2);
   }
   /* The chisq contribution due to difference energy level data. */ 
   for (i = 0; i < d->n_d; i++) {
-    chisq += pow(fabs(e[d->fld[i]] - e[d->ild[i]]) - d->e[i+d->n_a], 2);
+    chisq += d->w[i+d->n_a] * pow(fabs(e[d->fld[i]] - e[d->ild[i]]) 
+        - d->e[i+d->n_a], 2);
   }
 
   return chisq;
@@ -821,7 +822,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
       else {
         zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
       }
-      chisq += d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
+      chisq += echisq(d->eval[hi], d->exa[i]);
     }
   }
   else {
@@ -830,7 +831,7 @@ double mhfit_obj(size_t n, double *x, double *grad, void *data) {
       hi = d->hi[i];
       parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
       zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-      chisq += d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
+      chisq += echisq(d->eval[hi], d->exa[i]);
     }
   }
 
@@ -856,7 +857,7 @@ double eshfit_obj(size_t n, double *x, double *grad, void *data) {
     chisq = 0;
   } 
   else {
-    chisq = d->ex->chisq_weight * echisq(d->eval, d->ex);
+    chisq = echisq(d->eval, d->ex);
   }
 
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
@@ -891,7 +892,7 @@ double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) {
     chisq = 0;
   } 
   else {
-    chisq = d->ex->chisq_weight * echisq(d->eval, d->ex);
+    chisq = echisq(d->eval, d->ex);
   }
 
   /* Diagonalize the projection Hamiltonian. */
@@ -928,8 +929,10 @@ double meshfit_obj(size_t n, double *x, double *grad, void *data) {
 }
 
 
-/*  Function used to get an initial estimate of chi^2 values, for energy level
- *  fit only. */
+/*  Function used to get chi^2 values, for energy level fit only.  This
+ *  function, along with the other variants like it, are here in addition to the
+ *  objective function in order to allow the passing of a chi2 vector and
+ *  therefore to provide a means of passing individiual chi2 values to python. */
 void efit_chi2(double *x, void *data, double *chi2) {
   efit_data *d = data;
 
@@ -964,7 +967,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
       else {
         zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
       }
-      chi2[i] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
+      chi2[i] = echisq(d->eval[hi], d->exa[i]);
     }
   }
   else {
@@ -972,7 +975,7 @@ void mhfit_chi2(double *x, void *data, double *chi2) {
       hi = d->hi[i];
       parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
       zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
-      chi2[i] = d->exa[i]->chisq_weight*echisq(d->eval[hi], d->exa[i]);
+      chi2[i] = echisq(d->eval[hi], d->exa[i]);
     }
   }
 }
@@ -994,7 +997,7 @@ void eshfit_chi2(double *x, void *data, double *chi2) {
     chi2[0] = 0;
   } 
   else {
-    chi2[0] = d->ex->chisq_weight * echisq(d->eval, d->ex);
+    chi2[0] = echisq(d->eval, d->ex);
   }
   
   /* Project out the spin Hamiltonian, and invert the result to obtain the spin
@@ -1026,7 +1029,7 @@ void eshfit_hpro_chi2(double *x, void *data, double *chi2) {
     chi2[0] = 0;
   } 
   else {
-    chi2[0] = d->ex->chisq_weight * echisq(d->eval, d->ex);
+    chi2[0] = echisq(d->eval, d->ex);
   }
 
   /* Diagonalize the projection Hamiltonian, project out the spin Hamiltonian,
@@ -1062,18 +1065,19 @@ void meshfit_chi2(double *x, void *data, double *chi2) {
 
 
 /* Chi^2 for energy levels, non-linear least squares implementation. */
-inline void nls_echisq(double *e, ex_data *d, double *y, double weight) {
+inline void nls_echisq(double *e, ex_data *d, double *y) {
   int i, ii;
 
   ii = 0;
   /* The chisq contribution due to absolute energy level data. */
   for (i = 0; i < d->n_a; i++) {
-    y[ii] = e[d->la[i]] - d->e[i];
+    y[ii] = d->w[i] * e[d->la[i]] - d->e[i];
     ii++;
   }
   /* The chisq contribution due to difference energy level data. */ 
   for (i = 0; i < d->n_d; i++) {
-    y[ii] = fabs(e[d->fld[i]] - e[d->ild[i]]) - d->e[i+d->n_a];
+    y[ii] = d->w[i+d->n_a] * fabs(e[d->fld[i]] - e[d->ild[i]]) 
+      - d->e[i+d->n_a];
     ii++;
   }
 }
@@ -1091,7 +1095,7 @@ void efit_nls(double *x, void *data, double *y) {
     zhd('N', d->eval, NULL, d->h, d->hd_w);
   }
 
-  nls_echisq(d->eval, d->ex, y, 1.0);
+  nls_echisq(d->eval, d->ex, y);
 }
 
 /* Objective function for multi-eigenvalue vector fit. */
@@ -1111,8 +1115,7 @@ void mhfit_nls(double *x, void *data, double *y) {
       else {
         zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
       }
-      nls_echisq(d->eval[hi], d->exa[i], &y[d->n_rx_rt[i]],
-          d->exa[i]->chisq_weight);
+      nls_echisq(d->eval[hi], d->exa[i], &y[d->n_rx_rt[i]]);
     }
   }
   else {
@@ -1122,8 +1125,7 @@ void mhfit_nls(double *x, void *data, double *y) {
       parse_param_data(d->n_zx[i], d->p[i], d->ha[i]->coeff, x);
       zhd('N', d->eval[hi], NULL, d->ha[i], d->hd_w[hi]);
       
-      nls_echisq(d->eval[hi], d->exa[i], &y[d->n_rx_rt[i]],
-          d->exa[i]->chisq_weight);
+      nls_echisq(d->eval[hi], d->exa[i], &y[d->n_rx_rt[i]]);
     }
   }
 }
