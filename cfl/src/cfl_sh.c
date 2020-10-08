@@ -559,8 +559,6 @@ void svd_sym(double *a, svd_sym_w *w) {
     CFL_ERROR_VOID(lapack_err);
   }
 
-  /* w->work is at least 5*MIN(M,N), which in our case is 15.  Therefore, we can
-   * use w->work as a matrix multiplication workspace. */
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->tmp_a, 3,
       w->u, 3, 0, w->dgemm_a, 3);
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->dgemm_a,
