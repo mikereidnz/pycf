@@ -18,7 +18,7 @@ def nn_coords(struct, site, r):
         xyz = N[0].coords-origin
         spc[i, 0] = LA.norm(xyz)
         spc[i, 1] = np.arccos(xyz[2]/spc[i,0])
-        spc[i, 2] = np.arctan(xyz[1]/xyz[0])
+        spc[i, 2] = np.arctan2(xyz[1],xyz[0])
 
     return spc
 
