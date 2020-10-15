@@ -392,7 +392,7 @@ cdef class Hamiltonian:
                 self.coeff = np.append(self.coeff, coeff[t.get_name()])
             except KeyError:
                 raise KeyError("Missing coefficient for tensor: %s" % t.get_name())
-        
+       
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
 
@@ -416,9 +416,8 @@ cdef class Hamiltonian:
                     "update_coeff.")
         elif not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
-
+        
         self.coeff_dict.update(copy.deepcopy(coeff))
-
         self.coeff = np.array([], dtype=np.complex128)
         for t in self.tensors:
             self.coeff = np.append(self.coeff, self.coeff_dict[t.get_name()])
@@ -628,7 +627,7 @@ cdef sh_hpro_helper(h, sh):
     """
     # If not present, add small magnetic field to Hamiltonian to order
     # states.
-    if 'MAGZS' not in h.coeff_dict:
+    if not any([t.get_name() == 'MAGZS' for t in h.tensors]):
         for t in sh.tensors:
             if t.get_name() == 'MAGZ':
                 magzs = 1e-6 * t
@@ -638,6 +637,8 @@ cdef sh_hpro_helper(h, sh):
         tmp_h_coeff['MAGZS'] = 1
         h = Hamiltonian([magzs] + h.tensors)
         h.set_coeff(tmp_h_coeff)
+    else:
+        h.update_coeff({'MAGZS' : 1})
 
     # Check whether the provided Hamiltonian contains spin Hamiltonian
     # interaction matrix elements, in which case we create a separate
@@ -1070,7 +1071,11 @@ cdef class SpinHamiltonian:
                 sh_matel['quadrupole'] = b.reshape(self.dq, self.dq)
         
         zshp_w_free(shp_w)
- 
+        
+        # Set small magnetic field that was used for state-label sorting to
+        # zero.
+        h.update_coeff({'MAGZS': 0}) 
+
         if matel:
             return ((result_list, sh_matel))
         else:
@@ -2240,6 +2245,7 @@ cdef class ESHFit(object):
                 svd = <char> 'N'
         else:
             svd = <char> 'N'
+        
         # Create array of experimental spin Hamiltonian data.
         try:
             (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx, weights)
@@ -2353,14 +2359,13 @@ cdef class ESHFit(object):
             else:
                 params[p] = x[ri]
                 ri += 1
-        
         chi2 = np.ascontiguousarray(np.zeros(len(self.sh.interactions)+1, dtype=np.float64))
         if (self.hpro != None):
             cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
         else:
             cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
         self.chi2 = chi2
-
+        
         return(params, fmin)
 
     @cython.boundscheck(False)
@@ -2638,6 +2643,7 @@ cdef class MESHFit(object):
         # Set initial values.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         set_param_helper(self)
+        self.param_arrays = param_arrays
 
         # Create list of experimental spin Hamiltonian data arrays.
         shx_arrays = []
@@ -2733,18 +2739,17 @@ cdef class MESHFit(object):
             ex_i = <cfl.ex_data *>PyCapsule_GetPointer(self.ex_data[i], "pycfl.ExData")
             if ex_i != NULL:
                 free(ex_i)
-       
             pa_hi = <cfl.param_type **>PyCapsule_GetPointer(self.param_arrays[i], "pycfl.ParamArrays")
             if pa_hi != NULL:
                 for j in range(len(self.h_param_list[i])):
                     free(pa_hi[j])
                 free(pa_hi)
-
-            shx_i = <cfl.shx_data **>PyCapsule_GetPointer(self.shx_arrays[i], "pycfl.ShxArray")
-            if shx_i != NULL:
-                for j in range(len(self.sh_list[i].interactions)):
-                    free(shx_i[j])
-                free(shx_i)
+            if self.shx_arrays[i] is not None:
+                shx_i = <cfl.shx_data **>PyCapsule_GetPointer(self.shx_arrays[i], "pycfl.ShxArray")
+                if shx_i != NULL:
+                    for j in range(len(self.sh_list[i].interactions)):
+                        free(shx_i[j])
+                    free(shx_i)
         if self.eshfit_array != NULL:
             for i in range(self.n_h):
                 cfl.eshfit_data_free(self.eshfit_array[i])
@@ -3494,8 +3499,12 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(eshfit.n_p_real - eshfit.n_obs, 1)
-
-    sh_param = sh.calc_param(h)
+    
+    if 'svd_sym' in kwargs:
+        svd = kwargs['svd_sym']
+    else:
+        svd = False
+    sh_param = sh.calc_param(h, svd_sym=svd)
     
     if eshfit.ex.n_d != 0:
         summary += h.gen_summary() + "\n\n"
