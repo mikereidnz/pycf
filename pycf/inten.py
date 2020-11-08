@@ -317,3 +317,183 @@ class AltpData(object):
         s += "\n"
         
         return s
+
+
+def vtrans(tensors, z):
+    """
+    Transform tensor matrix elements into eigenbasis previously calculated by
+    diagonalizing a Hamiltonian. 
+
+    Parameters
+    ----------
+    tensors : list
+        Elements are tensors of type cfl.Tensor.
+    z : np.ndarray 
+        The eigenvectors, columnwise, used for the transformation.  This is
+        generally the second output variable from h.diag() where H is a
+        cfl.Hamiltonian. 
+    """
+    tensor_dict = {}
+    vtrans_ten = ['U20', 'U21', 'U22', 'U23', 'U40', 'U41', 'U42', 'U43', 'U44',
+            'U60', 'U61', 'U62', 'U63', 'U64', 'U65', 'U66', 'M10', 'M11']
+    
+    for t in tensors:
+        if t.name not in vtrans_ten:
+            raise ValueError("Unsupported tensor passed to vtrans: %s" % t.name)
+        
+        matel = z.conj().T@t.get_matel()@z
+
+        q = int(t.name[2])
+        if q != 0:
+#            tensor_dict[t.name] = 1/np.sqrt(2)*matel
+#            tensor_dict['%s-%i' % (t.name[:2], q)] = -1/np.sqrt(2)*matel.conj().T
+            tensor_dict[t.name] = matel
+            tensor_dict['%s-%i' % (t.name[:2], q)] = -matel.conj().T
+        else:
+            tensor_dict[t.name] = matel
+
+    return tensor_dict
+
+
+def dipole_str(lrange, tensor_dict, w, md=True, ed=False, Altp=None):
+    """
+    Parameters
+    ----------
+    lrange : list
+        The level range, with entries: [first initial level, last initial level,
+        first final level, last final level].  The level index convention calls
+        the ground state level 1.
+    tensor_dict : dict
+        Expects specific keys (M10, M11, M1-1) pointing to matrix elements of
+        the dipole operator in the eigenbasis of the Hamiltonian. 
+    """
+    e =  1e10# 4.803246e-10       # esu 
+    clight = 2.997925e10    # cm/sec 
+    hbar = 1.0545903e-27    # erg-sec 
+    me = 9.109553e-28        # gm 
+    md_prefac = -(e*hbar) / (2 * me * clight)
+    dipole_cutoff = 1e-15 # Throw out dipole moments less than this
+   
+
+    if ed:
+        D_factor = {}
+        if Altp is None:
+            raise ValueError("ed is True but no Altp parameters were provided")
+        for A in Altp:
+            l = int(A[0][1])
+            t = int(A[0][2])
+            pp = int(A[0][3])
+            
+            # Evaluate the Clebsch-Gordon coefficient of Eq. (9), Reid and Richardson J.
+            # Chem. Phys. 79, 5735 (1983). Note: sign factor includes additional (-1)^q
+            for q in [-1, 0, 1]:
+                for p in np.unique([-pp, pp]):
+                    CG_coeff = np.sqrt(2*t+1)*wigner_3j(l,1,t,p+q,-q,-p)
+                    if (l-1+p+q) % 2 != 0:
+                        CG_coeff *= -1
+                    #print('% i % i % i % i % i  %f' % (l, t, p+ q, p, q, factor))
+                    D_factor['%i%i%i%i' % (l, t, p, q)] = CG_coeff
+    trs = []
+    for i in lrange[0]:
+        for f in lrange[1]:
+            md_str = [0, 0, 0]
+            ed_str = [0, 0, 0]
+            if md:
+                keys = ['M1-1', 'M10', 'M11']
+                if not any(k in tensor_dict for k in keys):
+                    raise ValueError("Missing all or some of the magnetic dipole "\
+                            "operator matrix elements. Required tensors are 'M1-1', "\
+                            "'M10', 'M11'")
+                md_str = [np.real(md_prefac*tensor_dict[k][i, f])**2 for k in keys]
+            if ed:
+                for A in Altp:
+                    l = int(A[0][1])
+                    t = int(A[0][2])
+                    pp = int(A[0][3])
+                    for q in [-1, 0, 1]:
+                        for p in np.unique([-pp, pp]):
+                            if -l <= (p+q) <= l:
+                                k = 'U%i%i' % (l, p+q)
+                                D = -e * A[1] * D_factor['%i%i%i%i' % (l, t, p, q)] * tensor_dict[k][i, f]
+                                ed_str[q] += np.real(D)**2
+
+            if any(d > dipole_cutoff for d in md_str) or any(d > dipole_cutoff for d in ed_str):
+                isotropic = sum(md_str)/3 + sum(ed_str)/3
+                pi = md_str[0]+md_str[2] + ed_str[1]
+                sigma = md_str[1] + ed_str[0]+ed_str[2]
+
+                trs += [{'md_-1': md_str[0], 'md_0': md_str[1], 'md_+1': md_str[2], 
+                    'ed_-1': ed_str[0], 'ed_0': ed_str[1], 'ed_+1': ed_str[2],
+                    'isotropic': isotropic, 'pi': pi, 'sigma': sigma, 
+                    'ei': w[i], 'ef': w[f], 'e': w[f]-w[i]}]
+
+    return trs
+
+
+def boltzmann_factor(e, t):
+    """
+    The Boltzmann factor for a given energy e and temperature t in units
+    of cm^-1 K^-1.
+    """
+    if t < 0:
+        ans = 0
+    elif t == 0:
+        ans = 1
+    else:
+        ans = np.exp(-e / (t * 0.6952))
+
+    return(ans)
+      
+
+def lorentzian(x, x0, fwhm):
+    """
+    Lorentzian function.
+    """
+    gamma_sq = (fwhm / 2)**2
+
+    return(gamma_sq / ((x - x0)**2 + gamma_sq))
+
+
+def inten(trs, polarization, linewidth, T, xlim=None, npoints=1000):
+    """
+    
+    Parameters
+    ----------
+    lrange : list
+        The level range, with entries: [first initial level, last initial level,
+        first final level, last final level].  The level index convention calls
+        the ground state level 1.
+    """
+    
+    # Determine the smallest initial energy level, which we assume to be the
+    # ground state (used for scaling other energies for boltzmann factor... this
+    # behavior is not really obvious.
+    min_energy = min(trs, key = lambda tr: tr['ei'])['ei']
+
+    if xlim is None:
+        xmin = min(trs, key = lambda tr: tr['e'])['e']
+        xmax = max(trs, key = lambda tr: tr['e'])['e']
+        # add some padding to plotting range
+        xmin -= 50*linewidth
+        xmax += 50*linewidth
+        xlim = [xmin, xmax]
+    
+    ntrs = len(trs)
+    initial_energies = np.zeros(ntrs)
+    curve_energies = np.linspace(xlim[0], xlim[1], npoints)
+    curve_inten = np.zeros(npoints)
+    line_energies = np.zeros(ntrs)
+    line_inten = np.zeros(ntrs)
+    
+    
+    for i,tr in enumerate(trs):
+        line_energies[i] = tr['e']
+
+        # Calculate the individual line intensities.
+        line_inten[i] = boltzmann_factor(tr['ei'] - min_energy, T) * tr[polarization]
+        # Calculate the cumulative curve intensity.  
+        curve_inten += line_inten[i] * lorentzian(curve_energies, line_energies[i], linewidth)
+    
+
+    return (line_energies, line_inten, curve_energies, curve_inten)
+
