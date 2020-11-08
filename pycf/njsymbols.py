@@ -34,12 +34,12 @@ def tricon_ck(a, b, c):
     Triangular condition check; returns True if the triangular condition on the
     three integers or half-integers a, b and c is satisfied.
     """
-    return(a + b >= c and c >= np.abs(a - b))
+    return (a + b >= c and c >= np.abs(a - b))
 
 
 def wigner_3j(j1, j2, j3, m1, m2, m3):
     r"""
-    Calculate the Wigner 3j symbol, give in terms of the Clebsch-Gordon
+    Calculate the Wigner 3j symbol, given in terms of the Clebsch-Gordon
     coefficents as
 
     .. math::
@@ -72,27 +72,39 @@ def wigner_3j(j1, j2, j3, m1, m2, m3):
 
     Notes
     -----
-    Uses the recursive algorithm for Clebsch-Gordon coefficients from page 44,
-    Edmonds - Angular Momentum in Quantum Mechanics.
+    Uses the algorithm from Wybourne, notes on "Analysis of Hyperfine Structure
+    in Crystals."    
     """
+    
+    def phase(n):
+        "(-1)^n which for n an integer (both positive and negative)"
+        if n % 2 == 0:
+            p = 1
+        else: 
+            p = -1
+        return p
 
-    if tricon_ck(j1, j2, j3) and (m1 + m2 + m3 == 0):
-        phase = (-1)**(j1 - j2 - m3)
+    if not tricon_ck(j1, j2, j3):
+        result = 0
+    elif (m1 + m2 + m3 != 0):
+        result = 0
+    elif any(np.abs(m) > j for m,j in zip([m1, m2, m3], [j1, j2, j3])):
+        result = 0
+    else:
+        p = phase(j1-j2-m3)
         pre_fact = np.sqrt((factorial(j1 + j2 - j3) * factorial(j1 - m1) * 
             factorial(j2 - m2) * factorial(j3 + m3) * factorial(j3 -
             m3))/(factorial(j1 + j2 + j3 + 1) * factorial(j3 + j1 - j2) *
             factorial(j3 + j2 - j1) * factorial(j1 + m1) * factorial(j2 + m2)))
-        xmin = max(0, j3 - j2 - m1)
-        xmax = min(j3 + m3, j1 - m1)
+        xmin = max([0, j3 - j2 - m1])
+        xmax = min([j3 + m3, j1 - m1, j3 + j2 - m1])
         xlist = np.arange(xmin, xmax + 1)
-        result = phase * pre_fact * fsum([((-1)**(j1 - m1 - x) * (factorial(j1 
+        result = p * pre_fact * fsum([(phase(j1 - m1 - x) * (factorial(j1 
             + m1 + x) * factorial(j3 + j2 - m1 - x))/(factorial(x) *
             factorial(j3 + m3 - x) * factorial(j1 - m1 - x) * factorial(j2 - j3
             + m1 + x))) for x in xlist])
-    else:
-        result = 0
 
-    return(result)
+    return result 
 
 
 def wigner_6j(a, b, c, d, e, f):
@@ -155,7 +167,7 @@ def wigner_6j(a, b, c, d, e, f):
     else:
         result = 0
 
-    return(result)
+    return result 
 
 
 def wigner_9j(a, b, c, d, e, f, g, h, i):
@@ -206,9 +218,10 @@ def wigner_9j(a, b, c, d, e, f, g, h, i):
         xmax = min(a + i, h + d, b + f)
         xmin = max(abs(a - i), abs(h - d), abs(b - f))
         xlist = np.arange(xmin, xmax + 1)
-        result = fsum([((complex(-1)**(2 * x)) * (2 * x + 1) * wigner_6j(a, d, g, h,
+        result = fsum([(((-1)**(2 * x)) * (2 * x + 1) * wigner_6j(a, d, g, h,
             i, x) * wigner_6j(b, e, h, d, x, f) * wigner_6j(c, f, i, x, a, b))
             for x in xlist])
     else:
         result = 0
-    return(result)
+
+    return result 
