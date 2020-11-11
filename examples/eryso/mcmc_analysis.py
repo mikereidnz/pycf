@@ -4,9 +4,6 @@ from __future__ import division
 import numpy as np
 from matplotlib import pyplot as plt
 
-chi2 = np.load('2018-07-05_eryso_site1_chi2accept.npy')
-x = np.load('2018-07-05_eryso_site1_xaccept.npy')
-
 chi2 = np.load('2018-08-08_eryso_site1_chi2accept.npy')
 x = np.load('2018-08-08_eryso_site1_xaccept.npy')
 
@@ -38,52 +35,52 @@ all_param = [['EAVG'], ['ZETA'],['F2'], ['F4'], ['F6'], ['C20'], ['C21', 'C21I']
 plt_param = all_param
 
 n = len(plt_param)
-## Correlation between parameters 
-#fig = plt.figure(1)
-#for i,pi in enumerate(plt_param):
-#    for j,pj in enumerate(plt_param):
-#        ax = fig.add_subplot(n,n,j+i*n+1)
-#        for ii,pii in enumerate(pi):
-#           for jj,pij in enumerate(pj):
-#                ax.scatter(x[:, param_ord.index(pii)],x[:, param_ord.index(pij)], label='l', color = 'C%i'%(ii*2+jj))
-#        if (j == 0):
-#            ax.set_ylabel(pi[0])
-#        if (i == n-1):
-#            ax.set_xlabel(pj[0])
-#        
-#handles, labels = ax.get_legend_handles_labels()
-#fig.legend(handles, ['Re(x)-Re(y)', 'Re(y)-Im(x)', 'Re(x)-Im(y)', 'Im(x)-Im(y)'], loc='upper right')
-#
-#
-## Histograms of posterior distribution samples
-#fig = plt.figure(2)
-#
-#for i,pi in enumerate(plt_param):
-#    for ii,pii in enumerate(pi):
-#        ax = fig.add_subplot(n,2,i*2+ii+1)
-#        ax.hist(x[:,param_ord.index(pii)])
-#        s = np.std(x[:,param_ord.index(pii)])
-#        mu = np.mean(x[:,param_ord.index(pii)])
-#        ax.text(0.75, 0.8, r'$\mu=%.2f,\ \sigma=%.2f$' % (mu, s), transform=ax.transAxes, fontweight='bold')
-#        ax.set_yticklabels([])
-#        if (ii == 0):
-#            ax.set_ylabel(pi[0])
-#        if (i == n-1):
-#            if (ii == 0):
-#                ax.set_xlabel("Re(p)")
-#            else:
-#                ax.set_xlabel("Im(p)")
-#
-#uncert = []
-#for i,pi in enumerate(plt_param):
-#    if len(pi) == 2:
-#        s = np.std(x[:,param_ord.index(pi[0])]) + np.std(x[:,param_ord.index(pi[1])])*np.complex(0,1)
-#    else:
-#        s = np.std(x[:,param_ord.index(pi[0])])
-#    uncert += [s]
+# Correlation between parameters 
+fig = plt.figure(1)
+for i,pi in enumerate(plt_param):
+    for j,pj in enumerate(plt_param):
+        ax = fig.add_subplot(n,n,j+i*n+1)
+        for ii,pii in enumerate(pi):
+           for jj,pij in enumerate(pj):
+                ax.scatter(x[:, param_ord.index(pii)],x[:, param_ord.index(pij)], label='l', color = 'C%i'%(ii*2+jj))
+        if (j == 0):
+            ax.set_ylabel(pi[0])
+        if (i == n-1):
+            ax.set_xlabel(pj[0])
+        
+handles, labels = ax.get_legend_handles_labels()
+fig.legend(handles, ['Re(x)-Re(y)', 'Re(y)-Im(x)', 'Re(x)-Im(y)', 'Im(x)-Im(y)'], loc='upper right')
 
-#print("Parameter uncertainties:")
-#print(uncert)
+
+# Histograms of posterior distribution samples
+fig = plt.figure(2)
+
+for i,pi in enumerate(plt_param):
+    for ii,pii in enumerate(pi):
+        ax = fig.add_subplot(n,2,i*2+ii+1)
+        ax.hist(x[:,param_ord.index(pii)])
+        s = np.std(x[:,param_ord.index(pii)])
+        mu = np.mean(x[:,param_ord.index(pii)])
+        ax.text(0.75, 0.8, r'$\mu=%.2f,\ \sigma=%.2f$' % (mu, s), transform=ax.transAxes, fontweight='bold')
+        ax.set_yticklabels([])
+        if (ii == 0):
+            ax.set_ylabel(pi[0])
+        if (i == n-1):
+            if (ii == 0):
+                ax.set_xlabel("Re(p)")
+            else:
+                ax.set_xlabel("Im(p)")
+
+uncert = []
+for i,pi in enumerate(plt_param):
+    if len(pi) == 2:
+        s = np.std(x[:,param_ord.index(pi[0])]) + np.std(x[:,param_ord.index(pi[1])])*np.complex(0,1)
+    else:
+        s = np.std(x[:,param_ord.index(pi[0])])
+    uncert += [s]
+
+print("Parameter uncertainties:")
+print(uncert)
 
 ## Autocorrelation of x vectors
 def acf(x):

@@ -179,34 +179,7 @@ hf_pd = {'a': np.array([ -66.15555132,    6.39162656,  930.61283071]),
         'z': np.array([ -55.69957211,    4.80461517,  802.89630244])}
 
 # High frequency RH data level indices.
-# Note: the good fit from early days had "n i p a ab". No v!
 hf_li = {
-        ## First set of 4 are solid; linked to 85 MHz ac line via 136
-        #'n': [135, 138],
-        #'i': [135, 137],
-        #'t': [136, 137],
-        #'l': [136, 138],
-        #'f': [131, 133], # only valid at 0.5 mT
-        #'g': [132, 134], # only valid at 0.5 mT
-        ## Next 3 seem solid (in particular, 'ab' & 'a'
-        #'p': [7, 10],
-        #'ab':[6, 8],
-        #'a': [9, 11],
-        ## Maybe not actually correct? Could be line below that one with identical shape
-        #'v': [6, 7],
-        ## It seems like 'm' and 'h' are solid
-        #'m': [7, 9],
-        #'h': [8, 10],
-        ## Almost have to be correct, no other gs lines around... 
-        #'e': [1, 3], # only valid at 0.5 mT
-        #'d': [2, 4], # only valid at 0.5 mT
-        ## Unclear for now... 137-139 might be at kite level
-        #'z': [137, 139], # only valid at 0 mT
-        #'x': [138, 140], # only valid at 0 mT
-        ## Re-assigned to 131-133 and 132-134
-        #'b': [130, 132], # only valid at 0 mT
-        #'c': [129, 131], # only valid at 0 mT
-
         'n': [135, 138],
         'i': [135, 137],
         't': [136, 137],
