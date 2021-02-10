@@ -749,13 +749,11 @@ def rJmmp(j, m, mp, beta):
     r"""
     Equation (C.72) of Messiah. 
     
-    Note: make sure there's nothing weird with factors of 2 in j, m, mp.
-
     Parameters
     ----------
-    j : half int
-    m : half int
-    mp : int
+    j : half int or int
+    m : half int or int 
+    mp : half int or int
     beta : float
         Angle in radians
     """
@@ -784,7 +782,8 @@ def WignerR(j, m, mp, alpha, beta, gamma):
     r""" 
     Implement Wigner rotation of state vector; Eq. (C56) of Messiah.
 
-    Angles in radians, true angular momentum numbers (half integer/integer). 
+    Angles in radians, no factors of 2 in angular momentum quantum numbers (that
+    is, j, m, and mp are either integer or half integer). 
     """
 
     r1 = np.exp(-1j*alpha*m)
@@ -797,7 +796,7 @@ def WignerR(j, m, mp, alpha, beta, gamma):
 def rotate_cf_params(coeff, alpha, beta, gamma):
     r"""
     Rotate crystal-field parameters by angles alpha, beta, and gamma, using the
-    Euler angle convention of Messiah. 
+    Euler angle convention of Messiah (zyz'). 
 
     Parameters
     ----------
