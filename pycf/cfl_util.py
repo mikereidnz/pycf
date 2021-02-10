@@ -740,3 +740,113 @@ def bal_bounds(coeff, bounds):
             pass
 
     return bal_b
+
+
+def rJmmp(j, m, mp, beta):
+    r"""
+    Equation (C.72) of Messiah. 
+    
+    Note: make sure there's nothing weird with factors of 2 in j, m, mp.
+
+    Parameters
+    ----------
+    j : half int
+    m : half int
+    mp : int
+    beta : float
+        Angle in radians
+    """
+
+
+    if j < abs(m) or j < abs(mp):
+        r = 0
+    else:
+        xi = np.cos(0.5*beta)
+        eta = np.sin(0.5*beta)
+        tmin = max([0, m - mp])
+        tmax = min([j + m, j- mp])
+        
+        prefact = np.sqrt(factorial(j+m) * factorial(j-m) * factorial(j+mp) *
+                factorial(j-mp))
+        tlist = np.arange(tmin, tmax+1)
+        r = fsum((((-1)**t * 1/(factorial(j+m-t) * factorial(j-mp-t) * factorial(t)
+            * factorial(t-m+mp)) * xi**(2*j+m-mp-2*t) * eta**(2*t-m+mp)) for t in
+            tlist))
+        r *= prefact
+
+
+    return r
+
+def WignerR(j, m, mp, alpha, beta, gamma):
+    r""" 
+    Implement Wigner rotation of state vector; Eq. (C56) of Messiah.
+
+    Angles in radians, true angular momentum numbers (half integer/integer). 
+    """
+
+    r1 = np.exp(-1j*alpha*m)
+    r2 = rJmmp(j, m, mp, beta)
+    r3 = np.exp(-1j*gamma*mp)
+    
+    return r1*r2*r3
+
+
+def rotate_cf_params(coeff, alpha, beta, gamma):
+    r"""
+    Rotate crystal-field parameters by angles alpha, beta, and gamma, using the
+    Euler angle convention of Messiah. 
+
+    Parameters
+    ----------
+    coeff : dict
+        Coefficient dictionary in the usual format. Only parametrs with names
+        Ckq, where k and q are zero or positive integers, are touched. These
+        will be rotated by the specified Euler angles.
+    alpha : float
+        First Euler angle using zyz' convention (in radians).
+    beta : float
+        Second Euler angle using zyz' convention (in radians).
+    gamma : float
+        Third Euler angle using zyz' convention (in radians).
+
+    Returns
+    -------
+    rcoeff : dict
+        A copy of coeff with all parameters of for Ckq transformed by the
+        specified Euler rotation.
+    """
+    k_list = [2, 4, 6]
+    p_list = []     # List of parameter lists (sublists indexed by k)
+    for i,k in enumerate(k_list):
+        p_list += [[0]*(2*k+1)]
+        for ii,q in enumerate(range(-k, k+1)):
+            try:
+                p_list[i][ii] = coeff['C%i%i' % (k, q)]
+            except KeyError:
+                pass
+    
+    rp_list = []    # Rotated list of parameter lists
+    for i,p in enumerate(p_list):
+        if np.sum(p) != 0:
+            rp = np.zeros(len(p), dtype=np.complex)
+            j = k_list[i]
+            for mi,m in enumerate(np.arange(-j, j+1)):
+                for mpi,mp in enumerate(np.arange(-j, j+1)):
+                    rp[mi] += WignerR(j, m, mp, alpha, beta, gamma)*p[mpi]
+            rp_list += [rp]
+        else:
+            rp_list += [p]
+    
+    rcoeff = coeff.copy()
+    for i,k in enumerate(k_list):
+        # Only want complex q >=0 parameters (negative q are redundant)
+        for ii,q in enumerate(range(0, k+1)):
+            ii += k  
+            if rp_list[i][ii] != 0:
+                try:
+                    rcoeff['C%i%i' % (k, q)] = rp_list[i][ii]
+                except KeyError:
+                    pass
+    
+    return rcoeff
+
