@@ -24,6 +24,9 @@ from datetime import datetime
 import os, inspect
 from pycf.__version__ import __version__ 
 
+from scipy.special import factorial
+from math import fsum
+
 def uline_char(s):
     """Underline all non-whitespace characters in a string, except for single
     spaces between non-whitespace characters."""
