@@ -759,9 +759,7 @@ def rJmmp(j, m, mp, beta):
     """
 
 
-    if j < abs(m) or j < abs(mp):
-        r = 0
-    else:
+    if j >= abs(m) and j >= abs(mp):
         xi = np.cos(0.5*beta)
         eta = np.sin(0.5*beta)
         tmin = max([0, m - mp])
@@ -774,7 +772,8 @@ def rJmmp(j, m, mp, beta):
             * factorial(t-m+mp)) * xi**(2*j+m-mp-2*t) * eta**(2*t-m+mp)) for t in
             tlist))
         r *= prefact
-
+    else:
+        r = 0
 
     return r
 
@@ -821,12 +820,16 @@ def rotate_cf_params(coeff, alpha, beta, gamma):
     p_list = []     # List of parameter lists (sublists indexed by k)
     for i,k in enumerate(k_list):
         p_list += [[0]*(2*k+1)]
-        for ii,q in enumerate(range(-k, k+1)):
+        for q in range(k+1):
             try:
-                p_list[i][ii] = coeff['C%i%i' % (k, q)]
+                p_list[i][k+q] = coeff['C%i%i' % (k, q)]
+                if q != 0:
+                    # (Bkq)* = (-1)^q Bk-q
+                    p_list[i][k-q] = (-1)**q * np.conj(p_list[i][k+q])
             except KeyError:
                 pass
-    
+
+    # Implement Eq. (C76) of Quantum Mechanics - Messiah.
     rp_list = []    # Rotated list of parameter lists
     for i,p in enumerate(p_list):
         if np.sum(p) != 0:
@@ -841,7 +844,8 @@ def rotate_cf_params(coeff, alpha, beta, gamma):
     
     rcoeff = coeff.copy()
     for i,k in enumerate(k_list):
-        # Only want complex q >=0 parameters (negative q are redundant)
+        # Only want complex q >=0 parameters (negative q is implict for complex
+        # valued Bkq given (Bkq)* = (-1)^q Bk-q). 
         for ii,q in enumerate(range(0, k+1)):
             ii += k  
             if rp_list[i][ii] != 0:
