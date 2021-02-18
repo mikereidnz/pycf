@@ -345,10 +345,10 @@ def vtrans(tensors, z):
 
         q = int(t.name[2])
         if q != 0:
-#            tensor_dict[t.name] = 1/np.sqrt(2)*matel
-#            tensor_dict['%s-%i' % (t.name[:2], q)] = -1/np.sqrt(2)*matel.conj().T
-            tensor_dict[t.name] = matel
-            tensor_dict['%s-%i' % (t.name[:2], q)] = -matel.conj().T
+            tensor_dict[t.name] = 1/np.sqrt(2)*matel
+            tensor_dict['%s-%i' % (t.name[:2], q)] = -1/np.sqrt(2)*matel.conj().T
+#            tensor_dict[t.name] = matel
+#            tensor_dict['%s-%i' % (t.name[:2], q)] = -matel.conj().T
         else:
             tensor_dict[t.name] = matel
 
@@ -419,7 +419,7 @@ def dipole_str(lrange, tensor_dict, w, md=True, ed=False, Altp=None):
 
             if any(d > dipole_cutoff for d in md_str) or any(d > dipole_cutoff for d in ed_str):
                 isotropic = sum(md_str)/3 + sum(ed_str)/3
-                pi = md_str[0]+md_str[2] + ed_str[1]
+                pi = (md_str[0]+md_str[2])/2 + ed_str[1]
                 sigma = md_str[1] + ed_str[0]+ed_str[2]
 
                 trs += [{'md_-1': md_str[0], 'md_0': md_str[1], 'md_+1': md_str[2], 
