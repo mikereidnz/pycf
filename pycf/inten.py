@@ -425,7 +425,7 @@ def dipole_str(lrange, tensor_dict, w, md=True, ed=False, Altp=None):
                 trs += [{'md_-1': md_str[0], 'md_0': md_str[1], 'md_+1': md_str[2], 
                     'ed_-1': ed_str[0], 'ed_0': ed_str[1], 'ed_+1': ed_str[2],
                     'isotropic': isotropic, 'pi': pi, 'sigma': sigma, 
-                    'ei': w[i], 'ef': w[f], 'e': w[f]-w[i]}]
+                    'ei': w[i], 'ef': w[f], 'e': w[f]-w[i],'i': i, 'f': f}]
 
     return trs
 

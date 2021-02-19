@@ -678,7 +678,7 @@ class SpinH(object):
             matd = len(mat)           # dim of bgs
             bd = int(hdim/matd)       # block dim
             
-            H = np.zeros([hdim, hdim], dtype=np.complex128)
+            H = np.zeros([hdim, hdim], dtype=complex)
             d = np.diag([1]*bd)
             
             for r in range(matd):

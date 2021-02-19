@@ -521,7 +521,7 @@ cpdef zeeman_sh_coeff(v, t):
 
     tl = len(t[0])
     l = len(t)
-    a = np.zeros([tl, tl, l, l], dtype = np.complex)
+    a = np.zeros([tl, tl, l, l], dtype = np.complex128)
 
     for tr in range(tl):
         for tc in range(tl):
@@ -560,7 +560,7 @@ cpdef hyperfine_sh_coeff(t1, t2):
     t2l = len(t2[0])
     l = len(t1)
 
-    a = np.zeros([t1l * t2l, t1l * t2l, l, l], dtype = np.complex)
+    a = np.zeros([t1l * t2l, t1l * t2l, l, l], dtype = np.complex128)
 
     for t1r in range(t1l):
         for t2r in range(t2l):
@@ -595,7 +595,7 @@ cpdef quadrupole_sh_coeff(t):
     
     tl = len(t[0])
     l = len(t)
-    a = np.zeros([tl, tl, l, l], dtype = np.complex)
+    a = np.zeros([tl, tl, l, l], dtype = np.complex128)
 
     for tr in range(tl):
         for tc in range(tl):
@@ -826,12 +826,12 @@ cdef class SpinHamiltonian:
                 # and z directions, respectively.
                 if self.kramers:
                     self.dz = int(2*self.Sz+1)
-                    B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
+                    B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex128)
                     for j in range(3):
                         B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.S_matel)
                 else:
                     self.dz = int(2*self.Iz+1)
-                    B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex)
+                    B_a = np.zeros([3, self.dz**2, 9], dtype = np.complex128)
                     for j in range(3):
                         B_a[j, :, :] = zeeman_sh_coeff(np.eye(3,3)[j,:], self.I_matel)
 
