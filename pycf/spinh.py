@@ -51,7 +51,7 @@ def bmj(v, m, t):
     """
     tl = len(t[0])
     l = len(t)
-    result = np.zeros([tl, tl], dtype = np.complex)
+    result = np.zeros([tl, tl], dtype = complex)
     # All states of t are iterated through by the outer two loops.  The
     # contribution due to each term in v cdot m cdot t is computed by
     # the inner two loops.  This consists of a matrix multiplication of
@@ -90,7 +90,7 @@ def ias(t1, m, t2):
     t1l = len(t1[0])
     t2l = len(t2[0])
     l = len(t1)
-    result = np.zeros([t1l * t2l, t1l * t2l], dtype =  np.complex)
+    result = np.zeros([t1l * t2l, t1l * t2l], dtype =  complex)
 
     # All states of t1 and t2 are iterated through by the outer four loops.
     # The contribution of each term in the t1 cdot m cdot t2 construct is
@@ -131,7 +131,7 @@ def iqi(t, m):
     
     tl = len(t[0])
     l = len(t)
-    result = np.zeros([tl, tl], dtype = np.complex)
+    result = np.zeros([tl, tl], dtype = complex)
 
     # All states of t are iterated through by the outer two loops.  The
     # contribution due to each term in t cdot m cdot t is computed by
@@ -169,7 +169,7 @@ def bi(v, t):
     """
     tl = len(t[0])
     l = len(t)
-    result = np.zeros([tl, tl], dtype = np.complex)
+    result = np.zeros([tl, tl], dtype = complex)
     # All states of t are iterated through by the outer two loops.  The
     # contribution due to each term in v cdot t is computed by the inner two
     # loops.  This consists of a matrix multiplication of the form transpose(v)
@@ -212,7 +212,7 @@ def bmj_coeff_array(v, t):
 
     tl = len(t[0])
     l = len(t)
-    bmj_a = np.zeros([tl, tl, l, l], dtype = np.complex)
+    bmj_a = np.zeros([tl, tl, l, l], dtype = complex)
 
     for tr in range(tl):
         for tc in range(tl):
@@ -250,7 +250,7 @@ def ias_coeff_array(t1, t2):
     t1l = len(t1[0])
     t2l = len(t2[0])
     l = len(t1)
-    ias_a = np.zeros([t1l * t2l, t1l * t2l, l, l], dtype = np.complex)
+    ias_a = np.zeros([t1l * t2l, t1l * t2l, l, l], dtype = complex)
 
     for t1r in range(t1l):
         for t2r in range(t2l):
@@ -288,7 +288,7 @@ def iqi_coeff_array(t):
     
     tl = len(t[0])
     l = len(t)
-    iqi_a = np.zeros([tl, tl, l, l], dtype = np.complex)
+    iqi_a = np.zeros([tl, tl, l, l], dtype = complex)
 
     for tr in range(tl):
         for tc in range(tl):
@@ -352,8 +352,8 @@ def su2_rz(p, m):
     m : ndarray
         The transformed matrix. 
     """
-    t = np.exp(np.complex(0,1)*p)
-    mp = np.array(m, dtype=np.complex)
+    t = np.exp(complex(0,1)*p)
+    mp = np.array(m, dtype=complex)
 
     # The rotation consists of a multiplication by t and t^* of the off-diagonal
     # elements of the 2 by 2 spin-half blocks.
@@ -390,7 +390,7 @@ def su2_rz_lsq_f(p, coeff_a, b):
     # Check whether 'BgS', or 'IAS', since we need to loop through each field
     # direction for the former.
     if b.shape == (3, 2, 2):
-        b_p = np.zeros((3, 2, 2), dtype=np.complex)
+        b_p = np.zeros((3, 2, 2), dtype=complex)
         for i in range(3):
             b_p[i,:,:] = su2_rz(p, b[i,:,:])
     else:
@@ -423,7 +423,7 @@ def su2_rotation(p, m):
     m : ndarray
         The transformed matrix. 
     """
-    I = np.complex(0,1)
+    I = complex(0,1)
     
     a = p[0]
     b = p[1]
@@ -469,7 +469,7 @@ def su2_rotation_lsq_f(p, coeff_a, b):
     # Check whether 'BgS', or 'IAS', since we need to loop through each field
     # direction for the former.
     if b.shape == (3, 2, 2):
-        b_p = np.zeros((3, 2, 2), dtype=np.complex)
+        b_p = np.zeros((3, 2, 2), dtype=complex)
         for i in range(3):
             b_p[i,:,:] = su2_rotation(p, b[i,:,:])
     else:
@@ -628,7 +628,7 @@ class SpinH(object):
                         raise TypeError("When passing inv = True, B must be a"
                                 "list of numpy.ndarrays.")
                     S_dimsq = int((2*S + 1)**2)
-                    B_a = np.zeros([len(B), S_dimsq, 9], dtype = np.complex)
+                    B_a = np.zeros([len(B), S_dimsq, 9], dtype = complex)
                     for i,e in enumerate(B):
                         B_a[i, :, :] = bmj_coeff_array(e, S_m)
                     self.coeff_a['bgs'] = np.reshape(B_a, (len(B) * S_dimsq, 9))
@@ -642,7 +642,7 @@ class SpinH(object):
                         raise TypeError("When passing inv = True, B must be a"
                                 "list of numpy.ndarrays.")
                     I_dimsq = int((2*I + 1)**2)
-                    B_a = np.zeros([len(B), I_dimsq, 9], dtype = np.complex)
+                    B_a = np.zeros([len(B), I_dimsq, 9], dtype = complex)
                     for i,e in enumerate(B):
                         B_a[i, :, :] = bmj_coeff_array(e, I_m)
                     self.coeff_a['bmi'] = np.reshape(B_a, (len(B) * I_dimsq, 9))
@@ -805,7 +805,7 @@ class SpinH(object):
         r"""
         Calculate the full Hamiltonian and return the result.
         """
-        H = np.complex(0, 0)
+        H = complex(0, 0)
         for t in self.t_list:
             try:
                 if t == 'bgs' or t == 'bmi':
