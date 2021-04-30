@@ -1521,8 +1521,8 @@ cdef class EFit(object):
         self.n_obs = self.ex.n_obs
         
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
-            raise ValueError("The total (real and imaginary) number of \
-                    parameters, %i, exceeds the number of observables, %i." %
+            raise ValueError("The total (real and imaginary) number of "\
+                    " parameters, %i, exceeds the number of observables, %i." %
                     (self.n_p_real, self.n_obs))
         
         self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(
