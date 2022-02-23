@@ -442,8 +442,8 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
                 line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
                         si+1, fmt_label(si, labels))
             tmp_w = w[i]-tmp_w
-            s += line + " {: >12.4f}".format(tmp_w)
-            s += "   {: >12.4f}  {: >12.4f}".format(exd[ii,2], exd[ii,2] - tmp_w) + "\n"
+            s += line + " {: >12.4g}".format(tmp_w)
+            s += "   {: >12.4g}  {: >12.4g}".format(exd[ii,2], exd[ii,2] - tmp_w) + "\n"
         s += "\n"
 
     s += "Label key: {}\n".format(label_key)
@@ -554,9 +554,10 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     # formatting options: free-ion, crystal-field and hyperfine. Any param not
     # in CF or HYP is assumed to be in FI. 
     cf_l = ['C20', 'C21', 'C22', 'C40', 'C41', 'C42', 'C43', 'C44', 'C60',
-            'C61', 'C62', 'C63', 'C64', 'C65', 'C66', 'c4', 'c6']
-    hyp_l = ['HYP', 'EQHYP']
-    
+            'C61', 'C62', 'C63', 'C64', 'C65', 'C66', 'c2', 'c4', 'c6','C2',
+            'C4', 'C6']
+    hyp_l = ['HYP', 'EQHYP', 'NUCQUAD20', 'NUCQUAD21', 'NUCQUAD22']   
+
     # Param class specific print formats. 
     fmt_coeff = {'FI': '{0: >19.2f} {1: >19.2f} {2: >19.2f}',
                  'CF': '{0: >19.2f} {1: >19.2f} {2: >19.2f}',
