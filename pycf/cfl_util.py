@@ -106,8 +106,8 @@ def ex_parse_abs(ex, z, labels):
     parsed_ex : np.ndarray
         Two column array containing level indices starting at 1 in the zeroeth
         column and corresponding experimental energy levels in the first column.
-        If the ExData object contains no absolute energy levels None is
-        returned.
+        If the ExData object contains no absolute energy levels an empty array
+        is returned.
     """
     if ex.n_a == 0:
         parsed_ex = np.array([])
@@ -152,8 +152,8 @@ def ex_parse_diff(ex, z, labels):
         Three coloumn array containing initial level indices starting at 1 in
         the zeroeth column, final level indices starting at 1 in the first
         column, and corresponding experimental energy levels differences in the
-        second column.  If the ExData object contains no difference energy levels
-        None is returned.
+        second column.  If the ExData object contains no difference energy
+        levels an empty array is returned.
     """
     if ex.n_d == 0:
         parsed_ex = np.array([])
@@ -174,9 +174,9 @@ def ex_parse_diff(ex, z, labels):
         parsed_ex[:, 2] = ex.e[ex.n_a:]
         parsed_ex[:, 0] = ex.ild
         parsed_ex[:, 1] = ex.fld
-        # Sort ex according to index column.
-        parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
-
+        # Sort ex according to inital level, then final level.
+        parsed_ex = parsed_ex[np.lexsort((parsed_ex[:, 0], parsed_ex[:, 1])), :]
+    
     return parsed_ex
 
 def gen_e_summary(w, z, labels, label_key, **kwargs):
