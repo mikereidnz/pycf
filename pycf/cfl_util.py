@@ -614,7 +614,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
             ii += 1
         else: 
             if kwargs['cov']:
-                scov = fmt_scov[key].format(np.complex(np.sqrt(cov[ii,ii]), np.sqrt(cov[ii+1,ii+1])))
+                scov = fmt_scov[key].format(complex(np.sqrt(cov[ii,ii]), np.sqrt(cov[ii+1,ii+1])))
             else: 
                 scov = ""
             ii += 2
@@ -834,7 +834,7 @@ def rotate_cf_params(coeff, alpha, beta, gamma):
     rp_list = []    # Rotated list of parameter lists
     for i,p in enumerate(p_list):
         if np.sum(p) != 0:
-            rp = np.zeros(len(p), dtype=np.complex)
+            rp = np.zeros(len(p), dtype=complex)
             j = k_list[i]
             for mi,m in enumerate(np.arange(-j, j+1)):
                 for mpi,mp in enumerate(np.arange(-j, j+1)):
@@ -856,4 +856,3 @@ def rotate_cf_params(coeff, alpha, beta, gamma):
                     pass
     
     return rcoeff
-

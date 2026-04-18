@@ -19,7 +19,8 @@
 
 
 from __future__ import division
-cimport cfl, cython
+from pycf cimport cfl
+cimport cython
 cimport numpy as np
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
@@ -55,8 +56,8 @@ cdef class StateLabels:
     """
     cdef cfl.sl *cfl_sl
     cdef public object sl_cap
-    cpdef public list labels
-    cpdef public str label_key
+    cdef public list labels
+    cdef public str label_key
     def __cinit__(self, label_key, labels):
         cdef size_t n
         cdef char *key
@@ -116,9 +117,9 @@ cdef class Tensor:
 
     """
     cdef public object t_cap
-    cpdef public str name
-    cpdef public str arith_name
-    cpdef public int n
+    cdef public str name
+    cdef public str arith_name
+    cdef public int n
     cdef public StateLabels states
     def __cinit__(self, char *name, np.ndarray[int, ndim=1, mode='c'] row_ptr, 
             np.ndarray[int, ndim=1, mode='c'] col_in, np.ndarray[double complex, ndim=1, mode='c'] val, 
@@ -221,6 +222,17 @@ cdef class Tensor:
                 return Tensor(<char *>tmp_name, None, None, None, x.states, data_tuple=d)
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
+
+    def __rmul__(self, other):
+        if isinstance(other, Number):
+            if self.name == None:
+                selfname = self.arith_name
+            else:
+                selfname = self.name
+            tmp_name = "{0:.2f}*{1}".format(other, selfname)
+            d = (self, other)
+            return Tensor(<char *>tmp_name, None, None, None, self.states, data_tuple=d)
+        raise TypeError("Tensors can only be multiplied by scalar numbers")
     
     def get_name(self):
         """
@@ -731,13 +743,13 @@ cdef class SpinHamiltonian:
     cdef cfl.zsh *cfl_zsh
     cdef public list interactions 
     cdef public list required_tensors
-    cpdef public int level
+    cdef public int level
     cdef public int nsh
     cdef public int n_obs
-    cpdef public float Sz
-    cpdef public list S_matel
-    cpdef public float Iz
-    cpdef public list I_matel
+    cdef public float Sz
+    cdef public list S_matel
+    cdef public float Iz
+    cdef public list I_matel
     cdef list inv_data
     cdef double complex **inv_data_ptrs
     cdef char **inter_array
@@ -1141,21 +1153,21 @@ cdef class ExData(object):
         a one-to-one correspondence to the energy levels in provided via the
         data parameter. 
     """
-    cpdef public int sl_index
-    cpdef public int n_obs
-    cpdef public int n_a
-    cpdef public int n_d
-    cpdef public np.ndarray a_states
-    cpdef public np.ndarray id_states
-    cpdef public np.ndarray fd_states
-    cpdef public np.ndarray e
-    cpdef public np.ndarray w
-    cpdef public np.ndarray la
-    cpdef public np.ndarray ild
-    cpdef public np.ndarray fld
-    cpdef public np.ndarray lah
-    cpdef public np.ndarray ildh
-    cpdef public np.ndarray fldh
+    cdef public int sl_index
+    cdef public int n_obs
+    cdef public int n_a
+    cdef public int n_d
+    cdef public np.ndarray a_states
+    cdef public np.ndarray id_states
+    cdef public np.ndarray fd_states
+    cdef public np.ndarray e
+    cdef public np.ndarray w
+    cdef public np.ndarray la
+    cdef public np.ndarray ild
+    cdef public np.ndarray fld
+    cdef public np.ndarray lah
+    cdef public np.ndarray ildh
+    cdef public np.ndarray fldh
     def __init__(self, data, key=None, label_key=None, weights=None):
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
         
@@ -1470,19 +1482,19 @@ cdef class EFit(object):
     cdef public dict coeff
     cdef int n_p
     cdef public list parameters
-    cpdef public int n_p_real
-    cpdef public int n_obs
-    cpdef public dict param_types
+    cdef public int n_p_real
+    cdef public int n_obs
+    cdef public dict param_types
     cdef cfl.ex_data *ex_data
     cdef public ExData ex
     cdef cfl.param_type **param_array
-    cpdef public np.ndarray x0
+    cdef public np.ndarray x0
     cdef public np.ndarray wts
     cdef cfl.efit_data *efit_data
-    cpdef public object obj_f_cap
-    cpdef public object nls_f_cap
-    cpdef public object fit_data_cap
-    cpdef public np.ndarray chi2
+    cdef public object obj_f_cap
+    cdef public object nls_f_cap
+    cdef public object fit_data_cap
+    cdef public np.ndarray chi2
     def __init__(self, parameters, h, ex, **kwargs):
         self.h = h
         self.n_p = len(parameters)
@@ -1629,7 +1641,7 @@ cdef class EFit(object):
         
         for p in self:
             if (self.param_types[p] == 'c'): 
-                params[p] = np.complex(x[ri], x[ri+1])
+                params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
                 params[p] = x[ri]
@@ -1707,27 +1719,27 @@ cdef class MHFit(object):
     cdef int n_h
     cdef public Hamiltonian h
     cdef public dict coeff
-    cpdef public list h_list
+    cdef public list h_list
     cdef int n_p
     cdef public list parameters
-    cpdef public int n_p_real
-    cpdef public int n_obs
-    cpdef public dict param_types
+    cdef public int n_p_real
+    cdef public int n_obs
+    cdef public dict param_types
     cdef list h_param_list
     cdef cfl.zh **ha
     cdef cfl.ex_data **ex_data
     cdef list ex_list
     cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
-    cpdef public np.ndarray x0
+    cdef public np.ndarray x0
     cdef public np.ndarray wts
     cdef cfl.mhfit_data *mhfit_data
     cdef np.ndarray job_a
-    cpdef public object obj_f_cap
-    cpdef public object nls_f_cap
-    cpdef public object fit_data_cap
-    cpdef public np.ndarray chi2
-    cpdef public list weights_list
+    cdef public object obj_f_cap
+    cdef public object nls_f_cap
+    cdef public object fit_data_cap
+    cdef public np.ndarray chi2
+    cdef public list weights_list
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
         cdef np.ndarray[char, ndim=1, mode="c"] job_a
@@ -1952,7 +1964,7 @@ cdef class MHFit(object):
         
         for p in self:
             if (self.param_types[p] == 'c'): 
-                params[p] = np.complex(x[ri], x[ri+1])
+                params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
                 params[p] = x[ri]
@@ -2109,24 +2121,24 @@ cdef class ESHFit(object):
     cdef SpinHamiltonian sh
     cdef public Hamiltonian h
     cdef Hamiltonian hpro
-    cpdef public dict coeff
+    cdef public dict coeff
     cdef int n_p
     cdef public list parameters
-    cpdef public int n_p_real
-    cpdef public int n_obs
-    cpdef public dict param_types
+    cdef public int n_p_real
+    cdef public int n_obs
+    cdef public dict param_types
     cdef cfl.ex_data *ex_data
     cdef public ExData ex
     cdef cfl.param_type **param_array
     cdef cfl.shx_data **shx_array
     cdef list shx_list
-    cpdef public np.ndarray x0
+    cdef public np.ndarray x0
     cdef cfl.eshfit_data *eshfit_data
-    cpdef public object obj_f_cap
-    cpdef public object nls_f_cap
-    cpdef public object fit_data_cap
-    cpdef public np.ndarray chi2
-    cpdef dict weights
+    cdef public object obj_f_cap
+    cdef public object nls_f_cap
+    cdef public object fit_data_cap
+    cdef public np.ndarray chi2
+    cdef dict weights
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
         self.n_p = len(parameters)
         self.parameters = parameters
@@ -2354,7 +2366,7 @@ cdef class ESHFit(object):
         ri = 0
         for p in self:
             if (self.param_types[p] == 'c'): 
-                params[p] = np.complex(x[ri], x[ri+1])
+                params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
                 params[p] = x[ri]
@@ -2423,28 +2435,28 @@ cdef class MESHFit(object):
     cdef int n_h
     cdef public Hamiltonian h
     cdef public dict coeff
-    cpdef public list h_list
-    cpdef public list hpro_list
-    cpdef public list sh_list
+    cdef public list h_list
+    cdef public list hpro_list
+    cdef public list sh_list
     cdef int n_p
     cdef public list parameters
-    cpdef public int n_p_real
-    cpdef public int n_obs
-    cpdef public dict param_types
+    cdef public int n_p_real
+    cdef public int n_obs
+    cdef public dict param_types
     cdef list h_param_list
-    cpdef public list ex_list
+    cdef public list ex_list
     cdef list ex_data
     cdef list param_arrays
     cdef list shx_list
     cdef list shx_arrays
-    cpdef public np.ndarray x0
+    cdef public np.ndarray x0
     cdef cfl.eshfit_data **eshfit_array
     cdef cfl.meshfit_data *meshfit_data
-    cpdef public object obj_f_cap
-    cpdef public object nls_f_cap
-    cpdef public object fit_data_cap
-    cpdef public np.ndarray chi2
-    cpdef public list weights_list
+    cdef public object obj_f_cap
+    cdef public object nls_f_cap
+    cdef public object fit_data_cap
+    cdef public np.ndarray chi2
+    cdef public list weights_list
     def __init__(self, parameters, h_sh_list, **kwargs):
         self.n_h = len(h_sh_list)
         self.n_p = len(parameters)
@@ -2791,7 +2803,7 @@ cdef class MESHFit(object):
         
         for p in self:
             if (self.param_types[p] == 'c'): 
-                params[p] = np.complex(x[ri], x[ri+1])
+                params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
                 params[p] = x[ri]
@@ -2941,8 +2953,8 @@ cdef class CFLMin:
         generate a summary with the initial parameters.  Useful for checking how
         well a set parameters fit the prepared input data.
     """
-    cpdef public str method
-    cpdef public dict kwargs
+    cdef public str method
+    cdef public dict kwargs
     cdef int niter
     cdef size_t nx
     cdef double xtol
@@ -3025,8 +3037,8 @@ cdef class CFLMin:
         cdef double cTmin
         cdef double cmuT
         cdef double ck
-        cdef double (*obj_f_ptr)(size_t, double *, double *, void *)
-        cdef void (*nls_f_ptr)(double *, void *, double *)
+        cdef double (*obj_f_ptr)(size_t, double *, double *, void *) noexcept
+        cdef void (*nls_f_ptr)(double *, void *, double *) noexcept
         cdef void *data_ptr
         cdef double *covar_ptr
         cdef double *wts_ptr
@@ -3047,7 +3059,7 @@ cdef class CFLMin:
         cdef int step_adapt_int
 
         cnx = <size_t> len(x0)
-        obj_f_ptr = <double (*)(size_t, double *, double *, void *)>PyCapsule_GetPointer(
+        obj_f_ptr = <double (*)(size_t, double *, double *, void *) noexcept>PyCapsule_GetPointer(
                 fit_obj.obj_f_cap, "pycfl.MinObjF")
         data_ptr = <void *>PyCapsule_GetPointer(fit_obj.fit_data_cap, "pycfl.MinData")
 
@@ -3142,7 +3154,7 @@ cdef class CFLMin:
             if fit_obj.nls_f_cap == None:
                 raise NotImplementedError("gls_nls is not an existing option for requested fitting mode.")
             else:
-                nls_f_ptr = <void (*)(double *, void *, double *)>PyCapsule_GetPointer(
+                nls_f_ptr = <void (*)(double *, void *, double *) noexcept>PyCapsule_GetPointer(
                         fit_obj.nls_f_cap, "pycfl.NlsObjF")
             if 'xtol' in self.kwargs:
                 cxtol = self.kwargs['xtol']
@@ -3774,4 +3786,3 @@ def zefoz(start, stop, num, k, l, h, xtol=0.01, init_size=200):
     v=v.reshape(len(v)//3,3)
     
     return (B, v)
-

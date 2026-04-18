@@ -151,13 +151,17 @@ class ImportSLJM(object):
         for t in tensor_matrices:
             if tensor_matrices[t].nnz == 0:
                 print("Warning: all matrix elements of %s are zero." % t) 
-            tensors[t] = cfl.Tensor(t, np.ascontiguousarray(tensor_matrices[t].indptr), 
-                    np.ascontiguousarray(tensor_matrices[t].indices), np.ascontiguousarray(tensor_matrices[t].data), sl)
+            tensors[t] = cfl.Tensor(
+                    t,
+                    np.ascontiguousarray(tensor_matrices[t].indptr, dtype=np.intc),
+                    np.ascontiguousarray(tensor_matrices[t].indices, dtype=np.intc),
+                    np.ascontiguousarray(tensor_matrices[t].data),
+                    sl)
        
         try:
             tensors['MAGX'] = 1/np.sqrt(2) * tensors['MAG11']
             tensors['MAGX'].name = 'MAGX'
-            tensors['MAGY'] = np.complex(0, -1) * tensors['MAGX']
+            tensors['MAGY'] = complex(0, -1) * tensors['MAGX']
             tensors['MAGY'].name = 'MAGY'
             tensors['MAGZ'] = tensors['MAG10']
             tensors['MAGZ'].name = 'MAGZ'

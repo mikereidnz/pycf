@@ -9,7 +9,7 @@ from pycf.cfl_util import *
 from pycf.spinh import SpinH
 from numpy import linalg as LA
 
-I = np.complex(0,1)
+I = complex(0, 1)
 # Import the matrix elements.
 t = ImportSLJM("matel/f11cf")
 thfs = ImportSLJM("matel/erhfs")

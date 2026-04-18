@@ -60,7 +60,7 @@ def t_q(j1, j2, m1, m2, q):
         else:
             return(0)
 
-    element = np.complex(-1)**(j1 - m1)*nj.wigner_3j(j1, 1, j2, -m1, q, m2) * \
+    element = complex(-1)**(j1 - m1)*nj.wigner_3j(j1, 1, j2, -m1, q, m2) * \
         np.sqrt((2*j1 + 1)*(j1 + 1)*j1) * delta(j1, j2)
     return(element)
 
@@ -89,7 +89,7 @@ def matel(c, j):
         f = lambda m1, m2: -1/np.sqrt(2) * (t_q(j, j, m1, m2, 1) - t_q(j, j, m1,
             m2, -1))
     elif c == 'jy':
-        f = lambda m1, m2: np.complex(0, 1)/np.sqrt(2) * (t_q(j, j, m1, m2, 1) \
+        f = lambda m1, m2: complex(0, 1)/np.sqrt(2) * (t_q(j, j, m1, m2, 1) \
                 + t_q(j, j, m1, m2, -1))
     elif c == 'jz':
         f = lambda m1, m2: t_q(j, j, m1, m2, 0)
@@ -99,14 +99,13 @@ def matel(c, j):
 
     l = int(2*j + 1)
 
-    matel = np.zeros([l, l], dtype = np.complex)
+    matel = np.zeros([l, l], dtype=complex)
     
     for row in range(l):
         for col in range(l):
             matel[row, col] = f(j - row, j - col)
    
     return(matel)
-
 
 
 

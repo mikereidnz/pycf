@@ -74,7 +74,7 @@ for i,pi in enumerate(plt_param):
 uncert = []
 for i,pi in enumerate(plt_param):
     if len(pi) == 2:
-        s = np.std(x[:,param_ord.index(pi[0])]) + np.std(x[:,param_ord.index(pi[1])])*np.complex(0,1)
+        s = np.std(x[:,param_ord.index(pi[0])]) + np.std(x[:,param_ord.index(pi[1])]) * complex(0, 1)
     else:
         s = np.std(x[:,param_ord.index(pi[0])])
     uncert += [s]
@@ -100,4 +100,3 @@ plt.tight_layout()
 
 
 plt.show()
-

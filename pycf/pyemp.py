@@ -575,7 +575,7 @@ class Cfit(GenericErun):
                 # I_z.
                 sh_terms = {}
                 B = {}
-                parsed_data = data[:, 0::2] + np.complex(0,1) * data[:, 1::2]
+                parsed_data = data[:, 0::2] + complex(0, 1) * data[:, 1::2]
                 for i,t in enumerate(self.sh_terms[sh_i]):
                     t_i = i * d_sh[sh_i]
                     term_data = parsed_data[t_i:t_i + d_sh[sh_i], 0:d_sh[sh_i]]
@@ -1178,5 +1178,4 @@ class SpectrumAxes(plt.Axes):
                 self.plot(x, data[:, i], *args, **kwargs)  
 
 register_projection(SpectrumAxes)
-
 

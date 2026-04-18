@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
-from distutils.extension import Extension
-from distutils.spawn import find_executable
+from setuptools import setup, Extension
+from shutil import which
 
 import subprocess 
 import os
 import sys
 import numpy as np
-import numpy.distutils.intelccompiler
+try:
+    import numpy.distutils.intelccompiler
+except ImportError:
+    pass
 from Cython.Distutils import build_ext
 
 try:
@@ -23,10 +25,11 @@ except KeyError:
 link_args += ['cfl/libcfl.a', '-lgsl', '-lnlopt', '-lm']
 
 if '--compiler=intel' in sys.argv:
-    if find_executable('icc') == None:
+    icc = which('icc')
+    if icc == None:
         raise RuntimeError("Cannot locate the icc compiler.")
     else:
-        intelpath = find_executable('icc')[:-len('/bin/icc')]
+        intelpath = icc[:-len('/bin/icc')]
     
     os.environ['CFL_CC'] = 'icc'
     os.environ['INTEL_PATH'] = intelpath
@@ -60,12 +63,19 @@ else:
     if not "make: Nothing to be done" in output:
         subprocess.call(['touch', 'pycf/cfl.pyx'])
 
-popen = subprocess.Popen(['git', 'rev-parse', '--short', 'HEAD'], stdout=subprocess.PIPE)
-version = str(popen.communicate()[0])
-if popen.returncode == 0:
-    f = open('pycf/__version__.py', 'w')
-    f.write('\n__version__ = "%s"\n\n' % version.rstrip())
-    f.close()
+popen = subprocess.Popen(
+    ['git', 'rev-parse', '--short', 'HEAD'],
+    stdout=subprocess.PIPE,
+    universal_newlines=True,
+)
+git_revision = popen.communicate()[0].strip()
+if popen.returncode != 0 or not git_revision:
+    git_revision = 'unknown'
+
+with open('pycf/__version__.py', 'w') as f:
+    f.write('\n__version__ = "%s"\n\n' % git_revision)
+
+version = '0+%s' % git_revision
 
 pycfl_ext = Extension('pycf.cfl', 
         sources=['pycf/cfl.pyx'],
