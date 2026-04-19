@@ -1035,6 +1035,7 @@ cdef class SpinHamiltonian:
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] cz
         cdef np.ndarray[double, ndim=1, mode="c"] a
         cdef np.ndarray[double complex, ndim=1, mode="c"] b
+        cdef Py_ssize_t d_inter = 0
 
         if not self.pro_data_set:
             raise ValueError("The spin Hamiltonian interaction is missing projection data.")
@@ -1066,6 +1067,8 @@ cdef class SpinHamiltonian:
                 d_inter = self.dh**2
             elif inter == 'quadrupole':
                 d_inter = self.dq**2
+            else:
+                raise ValueError("Unsupported interaction: %s" % inter)
 
             b = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(d_inter, dtype=np.complex128)
 
@@ -1274,7 +1277,7 @@ cdef class ExData(object):
                     for i in range(len(lah)):
                         self.a_states[i, :] = data[key.index('AS')][i, :ll]
                         clabels = np.ascontiguousarray(self.a_states[i, :], dtype=np.int32)
-                        lah[i] = cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        lah[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
 
                     self.la = np.zeros(self.n_a, dtype=np.int32)
                     self.lah = np.ascontiguousarray(lah, dtype=np.int32)
@@ -1294,9 +1297,9 @@ cdef class ExData(object):
                         self.id_states[i, :] = data[key.index('DS')][i, :ll]
                         self.fd_states[i, :] = data[key.index('DS')][i, ll:2*ll]
                         clabels = np.ascontiguousarray(self.id_states[i, :], dtype=np.int32)
-                        ildh[i] = cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        ildh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
                         clabels = np.ascontiguousarray(self.fd_states[i, :], dtype=np.int32)
-                        fldh[i] = cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        fldh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
 
                     self.ild = np.zeros(self.n_d, dtype=np.int32)
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
@@ -3029,35 +3032,37 @@ cdef class CFLMin:
         """
         cdef np.ndarray[double, ndim=1, mode="c"] cx0
         cdef size_t cnx
-        cdef double cxtol
-        cdef double cgtol
-        cdef double cftol
-        cdef double cmaxtime
-        cdef double cTstart
-        cdef double cTmin
-        cdef double cmuT
-        cdef double ck
+        cdef double cxtol = 0
+        cdef double cgtol = 0
+        cdef double cftol = 0
+        cdef double cmaxtime = -1
+        cdef double cTstart = 0
+        cdef double cTmin = 0
+        cdef double cmuT = 0
+        cdef double ck = 0
         cdef double (*obj_f_ptr)(size_t, double *, double *, void *) noexcept
         cdef void (*nls_f_ptr)(double *, void *, double *) noexcept
-        cdef void *data_ptr
-        cdef double *covar_ptr
-        cdef double *wts_ptr
+        cdef void *data_ptr = NULL
+        cdef double *covar_ptr = NULL
+        cdef double *wts_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] cwts
         cdef np.ndarray[double, ndim=2, mode="c"] covar
-        cdef double *chi2accept_ptr
-        cdef double *xaccept_ptr
+        cdef double *chi2accept_ptr = NULL
+        cdef double *xaccept_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] chi2accept
         cdef np.ndarray[double, ndim=2, mode="c"] xaccept
-        cdef cfl.cfl_min_obj *min_obj
-        cdef cfl.cfl_min_obj *lmin_obj
+        cdef cfl.cfl_min_obj *min_obj = NULL
+        cdef cfl.cfl_min_obj *lmin_obj = NULL
         cdef double fmin = 0
         cdef np.ndarray[double, ndim=1, mode="c"] lb 
         cdef np.ndarray[double, ndim=1, mode="c"] ub
         cdef np.ndarray[double, ndim=1, mode="c"] cstepsize
-        cdef double *stepsize_ptr
-        cdef float target_accept_rate
-        cdef int step_adapt_int
+        cdef double *stepsize_ptr = NULL
+        cdef float target_accept_rate = 0.5
+        cdef int step_adapt_int = 20
+        cdef int retval = 0
 
+        nls_f_ptr = NULL
         cnx = <size_t> len(x0)
         obj_f_ptr = <double (*)(size_t, double *, double *, void *) noexcept>PyCapsule_GetPointer(
                 fit_obj.obj_f_cap, "pycfl.MinObjF")
@@ -3294,6 +3299,8 @@ cdef class CFLMin:
             min_obj = cfl_gsl_nls_setup(nls_f_ptr, fit_obj.n_obs,
                     fit_obj.n_p_real, data_ptr, wts_ptr, cxtol, cgtol, cftol,
                     covar_ptr, self.niter)
+        else:
+            raise ValueError("Unknown minimization method: %s" % self.method)
 
         # Assign to self to guarantee there exists a reference to these
         # objects until the CFLMin destructor is called.

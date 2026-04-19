@@ -623,6 +623,7 @@ void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
 zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
   int i, j, k, jj, vi;
   int match, col_found, nnz;
+  size_t nnz_sz;
   int *row_ptr, *col_in;
   complex double *val;
   zhcsr *hcsr_m;
@@ -692,9 +693,19 @@ zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
     nnz += csr_ma[i]->nnz;
   }
   nnz -= match;
+  if (nnz < 0) {
+    for (i=0; i<n; i++) {
+      free(data->map[i]);
+    }
+    free(data->map);
+    free(data);
+    free(row_ptr);
+    CFL_ERROR_NULL("negative nnz computed while merging sparse matrices");
+  }
+  nnz_sz = (size_t) nnz;
   row_ptr[csr_ma[0]->n] = nnz;
   
-  col_in = (int *) calloc(nnz, sizeof(int));
+  col_in = (int *) calloc(nnz_sz, sizeof(int));
   if (col_in == 0) {
     for (i=0; i<n; i++) {
       free(data->map[i]);
@@ -715,8 +726,9 @@ zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
     free(row_ptr);
     CFL_ERROR_NULL("malloc failed for hcsr_m");
   }
-  val = (complex double *) calloc(nnz, sizeof(complex double));
-  if (col_in == 0) {
+  val = (complex double *) calloc(nnz_sz, sizeof(complex double));
+  /* This check most probably intended to test val == 0 rather than col_in == 0. */
+  if (val == 0) {
     for (i=0; i<n; i++) {
       free(data->map[i]);
     }

@@ -13,8 +13,9 @@
   - Added `noexcept` to C function-pointer declarations and casts used with the minimization APIs.
   - Replaced remaining `np.complex(...)` calls with `complex(...)`.
   - Added `Tensor.__rmul__` so scalar-left multiplication works (`scalar * tensor`).
+  - Cast `fnv_hash()` results to C `int` before storing them in the `ExData` state-label hash arrays.
   - Fixed the stray `6#` line near the file header on `devel`.
-  - **Reason:** current Cython is stricter than the older version this code was written for, and the importer and examples relied on reverse tensor scaling for `MAGX/MAGY/MAGZ`.
+  - **Reason:** current Cython is stricter than the older version this code was written for, the importer and examples relied on reverse tensor scaling for `MAGX/MAGY/MAGZ`, and Python 3.13/NumPy now rejects out-of-range unsigned hash values when assigning them into signed `int32` arrays.
 
 - **`pycf/import_sljm.py`**
   - Cast CSR `indptr` and `indices` arrays to `np.intc` before passing them into `cfl.Tensor`.
