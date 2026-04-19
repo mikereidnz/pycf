@@ -14,3 +14,6 @@ work
 build 
 doc/_build
 dist
+pycf/cfl.c
+pycf.egg-info/
+cfl/*_test
