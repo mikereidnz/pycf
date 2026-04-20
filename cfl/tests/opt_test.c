@@ -441,7 +441,8 @@ int main (void)
   h = zh_alloc(nstates, 7, tensors);
   zh_set_coeff(h, celiyf4_coeff);
   hd_w = zhd_w_alloc('N', h);
-  //zhd(w, z, h, hd_w);
+  /* Fix: zhd call was commented out after 'job' parameter was added to signature. */
+  zhd('N', w, z, h, hd_w);
   zhd_w_free(hd_w);
 
   printf("Ce:LiYF4 diagonalization:\n");
@@ -506,7 +507,9 @@ int main (void)
   ce_ex_data.la = ex_index;
   ce_ex_data.ild = NULL;
   ce_ex_data.fld = NULL;
-  ce_ex_data.chisq_weight = 1.0;
+  /* Fix: ex_data.w must be set; uninitialized w pointer caused segfault in echisq. */
+  double weights[6] = {1, 1, 1, 1, 1, 1};
+  ce_ex_data.w = weights;
 
   /* Run energy level fit. */
   efit_data *efit_d;
@@ -572,7 +575,8 @@ int main (void)
   h = zh_alloc(14, 8, sh_tensors);
   zh_set_coeff(h, sh_celiyf4_coeff);
 
-  ce_sh = zsh_alloc(inter, 1, 1, 0, inv_a);
+  /* Fix: add kramers=1 argument; signature is zsh_alloc(inter, ninter, sz, iz, kramers, **a). */
+  ce_sh = zsh_alloc(inter, 1, 1, 0, 1, inv_a);
   zsh_set_pro(ce_sh, shpro_tensors, 0, coupling);
 
   eshfit_d = eshfit_data_alloc('N', 'N', h, NULL, &ce_ex_data, ce_sh, shx, 6, p);

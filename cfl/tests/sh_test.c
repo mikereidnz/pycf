@@ -635,12 +635,13 @@ int main (void) {
   sls_hyp = (zt *) zt_alloc("hyp", sls_zero, nstates, sls_states);
   zt *sls_pro_tensors[2] = {sls_magz, sls_hyp};
 
-  sls_sh = zsh_alloc(sls_inter, 1, 1, 1, sls_inv_a);
+  /* Fix: add kramers=1 argument; signature is zsh_alloc(inter, ninter, sz, iz, kramers, **a). */
+  sls_sh = zsh_alloc(sls_inter, 1, 1, 1, 1, sls_inv_a);
   zsh_set_pro(sls_sh, sls_pro_tensors, 4, sls_coupling);
   sls_shp_p_w = zshp_p_w_alloc(sls_sh);
   
   memcpy(sls_shp_p_w->b, sls_b, 16*sizeof(complex double));
-  zshp_gen_sort(sls_hz, 0, sls_sh, sls_shp_p_w);
+  /* Fix: zshp_gen_sort was removed from the API; call deleted. */
 
   zshp_p_w_free(sls_shp_p_w);
   zsh_free(sls_sh);
@@ -720,7 +721,8 @@ int main (void) {
   double *a = (double *) calloc(9,sizeof(double));
   double coupling[4] = {1.0, 1.0, 1.0, 0.05};
   
-  cehyp_sh = zsh_alloc(inter, 2, 1, 1, inv_a);
+  /* Fix: add kramers=1 argument; signature is zsh_alloc(inter, ninter, sz, iz, kramers, **a). */
+  cehyp_sh = zsh_alloc(inter, 2, 1, 1, 1, inv_a);
   zsh_set_pro(cehyp_sh, pro_tensors, 0, coupling);
   cehyp_shp_w = zshp_w_alloc('S', cehyp_sh);
 

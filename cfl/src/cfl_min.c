@@ -136,14 +136,11 @@ void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
     gsl_data->dfi = i;
     status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i],
         GSL_MIN_DERIV_H, &result, &abserr);
-    if (status) {
-      gsl_vector_set(df, i, result);
-    } 
-    else {
+    if (status != GSL_SUCCESS) {
       status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i],
           GSL_MIN_DERIV_H, &result, &abserr);
-      gsl_vector_set(df, i, result);
     }
+    gsl_vector_set(df, i, result);
   }
 }
 
@@ -167,14 +164,11 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f,
     gsl_data->dfi = i;
     status = gsl_deriv_central(&(gsl_data->dfa[i]), gsl_data->x[i], GSL_MIN_DERIV_H,
         &result, &abserr);
-    if (status) {
-      gsl_vector_set(df, i, result);
-    } 
-    else {
+    if (status != GSL_SUCCESS) {
       status = gsl_deriv_forward(&(gsl_data->dfa[i]), gsl_data->x[i],
           GSL_MIN_DERIV_H, &result, &abserr);
-      gsl_vector_set(df, i, result);
     }
+    gsl_vector_set(df, i, result);
   }
 }
 
@@ -330,7 +324,7 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
     CFL_ERROR_NULL("calloc failed for x");
   }
   grad = (double *) calloc(n,sizeof(double));
-  if (x == 0) {
+  if (grad == 0) {
     free(w);
     free(gsl_data);
     free(x);
@@ -458,9 +452,11 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
 
   } while (status == GSL_CONTINUE && iter < 100);
 
-  /* Set the solution to x and fmin. */
+  /* Fix: read minimum position from s->x (the fminimizer's best vertex), not
+   * gsl_data->x which holds the last evaluated point and may differ for
+   * nmsimplex when convergence happens mid-iteration. */
   for (i=0; i<w->gsl_data->n; i++) {
-    x[i] = w->gsl_data->x[i];
+    x[i] = gsl_vector_get(w->s->x, i);
   }
   *fmin = w->s->fval;
 
@@ -556,7 +552,7 @@ cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
       break;
     case gsl_nmsimplex2:
       min_data = gsl_multimin_f_alloc(obj_f, n, data,
-          gsl_multimin_fminimizer_nmsimplex2rand);
+          gsl_multimin_fminimizer_nmsimplex2);
       min_f = &gsl_multimin_f;
       min_obj_free = gsl_multimin_f_free;
       break;
@@ -577,6 +573,7 @@ cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
           gsl_multimin_fdfminimizer_vector_bfgs2);
       min_f = &gsl_multimin_fndf;
       min_obj_free = gsl_multimin_fndf_free;
+      break;
   }
 
   obj->min_data = min_data;
@@ -643,6 +640,7 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
       break;
     case nlopt_esch:
       opt = nlopt_create(NLOPT_GN_ESCH, n);
+      break;
   }
   if (opt == 0) {
     free(obj);
@@ -806,6 +804,9 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
   /* allocate workspace with default parameters */
   d->w = gsl_multifit_nlinear_alloc (d->T, &(d->fdf_params), n, p);
   if (d->w == 0) {
+    free(obj);
+    free(d->x);
+    free(d->y);
     free(d);
     CFL_ERROR_NULL("gsl_multifit_nlinear_alloc failed for w");
   }
@@ -1043,5 +1044,4 @@ int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) {
 
   return status;
 }
-
 

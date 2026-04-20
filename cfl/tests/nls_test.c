@@ -173,7 +173,8 @@ int main (void) {
   ce_ex_data.la = ex_index;
   ce_ex_data.ild = NULL;
   ce_ex_data.fld = NULL;
-  ce_ex_data.chisq_weight = 1.0;
+  /* Fix: ex_data.w must be set; uninitialized w pointer caused segfault in nls_echisq. */
+  ce_ex_data.w = weights;
   
   double *covar = (double *) calloc(16,sizeof(double));
   /* Run energy level fit. */

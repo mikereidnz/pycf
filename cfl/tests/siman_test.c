@@ -183,7 +183,8 @@ int main (void) {
   ce_ex_data.la = ex_index;
   ce_ex_data.ild = NULL;
   ce_ex_data.fld = NULL;
-  ce_ex_data.chisq_weight = 1.0;
+  /* Fix: ex_data.w must be set; uninitialized w pointer caused segfault in echisq. */
+  ce_ex_data.w = weights;
   
   int niter = 3000000;
   double *xaccept = (double *) calloc(4*niter,sizeof(double));
