@@ -330,7 +330,8 @@ def invert_term(coeff_a, b):
     b = b.flatten()
 
     # Solve the equation coeff_a * x = b for x.
-    return(np.real(lstsq(coeff_a, b)[0]))
+    # Fix: explicitly set rcond to suppress FutureWarning
+    return(np.real(lstsq(coeff_a, b, rcond=None)[0]))
 
 
 def su2_rz(p, m):

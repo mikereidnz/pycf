@@ -93,7 +93,8 @@ shx1 = {'zeeman': ge}
 weights1 = {'energy': 0.001, 'zeeman': 12.0}
 
 h_sh_list = [{'h': h1, 'sh': sh1, 'ex': ex1, 'shx': shx1, 'weights': weights1, 'svd_sym': True}]
-h2 = cfl.Hamiltonian(thfs_list + [thfs.HYP, thfs.EQHYP])
+# Fix: thfs_list already contains HYP and EQHYP (line 36)
+h2 = cfl.Hamiltonian(thfs_list)
 h2.set_coeff(coeff)
 
 

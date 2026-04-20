@@ -58,7 +58,8 @@ void dequ_chk(double *a, double *b, size_t n) {
   int p = 0;
 
   for (i=0; i<n; i++) {
-    if (a[i]-b[i] >= pow(10,-8)) {
+    // Fix: use fabs() for proper two-sided tolerance check
+    if (fabs(a[i]-b[i]) >= pow(10,-8)) {
       p = 1;
     }
   }

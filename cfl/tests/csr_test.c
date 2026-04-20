@@ -29,7 +29,8 @@ void int_equ_chk(int *a, int *b, size_t n) {
   int p = 0;
 
   for (i=0; i<n; i++) {
-    if (cabs(a[i]-b[i]) != 0) {
+    // Fix: use abs() instead of cabs() for integer comparison
+    if (abs(a[i]-b[i]) != 0) {
       p = 1;
     }
   }

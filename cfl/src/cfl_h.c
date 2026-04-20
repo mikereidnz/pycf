@@ -561,6 +561,10 @@ zheevr_w **diag_w_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
   zheevr_w **diag_w;
 
   diag_w = (zheevr_w **) malloc(nblocks*sizeof(zheevr_w *));
+  // Fix: check malloc result before dereferencing
+  if (diag_w == 0) {
+    CFL_ERROR_NULL("malloc failed for diag_w");
+  }
 #ifdef _OPENMP
   for (i = 0; i < hd_w->ndiag_w; i++) {
     if (hd_w->proc_limited) {
@@ -573,7 +577,8 @@ zheevr_w **diag_w_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
       for (j = 0; j < i; j++) {
         zheevr_w_free(diag_w[j]);
       }
-      free(hd_w->diag_w);
+      // Fix: free local diag_w, not hd_w->diag_w which hasn't been assigned yet
+      free(diag_w);
       CFL_ERROR_NULL("zheevr_w_alloc failed for diag_w[i]");
     }
   }
@@ -582,7 +587,8 @@ zheevr_w **diag_w_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
    * to diagonalize the largest block. */
   diag_w[0] = (zheevr_w *) zheevr_w_alloc(job, block_dim[0], hd_w->abstol);
   if (diag_w[0] == 0) {
-    free(hd_w->diag_w);
+    // Fix: free local diag_w, not hd_w->diag_w which hasn't been assigned yet
+    free(diag_w);
     CFL_ERROR_NULL("zheevr_w_alloc failed for diag_w[i]");
   }
 #endif /* _OPENMP */ 

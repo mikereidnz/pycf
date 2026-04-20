@@ -118,14 +118,14 @@ void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
     if (new_B == 0) {
       CFL_ERROR_VOID("realloc failed for za->B");
     }
+    // Fix: commit new_B immediately so pointer is not lost if next realloc fails
+    za->B = new_B;
     double *new_v = (double *) realloc(za->v, new_size*3*sizeof(double));
     if (new_v == 0) {
-      za->B = new_B;
       CFL_ERROR_VOID("realloc failed for za->v");
     }
-    za->size = new_size;
-    za->B = new_B;
     za->v = new_v;
+    za->size = new_size;
   }
 
   memcpy(&(za->B[3*(za->ctr)]), B, 3*sizeof(double));
@@ -341,8 +341,12 @@ inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
   s = 0;
   for (l=0; l<n; l++) {
     if (l != k) {
-      s += inprod(n, &(phi[n*k]), mi, &(phi[n*l]), data->inprod_w) * inprod(n,
-          &(phi[n*l]), mj, &(phi[n*k]), data->inprod_w)/(omega[k] - omega[l]);
+      double denom = omega[k] - omega[l];
+      // Fix: skip near-degenerate levels to avoid division by zero
+      if (fabs(denom) > 1e-15) {
+        s += inprod(n, &(phi[n*k]), mi, &(phi[n*l]), data->inprod_w) * inprod(n,
+            &(phi[n*l]), mj, &(phi[n*k]), data->inprod_w)/denom;
+      }
     }
   }
 
