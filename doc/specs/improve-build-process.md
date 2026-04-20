@@ -337,5 +337,53 @@ git push origin HEAD
 
 ## Next Steps
 
-- **Replace setup.py with pyproject.toml** — a worthwhile follow-up but
-  orthogonal to the build correctness problem. Do this separately.
+### Replace `setup.py` with `pyproject.toml`
+
+Orthogonal to the build correctness problem. `distutils` is removed in
+Python 3.12+ and `setup.py` is deprecated. Replace with a `pyproject.toml`
+using `setuptools` as the build backend.
+
+### Replace custom hash logic with Meson or CMake
+
+The content-hash build in this spec is a pragmatic fix, but it's a custom
+solution maintaining a dependency graph by hand. The industry-standard
+approach for C + Cython projects is to use a proper build system that handles
+dependency tracking, incremental builds, and cross-platform compilation
+natively.
+
+**Option A: Meson + meson-python (recommended)**
+
+Meson is a modern build system that natively supports C and Cython. It
+uses content-hash-based rebuilds out of the box. `meson-python` is the
+Python packaging bridge — it replaces `setup.py` entirely.
+
+This is what **NumPy** and **SciPy** use. For pycf it would look like:
+
+- `meson.build` in the project root — defines the Python package
+- `cfl/meson.build` — defines the C static library (sources, includes,
+  dependencies on GSL/LAPACK/NLopt)
+- `pycf/meson.build` — defines the Cython extension, linking against
+  the C library
+- `pyproject.toml` — declares `meson-python` as the build backend
+
+Meson handles the dependency graph, incremental builds, and compiler
+detection automatically. No hand-maintained hash files or dependency
+tables.
+
+Install: `pip install meson-python meson ninja`
+
+**Option B: CMake + scikit-build-core**
+
+CMake is the other major option. `scikit-build-core` bridges CMake with
+Python packaging. There's also `cython-cmake` for Cython-specific helpers.
+
+- `CMakeLists.txt` in root — defines the C library and Cython extension
+- `pyproject.toml` — declares `scikit-build-core` as the build backend
+
+CMake is more verbose than Meson but has a larger ecosystem and more
+IDE support.
+
+**Either option replaces:** `setup.py`, the Makefile, and the custom
+hash-based build logic from this spec — all in one go. The `./run` script
+would simplify to just venv setup + `pip install -e .` + run, since the
+build system handles everything else.
