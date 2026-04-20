@@ -1,9 +1,16 @@
 # Spec: Modernise the Build Process
 
-## Goal
+## Goals
 
-Replace the timestamp-based Make build with a content-hash-based build system
-and provide a single `./run` script so that:
+1. **Build is deterministic and local** — no global packages, everything
+   lives in the project's `.venv`.
+2. **Build is correct across branch switches** — uses content hashes (SHA256)
+   instead of Make's timestamp comparison, so switching branches always
+   rebuilds exactly what changed.
+3. **Single entry point** — `./run <script>` ensures you're always building
+   and running the latest version, with no manual steps.
+
+The end result:
 
 ```bash
 ./run examples/ceylf/exdata_example.py
