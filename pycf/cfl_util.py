@@ -22,7 +22,7 @@ import re
 
 from datetime import datetime
 import os, inspect
-from pycf.__version__ import __version__ 
+from pycf.__version__ import __version__, __build_timestamp__, __build_comment__
 
 from scipy.special import factorial
 from math import fsum
@@ -59,7 +59,26 @@ def L2term(i):
     except IndexError:
         raise ValueError("Unsupported L quantum number: {}.".format(c))
 
-def gen_pycf_summary():
+def fmt_timestamp(timestamp=None):
+    if timestamp is None:
+        timestamp = datetime.now()
+    if isinstance(timestamp, str):
+        return timestamp
+    return timestamp.strftime('%Y-%m-%d %H:%M:%S')
+
+def gen_pycf_details(started_at=None):
+    r"""
+    Generate the pycf metadata block for summaries and stdout.
+    """
+    s = "pycf details\n"
+    s += "============\n\n"
+    s += "pycf revision: {}  built at {}\n".format(__version__, __build_timestamp__)
+    s += "Build comment: {}\n".format(__build_comment__)
+    s += "Calculation started at: {}\n".format(fmt_timestamp(started_at))
+
+    return s
+
+def gen_pycf_summary(started_at=None):
     r"""
     Read input file and add to long string. Further, print the pycf version and
     date/time.
@@ -71,20 +90,23 @@ def gen_pycf_summary():
         s += f.read()
     s += "\n\n"
 
-    s += "pycf details\n"
-    s += "============\n\n"
-    s += "pycf revision: {}\n".format(__version__)
-    s += "Calculation started at: {}\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    s += gen_pycf_details(started_at)
 
     return s
+ 
+def print_pycf_details(started_at=None):
+    print(gen_pycf_details(started_at), end="")
 
-def gen_completed_str():
+def gen_completed_str(completed_at=None):
     r"""
     Return string of fit completion time.
     """
-    s = "Calculation completed at: {}\n\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    s = "Calculation completed at: {}\n\n".format(fmt_timestamp(completed_at))
 
     return s
+
+def print_completed_str(completed_at=None):
+    print(gen_completed_str(completed_at), end="")
 
 def ex_parse_abs(ex, z, labels):
     r"""

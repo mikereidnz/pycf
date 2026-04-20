@@ -6,12 +6,15 @@ from shutil import which
 import subprocess 
 import os
 import sys
+from datetime import datetime
 import numpy as np
 try:
     import numpy.distutils.intelccompiler
 except ImportError:
     pass
 from Cython.Distutils import build_ext
+
+DEFAULT_BUILD_COMMENT = "MFR: Updated to python 3.13. \nAdded conjugation before lapack call.\nChanged MAGX and MAGY to standard signs."
 
 try:
     compile_args = [os.environ['CFL_CFLAGS']]
@@ -72,8 +75,13 @@ git_revision = popen.communicate()[0].strip()
 if popen.returncode != 0 or not git_revision:
     git_revision = 'unknown'
 
+build_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+build_comment = os.environ.get('PYCF_BUILD_COMMENT', DEFAULT_BUILD_COMMENT)
+
 with open('pycf/__version__.py', 'w') as f:
-    f.write('\n__version__ = "%s"\n\n' % git_revision)
+    f.write('\n__version__ = %r\n' % git_revision)
+    f.write('__build_timestamp__ = %r\n' % build_timestamp)
+    f.write('__build_comment__ = %r\n\n' % build_comment)
 
 version = '0+%s' % git_revision
 

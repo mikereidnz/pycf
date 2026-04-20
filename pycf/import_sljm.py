@@ -159,9 +159,12 @@ class ImportSLJM(object):
                     sl)
        
         try:
-            tensors['MAGX'] = 1/np.sqrt(2) * tensors['MAG11']
+            # MFR: Changed the signs for MAGX and MAGY to the standard definitions of the spherical tensor components. 
+            # This is important for getting the correct relative signs of the matrix elements. 
+            # It does not affect the eigenvalues, but it does affect the eigenvectors, and thus the transition intensities.    
+            tensors['MAGX'] = -1/np.sqrt(2) * tensors['MAG11']  
             tensors['MAGX'].name = 'MAGX'
-            tensors['MAGY'] = complex(0, -1) * tensors['MAGX']
+            tensors['MAGY'] = complex(0, 1)/np.sqrt(2) * tensors['MAG11']
             tensors['MAGY'].name = 'MAGY'
             tensors['MAGZ'] = tensors['MAG10']
             tensors['MAGZ'].name = 'MAGZ'

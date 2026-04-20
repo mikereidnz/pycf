@@ -128,6 +128,41 @@ void zh_set_coeff(zh *h, complex double *coeff) {
   h->coeff = coeff;
 }
 
+/*
+ * Wrapper around LAPACKE_zheevr_work for Hermitian block solves and workspace
+ * queries. 
+ * For actual solves the block is conjugated in place before calling LAPACK.
+ * Without that conjugation, LAPACKE_zheevr_work returns the eigenvalues of the conjugate  
+ * of the input block and the phases of complex eigenvalues are incorrect.  
+ * For workspace queries, the block pointer is passed as NULL, so no conjugation occurs and the query proceeds as normal. 
+ * 
+ */
+static int solve_hermitian_block(char job, int n, double abstol,
+    complex double *a, int *m, double *w, complex double *z, int *isuppz,
+    complex double *work, int lwork, double *rwork, int lrwork, int *iwork,
+    int liwork) {
+  lapack_int i;
+  lapack_int lda, ldz, il, iu;
+  double vl, vu;
+
+  lda = (lapack_int) n;
+  ldz = (lapack_int) n;
+  il = 0;
+  iu = 0;
+  vl = 0;
+  vu = 0;
+
+  if (a != NULL) {
+    for (i = 0; i < (lapack_int) n * (lapack_int) n; i++) {
+      a[i] = conj(a[i]);
+    }
+  }
+
+  return LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', n, a, lda, vl,
+      vu, il, iu, abstol, m, w, z, ldz, isuppz, work, lwork, rwork, lrwork,
+      iwork, liwork);
+}
+
 /* Allocate workspace for a LAPACKE_zheevr diagonalization. 
  *
  * Parameters
@@ -138,8 +173,7 @@ void zh_set_coeff(zh *h, complex double *coeff) {
  *  abstol  The absolute error tolerance to which each eigenvector is required.
  */
 zheevr_w *zheevr_w_alloc(char job, int n, double abstol) {
-  int lda = n, ldz = n, il, iu, info;
-  double vl, vu;
+  int info;
   int lwork, lrwork, liwork;
   complex double *work, wquery;
   double *rwork, rwquery;
@@ -161,9 +195,8 @@ zheevr_w *zheevr_w_alloc(char job, int n, double abstol) {
   lrwork = -1;
   liwork = -1;
 
-  info = LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', n, NULL, lda, vl,
-      vu, il, iu, abstol, &(heevr_w->m), NULL, NULL, ldz, heevr_w->isuppz,
-      &wquery, lwork, &rwquery, lrwork, &iwquery, liwork);
+  info = solve_hermitian_block(job, n, abstol, NULL, &(heevr_w->m), NULL, NULL,
+      heevr_w->isuppz, &wquery, lwork, &rwquery, lrwork, &iwquery, liwork);
 
   if (info != 0) {
     free(heevr_w->isuppz);
@@ -229,10 +262,9 @@ void zheevr_w_free(zheevr_w *heevr_w) {
  *  csr_m   The block diagonalized CSR matrix. 
  *  hd_w    Hamiltonian diagonalization workspace. 
  */
-inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w) {
+static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w) {
   int i, ii, j, jj, vi, bi, bd, tn;
-  int lda, ldz, il, iu, info, *bri;
-  double vl, vu;
+  int info, block_info, *bri;
   zheevr_w **diag_w;
 
   bri = hd_w->bri;        /* Index of first row of current block. */
@@ -265,44 +297,60 @@ inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w) {
 #ifdef _OPENMP
   if (hd_w->proc_limited) {
     /* Each core has a dedicated workspace, enumerated by the thread number. */
-#pragma omp parallel for private(bi, tn, bd, lda, ldz) num_threads(hd_w->ndiag_w) schedule(dynamic)
+#pragma omp parallel for private(bi, tn, bd) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
       tn = omp_get_thread_num();
       bd = hd_w->blocks[bi]->dim;            
-      lda = bd;
-      ldz = bd;
-      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', bd,
-          hd_w->blocks[bi]->a, lda, vl, vu, il, iu, hd_w->abstol, &(diag_w[tn]->m),
-          &w[bri[bi]], hd_w->zb[bi], ldz, diag_w[tn]->isuppz, diag_w[tn]->work,
-          diag_w[tn]->lwork, diag_w[tn]->rwork, diag_w[tn]->lrwork,
-          diag_w[tn]->iwork, diag_w[tn]->liwork);
+      block_info = solve_hermitian_block(job, bd, hd_w->abstol, hd_w->blocks[bi]->a,
+          &(diag_w[tn]->m), &w[bri[bi]], hd_w->zb[bi], diag_w[tn]->isuppz,
+          diag_w[tn]->work, diag_w[tn]->lwork, diag_w[tn]->rwork,
+          diag_w[tn]->lrwork, diag_w[tn]->iwork, diag_w[tn]->liwork);
+      /* Record the first nonzero LAPACK error code. Updating info with += would
+       * race across threads and could lose the original failure. */
+      if (block_info != 0) {
+#pragma omp critical
+        {
+          if (info == 0) {
+            info = block_info;
+          }
+        }
+      }
     }
   }
   else {
     /* Each block has a dedicated workspace, enumerated by bi. */
-#pragma omp parallel for private(bi, bd, lda, ldz) num_threads(hd_w->ndiag_w) schedule(dynamic)
+#pragma omp parallel for private(bi, bd) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
       bd = hd_w->blocks[bi]->dim;            
-      lda = bd;
-      ldz = bd;
-      info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', bd,
-          hd_w->blocks[bi]->a, lda, vl, vu, il, iu, hd_w->abstol, &(diag_w[bi]->m),
-          &w[bri[bi]], hd_w->zb[bi], ldz, diag_w[bi]->isuppz, diag_w[bi]->work,
-          diag_w[bi]->lwork, diag_w[bi]->rwork, diag_w[bi]->lrwork,
-          diag_w[bi]->iwork, diag_w[bi]->liwork);
+      block_info = solve_hermitian_block(job, bd, hd_w->abstol, hd_w->blocks[bi]->a,
+          &(diag_w[bi]->m), &w[bri[bi]], hd_w->zb[bi], diag_w[bi]->isuppz,
+          diag_w[bi]->work, diag_w[bi]->lwork, diag_w[bi]->rwork,
+          diag_w[bi]->lrwork, diag_w[bi]->iwork, diag_w[bi]->liwork);
+      /* Record the first nonzero LAPACK error code. Updating info with += would
+       * race across threads and could lose the original failure. */
+      if (block_info != 0) {
+#pragma omp critical
+        {
+          if (info == 0) {
+            info = block_info;
+          }
+        }
+      }
     }
   }
 #else
   /* OpenMP disabled; there is only a single diagonalization workspace. */
   for (bi = 0; bi < hd_w->nblocks; bi++) {
     bd = hd_w->blocks[bi]->dim;            
-    lda = bd;
-    ldz = bd;
-    info += LAPACKE_zheevr_work(LAPACK_COL_MAJOR, job, 'A', 'U', bd,
-        hd_w->blocks[bi]->a, lda, vl, vu, il, iu, hd_w->abstol, &(diag_w[0]->m),
-        &w[bri[bi]], hd_w->zb[bi], ldz, diag_w[0]->isuppz, diag_w[0]->work,
-        diag_w[0]->lwork, diag_w[0]->rwork, diag_w[0]->lrwork,
-        diag_w[0]->iwork, diag_w[0]->liwork);
+    block_info = solve_hermitian_block(job, bd, hd_w->abstol, hd_w->blocks[bi]->a,
+        &(diag_w[0]->m), &w[bri[bi]], hd_w->zb[bi], diag_w[0]->isuppz,
+        diag_w[0]->work, diag_w[0]->lwork, diag_w[0]->rwork,
+        diag_w[0]->lrwork, diag_w[0]->iwork, diag_w[0]->liwork);
+    /* Keep the first nonzero error code so the reported LAPACK failure remains
+     * meaningful when more than one block is processed. */
+    if (info == 0 && block_info != 0) {
+      info = block_info;
+    }
   }
 #endif /* _OPENMP */
 
@@ -957,4 +1005,3 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
     zh_parse_ev(z,  h->n, hd_w);
   }
 }
-

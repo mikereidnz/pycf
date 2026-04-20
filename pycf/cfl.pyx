@@ -3362,14 +3362,18 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
+    started_at = datetime.now()
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
-    summary += gen_pycf_summary()
+    summary += gen_pycf_summary(started_at)
+    print_pycf_details(started_at)
    
     efit = EFit(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
-    summary += gen_completed_str()
+    completed_at = datetime.now()
+    summary += gen_completed_str(completed_at)
+    print_completed_str(completed_at)
 
     h.update_coeff(x)
     (w, z) = h.diag()
@@ -3429,14 +3433,18 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
+    started_at = datetime.now()
     summary = "==============\n"
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
-    summary += gen_pycf_summary()
+    summary += gen_pycf_summary(started_at)
+    print_pycf_details(started_at)
     
     mhfit = MHFit(parameters, h_list, weights_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
-    summary += gen_completed_str()
+    completed_at = datetime.now()
+    summary += gen_completed_str(completed_at)
+    print_completed_str(completed_at)
 
     # The number of degrees of freedom of the chi-squared distribution
     ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
@@ -3504,14 +3512,18 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
+    started_at = datetime.now()
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n"
-    summary += gen_pycf_summary()
+    summary += gen_pycf_summary(started_at)
+    print_pycf_details(started_at)
 
     eshfit = ESHFit(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
-    summary += gen_completed_str()
+    completed_at = datetime.now()
+    summary += gen_completed_str(completed_at)
+    print_completed_str(completed_at)
 
     h.update_coeff(x)
     (w, z) = h.diag()
@@ -3575,14 +3587,18 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
+    started_at = datetime.now()
     summary = "================\n"
     summary+= "mesh_fit summary\n"
     summary+= "================\n"
-    summary += gen_pycf_summary()
+    summary += gen_pycf_summary(started_at)
+    print_pycf_details(started_at)
 
     meshfit = MESHFit(parameters, h_sh_list, **kwargs)
     (x, fmin) = meshfit.fit(cfl_min)
-    summary += gen_completed_str()
+    completed_at = datetime.now()
+    summary += gen_completed_str(completed_at)
+    print_completed_str(completed_at)
 
     h = meshfit.h_list[0]
     h.update_coeff(x)

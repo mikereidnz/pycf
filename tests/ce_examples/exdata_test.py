@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-from __future__ import division
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+import pycf
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
@@ -118,6 +118,7 @@ def test_exdata(data_sel) -> None:
  
 if __name__ == '__main__':
     # for running from spyder or as a stand-alone file
+    pycf.pycf_info()
     print('\nRun exdata tests\n')
     data_sel_list = [
         'abs',

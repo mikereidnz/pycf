@@ -1,0 +1,5 @@
+spin-half example: 2S                                            
+CREATED by hand 
+2  STATES 10  CHARACTER LABELS
+[2S  1  1>              0   2   0   0   2   2   2
+[2S  1 -1>              0   2   0   0   2  -2   1
