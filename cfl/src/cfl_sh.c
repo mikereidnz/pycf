@@ -549,7 +549,7 @@ void svd_sym_w_free(svd_sym_w *w) {
  */
 void svd_sym(double *a, svd_sym_w *w) {
   int info;
-  char lapack_err[] = "LAPACKE_zgesvd failed with error code: 0";
+  char lapack_err[64] = "LAPACKE_zgesvd failed with error code: 0";
 
   memcpy(w->tmp_a, a, 9*sizeof(double));
   info = LAPACKE_dgesvd_work(LAPACK_COL_MAJOR, 'A', 'A', 3, 3, a, 3, w->s, w->u,
@@ -668,7 +668,7 @@ void zshi_w_free(zshi_w *w) {
  */
 inline void zshi(double *a, zshi_w *w) {
   int i, info; 
-  char lapack_err[] = "LAPACKE_zgels failed with error code: 0";
+  char lapack_err[64] = "LAPACKE_zgels failed with error code: 0";
 
   /* Store a copy of the inversion matrix. */
   memcpy((void *)w->a, (void *)w->data->a, w->a_size);

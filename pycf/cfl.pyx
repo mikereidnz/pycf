@@ -249,7 +249,7 @@ cdef class Tensor:
         if self.name != None:
             return self.name
         else:
-            name = [k for k,v in sys.modules['__main__'].__dict__.iteritems() if v is self]
+            name = [k for k,v in sys.modules['__main__'].__dict__.items() if v is self]
             if len(name) == 1:
                 return name[0]
             else:

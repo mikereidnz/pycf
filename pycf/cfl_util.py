@@ -22,7 +22,12 @@ import re
 
 from datetime import datetime
 import os, inspect
-from pycf.__version__ import __version__, __build_timestamp__, __build_comment__
+from pycf.__version__ import __version__
+try:
+    from pycf.__version__ import __build_timestamp__, __build_comment__
+except ImportError:
+    __build_timestamp__ = 'unknown'
+    __build_comment__ = ''
 
 from scipy.special import factorial
 from math import fsum
@@ -53,11 +58,11 @@ def term2L(c):
 def L2term(i):
     "Convert an L quantum number numerical value to its term character."
     if i < 0: 
-        raise ValueError("Unsupported L quantum number: {}.".format(c))
+        raise ValueError("Unsupported L quantum number: {}.".format(i))
     try:
         return 'SPDFGHIKLMNOQRTUV'[i]
     except IndexError:
-        raise ValueError("Unsupported L quantum number: {}.".format(c))
+        raise ValueError("Unsupported L quantum number: {}.".format(i))
 
 def fmt_timestamp(timestamp=None):
     if timestamp is None:

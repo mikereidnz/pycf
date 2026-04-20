@@ -400,7 +400,7 @@ inline void C_eval(int k, int l, double complex **m, zd_inst *data) {
  */
 inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
   int i, info, n;
-  char lapack_err[] = "LAPACKE failed with error code: 0";
+  char lapack_err[64] = "LAPACKE failed with error code: 0";
 
   for (i=0; i<3; i++) {
     data->h->coeff[data->zi[i]] = data->B[i];

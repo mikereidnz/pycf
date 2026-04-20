@@ -290,14 +290,15 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
     }
   }
 
-  char lapack_err[] = "LAPACKE_zhpeevr failed with error code: 0";
+  /* Use a fixed-size buffer large enough for any lapack_int error code. */
+  char lapack_err[64] = "LAPACKE_zheevr failed with error code: 0";
   info = 0;               /* LAPACK return value. */
   diag_w = hd_w->diag_w;  /* Diagonalization workspace array. */
 
 #ifdef _OPENMP
   if (hd_w->proc_limited) {
     /* Each core has a dedicated workspace, enumerated by the thread number. */
-#pragma omp parallel for private(bi, tn, bd) num_threads(hd_w->ndiag_w) schedule(dynamic)
+#pragma omp parallel for private(bi, tn, bd, block_info) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
       tn = omp_get_thread_num();
       bd = hd_w->blocks[bi]->dim;            
@@ -319,7 +320,7 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
   }
   else {
     /* Each block has a dedicated workspace, enumerated by bi. */
-#pragma omp parallel for private(bi, bd) num_threads(hd_w->ndiag_w) schedule(dynamic)
+#pragma omp parallel for private(bi, bd, block_info) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
       bd = hd_w->blocks[bi]->dim;            
       block_info = solve_hermitian_block(job, bd, hd_w->abstol, hd_w->blocks[bi]->a,
@@ -372,7 +373,7 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
  *  n             The dimension of the complete Hamiltonian. 
  *  hd_w          Hamiltonian diagonalization workspace. 
  */
-inline void zh_parse_ev(complex double *z, int n, zhd_w *hd_w) {
+static inline void zh_parse_ev(complex double *z, int n, zhd_w *hd_w) {
   int bi, i, ii, j, jj, *bri; 
   zblock **blocks;
 
