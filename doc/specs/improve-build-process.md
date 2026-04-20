@@ -59,6 +59,33 @@ The fix is two-fold:
   the current mfr-upgrade-python version)
 - `.gitignore` — add `.build_hashes.json`
 
+### Why modifying `setup.py` is safe
+
+The Make call inside `setup.py` currently does two things:
+
+1. Compiles C sources into `.o` files and links `libcfl.a`
+2. Touches `pycf/cfl.pyx` if anything was rebuilt (to trigger Cython)
+
+Both of these are taken over by `build_cfl.py`, which does the same work but
+uses content hashes instead of timestamps. The `./run` script calls
+`build_cfl.py` **before** `setup.py`, so by the time `setup.py` runs,
+`libcfl.a` already exists and `cfl.pyx` has already been touched if needed.
+
+After this change:
+
+| Before                                      | After                                        |
+|---------------------------------------------|----------------------------------------------|
+| `python setup.py build_ext --inplace`       | `./run examples/ceylf/exdata_example.py`     |
+| builds C lib + Cython + runs nothing        | builds C lib + Cython + runs your script     |
+| timestamp-based (fragile across branches)   | hash-based (correct across branches)         |
+| `python setup.py install` (global install)  | `./run` uses editable install in .venv       |
+
+The old `python setup.py build_ext --inplace` command still works for the
+Cython step — it just no longer triggers `make` itself. You'd need to run
+`python build_cfl.py` first. But the whole point is that `./run` does
+everything in one command, so there's no reason to call `setup.py` directly
+anymore.
+
 ## New files
 
 - `build_cfl.py` — hash-based C build script
@@ -172,16 +199,16 @@ Edit `setup.py`:
    version stamping, and `setup()` call are all still needed for
    `pip install -e .` and `build_ext --inplace` to work.
 
-`setup.py` should now assume that `cfl/libcfl.a` already exists when it runs.
-The `./run` script (Step 4) will call `build_cfl.py` first.
+`setup.py` now assumes that `cfl/libcfl.a` already exists when it runs.
+The `./run` script (Step 3) calls `build_cfl.py` first to ensure this.
 
 **Validation:**
 
 ```bash
-# Build the C library manually first
+# Build the C library with the new system
 python build_cfl.py
 
-# Then build the Cython extension
+# Then build the Cython extension via setup.py
 python setup.py build_ext --inplace
 
 # Verify the .so was created
