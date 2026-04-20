@@ -158,6 +158,8 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
   sh->inv_data = inv_data;
   sh->ntensors = 0;
   sh->pro_data = NULL;
+  sh->pd_map[0] = -1;
+  sh->pd_map[1] = -1;
 
   return sh;
 }
@@ -283,10 +285,12 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
       CFL_ERROR_VAL("malloc failed for pro_data[i]->pt", ENOMEM);
     }
     else if (thash != (t[i])->slabels->th) {
-      for (j = 0; j = i; j++) {
+      for (j = 0; j < i; j++) {
         free((sh->pro_data[j])->pt);
         free(sh->pro_data[j]);
       }
+      free((sh->pro_data[i])->pt);
+      free(sh->pro_data[i]);
       free(sh->pro_data);
       CFL_ERROR_VAL("Tensor state labels passed to zsh_set_pro don't match",
           EINVAL);
@@ -549,13 +553,14 @@ void svd_sym_w_free(svd_sym_w *w) {
  */
 void svd_sym(double *a, svd_sym_w *w) {
   int info;
-  char lapack_err[64] = "LAPACKE_zgesvd failed with error code: 0";
+  char lapack_err[64] = "LAPACKE_dgesvd failed with error code: 0";
 
   memcpy(w->tmp_a, a, 9*sizeof(double));
   info = LAPACKE_dgesvd_work(LAPACK_COL_MAJOR, 'A', 'A', 3, 3, a, 3, w->s, w->u,
       3, w->vt, 3, w->work, w->lwork);
   if (info != 0) {
-    sprintf(lapack_err, "LAPACKE_zgesvd failed with error code: %i", info);
+    snprintf(lapack_err, sizeof(lapack_err),
+        "LAPACKE_dgesvd failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
 
@@ -610,10 +615,10 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
    * zgels we must make a copy of the inversion matrix d->a to allow for
    * repeated evaluations. */
   a = (complex double *) calloc(d->m*9,sizeof(complex double));
-  if (work == 0) {
+  if (a == 0) {
     free(w);
     free(work);
-    CFL_ERROR_NULL("calloc failed for work");
+    CFL_ERROR_NULL("calloc failed for a");
   }
 
   if (job == 'S') {
@@ -632,7 +637,7 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
   }
 
   w->job = job;
-  w->lwork = lwork,
+  w->lwork = lwork;
     w->work = work;
   w->a = a;
   w->a_size = d->m*9*sizeof(double complex);
@@ -677,7 +682,8 @@ inline void zshi(double *a, zshi_w *w) {
       w->data->m, w->data->b, w->ldb, w->work, w->lwork);
 
   if (info != 0) {
-    sprintf(lapack_err, "LAPACKE_zgels failed with error code: %i", info);
+    snprintf(lapack_err, sizeof(lapack_err),
+        "LAPACKE_zgels failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
   for (i = 0; i < 9; i++) {
@@ -717,9 +723,9 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
 
   w->shi_w = (zshi_w **) malloc(sh->ninter*sizeof(zshi_w *));
   if (w->shi_w == 0) {
-    free(w->shp_p_w);
+    zshp_p_w_free(w->shp_p_w);
     free(w);
-    CFL_ERROR_NULL("malloc failed for zshi_w");
+    CFL_ERROR_NULL("malloc failed for w->shi_w");
   }
 
   /* Alloc inversion workspace. */
@@ -733,9 +739,10 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
     w->shi_w[i] = zshi_w_alloc(job, sh->inv_data[i]);
     if (w->shi_w[i] == 0) {
       for (j = 0; j < i; j++) {
-        free(w->shi_w[i]);
+        zshi_w_free(w->shi_w[j]);
       }
-      free(w->shp_p_w);
+      free(w->shi_w);
+      zshp_p_w_free(w->shp_p_w);
       free(w);
       CFL_ERROR_NULL("malloc failed for zshi_w[i]");
     }
@@ -821,4 +828,3 @@ void zshp(double *a, complex double *b, complex double *hz, int int_i,
   zshi(a, w->shi_w[int_i]);
 
 }
-

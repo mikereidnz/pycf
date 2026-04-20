@@ -33,7 +33,7 @@ def norm_eig(z):
         col = z[:,j]
         y = col[np.argmax(abs(col))]
         z_n[:,j] = np.conj(y) * z[:,j] / abs(y)
-    return z * np.conj(y) / abs(y)
+    return z_n
 
 def norm_eig_top(z):
     """ make first component positive and real"""

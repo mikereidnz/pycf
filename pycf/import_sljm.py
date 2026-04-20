@@ -158,23 +158,20 @@ class ImportSLJM(object):
                     np.ascontiguousarray(tensor_matrices[t].data),
                     sl)
        
-        try:
-            # MFR: Changed the signs for MAGX and MAGY to the standard definitions of the spherical tensor components. 
-            # This is important for getting the correct relative signs of the matrix elements. 
-            # It does not affect the eigenvalues, but it does affect the eigenvectors, and thus the transition intensities.    
-            tensors['MAGX'] = -1/np.sqrt(2) * tensors['MAG11']  
+        # Create convenience aliases only when the source tensors are available.
+        if 'MAG11' in tensors and 'MAG10' in tensors:
+            # MFR: Changed the signs for MAGX and MAGY to the standard definitions
+            # of the spherical tensor components. This affects eigenvector phases
+            # and therefore transition intensities, but not eigenvalues.
+            tensors['MAGX'] = -1/np.sqrt(2) * tensors['MAG11']
             tensors['MAGX'].name = 'MAGX'
             tensors['MAGY'] = complex(0, 1)/np.sqrt(2) * tensors['MAG11']
             tensors['MAGY'].name = 'MAGY'
             tensors['MAGZ'] = tensors['MAG10']
             tensors['MAGZ'].name = 'MAGZ'
-        except:
-            pass
-        try:
+        if 'AHYP' in tensors and 'BHYP' in tensors:
             tensors['HYP'] = tensors['AHYP'] - np.sqrt(10) * tensors['BHYP']
             tensors['HYP'].name = 'HYP'
-        except: 
-            pass
 
         self.tensors = tensors
         self.__dict__.update(tensors)

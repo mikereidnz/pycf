@@ -265,9 +265,9 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
   }
 
   t->matel = zhcsrsam_alloc(t1->matel, t2->matel);
-  if (t == 0) {
+  if (t->matel == 0) {
     free(t);
-    CFL_ERROR_NULL("failed to alloc t");
+    CFL_ERROR_NULL("failed to alloc t->matel");
   }
   zhcsrsam(t1->matel, t2->matel, t->matel, s1, s2);
 
@@ -292,14 +292,14 @@ zt *zt_s(char *name, zt *t, complex double s) {
   zt *ts;
 
   ts = (zt *) malloc(sizeof(zt));
-  if (t == 0) {
-    CFL_ERROR_NULL("malloc failed for zt");
+  if (ts == 0) {
+    CFL_ERROR_NULL("malloc failed for ts");
   }
 
   ts->matel = zhcsrsm_alloc(t->matel);
-  if (ts == 0) {
+  if (ts->matel == 0) {
     free(ts);
-    CFL_ERROR_NULL("alloc failed for ts");
+    CFL_ERROR_NULL("alloc failed for ts->matel");
   }
   zhcsrsm(t->matel, ts->matel, s);
 

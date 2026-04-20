@@ -171,17 +171,17 @@ def bi(v, t):
     l = len(t)
     result = np.zeros([tl, tl], dtype = complex)
     # All states of t are iterated through by the outer two loops.  The
-    # contribution due to each term in v cdot t is computed by the inner two
-    # loops.  This consists of a matrix multiplication of the form transpose(v)
-    # * t_element, where t_element is the matrix element corresponding to the
-    # state enumerated by tc and tr.
+    # contribution due to each term in v cdot t is computed by the inner loop.
+    # Unlike bmj, ias, and iqi which compute v^T * M * t and require two inner
+    # loops (i for v, j for t, linked by the coupling matrix M), bi computes the
+    # dot product v^T * t (identity coupling), so only a single inner loop is
+    # needed: t_element is selected by the same index i as v[i].
     for tr in range(tl):
         for tc in range(tl):
             elem = 0
             for i in range(l):
-                for j in range(l):
-                    elem += v[i] * t[j][tr, tc]
-            result[tr , tc] = elem
+                elem += v[i] * t[i][tr, tc]
+            result[tr, tc] = elem
     
     return(result)
 

@@ -30,10 +30,11 @@ cdef extern from "../../cfl/include/cfl_csr.h":
 
 cdef extern from "../../cfl/include/cfl_tensor.h":
     ctypedef struct sl:
-        size_t n
+        int n
         char *key
-        char **labels
-        long hash
+        int **labels
+        unsigned int *lh
+        unsigned int th
 
     ctypedef struct zt:
         pass

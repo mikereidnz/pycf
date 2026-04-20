@@ -36,14 +36,17 @@ def uline_char(s):
     """Underline all non-whitespace characters in a string, except for single
     spaces between non-whitespace characters."""
     ul = ""
-    for i in range(len(s)-1):
-        if not s[i-1].isspace() and not s[i+1].isspace():
-            ul += "-"
-        elif s[i].isspace():
-            ul += " "
+    end = len(s) - 1 if s.endswith("\n") else len(s)
+    for i in range(end):
+        if s[i].isspace():
+            # A space gets an underline dash if it sits between two non-space chars
+            if i > 0 and i < end - 1 and not s[i-1].isspace() and not s[i+1].isspace():
+                ul += "-"
+            else:
+                ul += " "
         else:
             ul += "-"
-    if s[-1::] == "\n":
+    if s.endswith("\n"):
         return s + ul + "\n"
     else:
         return s + ul
@@ -251,7 +254,7 @@ def gen_e_summary(w, z, labels, label_key, **kwargs):
                 label += "{:d},".format(l)
             elif label_key[i] == 'F':
                 if l:
-                    label += "(2F)".format(l)
+                    label += "(2F)"
                 else:
                     label += "    "
             elif label_key[i] == 'S':
@@ -387,7 +390,7 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
                 label += "{:d},".format(l)
             elif label_key[i] == 'F':
                 if l:
-                    label += "(2F)".format(l)
+                    label += "(2F)"
                 else:
                     label += "    "
             elif label_key[i] == 'S':
@@ -860,7 +863,9 @@ def rotate_cf_params(coeff, alpha, beta, gamma):
     # Implement Eq. (C76) of Quantum Mechanics - Messiah.
     rp_list = []    # Rotated list of parameter lists
     for i,p in enumerate(p_list):
-        if np.sum(p) != 0:
+        # Fix: np.sum(p) can be zero even when individual elements are nonzero
+        # (e.g. cancelling terms), so check that at least one element is nonzero.
+        if np.any(np.array(p) != 0):
             rp = np.zeros(len(p), dtype=complex)
             j = k_list[i]
             for mi,m in enumerate(np.arange(-j, j+1)):

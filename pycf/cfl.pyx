@@ -645,7 +645,8 @@ cdef sh_hpro_helper(h, sh):
                 magzs = 1e-6 * t
                 magzs.name = 'MAGZS'
         
-        tmp_h_coeff = h.coeff_dict
+        # Fix: copy coeff_dict before modifying to avoid mutating the caller's dict.
+        tmp_h_coeff = dict(h.coeff_dict)
         tmp_h_coeff['MAGZS'] = 1
         h = Hamiltonian([magzs] + h.tensors)
         h.set_coeff(tmp_h_coeff)
@@ -1549,8 +1550,6 @@ cdef class EFit(object):
         self.wts = np.ascontiguousarray(np.ones(self.n_obs), dtype=np.float64)
 
 
-        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex), "pycfl.ExData")
-
         # Prepare array of pointers to parameter data structs.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
@@ -1834,7 +1833,7 @@ cdef class MHFit(object):
             try:
                 self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(
                         exdata_alloc_helper(self.ex_list[i], weights_list[i]), "pycfl.ExData")
-            except:
+            except Exception:
                 for j in range(i):
                     free(self.ex_data[j])
                 free(self.ex_data)
@@ -2264,7 +2263,7 @@ cdef class ESHFit(object):
         # Create array of experimental spin Hamiltonian data.
         try:
             (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx, weights)
-        except:
+        except Exception:
             for i in range(self.n_p):
                 free(param_array[i])
             free(self.ex_data)
@@ -2613,7 +2612,7 @@ cdef class MESHFit(object):
             if ex_list[i] != None:
                 try:
                     ex_data += [exdata_alloc_helper(ex_list[i], weights_list[i]['energy'])]
-                except:
+                except Exception:
                     for j in range(i):
                         free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[j], "pycfl.ExData"))
                     raise
@@ -2665,7 +2664,7 @@ cdef class MESHFit(object):
         for shi, sh in enumerate(sh_list):
             try:
                 (shx_ptr, self.shx_list) = shxdata_alloc_helper(sh, shx_list[shi], weights_list[shi])
-            except:
+            except Exception:
                 for shj in range(shi):
                     shx_j = <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[shj], "pycfl.ShxArray")
                     for j in range(len(sh_list[shj].interactions)):

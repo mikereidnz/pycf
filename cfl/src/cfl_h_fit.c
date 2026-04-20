@@ -147,7 +147,7 @@ efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
 void efit_data_free(efit_data *data) {
   zhd_w_free(data->hd_w);
   free(data->eval);
-  if (data->job = 'S') {
+  if (data->job == 'S') {
     free(data->evect);
   }
   free(data);
@@ -302,7 +302,7 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
     if (data->eval[i] == 0) {
       for (j = 0; j < i; j++) {
         free(data->eval[j]);
-        free(data->hd_w[j]);
+        zhd_w_free(data->hd_w[j]);
       }
       free(data->n_rx_rt);
       free(data->job);
@@ -321,7 +321,7 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
     if (data->hd_w[i] == 0) {
       for (j = 0; j < i; j++) {
         free(data->eval[j]);
-        free(data->hd_w[j]);
+        zhd_w_free(data->hd_w[j]);
       }
       free(data->eval[i]);
       free(data->n_rx_rt);
@@ -338,7 +338,7 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
     if (data->evect == 0) {
       for (i = 0; i < nhd_w; i++) {
         free(data->eval[i]);
-        free(data->hd_w[i]);
+        zhd_w_free(data->hd_w[i]);
       }
       free(data->n_rx_rt);
       free(data->job);
@@ -356,7 +356,7 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
         }
         for (j = 0; j < nhd_w; j++) {
           free(data->eval[j]);
-          free(data->hd_w[j]);
+          zhd_w_free(data->hd_w[j]);
         }
         free(data->n_rx_rt);
         free(data->job);
@@ -483,7 +483,7 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
     free(data->evect);
     free(data->eval);
     zhd_w_free(data->hd_w);
-    free(data->shp_w);
+    zshp_w_free(data->shp_w);
     free(data);
     CFL_ERROR_NULL("malloc failed for data->sh_pa");
   }
@@ -496,7 +496,7 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
       for (j = 0; j < i; j++) {
         free(data->sh_pa[j]);
       }
-      free(data->shp_w);
+      zshp_w_free(data->shp_w);
       free(data->sh_pa);
       free(data);
       CFL_ERROR_NULL("calloc failed for data->sh_pa[i]");
@@ -514,7 +514,7 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
       for (i = 0; i < sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
-      free(data->shp_w);
+      zshp_w_free(data->shp_w);
       free(data->sh_pa);
       free(data);
       CFL_ERROR_NULL("calloc failed for data->hpro_evect");
@@ -527,7 +527,7 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
       for (i = 0; i < sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
-      free(data->shp_w);
+      zshp_w_free(data->shp_w);
       free(data->sh_pa);
       free(data->hpro_evect);
       free(data);
@@ -541,7 +541,7 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
       for (i = 0; i < sh->ninter; i++) {
         free(data->sh_pa[i]);
       }
-      free(data->shp_w);
+      zshp_w_free(data->shp_w);
       free(data->sh_pa);
       free(data->hpro_evect);
       free(data->hpro_eval);
@@ -766,7 +766,7 @@ inline void sh_parse_param_data(int n_zx, param_type **p,
     }
     else if (p[i]->type == 'i') {
       /* Parameter is a purely imaginary number. */
-      coeff[p[i]->ci] = x[p[i]->xi];
+      coeff[p[i]->ci] = x[p[i]->xi]*I;
     }
     else if (p[i]->type == 'r') {
       /* Parameter is a purely real number. */
@@ -1129,4 +1129,3 @@ void mhfit_nls(double *x, void *data, double *y) {
     }
   }
 }
-

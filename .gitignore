@@ -17,6 +17,7 @@ build
 doc/_build
 dist
 pycf/cfl.c
+pycf/_build_info.py
 pycf.egg-info/
 cfl/*_test
 .vscode/

@@ -400,7 +400,7 @@ def dipole_str(lrange, tensor_dict, w, md=True, ed=False, Altp=None):
             ed_str = [0, 0, 0]
             if md:
                 keys = ['M1-1', 'M10', 'M11']
-                if not any(k in tensor_dict for k in keys):
+                if not all(k in tensor_dict for k in keys):
                     raise ValueError("Missing all or some of the magnetic dipole "\
                             "operator matrix elements. Required tensors are 'M1-1', "\
                             "'M10', 'M11'")
@@ -414,8 +414,8 @@ def dipole_str(lrange, tensor_dict, w, md=True, ed=False, Altp=None):
                         for p in np.unique([-pp, pp]):
                             if -l <= (p+q) <= l:
                                 k = 'U%i%i' % (l, p+q)
-                                D = -e * A[1] * D_factor['%i%i%i%i' % (l, t, p, q)] * tensor_dict[k][i, f]
-                                ed_str[q] += np.real(D)**2
+                                D = -e * A[1][4] * D_factor['%i%i%i%i' % (l, t, p, q)] * tensor_dict[k][i, f]
+                                ed_str[q+1] += np.real(D)**2
 
             if any(d > dipole_cutoff for d in md_str) or any(d > dipole_cutoff for d in ed_str):
                 isotropic = sum(md_str)/3 + sum(ed_str)/3
@@ -496,4 +496,3 @@ def inten(trs, polarization, linewidth, T, xlim=None, npoints=1000):
     
 
     return (line_energies, line_inten, curve_energies, curve_inten)
-

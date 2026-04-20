@@ -113,15 +113,19 @@ zefoz_a *zefoz_a_alloc(int init_size) {
 void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
   int i, j;
   if (za->ctr == za->size) {
-    za->size *= 2;
-    za->B = (double *) realloc(za->B, za->size*3*sizeof(double));
-    if (za->B == 0) {
+    int new_size = za->size * 2;
+    double *new_B = (double *) realloc(za->B, new_size*3*sizeof(double));
+    if (new_B == 0) {
       CFL_ERROR_VOID("realloc failed for za->B");
     }
-    za->v = (double *) realloc(za->v, za->size*3*sizeof(double));
-    if (za->v == 0) {
+    double *new_v = (double *) realloc(za->v, new_size*3*sizeof(double));
+    if (new_v == 0) {
+      za->B = new_B;
       CFL_ERROR_VOID("realloc failed for za->v");
     }
+    za->size = new_size;
+    za->B = new_B;
+    za->v = new_v;
   }
 
   memcpy(&(za->B[3*(za->ctr)]), B, 3*sizeof(double));
@@ -185,8 +189,9 @@ zd_inst *zd_inst_alloc(zh *h, int *zi) {
   if (data->inprod_w == 0) {
     free(data->w);
     free(data->z);
-    free(data->hd_w);
+    zhd_w_free(data->hd_w);
     free(data);
+    CFL_ERROR_NULL("calloc failed for data->inprod_w");
   }
   
   memset(data->ipiv, 0, 3*sizeof(int));
@@ -198,7 +203,7 @@ zd_inst *zd_inst_alloc(zh *h, int *zi) {
   if (info != 0) {
     free(data->w);
     free(data->z);
-    free(data->hd_w);
+    zhd_w_free(data->hd_w);
     free(data->inprod_w);
     free(data);
     CFL_ERROR_NULL("LAPACKE workspace query failed");
@@ -212,7 +217,7 @@ zd_inst *zd_inst_alloc(zh *h, int *zi) {
   if (data->dwork == 0) {
     free(data->w);
     free(data->z);
-    free(data->hd_w);
+    zhd_w_free(data->hd_w);
     free(data->inprod_w);
     free(data);
     CFL_ERROR_NULL("calloc failed for dwork");
@@ -258,7 +263,7 @@ zefoz_d *zefoz_d_alloc(zh *h, int *zi) {
     CFL_ERROR_NULL("malloc failed for data");
   }
   
-  data->d_inst = (zd_inst **) malloc(sizeof(zd_inst *));
+  data->d_inst = (zd_inst **) malloc(ninst*sizeof(zd_inst *));
   if (data->d_inst == 0) {
     free(data);
     CFL_ERROR_NULL("malloc failed for data->d_inst");
@@ -268,10 +273,10 @@ zefoz_d *zefoz_d_alloc(zh *h, int *zi) {
     if (data->d_inst[i] == 0) {
       for (j=0; j<i; j++) {
         zd_inst_free(data->d_inst[j]);
-        free(data->d_inst);
-        free(data);
-        CFL_ERROR_NULL("malloc failed for data->d_inst[i]");
       }
+      free(data->d_inst);
+      free(data);
+      CFL_ERROR_NULL("malloc failed for data->d_inst[i]");
     }
   }
 
@@ -415,13 +420,15 @@ inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
   /* Invert the Jacobian. */
   info = LAPACKE_dgetrf_work(LAPACK_COL_MAJOR, 3, 3, data->C, 3, data->ipiv);
   if (info != 0) {
-    sprintf(lapack_err, "LAPACKE failed with error code: %i", info);
+    snprintf(lapack_err, sizeof(lapack_err),
+        "LAPACKE failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
   info = LAPACKE_dgetri_work(LAPACK_COL_MAJOR, 3, data->C, 3, data->ipiv,
       data->dwork, data->dlwork);
   if (info != 0) {
-    sprintf(lapack_err, "LAPACKE failed with error code: %i", info);
+    snprintf(lapack_err, sizeof(lapack_err),
+        "LAPACKE failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
   
@@ -510,7 +517,7 @@ void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz,
   double B[3];
 
 #ifdef _OPENMP
-#pragma omp parallel for private(x, y, z, B) schedule(dynamic)
+#pragma omp parallel for private(x, y, z, tn, B) schedule(dynamic)
   for (x=0; x<nx; x++) {
     tn = omp_get_thread_num();
     B[0] = Bx[x];
@@ -518,7 +525,7 @@ void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz,
       B[1] = By[y];
       for (z=0; z<nz; z++) {
         B[2] = Bz[z];
-        memcpy(data->d_inst[0]->B, B, 3*sizeof(double));
+        memcpy(data->d_inst[tn]->B, B, 3*sizeof(double));
         zefoz_check(za, xtol, k, l, m, data->d_inst[tn]);
       }
     }
@@ -531,7 +538,7 @@ void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz,
       for (z=0; z<nz; z++) {
         B[2] = Bz[z];
         memcpy(data->d_inst[0]->B, B, 3*sizeof(double));
-        zefoz_check(za, xtol, k, l, m, data->d_inst[tn]);
+        zefoz_check(za, xtol, k, l, m, data->d_inst[0]);
       }
     }
   }

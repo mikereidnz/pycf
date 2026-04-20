@@ -277,7 +277,7 @@ zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
     free(col_in);
     CFL_ERROR_NULL("malloc failed for csr_m");
   }
-  val = (complex double *) calloc(sizeof(complex double), nnz);
+  val = (complex double *) calloc(nnz, sizeof(complex double));
   if (val == 0) {
     free(row_ptr);
     free(col_in);
@@ -832,7 +832,7 @@ zhcsr *zhcsrsm_alloc(zhcsr *hcsr_m) {
   val = (complex double *) calloc(hcsr_m->nnz,sizeof(complex double));
   if (val == 0) {
     free(hcsr_sm);
-    CFL_ERROR_NULL("calloc failed for col_in");
+    CFL_ERROR_NULL("calloc failed for val");
   }
   col_in = (int *) calloc(hcsr_m->nnz,sizeof(int));
   if (col_in == 0) {
@@ -1051,7 +1051,7 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
   if (pm->col_in == 0) {
     free(pm);
     free(pm->val);
-    CFL_ERROR_NULL("calloc failed for iwork");
+    CFL_ERROR_NULL("calloc failed for col_in");
   }
   pm->row_ptr = (int *) calloc((m->n+1),sizeof(int));
   if (pm->row_ptr == 0) {

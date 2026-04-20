@@ -78,7 +78,7 @@ if popen.returncode != 0 or not git_revision:
 build_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 build_comment = os.environ.get('PYCF_BUILD_COMMENT', DEFAULT_BUILD_COMMENT)
 
-with open('pycf/__version__.py', 'w') as f:
+with open('pycf/_build_info.py', 'w') as f:
     f.write('\n__version__ = %r\n' % git_revision)
     f.write('__build_timestamp__ = %r\n' % build_timestamp)
     f.write('__build_comment__ = %r\n\n' % build_comment)

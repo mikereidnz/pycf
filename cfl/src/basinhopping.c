@@ -108,8 +108,8 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
   w->step_data = (bh_step_data *) malloc(sizeof(bh_step_data));
   if (w->step_data == 0) {
     gsl_rng_free(w->rng);
-    free(w->emin);
     free(w->emin->x);
+    free(w->emin);
     free(w);
     free(x);
     CFL_ERROR_NULL("malloc failled for w->step_data");
@@ -117,8 +117,8 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
   w->step_data->stepsize = (double *) malloc(n*sizeof(double));
   if (w->step_data->stepsize == 0) {
     gsl_rng_free(w->rng);
-    free(w->emin);
     free(w->emin->x);
+    free(w->emin);
     free(w->step_data);
     free(w);
     free(x);
@@ -287,7 +287,7 @@ int bh_min(double *x, double *fmin, void *work) {
   }
   *fmin = w->emin->e;
 
-  return w->step_data->naccept++;
+  return w->step_data->naccept;
 }
 
 /* Generate cfl_min_obj settings object for the basinhopping minimization

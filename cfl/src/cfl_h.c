@@ -90,7 +90,7 @@ zh *zh_alloc(int n, int nt, zt **t) {
   /* Ensure all tensors have matching state labels. */
   for (i = 0; i < nt; i++) {
     if (t[0]->slabels->th != t[i]->slabels->th) {
-      CFL_ERROR_NULL("Tensors have mismatching state labels")
+      CFL_ERROR_NULL("Tensors have mismatching state labels");
     }
     h->tnh[i] = fnv_hash(t[i]->name, strlen(t[i]->name));
   }
@@ -356,7 +356,8 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
 #endif /* _OPENMP */
 
   if (info != 0) {
-    sprintf(lapack_err, "LAPACKE_zheevr failed with error code: %i", info);
+    snprintf(lapack_err, sizeof(lapack_err),
+        "LAPACKE_zheevr failed with error code: %i", info);
     CFL_ERROR_VOID(lapack_err);
   }
 }
@@ -507,7 +508,7 @@ zblock **zhd_w_block_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
         for (j = 0; j < i; j++) {
           free(blocks[j]->a);
           free(blocks[j]);
-          free(zb[i]);
+          free(zb[j]);
         }
         free(blocks[i]->a);
         free(blocks[i]);
