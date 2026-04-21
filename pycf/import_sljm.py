@@ -144,7 +144,7 @@ class ImportSLJM(object):
         # Generate a dictionary with keys for each tensor and lists of the form
         # [row, col, matel].  These are then used to create Scipy sparse CSR
         # matrices. 
-        data = np.loadtxt('%s.txt' % name, skiprows = 2)
+        data = np.loadtxt('%s.txt' % name, skiprows=2, ndmin=2)
         i = 0
         tensor_elements = {}
         tensor_matrices = {}

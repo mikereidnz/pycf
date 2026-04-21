@@ -1397,8 +1397,11 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
     ex_data.n_d = ex.n_d
     ex_e = <np.ndarray[double, ndim=1, mode="c"]> ex.e
     # Perform global weighting; ex.w is array of ones unless specified otherwise
-    # to ExData constructor. 
-    ex_w = <np.ndarray[double, ndim=1, mode="c"]> ex.w * weight
+    # to ExData constructor.  The multiplication always creates a new array
+    # (even when weight==1.0), so we keep ex_w_np alive and return it to the
+    # caller; without it ex_data.w would be a dangling pointer.
+    ex_w_np = np.ascontiguousarray(ex.w * weight, dtype=np.float64)
+    ex_w = <np.ndarray[double, ndim=1, mode="c"]> ex_w_np
     # Set to NULL ptr if it's an empty energy array.
     if ex.n_obs:
         ex_data.e = &ex_e[0]
@@ -1444,7 +1447,9 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
    
     ex_data_cap = PyCapsule_New(<void *>ex_data, "pycfl.ExData", NULL)
     
-    return ex_data_cap
+    # Return capsule and backing weight array together; caller must store
+    # ex_w_np to prevent ex_data.w from becoming a dangling pointer.
+    return (ex_data_cap, ex_w_np)
 
 cdef set_param_helper(fit_obj):
     "Helper for updating real-valued parameter array of Fit objects"
@@ -1502,6 +1507,7 @@ cdef class EFit(object):
     cdef public object nls_f_cap
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
+    cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h, ex, **kwargs):
         self.h = h
         self.n_p = len(parameters)
@@ -1544,8 +1550,8 @@ cdef class EFit(object):
                     " parameters, %i, exceeds the number of observables, %i." %
                     (self.n_p_real, self.n_obs))
         
-        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(
-                exdata_alloc_helper(self.ex), "pycfl.ExData")
+        cap, self._ex_w_backing = exdata_alloc_helper(self.ex)
+        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(cap, "pycfl.ExData")
         
         # Weights array for GSL nonlinear least-squares; since individual energy
         # level weighting isn't really implemented, we could in principle forego
@@ -1755,6 +1761,7 @@ cdef class MHFit(object):
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
     cdef public list weights_list
+    cdef list _ex_w_backing     # keeps each ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
         cdef np.ndarray[char, ndim=1, mode="c"] job_a
@@ -1844,10 +1851,12 @@ cdef class MHFit(object):
             self.ha = NULL
             raise MemoryError("exa alloc failed")
         
+        self._ex_w_backing = []
         for i in range(self.n_h):
             try:
-                self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(
-                        exdata_alloc_helper(self.ex_list[i], weights_list[i]), "pycfl.ExData")
+                cap, ex_w_np = exdata_alloc_helper(self.ex_list[i], weights_list[i])
+                self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(cap, "pycfl.ExData")
+                self._ex_w_backing.append(ex_w_np)
             except Exception:
                 for j in range(i):
                     free(self.ex_data[j])
@@ -2174,6 +2183,7 @@ cdef class ESHFit(object):
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
     cdef dict weights
+    cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
         self.n_p = len(parameters)
         self.parameters = parameters
@@ -2237,8 +2247,8 @@ cdef class ESHFit(object):
             weights['energy'] = 1.0
         self.weights = weights
 
-        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(exdata_alloc_helper(self.ex, 
-            weights['energy']), "pycfl.ExData")
+        cap, self._ex_w_backing = exdata_alloc_helper(self.ex, weights['energy'])
+        self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(cap, "pycfl.ExData")
         
         # Prepare array of pointers to parameter data structs.
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
@@ -2501,6 +2511,7 @@ cdef class MESHFit(object):
     cdef list h_param_list
     cdef public list ex_list
     cdef list ex_data
+    cdef list _ex_w_backing     # keeps each ex_data.w buffer alive (see exdata_alloc_helper)
     cdef list param_arrays
     cdef list shx_list
     cdef list shx_arrays
@@ -2661,17 +2672,22 @@ cdef class MESHFit(object):
                     (self.n_p_real, self.n_obs))
         
         ex_data = []
+        ex_w_backing = []
         for i in range(self.n_h):
             if ex_list[i] is not None:
                 try:
-                    ex_data += [exdata_alloc_helper(ex_list[i], weights_list[i]['energy'])]
+                    cap, ex_w_np = exdata_alloc_helper(ex_list[i], weights_list[i]['energy'])
                 except Exception:
                     for j in range(i):
                         free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[j], "pycfl.ExData"))
                     raise
+                ex_data += [cap]
+                ex_w_backing += [ex_w_np]
             else:
                 ex_data += [PyCapsule_New(<void *>NULL, "pycfl.ExData", NULL)]
+                ex_w_backing += [None]
         self.ex_data = ex_data
+        self._ex_w_backing = ex_w_backing
 
         # Prepare array of pointers to parameter data structs.
         param_arrays = []
