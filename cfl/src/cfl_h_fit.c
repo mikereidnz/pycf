@@ -563,6 +563,10 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
     }
     /* Alias the coeff ptrs of h and hpro. */
     hpro->coeff = h->coeff;
+  } else {
+    data->hpro_evect = NULL;
+    data->hpro_eval = NULL;
+    data->hprod_w = NULL;
   }
 
   data->job = job;

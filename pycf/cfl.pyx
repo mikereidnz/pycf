@@ -2784,6 +2784,7 @@ cdef class MESHFit(object):
                     for j in range(i):
                         eshfit_data_free(self.eshfit_array[j])
                     free(self.eshfit_array)
+                    self.eshfit_array = NULL
                     for ii in range(self.n_h):
                         pa_hi = <cfl.param_type **>PyCapsule_GetPointer(param_arrays[ii], "pycfl.ParamArrays")
                         for j in range(len(h_param_list[ii])):
@@ -2806,6 +2807,7 @@ cdef class MESHFit(object):
                     for j in range(i):
                         eshfit_data_free(self.eshfit_array[j])
                     free(self.eshfit_array)
+                    self.eshfit_array = NULL
                     for ii in range(self.n_h):
                         pa_hi = <cfl.param_type **>PyCapsule_GetPointer(param_arrays[ii], "pycfl.ParamArrays")
                         for j in range(len(h_param_list[ii])):

@@ -419,7 +419,7 @@ inline void C_eval(int k, int l, double complex **m, zd_inst *data) {
  *  data  Data for the ZEFOZ search.
  */
 inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
-  int i, info, n;
+  int i, info;
   char lapack_err[64] = "LAPACKE failed with error code: 0";
 
   for (i=0; i<3; i++) {
@@ -429,8 +429,6 @@ inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
 
   v_eval(k, l, m, data);
   C_eval(k, l, m, data);
-  
-  n = data->h->n;
   
   /* Invert the Jacobian. */
   info = LAPACKE_dgetrf_work(LAPACK_COL_MAJOR, 3, 3, data->C, 3, data->ipiv);
@@ -452,6 +450,7 @@ inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
       0, data->dwork, 1);
 
   for (i=0; i<3; i++) {
+    /* Factor of 2 is from perturbation theory (PRB 74, 195101). */
     data->B[i] -= 2*data->dwork[i];
   }
 }
