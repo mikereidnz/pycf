@@ -337,7 +337,8 @@ def gen_e_summary(w, z, labels, label_key, **kwargs):
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
             else:
                 weighting = kwargs['weighting']
-            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/weighting)/kwargs['ndof'])
+            # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
+            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/(weighting*kwargs['ndof'])))
             if weighting != 1:
                 s += "weighting factor = {:.2e}\n".format(weighting)
     s += "\n"
@@ -484,7 +485,8 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
                 raise ValueError("The weight argument needs to be provided if you provide ndof.")
             else:
                 weighting = kwargs['weighting']
-            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/weighting)/kwargs['ndof'])
+            # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
+            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/(weighting*kwargs['ndof'])))
             if weighting != 1:
                 s += "weighting factor = {:.2e}\n".format(weighting)
     s += "\n"
@@ -559,7 +561,9 @@ def gen_sh_summary(param, sh, **kwargs):
     if 'chi2' in kwargs and 'ndof' in kwargs:
         if 'weighting' not in kwargs:
             raise ValueError("The weight argument needs to be provided if you provide ndof.")
-        s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma)/kwargs['ndof'])
+        # Fix: the total chi-squared-like sum must be normalized by ndof
+        # before taking the RMS square root.
+        s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma/kwargs['ndof']))
 
     return s
 
@@ -611,7 +615,8 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     
     heading = "Tensor name           Fitted coeff       Initial coeff          Difference"
     if 'covar' in kwargs:
-        ndof = max(fit_obj.n_p_real - fit_obj.n_obs, 1)
+        # Fix: ndof is the number of observables minus fitted real parameters.
+        ndof = max(fit_obj.n_obs - fit_obj.n_p_real, 1)
         cov = kwargs['covar']
         heading += "      Uncertainty"
         kwargs['cov'] = True

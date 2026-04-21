@@ -85,33 +85,22 @@ zhcsr *zhcsr_gen(complex double *a, int n) {
   }
 
   /* col_in is an array containing the column index of all non-zero entries of
-   * m.  row_ptr is an array containing the entry number, that is the number
-   * of non-zero entries that precede it, for each first non-zero entry of a
-   * given row.  For matrices with a zero row, we still maintain an entry in
-   * row_ptr. */
+   * m. row_ptr[i] stores the start offset of row i, including empty rows. */
   vi = 0;   /* Value index for the Hermitian CSR matrix. */
   for (i = 0; i < n; i++) {
+    /* Fix: record the row start directly instead of using 0 as an "unset"
+     * sentinel, which breaks for row 0 and leading zero rows. */
+    row_ptr[i] = vi;
     for (j = i; j < n; j++) {
       if (cabs(a[i*n + j]) != 0) {
-        if (row_ptr[i] == 0) {
-          /* First non-zero element in upper-diag of this row. */
-          row_ptr[i] = vi;
-        }
         val[vi] = a[i*n + j];
         col_in[vi] = j;
         vi++;
       }
     }
-    if (row_ptr[i] == 0) {
-      /* End of current row, and we haven't found a non-zero entry; add value
-       * index to row_ptr and proceed. */
-      row_ptr[i] = vi;
-    }
   }
-  /* Restore first row_ptr element. */
-  row_ptr[0] = 0;
-  /* CSR by convention sets the n+1 value of row_ptr to nnz */
-  row_ptr[n] = nnz;
+  /* Fix: terminate row_ptr with the number of stored upper-triangular values. */
+  row_ptr[n] = vi;
 
   m->n = n;
   m->nnz = nnz;
@@ -173,26 +162,19 @@ zhcsr *zhcsr_alloc(int n, int *row_ptr, int *col_in, complex double *val) {
 
   vi = 0;     /* Value index for the Hermitian CSR matrix. */
   for (i = 0; i < n; i++) {
+    /* Fix: store each row start explicitly so empty rows do not rely on
+     * 0 acting as both a valid offset and a sentinel value. */
+    m->row_ptr[i] = vi;
     for (k = row_ptr[i]; k < row_ptr[i+1]; k++) {
       if (col_in[k] >= i) {
-        if (m->row_ptr[i] == 0) {
-          /* First non-zero element in upper-diag of this row. */
-          m->row_ptr[i] = vi;
-        }
         m->col_in[vi] = col_in[k];
         m->val[vi] = val[k];
         vi++;
       }
     }
-    if (m->row_ptr[i] == 0) {
-      /* End of current row, and we haven't found a non-zero entry; add value
-       * index to row_ptr and proceed. */
-      m->row_ptr[i] = vi;
-    }
   }
-  /* Restore first row_ptr element; set last row_ptr element. */
-  m->row_ptr[0] = 0;
-  m->row_ptr[n] = nnz;
+  /* Fix: terminate row_ptr with the number of stored upper-triangular values. */
+  m->row_ptr[n] = vi;
   m->n = n;
   m->nnz = nnz;
 
@@ -503,7 +485,7 @@ zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
   col_in = (int *) calloc(nnz,sizeof(int));
   if (col_in == 0) {
     free(row_ptr);
-    free(hcsr_m);
+    /* Fix: hcsr_m has not been allocated on this error path. */
     CFL_ERROR_NULL("calloc failed for col_in");
   }
 
@@ -953,15 +935,17 @@ zcsr *zcsr_row_perm_alloc(zcsr *m, int *p) {
   }
   pm->col_in = (int *) calloc(m->nnz,sizeof(int));
   if (pm->col_in == 0) {
-    free(pm);
+    /* Fix: free owned buffers before freeing the parent struct. */
     free(pm->val);
+    free(pm);
     CFL_ERROR_NULL("calloc failed for col_in");
   }
   pm->row_ptr = (int *) calloc((m->n+1),sizeof(int));
   if (pm->row_ptr == 0) {
-    free(pm);
+    /* Fix: free owned buffers before freeing the parent struct. */
     free(pm->val);
     free(pm->col_in);
+    free(pm);
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
 

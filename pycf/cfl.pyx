@@ -3377,8 +3377,8 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     h.update_coeff(x)
     (w, z) = h.diag()
 
-    # The number of degrees of freedom of the chi-squared distribution
-    ndof = max(efit.n_p_real - efit.n_obs, 1)
+    # Fix: ndof is the number of observables minus fitted real parameters.
+    ndof = max(efit.n_obs - efit.n_p_real, 1)
 
     if efit.ex.n_d != 0:
         summary += h.gen_summary() + "\n\n"
@@ -3445,8 +3445,8 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     summary += gen_completed_str(completed_at)
     print_completed_str(completed_at)
 
-    # The number of degrees of freedom of the chi-squared distribution
-    ndof = max(mhfit.n_p_real - mhfit.n_obs, 1)
+    # Fix: ndof is the number of observables minus fitted real parameters.
+    ndof = max(mhfit.n_obs - mhfit.n_p_real, 1)
     h = mhfit.h_list[0]
     h.update_coeff(x)
     (w, z) = h.diag()
@@ -3527,8 +3527,8 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     h.update_coeff(x)
     (w, z) = h.diag()
     
-    # The number of degrees of freedom of the chi-squared distribution
-    ndof = max(eshfit.n_p_real - eshfit.n_obs, 1)
+    # Fix: ndof is the number of observables minus fitted real parameters.
+    ndof = max(eshfit.n_obs - eshfit.n_p_real, 1)
     
     if 'svd_sym' in kwargs:
         svd = kwargs['svd_sym']
@@ -3603,8 +3603,8 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     h.update_coeff(x)
     (w, z) = h.diag()
     
-    # The number of degrees of freedom of the chi-squared distribution
-    ndof = max(meshfit.n_p_real - meshfit.n_obs, 1)
+    # Fix: ndof is the number of observables minus fitted real parameters.
+    ndof = max(meshfit.n_obs - meshfit.n_p_real, 1)
 
     summary += h.gen_summary()
     summary += "\n"

@@ -104,6 +104,9 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
       free(sh);
       CFL_ERROR_NULL("malloc failed for inv_data");
     }
+    /* Fix: initialize fields so early validation failures can clean up safely. */
+    (inv_data[i])->b = NULL;
+    (inv_data[i])->m = 0;
     /* Since sz and iz correspond to 2*S_z and 2*I_z we don't have to multiply
      * the spin projection by 2 to calculate the number of states.  The factor
      * of 3 for zeeman is required since we form a column of 3 Zeeman spin
@@ -119,6 +122,15 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
         m = (iz+1)*(iz+1);
       }
       else {
+        /* Fix: free the partially initialized inversion data before bailing
+         * out on an invalid interaction type. */
+        for (j = 0; j < i; j++) {
+          free((inv_data[j])->b);
+          free(inv_data[j]);
+        }
+        free(inv_data[i]);
+        free(inv_data);
+        free(sh);
         CFL_ERROR_NULL("inter array contained invalid interaction type");
       }
     }
@@ -130,12 +142,24 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
         m = (iz+1)*(iz+1);
       }
       else {
+        /* Fix: free the partially initialized inversion data before bailing
+         * out on an invalid interaction type. */
+        for (j = 0; j < i; j++) {
+          free((inv_data[j])->b);
+          free(inv_data[j]);
+        }
+        free(inv_data[i]);
+        free(inv_data);
+        free(sh);
         CFL_ERROR_NULL("inter array contained invalid interaction type");
       }
     }
 
     (inv_data[i])->a = a[i];
-    (inv_data[i])->b = (complex double *) calloc(m, sizeof(complex double));
+    /* Fix: zgels later uses ldb = max(m, 9), so keep enough RHS storage even
+     * when the physical system has fewer than 9 rows. */
+    (inv_data[i])->b = (complex double *) calloc((m > 9 ? m : 9),
+        sizeof(complex double));
     if ((inv_data[i])->b == 0) {
       for (j = 0; j < i; j++) {
         free((inv_data[j])->b);
@@ -156,6 +180,8 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
   sh->iz = iz;
   sh->kramers = kramers;
   sh->inv_data = inv_data;
+  /* Fix: optional state labels are not attached here, so initialize them. */
+  sh->slabels = NULL;
   sh->ntensors = 0;
   sh->pro_data = NULL;
   sh->pd_map[0] = -1;
@@ -594,7 +620,8 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
     CFL_ERROR_NULL("malloc faild for w");
   }
 
-  /* LAPACK workspace query for least-squares eqn solver. */
+  /* LAPACK workspace query for least-squares eqn solver. The RHS buffer is
+   * allocated to the same ldb bound in zsh_alloc. */
   ldb = (d->m > 9 ? d->m: 9);
   info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', d->m, 9, 1, d->a, d->m, NULL,
       ldb, &wquery, -1);
@@ -678,6 +705,8 @@ inline void zshi(double *a, zshi_w *w) {
   /* Store a copy of the inversion matrix. */
   memcpy((void *)w->a, (void *)w->data->a, w->a_size);
 
+  /* Fix: w->data->b has been sized to ldb entries, so zgels can safely
+   * overwrite the RHS/solution buffer. */
   info = LAPACKE_zgels_work(LAPACK_COL_MAJOR, 'N', w->data->m, 9, 1, w->a,
       w->data->m, w->data->b, w->ldb, w->work, w->lwork);
 

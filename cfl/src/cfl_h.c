@@ -90,6 +90,9 @@ zh *zh_alloc(int n, int nt, zt **t) {
   /* Ensure all tensors have matching state labels. */
   for (i = 0; i < nt; i++) {
     if (t[0]->slabels->th != t[i]->slabels->th) {
+      /* Fix: release partially initialized storage before returning. */
+      free(h->tnh);
+      free(h);
       CFL_ERROR_NULL("Tensors have mismatching state labels");
     }
     h->tnh[i] = fnv_hash(t[i]->name, strlen(t[i]->name));

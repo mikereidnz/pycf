@@ -1,0 +1,127 @@
+Python fixes
+
+  1. njsymbols.py — wigner_3j half-integer summation bounds
+
+  np.arange(xmin, xmax+1) steps by 1, so with a half-integer xmax=0.5 it generates [0.0, 1.0] — including an out-of-range x=1 that produces factorial(-0.5)=0, causing
+  divide-by-zero. Fix: clamp bounds to integers.
+
+   # line 99-101 — replace
+   xmin = max([0, j3 - j2 - m1])
+   xmax = min([j3 + m3, j1 - m1, j3 + j2 - m1])
+   xlist = np.arange(xmin, xmax + 1)
+   # with
+   xmin = int(np.ceil(max([0, j3 - j2 - m1])))
+   xmax = int(np.floor(min([j3 + m3, j1 - m1, j3 + j2 - m1])))
+   xlist = np.arange(xmin, xmax + 1)
+
+  2. inten.py — boltzmann_factor at T=0
+
+  Returns 1 for every level at T=0; excited states should have weight 0.
+
+   elif t == 0:
+       ans = 1 if e == 0 else 0   # only ground state populated
+
+  3. inten.py — dipole_str docstring
+
+  Docstring says lrange = [i_first, i_last, f_first, f_last] but code does for i in lrange[0] (expects iterables). Correct the docstring:
+
+   lrange : list of two iterables
+       [initial_levels, final_levels] — each element is a range or list of
+       0-based level indices (e.g. [range(0, 4), range(4, 8)]).
+
+  4. cfl_util.py — rotate_cf_params zero-sum guard
+
+  if np.sum(p) != 0 passes even when terms cancel (e.g. {C20: 2, C22: -1} has sum 1, but other combos can sum to 0 while containing nonzero parameters). Replace with a genuine
+  zero-check:
+
+   if np.any(np.array(p) != 0):
+
+  5. pyemp.py line 561 — numpy array truth value
+
+  if Iz != 0: raises ValueError when Iz is a numpy array.
+
+   if not np.all(Iz == 0):
+
+  6. cfl.pyx sh_hpro_helper — coeff_dict alias mutation
+
+   tmp_h_coeff = h.coeff_dict       # alias — mutation below corrupts caller's dict
+   tmp_h_coeff['MAGZS'] = 1
+
+  Fix: copy first:
+
+   tmp_h_coeff = dict(h.coeff_dict)
+
+ ~/dev/pycf [⎇ mfr-upgrade-python*+%]     
+ 
+   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+  C test fixes
+
+  7–9. Remove stale chisq_weight on ex_data
+
+  This field moved to shx_data. Delete in:
+
+   - nls_test.c:176
+   - siman_test.c:186
+   - opt_test.c:509
+
+  10–12. Add missing kramers arg to zsh_alloc
+
+  Current signature: zsh_alloc(inter, ninter, sz, iz, **kramers**, **a). All three calls below are for Kramers ions (kramers=1):
+
+   - opt_test.c:575: zsh_alloc(inter, 1, 1, 0, 1, inv_a)
+   - sh_test.c:638: zsh_alloc(sls_inter, 1, 1, 1, 1, sls_inv_a)
+   - sh_test.c:723: zsh_alloc(inter, 2, 1, 1, 1, inv_a)
+
+  13. sh_test.c:643 — remove call to deleted zshp_gen_sort
+
+  zshp_gen_sort no longer exists in the API (removed, not renamed). The call should be deleted; the surrounding alloc/free cycle still exercises zshp_p_w_alloc and zsh_alloc.
+
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+21/4/16 8am
+● Deep audit complete enough to act on. The repo still builds and tests cleanly, but I found 14+ actionable bugs/consistency issues, including 2 critical Python fit-statistics
+  bugs, 8 confirmed C/runtime bugs, and several test/example problems. The only incomplete part is that one Python sub-agent hit rate limits, but the important Python findings
+  were manually confirmed.
+
+  Highest priority
+  
+  [Note that there is also an output bug for % of state in summary. Need to fix this. ]
+
+   1. pycf/cfl.pyx:3381,3449,3531,3607 and pycf/cfl_util.py:614 compute ndof backwards as n_p_real - n_obs, so it gets clamped to 1 almost always.
+   2. pycf/cfl_util.py:340,487,562 computes sigma as sqrt(chi2/weighting) / ndof; ndof should be inside the square root.
+   3. cfl/src/cfl_csr.c:954-958 has a use-after-free on pm->val.
+   4. cfl/src/cfl_csr.c:92-112 has broken CSR row_ptr sentinel logic for leading zero rows.
+   5. cfl/src/cfl_csr.c:503-507 frees uninitialized hcsr_m.
+   6. cfl/src/cfl_zefoz.c:54-67,308-348 uses cabs in ZEFOZ derivatives, losing sign/phase information.
+   7. cfl/src/cfl_h.c:91-95 leaks on tensor-label mismatch.
+   8. cfl/src/cfl_sh.c:121-139 leaks on invalid interaction type.
+   9. cfl/src/cfl_sh.c:152-163 returns zsh with slabels uninitialized.
+   10. cfl/src/cfl_sh.c:138,598-600,681-682 likely undersizes the LAPACK b buffer.
+
+  Tests/examples
+
+   - tests/spin-half/spin-half_test.py:81-83 — "complex" case is identical to "imag", so the true complex path is untested.
+   - tests/ce_examples/exdata_test.py — all three parametrized datasets share one expected_coeff block, and the tolerance is loose enough to mask real differences.
+   - examples/eryso/mesh_fit.py:175-176 — writes output into the tracked sample file 2017-05-17_eryso_site1.txt.
+   - examples/eryso/mesh_fit.py:49,59 and examples/eryso/mhfit_siman.py:59,67 — duplicate ZETA keys silently discard the first value.
+   - examples/ceylf/exdata_example.py:85 — error message says sel_data instead of data_sel.
+
+  Lower-priority consistency issues
+
+   - tests/spin-half/spin-half_test.py constructs mutable globals at import time.
+   - examples/Altp_ercawo4/ercawo4_altp_calc.py looks stale against newer pymatgen neighbor APIs.
+   - examples/eryso/mcmc_analysis.py:65 uses deprecated set_yticklabels([]).
+   - examples/eryso/mhfit_siman.py has a duplicate 't' key and dead hf_pd entries.
+
+  Runtime notes
+
+   - python -m pytest -q: pass.
+   - make -C cfl test: pass.
+   - Shipped SLJM datasets load.
+   - Most example scripts run when started from their own directories with PYTHONPATH set.
+   - examples/smnacaf2/smnacaf2.py did not finish within a 600s guard, but it also did not crash; it looks computationally heavy rather than immediately broken.
+
+
+
+
+

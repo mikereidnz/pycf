@@ -51,7 +51,7 @@
  *  ket     Array of the ket vector.
  *  zw      Workspace for multiplication -- of length n.
  */
-inline double inprod(int n, double complex *bra, double complex *op, double complex
+inline double complex inprod(int n, double complex *bra, double complex *op, double complex
     *ket, double complex *zw) {
   double complex one, zero, dotc;
     
@@ -63,7 +63,9 @@ inline double inprod(int n, double complex *bra, double complex *op, double comp
   //cblas_zhemv(CblasRowMajor, CblasUpper, n, &one, op, n, ket, 1, &zero, zw, 1);
   cblas_zdotc_sub(n, bra, 1, zw, 1, &dotc);
 
-  return cabs(dotc);  
+  /* Fix: preserve the complex matrix element so callers retain sign/phase
+   * information instead of collapsing everything to a magnitude. */
+  return dotc;
 }
 
 
@@ -307,14 +309,16 @@ void zefoz_d_free(zefoz_d *data) {
  */
 inline double d1(int k, double complex *mi, zd_inst *data) {
   int n;
-  double s;
+  double complex s;
   double complex *phi;
 
   n = data->h->n;
   phi = data->z;
   s = inprod(n, &(phi[n*k]), mi, &(phi[n*k]), data->inprod_w);
   
-  return s;
+  /* Fix: expectation values of Hermitian operators are real, but their sign
+   * still matters for the Zefoz gradient. */
+  return creal(s);
 }
 
 /* Find the second derivative from perturbation theory, following PRB 74,
@@ -332,7 +336,7 @@ inline double d1(int k, double complex *mi, zd_inst *data) {
 inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
   int l, n; 
   double s, *omega;
-  double complex *phi;
+  double complex *phi, mikl, mljk;
 
   n = data->h->n;
   omega = data->w;
@@ -344,8 +348,11 @@ inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
       double denom = omega[k] - omega[l];
       // Fix: skip near-degenerate levels to avoid division by zero
       if (fabs(denom) > 1e-15) {
-        s += inprod(n, &(phi[n*k]), mi, &(phi[n*l]), data->inprod_w) * inprod(n,
-            &(phi[n*l]), mj, &(phi[n*k]), data->inprod_w)/denom;
+        /* Fix: keep the complex phase in off-diagonal matrix elements and only
+         * project back to the real perturbative contribution at the end. */
+        mikl = inprod(n, &(phi[n*k]), mi, &(phi[n*l]), data->inprod_w);
+        mljk = inprod(n, &(phi[n*l]), mj, &(phi[n*k]), data->inprod_w);
+        s += creal(mikl * mljk) / denom;
       }
     }
   }
