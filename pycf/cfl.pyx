@@ -2464,8 +2464,13 @@ cdef class ESHFit(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         
         chi2 = np.ascontiguousarray(np.zeros(len(self.sh.interactions)+1, dtype=np.float64))
-        with nogil:
-            cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
+        # Use hpro variant when a projection Hamiltonian is present, matching fit().
+        if (self.hpro is not None):
+            with nogil:
+                cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
+        else:
+            with nogil:
+                cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
         
         return chi2
 
@@ -2701,14 +2706,15 @@ cdef class MESHFit(object):
                     free(pa_hj)
                 for j in range(self.n_h):
                     free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[j], "pycfl.ExData"))
-                raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
+                raise MemoryError("param_arrays[{}] alloc failed".format(hi))
 
             for i,p in enumerate(h_param_list[hi]):
                 pa_hi[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
                 if pa_hi[i] is NULL:
                     for j in range(i):
                         free(pa_hi[j])
-                    for hj in range(hi+1):
+                    free(pa_hi)
+                    for hj in range(hi):
                         pa_hj = <cfl.param_type **>PyCapsule_GetPointer(param_arrays[hj], "pycfl.ParamArrays")
                         for j in range(len(h_param_list[hj])):
                             free(pa_hj[j])

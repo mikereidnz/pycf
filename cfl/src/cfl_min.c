@@ -527,9 +527,11 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
       status = gsl_multimin_test_gradient(w->s->gradient, GSL_MIN_DERIV_EPSABS);
     } while (status == GSL_CONTINUE && iter < 100);
 
-  /* Set the solution to x and fmin. */
+  /* Read the converged solution from the minimizer state, not gsl_data->x
+   * which is overwritten on every gradient evaluation and may not hold the
+   * best point after convergence. */
   for (i=0; i<w->gsl_data->n; i++) {
-    x[i] = w->gsl_data->x[i];
+    x[i] = gsl_vector_get(w->s->x, i);
   }
   *fmin = w->s->f;
 

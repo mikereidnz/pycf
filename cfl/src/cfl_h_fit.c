@@ -305,6 +305,8 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
         free(data->eval[j]);
         zhd_w_free(data->hd_w[j]);
       }
+      free(data->eval);
+      free(data->hd_w);
       free(data->n_rx_rt);
       free(data->job);
       free(data->hi);
@@ -325,6 +327,8 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
         zhd_w_free(data->hd_w[j]);
       }
       free(data->eval[i]);
+      free(data->eval);
+      free(data->hd_w);
       free(data->n_rx_rt);
       free(data->job);
       free(data->hi);
@@ -341,6 +345,8 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
         free(data->eval[i]);
         zhd_w_free(data->hd_w[i]);
       }
+      free(data->eval);
+      free(data->hd_w);
       free(data->n_rx_rt);
       free(data->job);
       free(data->hi);
@@ -360,6 +366,9 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
           free(data->eval[j]);
           zhd_w_free(data->hd_w[j]);
         }
+        free(data->evect);
+        free(data->eval);
+        free(data->hd_w);
         free(data->n_rx_rt);
         free(data->job);
         free(data->hi);

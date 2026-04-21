@@ -365,12 +365,15 @@ def gen_e_summary(w, z, labels, label_key, **kwargs):
             else:
                 weighting = kwargs['weighting']
             # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
-            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/(weighting*kwargs['ndof'])))
+            if kwargs['ndof'] == 0:
+                s += "sigma = N/A (ndof=0)\n"
+            else:
+                s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/(weighting*kwargs['ndof'])))
             if weighting != 1:
                 s += "weighting factor = {:.2e}\n".format(weighting)
     s += "\n"
 
-    
+
     if 'e_shift' in kwargs:
         if kwargs['e_shift']:
             s += "Energy level shift: {:.4f}\n".format(e_shift)
@@ -513,7 +516,10 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
             else:
                 weighting = kwargs['weighting']
             # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
-            s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/(weighting*kwargs['ndof'])))
+            if kwargs['ndof'] == 0:
+                s += "sigma = N/A (ndof=0)\n"
+            else:
+                s += "sigma = {:.4f}\n".format(np.sqrt(kwargs['chi2']/(weighting*kwargs['ndof'])))
             if weighting != 1:
                 s += "weighting factor = {:.2e}\n".format(weighting)
     s += "\n"
