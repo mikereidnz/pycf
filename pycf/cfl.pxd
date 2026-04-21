@@ -55,9 +55,13 @@ cdef extern from "../../cfl/include/cfl_h.h":
         int n
         int nt
         sl *slabels
+        # tnh and hh (hash fields) exist in the C struct but are not accessed
+        # from Cython; omitting them here is safe because Cython generates field
+        # accesses by name through the C compiler, which resolves offsets from
+        # the real header.  The spurious 'ap' field previously declared here has
+        # been removed to avoid confusion.
         zt **t
         double complex *coeff
-        double complex *ap
         
     ctypedef struct zhd_w:
         pass

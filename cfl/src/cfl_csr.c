@@ -1033,23 +1033,24 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
   }
   pm->col_in = (int *) calloc(m->nnz,sizeof(int));
   if (pm->col_in == 0) {
-    free(pm);
+    /* Free members before the struct to avoid use-after-free. */
     free(pm->val);
+    free(pm);
     CFL_ERROR_NULL("calloc failed for col_in");
   }
   pm->row_ptr = (int *) calloc((m->n+1),sizeof(int));
   if (pm->row_ptr == 0) {
-    free(pm);
     free(pm->val);
     free(pm->col_in);
+    free(pm);
     CFL_ERROR_NULL("calloc failed for row_ptr");
   }
   iwork = (int *) calloc(m->nnz,sizeof(int));
   if (iwork == 0) {
-    free(pm);
     free(pm->val);
     free(pm->col_in);
     free(pm->row_ptr);
+    free(pm);
     CFL_ERROR_NULL("calloc failed for iwork");
   }
 

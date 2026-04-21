@@ -347,7 +347,15 @@ class GenericErun(BaseEmp):
             # files since we pass the 'nolog' argument to erun.  As Mike's
             # programs don't write to stderr, any stderr messages are thrown
             # out.
-            stdout = proc.communicate()[0].decode('ascii') 
+            stdout = proc.communicate()[0].decode('ascii')
+            # Check the return code so that a non-zero exit is not silently
+            # swallowed.  EMP executables write diagnostics to stdout, not
+            # stderr, so a non-zero exit is the only reliable failure signal.
+            if proc.returncode != 0:
+                raise EnvironmentError(
+                    "{0} exited with code {1}; check "
+                    "{2}_{0}_log.txt for details.".format(
+                        self.process, proc.returncode, self.name))
             with open('{0}_{1}_log.txt'.format(self.name, self.process), 'w') as f:
                 f.write(stdout)
             warning = re.search(r'\sWARNING\s', stdout)
