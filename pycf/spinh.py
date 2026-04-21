@@ -618,7 +618,8 @@ class SpinH(object):
 
         # Calculate the coefficient arrays.
         if 'inv' in kwargs:
-            if kwargs['inv'] == True:
+            # Use identity comparison rather than == for booleans.
+            if kwargs['inv'] is True:
                 if 'bi' in terms:
                     raise ValueError("Nuclear Zeeman cannot be inverted"
                             " (no parameter matrix).")
@@ -649,7 +650,7 @@ class SpinH(object):
                         B_a[i, :, :] = bmj_coeff_array(e, I_m)
                     self.coeff_a['bmi'] = np.reshape(B_a, (len(B) * I_dimsq, 9))
 
-            elif kwargs['inv'] != False:
+            elif kwargs['inv'] is not False:
                 raise ValueError("Invalid value for keyword argument 'inv'; "
                         "valid values are either True or False.")
             self.inv = kwargs['inv']
@@ -678,7 +679,7 @@ class SpinH(object):
             diagonal blocks of size hdim/len(mat).
             """
             matd = len(mat)           # dim of bgs
-            bd = int(hdim/matd)       # block dim
+            bd = hdim // matd       # block dim
             
             H = np.zeros([hdim, hdim], dtype=complex)
             d = np.diag([1]*bd)
@@ -696,11 +697,13 @@ class SpinH(object):
             self.terms['ias'] = ias(self.I_m, m, self.S_m)
         elif term == 'iqi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
-            n = int(self.H_dim/(2 * self.I + 1))
+            # Use integer division; H_dim is always an integer multiple of
+            # (2*I + 1) by construction.
+            n = self.H_dim // (2 * self.I + 1)
             self.terms['iqi'] = block_diag(*[iqi(self.I_m, m)]*n)
         elif term == 'bi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
-            n = int(self.H_dim/(2 * self.I + 1))
+            n = self.H_dim // (2 * self.I + 1)
             self.terms['bi'] = block_diag(*[m*bi(self.B, self.I_m)]*n)
         elif term == 'bmi':
             # bmi is of correct dimension for non-Kramers ions. 
