@@ -82,10 +82,18 @@ class ImportSLJM(object):
         # Get the number of states and state labels from *.st file.
         with open("%s.st_" % sl_name, 'r') as f:
             for d in get_state_number(f):
-                dim = int(d[0])
+                # Guard against empty match (regex didn't find STATES line).
+                if d:
+                    dim = int(d[0])
+        if not dim:
+            raise RuntimeError("Could not find state count in %s.st_; "
+                    "STATES line missing or in unexpected format." % sl_name)
 
         with open("%s.st_" % sl_name, 'r') as f:
             state_labels = re.findall(r'[^[]*\[(\(?2?F?\s?\)?)(\d+)(\w)(\d?)\s*(\d+)\s*([\d-]*),?\s*([\d-]*)[)>]', f.read())
+        if not state_labels:
+            raise RuntimeError("No state labels found in %s.st_; "
+                    "file may be corrupt or the regex does not match its format." % sl_name)
         if dim != len(state_labels):
             raise RuntimeError("Parsing state labels file %s.st_ failed.  This "
                     "is indicative of either a limitation of the parsing regex,"

@@ -51,12 +51,6 @@ def norm_eig_top(z):
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "s1cf"
 
 t = ImportSLJM(str(MATEL_BASE))
-coeff = {
-    'EAVG'  :     0.0,                
-    'MAGX'  :     0.0,
-    'MAGY'  :     0.0,
-    'MAGZ'  :     0.0,
-    }
 
 h = cfl.Hamiltonian([t.EAVG, t.MAGX, t.MAGY, t.MAGZ])
 
@@ -69,6 +63,13 @@ def test_spin_half(data_sel) -> None:
     #### Testing a spin-half system, so that we can compare pycf eigenvectors to numpy.linalg.eig() eigenvectors, which are complex.  This is a test of the handling of complex numbers in pycf.
  
     print('\nRunning a spin-half test:\n')
+    # Define coeff locally so parametrized variants don't share mutable state.
+    coeff = {
+        'EAVG'  :     0.0,
+        'MAGX'  :     0.0,
+        'MAGY'  :     0.0,
+        'MAGZ'  :     0.0,
+    }
     if data_sel == 'real':
         print('data_sel is real')
         coeff['MAGX'] = 1.0

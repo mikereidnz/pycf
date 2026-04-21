@@ -78,7 +78,10 @@
  */
 zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
     complex double **a) {
-  int i, j, m;
+  /* Use size_t for loop variables that iterate up to ninter (size_t) to avoid
+   * signed/unsigned comparison warnings and potential logic errors. */
+  size_t i, j;
+  int m;
   zsh *sh;
   zsh_inv_data **inv_data;
 
@@ -299,8 +302,9 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
       free(sh->pro_data);
       CFL_ERROR_VAL("malloc failed for pro_data[i]", ENOMEM);
     }
+    /* Cast to size_t before multiplying to prevent int overflow for large t[i]->n. */
     (sh->pro_data[i])->pt = (complex double *)
-      calloc((t[i])->n*(t[i])->n, sizeof(complex double));
+      calloc((size_t)(t[i])->n*(t[i])->n, sizeof(complex double));
     if ((sh->pro_data[i])->pt == 0) {
       for (j = 0; j < i; j++) {
         free((sh->pro_data[j])->pt);
@@ -397,13 +401,15 @@ zshp_p_w *zshp_p_w_alloc(zsh *sh) {
     CFL_ERROR_NULL("malloc failed for shp_p_w");
   }
 
-  a = (complex double *) calloc(n*sh->dim, sizeof(complex double));
+  /* Cast to size_t before multiplying to prevent int overflow for large n/dim. */
+  a = (complex double *) calloc((size_t)n*sh->dim, sizeof(complex double));
   if (a == 0) {
     free(shp_p_w);
     CFL_ERROR_NULL("calloc failed for a");
   }
 
-  b = (complex double *) calloc(sh->dim*sh->dim,sizeof(complex double));
+  /* Cast to size_t before multiplying to prevent int overflow for large sh->dim. */
+  b = (complex double *) calloc((size_t)sh->dim*sh->dim,sizeof(complex double));
   if (b == 0) {
     free(shp_p_w);
     free(a);

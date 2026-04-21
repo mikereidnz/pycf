@@ -123,7 +123,8 @@ efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
     CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
   }
   if (job == 'S') {
-    data->evect = (complex double *) calloc(h->n*h->n,sizeof(complex double));
+    /* Cast to size_t before multiplying to prevent int overflow for large n. */
+    data->evect = (complex double *) calloc((size_t)h->n*h->n,sizeof(complex double));
     if (data->evect == 0) {
       free(data->eval);
       zhd_w_free(data->hd_w);
@@ -348,7 +349,8 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
       CFL_ERROR_NULL("malloc failed for data->evect");
     }
     for (i = 0; i < nhd_w; i++) {
-      data->evect[i] = (complex double *) calloc(ha[iwork[i]]->n*ha[iwork[i]]->n,\
+      /* Cast to size_t before multiplying to prevent int overflow for large n. */
+      data->evect[i] = (complex double *) calloc((size_t)ha[iwork[i]]->n*ha[iwork[i]]->n,\
           sizeof(complex double));
       if (data->evect[i] == 0) {
         for (j = 0; j < i; j++) {
@@ -452,7 +454,8 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
   if (data == 0) {
     CFL_ERROR_NULL("malloc failed for eshfit_data");
   }
-  data->evect = (complex double *) calloc(h->n*h->n,sizeof(complex double));
+  /* Cast to size_t before multiplying to prevent int overflow for large n. */
+  data->evect = (complex double *) calloc((size_t)h->n*h->n,sizeof(complex double));
   if (data->evect == 0) {
     free(data);
     CFL_ERROR_NULL("calloc failed for data->evect");
@@ -505,7 +508,8 @@ eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data 
 
   /* Only alloc data if we require a separate projection Hamiltonian. */
   if (hpro != NULL) {
-    data->hpro_evect = (complex double *) calloc(hpro->n*hpro->n,sizeof(complex
+    /* Cast to size_t before multiplying to prevent int overflow for large hpro->n. */
+    data->hpro_evect = (complex double *) calloc((size_t)hpro->n*hpro->n,sizeof(complex
           double));
     if (data->hpro_evect == 0) {
       free(data->evect);

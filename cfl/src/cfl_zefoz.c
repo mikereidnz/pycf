@@ -120,12 +120,15 @@ void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
     if (new_B == 0) {
       CFL_ERROR_VOID("realloc failed for za->B");
     }
-    // Fix: commit new_B immediately so pointer is not lost if next realloc fails
-    za->B = new_B;
     double *new_v = (double *) realloc(za->v, new_size*3*sizeof(double));
     if (new_v == 0) {
+      /* The first realloc succeeded; store new_B to avoid a dangling pointer.
+       * za->size is left unchanged so the next insert will retry the resize. */
+      za->B = new_B;
       CFL_ERROR_VOID("realloc failed for za->v");
     }
+    /* Both reallocs succeeded; commit both pointers and the new capacity. */
+    za->B = new_B;
     za->v = new_v;
     za->size = new_size;
   }
@@ -172,7 +175,8 @@ zd_inst *zd_inst_alloc(zh *h, int *zi) {
     free(data);
     CFL_ERROR_NULL("calloc failed for data->w");
   }
-  data->z = (double complex *) calloc(h->n*h->n, sizeof(double complex));
+  /* Cast to size_t before multiplying to prevent int overflow for large h->n. */
+  data->z = (double complex *) calloc((size_t)h->n*h->n, sizeof(double complex));
   if (data->z == 0) {
     free(data->w);
     free(data);
