@@ -129,7 +129,7 @@ cdef class Tensor:
         cdef cfl.zt *t2
         self.states = states
 
-        if (data_tuple == None):
+        if (data_tuple is None):
             self.name = name
             self.arith_name = None
             n = len(row_ptr)-1
@@ -170,11 +170,11 @@ cdef class Tensor:
             raise TypeError("Only objects of type Tensor can be added to Tensors")
         # We check whether name has been explicitly set, otherwise use
         # arithmetic name.
-        if t1.name == None:
+        if t1.name is None:
             t1name = t1.arith_name
         else:
             t1name = t1.name
-        if t2.name == None:
+        if t2.name is None:
             t2name = t2.arith_name
         else:
             t2name = t2.name
@@ -187,11 +187,11 @@ cdef class Tensor:
             raise TypeError("Only objects of type Tensor can be subtracted from Tensors")
         # We check whether name has been explicitly set, otherwise use
         # arithmetic name.
-        if t1.name == None:
+        if t1.name is None:
             t1name = t1.arith_name
         else:
             t1name = t1.name
-        if t2.name == None:
+        if t2.name is None:
             t2name = t2.arith_name
         else:
             t2name = t2.name
@@ -204,7 +204,7 @@ cdef class Tensor:
         # arithmetic name.
         if isinstance(x, Number):
             if isinstance(y, Tensor):
-                if y.name == None:
+                if y.name is None:
                     yname = y.arith_name
                 else:
                     yname = y.name
@@ -213,7 +213,7 @@ cdef class Tensor:
                 return Tensor(<char *>tmp_name, None, None, None, y.states, data_tuple=d)
         elif isinstance(x, Tensor):
             if isinstance(y, Number):
-                if x.name == None:
+                if x.name is None:
                     xname = x.arith_name
                 else:
                     xname = x.name
@@ -225,7 +225,7 @@ cdef class Tensor:
 
     def __rmul__(self, other):
         if isinstance(other, Number):
-            if self.name == None:
+            if self.name is None:
                 selfname = self.arith_name
             else:
                 selfname = self.name
@@ -246,7 +246,7 @@ cdef class Tensor:
         variable points to the same Tensor object, get_name cannot guarantee a
         unique name and will raise a RuntimeError.
         """
-        if self.name != None:
+        if self.name is not None:
             return self.name
         else:
             name = [k for k,v in sys.modules['__main__'].__dict__.items() if v is self]
@@ -335,6 +335,9 @@ cdef class Hamiltonian:
         self.cfl_zh = cfl.zh_alloc(n, self.nt, tensor_array)
         if self.cfl_zh is NULL:
             free(tensor_array)
+            # NULL self.tensor_array so __dealloc__ does not attempt a
+            # second free of the same pointer after the exception propagates.
+            self.tensor_array = NULL
             raise MemoryError("cfl_zh alloc failed")
         else:
             self.h_cap = PyCapsule_New(<void *>self.cfl_zh, "pycfl.Hamiltonian", NULL)
@@ -423,7 +426,7 @@ cdef class Hamiltonian:
         """
         cdef np.ndarray[double complex, ndim=1, mode='c'] co
         
-        if self.coeff_dict == None:
+        if self.coeff_dict is None:
             raise ValueError("Hamiltonian must have coefficients set prior to call of" \
                     "update_coeff.")
         elif not isinstance(coeff, dict):
@@ -462,7 +465,7 @@ cdef class Hamiltonian:
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
         z = <np.ndarray[double complex, ndim=2, mode="fortran"]> self.z
 
-        if self.coeff_dict == None:
+        if self.coeff_dict is None:
             raise ValueError("Hamiltonian must have coefficients set prior to diagonalization.")
         hd_w = cfl.zhd_w_alloc('V', self.cfl_zh)
         if hd_w is NULL:
@@ -1044,7 +1047,7 @@ cdef class SpinHamiltonian:
         # Add small magnetic field for state-label sorting; generate hpro, if
         # required.
         (h, hpro) = sh_hpro_helper(h, self)
-        if hpro != None:
+        if hpro is not None:
             h = hpro
         
         # Check whether to perform SVD symmeterization. 
@@ -1192,11 +1195,11 @@ cdef class ExData(object):
         if not (isinstance(weights, np.ndarray) or isinstance(weights, tuple)):
             raise TypeError("The weights argument must either be of type np.ndarray or " \
                     "tuple, not %s." % type(weights))
-        if not (isinstance(key, str) or isinstance(key, tuple) or key==None):
+        if not (isinstance(key, str) or isinstance(key, tuple) or key is None):
             raise TypeError("The key argument must either be of type np.ndarray or tuple, " \
                     "not %s." % type(key))
         if isinstance(data, tuple):
-            if key == None:
+            if key is None:
                 raise ValueError("Missing key argument; this must be specified if data is a tuple.")
             elif len(data) != 2:
                 raise ValueError("The data argument can at most contain two elements; " \
@@ -1217,7 +1220,7 @@ cdef class ExData(object):
             elif len(weights) != 2:
                 raise ValueError("The weights argument can at most contain two elements; " \
                         "one for the absolute energy array and one for the difference energy array.")
-        if key != None:
+        if key is not None:
             if not isinstance(key, tuple):
                 # A single key is provided; we therefore make both data and key
                 # iterable for key checks below, and such that key check is
@@ -1509,7 +1512,7 @@ cdef class EFit(object):
       
         # Create a local copy of coefficients for each parameter and an array of
         # arrays specifying the parameters specific to each Hamiltonian. 
-        if h.coeff_dict == None:
+        if h.coeff_dict is None:
             raise ValueError("Hamiltonian must have coefficients set prior to efit.")
         else:
             self.coeff = copy.deepcopy(h.coeff_dict)
@@ -1555,6 +1558,8 @@ cdef class EFit(object):
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
             free(self.ex_data)
+            # NULL self.ex_data so __dealloc__ does not double-free it.
+            self.ex_data = NULL
             raise MemoryError("param_array alloc failed")
         
         ii = 0
@@ -1564,7 +1569,12 @@ cdef class EFit(object):
                 for j in range(i):
                     free(param_array[j])
                 free(self.ex_data)
-                free(self.param_array)
+                # NULL self.ex_data so __dealloc__ does not double-free it.
+                self.ex_data = NULL
+                # free(self.param_array) would be a no-op here because
+                # self.param_array has not been assigned yet; free the local
+                # param_array instead to avoid leaking the outer array.
+                free(param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
             param_array[i].type = ord(self.param_types[p])
@@ -1591,7 +1601,10 @@ cdef class EFit(object):
             for i in range(self.n_p):
                 free(self.param_array[i])
             free(self.param_array)
+            # NULL both members so __dealloc__ does not attempt second frees.
+            self.param_array = NULL
             free(self.ex_data)
+            self.ex_data = NULL
             raise MemoryError("efit_data_alloc failed")
 
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
@@ -1759,7 +1772,7 @@ cdef class MHFit(object):
         h_param_list = []                              # Array of arrays specifying parameters of each H.
         self.n_zx = np.empty(self.n_h, dtype=np.int32) # Number of complex valued params for each Hamiltonian
         for i,h in enumerate(h_list):
-            if h.coeff_dict == None:
+            if h.coeff_dict is None:
                 raise ValueError("Hamiltonian must have coefficients set prior to mhfit.")
             else:
                 self.coeff.update(copy.deepcopy(h.coeff_dict))
@@ -1827,6 +1840,8 @@ cdef class MHFit(object):
         self.ex_data = <cfl.ex_data **>malloc(self.n_h*sizeof(cfl.ex_data *))
         if self.ex_data == NULL:
             free(self.ha)
+            # NULL self.ha so __dealloc__ does not attempt a second free.
+            self.ha = NULL
             raise MemoryError("exa alloc failed")
         
         for i in range(self.n_h):
@@ -1838,6 +1853,9 @@ cdef class MHFit(object):
                     free(self.ex_data[j])
                 free(self.ex_data)
                 free(self.ha)
+                # NULL both members so __dealloc__ does not double-free.
+                self.ex_data = NULL
+                self.ha = NULL
                 raise
         
         # Prepare array of pointers to parameter data structs.
@@ -1847,6 +1865,9 @@ cdef class MHFit(object):
                 free(self.ex_data[i])
             free(self.ex_data)
             free(self.ha)
+            # NULL both members so __dealloc__ does not double-free.
+            self.ex_data = NULL
+            self.ha = NULL
             raise MemoryError("param_arrays alloc failed")
 
         for i in range(self.n_h):
@@ -1859,6 +1880,9 @@ cdef class MHFit(object):
                     free(self.ex_data[j])
                 free(self.ex_data)
                 free(self.ha)
+                # NULL both members so __dealloc__ does not double-free.
+                self.ex_data = NULL
+                self.ha = NULL
                 raise MemoryError("param_arrays[{}] alloc failed".format(i))
        
         for hi,h in enumerate(h_list):
@@ -1877,6 +1901,10 @@ cdef class MHFit(object):
                         free(self.ex_data[j])
                     free(self.ex_data)
                     free(self.ha)
+                    # NULL both members so __dealloc__ does not double-free.
+                    # self.param_arrays is not yet assigned, so no need to null it.
+                    self.ex_data = NULL
+                    self.ha = NULL
                     raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
                 
                 param_arrays[hi][i].type = ord(self.param_types[p])
@@ -1904,10 +1932,15 @@ cdef class MHFit(object):
                     free(self.param_arrays[hi][i])
                 free(self.param_arrays[hi])
             free(param_arrays)
+            # NULL self.param_arrays so __dealloc__ does not double-free it.
+            self.param_arrays = NULL
             for j in range(self.n_h):
                 free(self.ex_data[j])
             free(self.ex_data)
             free(self.ha)
+            # NULL both members so __dealloc__ does not double-free them.
+            self.ex_data = NULL
+            self.ha = NULL
             raise MemoryError("mhfit_data_alloc failed")
         
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
@@ -2149,7 +2182,7 @@ cdef class ESHFit(object):
         if not all((isinstance(p, str) for p in parameters)):
             raise TypeError("Parameters must be strings of tensor names.")
 
-        if h.coeff_dict == None:
+        if h.coeff_dict is None:
             raise ValueError("Hamiltonian must have coefficients set prior to eshfit.")
         else:
             self.coeff = copy.deepcopy(h.coeff_dict)
@@ -2211,6 +2244,8 @@ cdef class ESHFit(object):
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
             free(self.ex_data)
+            # NULL self.ex_data so __dealloc__ does not double-free it.
+            self.ex_data = NULL
             raise MemoryError("param_array alloc failed")
         self.param_array = param_array 
        
@@ -2222,7 +2257,10 @@ cdef class ESHFit(object):
                 for j in range(i):
                     free(param_array[j])
                 free(self.ex_data)
+                # NULL both members so __dealloc__ does not double-free them.
+                self.ex_data = NULL
                 free(self.param_array)
+                self.param_array = NULL
                 raise MemoryError("param_array[{}] alloc failed".format(i))
             
             param_array[i].type = ord(self.param_types[p])
@@ -2267,12 +2305,15 @@ cdef class ESHFit(object):
             for i in range(self.n_p):
                 free(param_array[i])
             free(self.ex_data)
+            # NULL both members so __dealloc__ does not double-free them.
+            self.ex_data = NULL
             free(param_array)
+            self.param_array = NULL
             raise
         shx_array = <cfl.shx_data **>PyCapsule_GetPointer(shx_array_cap, "pycfl.ShxArray")
         self.shx_array = shx_array
 
-        if (self.hpro != None):
+        if (self.hpro is not None):
             if self.ex.sl_index:
                 self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
                     "pycfl.Hamiltonian"), 
@@ -2288,10 +2329,16 @@ cdef class ESHFit(object):
             if self.eshfit_data is NULL:
                 for i in range(len(self.sh.interactions)):
                     free(self.shx_array[i])
+                # Free and NULL the outer shx_array so __dealloc__ skips it.
+                free(self.shx_array)
+                self.shx_array = NULL
                 for i in range(self.n_p):
                     free(param_array[i])
                 free(self.ex_data)
+                # NULL all members freed above so __dealloc__ does not double-free.
+                self.ex_data = NULL
                 free(param_array)
+                self.param_array = NULL
                 raise MemoryError("eshfit_data_alloc failed")
 
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
@@ -2310,10 +2357,16 @@ cdef class ESHFit(object):
             if self.eshfit_data is NULL:
                 for i in range(len(self.sh.interactions)):
                     free(self.shx_array[i])
+                # Free and NULL the outer shx_array so __dealloc__ skips it.
+                free(self.shx_array)
+                self.shx_array = NULL
                 for i in range(self.n_p):
                     free(param_array[i])
                 free(self.ex_data)
+                # NULL all members freed above so __dealloc__ does not double-free.
+                self.ex_data = NULL
                 free(param_array)
+                self.param_array = NULL
                 raise MemoryError("eshfit_data_alloc failed")
 
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_obj, "pycfl.MinObjF", NULL)
@@ -2374,7 +2427,7 @@ cdef class ESHFit(object):
                 params[p] = x[ri]
                 ri += 1
         chi2 = np.ascontiguousarray(np.zeros(len(self.sh.interactions)+1, dtype=np.float64))
-        if (self.hpro != None):
+        if (self.hpro is not None):
             cfl.eshfit_hpro_chi2(&x[0], self.eshfit_data, &chi2[0])
         else:
             cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
@@ -2482,8 +2535,8 @@ cdef class MESHFit(object):
             except KeyError:
                 raise KeyError("Each h_sh_list element must be a dictionary containing "\
                         "an 'h' key that points to a Hamiltonian object.")
-            if h.coeff_dict == None:
-                raise ValueError("Hamiltonian must have coefficients set prior to meshfit.") 
+            if h.coeff_dict is None:
+                raise ValueError("Hamiltonian must have coefficients set prior to meshfit.")
             else:
                 self.coeff.update(copy.deepcopy(h.coeff_dict))
             
@@ -2609,7 +2662,7 @@ cdef class MESHFit(object):
         
         ex_data = []
         for i in range(self.n_h):
-            if ex_list[i] != None:
+            if ex_list[i] is not None:
                 try:
                     ex_data += [exdata_alloc_helper(ex_list[i], weights_list[i]['energy'])]
                 except Exception:
@@ -2697,7 +2750,7 @@ cdef class MESHFit(object):
             raise MemoryError("eshfit_array alloc failed")
         
         for i in range(self.n_h):
-            if hpro_list[i] != None:
+            if hpro_list[i] is not None:
                 self.eshfit_array[i] = cfl.eshfit_data_alloc(ex_job_list[i], svd_list[i], 
                     <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), 
                     <cfl.zh *>PyCapsule_GetPointer(hpro_list[i].h_cap, "pycfl.Hamiltonian"),
@@ -3155,7 +3208,7 @@ cdef class CFLMin:
         # Allocate covariance matrix for non-linear least-squares fit, and set
         # nlls specific tolerances. 
         if self.method == 'gsl_nls':
-            if fit_obj.nls_f_cap == None:
+            if fit_obj.nls_f_cap is None:
                 raise NotImplementedError("gls_nls is not an existing option for requested fitting mode.")
             else:
                 nls_f_ptr = <void (*)(double *, void *, double *) noexcept>PyCapsule_GetPointer(
@@ -3694,12 +3747,17 @@ cdef class ZEFOZSearch:
         self.cfl_zd = cfl.zefoz_d_alloc(<cfl.zh *>PyCapsule_GetPointer(h.h_cap, "pycfl.Hamiltonian"), &zi[0])
         if self.cfl_zd == NULL:
             free(self.zmatel)
+            # NULL self.zmatel so __dealloc__ does not attempt a second free.
+            self.zmatel = NULL
             raise MemoryError("zefoz_alloc failed")
 
         self.cfl_za = cfl.zefoz_a_alloc(init_size)
         if self.cfl_za == NULL:
             free(self.zmatel)
             cfl.zefoz_d_free(self.cfl_zd)
+            # NULL both members so __dealloc__ does not double-free them.
+            self.zmatel = NULL
+            self.cfl_zd = NULL
             raise MemoryError("zefoz_a_alloc failed")
 
     def __dealloc__(self):

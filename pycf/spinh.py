@@ -342,11 +342,11 @@ def su2_rz(p, m):
 
     Parameters
     ----------
-    p : float 
-        The phase `\phi` of an SU(2) rotation `\mathcal{D}_z(\phi)`.
+    p : float
+        The phase ``phi`` of an SU(2) rotation D_z(phi).
     m : ndarray
-        A `2 \times 2` Zeeman interaction term, or a `2 \times (I+1) \times 2`
-        by `2 \times (I+1) \times 2` magnetic dipole hyperfine interaction term.
+        A 2x2 Zeeman interaction term, or a 2*(I+1) x 2*(I+1)
+        magnetic dipole hyperfine interaction term.
     
     Returns
     -------
@@ -435,8 +435,9 @@ def su2_rotation(p, m):
          np.exp(I*(a)/2) * (-I*np.sin(b/2)*np.sin(c/2)+np.cos(b/2)*np.cos(c/2))]])
     
     rm = np.copy(m)
-    for i in range(int(m.shape[0]/2)):
-        for j in range(int(m.shape[1]/2)):
+    # Use integer floor division (//) rather than float division + int() cast.
+    for i in range(m.shape[0]//2):
+        for j in range(m.shape[1]//2):
             rm[2*i:2*i+2, 2*j:2*j+2] = np.dot(np.dot(np.conj(rotation.T), m[2*i:2*i+2, 2*j:2*j+2]), rotation)
     
     return rm
@@ -598,13 +599,13 @@ class SpinH(object):
         # Determine Hamiltonian dimension.
         if self.kramers:
             if 'bgs' in terms:
-                if I_m == None:
+                if I_m is None:
                     # Only the bgs term.
                     H_dim = 2*S + 1
                 else:
                     # The bgs and/or ias/iqi/bi terms.
                     H_dim = (2*S + 1) * (2*I + 1)
-            elif S_m == None:
+            elif S_m is None:
                 # Only the iqi and/or bi term.
                 H_dim = 2*I + 1 
             else:
@@ -776,7 +777,7 @@ class SpinH(object):
             def print_fun(x, f, accepted):
                 print("Symmeterization minimum %.4f accepted %d" % (f, int(accepted)))
     
-            if sym_phase == None:
+            if sym_phase is None:
                 fmin = lambda p: su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
                 r = basinhopping(fmin, [0,0,0], minimizer_kwargs={"method": "Powell"}, 
                         callback=print_fun, niter=100)

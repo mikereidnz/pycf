@@ -677,7 +677,10 @@ inline double shchisq(double *pa, double *xpa) {
  *  evect   The eigenvectors of the h. 
  */
 inline void find_sort_indices(ex_data *ex, zh *h, complex double *evect) {
-  int i, j, pj, obs_cnt;
+  /* Initialise pj to 0 so it is always defined.  The inner loop overwrites it
+   * with the index of the largest-magnitude component.  If all components are
+   * exactly zero (degenerate/zero eigenvector), pj stays 0, which is safe. */
+  int i, j, pj = 0, obs_cnt;
   double pv;
 
   obs_cnt = 0;

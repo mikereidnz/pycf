@@ -203,7 +203,7 @@ class Spectrum(dict):
             log += "pyemp Spectrum parameters:\n"
             log += "--------------------------\n"
             for key in self:
-                if self[key] != None:
+                if self[key] is not None:
                     log +=  "{0}:\n {1}\n".format(key, self[key])
         elif mode == 'full':
             if self.erun_obj == {}:
@@ -295,7 +295,7 @@ class BaseEmp(object):
         for f in infiles:
             if f in kwargs:
                 spectrum[f] = kwargs[f]
-            elif spectrum[f] == None:
+            elif spectrum[f] is None:
                 raise ValueError("Missing input file {0} for process {1}.  "
                 "This means the input file has not been specified (either when "
                 "creating the spectrum object or the {1} object) nor generated "
@@ -358,7 +358,7 @@ class GenericErun(BaseEmp):
             # Add the key of any files created by this process to the spectrum
             # object, with value self.name.  This is used to tell other BaseEmp
             # subclasses what files are available.
-            if not outfiles == None:
+            if outfiles is not None:
                 for f in outfiles:
                     spectrum[f] = self.name
         else:
@@ -421,7 +421,7 @@ class Cfit(GenericErun):
         # strings.
         blank_args = ['addtensors', 'addassign', 'expparams']
         for arg in blank_args:
-            if spectrum[arg] == None:
+            if spectrum[arg] is None:
                 spectrum[arg] = ''
 
         base_input = """
@@ -442,7 +442,7 @@ class Cfit(GenericErun):
         
         # Check whether splitplot input has been provided; if so, append
         # relevant commands to input.
-        if spectrum['splitplot'] != None:
+        if spectrum['splitplot'] is not None:
             data = spectrum['splitplot']
             self.splitplot = data
             splitplot_input = "splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 "
@@ -454,7 +454,7 @@ class Cfit(GenericErun):
         # If spinh input is provided, convert it, if necessary, to a list, then
         # generate input file content for each element in addition to the
         # expthelp input. 
-        if spectrum['spinh'] != None:
+        if spectrum['spinh'] is not None:
             if not isinstance(spectrum['spinh'], list):
                 spectrum['spinh'] = [spectrum['spinh']]
             spinh_input = """*% Energy levels
@@ -520,12 +520,12 @@ class Cfit(GenericErun):
         GenericErun.erun(self, spectrum, ['tvals'])
         
         # Load splitplot and spinhamiltonian data. 
-        if spectrum['splitplot'] != None:
+        if spectrum['splitplot'] is not None:
             spectrum.splitplotdata = np.loadtxt('{0}_split.dat'.format(
                 spectrum.name), skiprows = 4)
         
         # Parse the input for each spinh list entry.
-        if spectrum['spinh'] != None:
+        if spectrum['spinh'] is not None:
             # Match energy level data from expthelp file; regex depends on
             # whether the nuclear spin label is present.
             if 'assign al' in spectrum['addassign'] or \
@@ -648,7 +648,7 @@ class Vtrans(GenericErun):
                      """.format(
                      spectrum['states'], spectrum['tvals'],
                      spectrum.name, spectrum['matel'], *spectrum['levels'][0:4])
-        if spectrum['edconstruct'] != None:
+        if spectrum['edconstruct'] is not None:
             ed_input = "{} \n\n".format(spectrum['edconstruct'])
         else:
             ed_input = "EDCONSTRUCT \n\n"
@@ -704,7 +704,7 @@ class Inten(GenericErun):
                      SETUPMOM \n
                      """.format(spectrum['states'],
                          spectrum['tvals'], spectrum['trans'])
-        if spectrum['edipole'] != None:
+        if spectrum['edipole'] is not None:
             dipole_input = """
                      addten edipole %
                      {0}
@@ -1148,7 +1148,7 @@ class SpectrumAxes(plt.Axes):
             routines have their usual functions.
         """
 
-        if spectrum['splitplot'] == None:
+        if spectrum['splitplot'] is None:
             raise ValueError("The provided Spectrum instance does not have a "
             "splitplotdata attribute. The splitplotdata attribute is created "
             "by Cfit for Spectrum objects with a splitplot kwarg.")

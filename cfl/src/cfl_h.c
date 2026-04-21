@@ -492,7 +492,7 @@ zblock **zhd_w_block_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
 
     k += block_dim[i];
     blocks[i]->dim = block_dim[i];
-    blocks[i]->a = (complex double *) calloc(block_dim[i]*block_dim[i],
+    blocks[i]->a = (complex double *) calloc((size_t)block_dim[i]*block_dim[i],
         sizeof(complex double));
     if (blocks[i]->a == 0) {
       for (j = 0; j < i; j++) {
@@ -505,7 +505,7 @@ zblock **zhd_w_block_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
       CFL_ERROR_NULL("malloc failed for blocks[i]->a");
     }
     if (job == 'V') {
-      zb[i] = (complex double *) calloc(block_dim[i]*block_dim[i],
+      zb[i] = (complex double *) calloc((size_t)block_dim[i]*block_dim[i],
           sizeof(complex double));
       if (zb[i] == 0) { 
         for (j = 0; j < i; j++) {
@@ -538,7 +538,9 @@ void zhd_w_block_free(zhd_w *hd_w) {
     free(hd_w->blocks[i]);
   }
   free(hd_w->blocks);
-  if (hd_w->zb[0] != NULL) {
+  /* Guard against nblocks == 0: zb would be a zero-length allocation and
+   * accessing zb[0] would be out of bounds. */
+  if (hd_w->nblocks > 0 && hd_w->zb[0] != NULL) {
     for (i = 0; i < hd_w->nblocks; i++) {
       free(hd_w->zb[i]);
     }

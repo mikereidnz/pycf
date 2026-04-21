@@ -80,6 +80,8 @@ class ImportSLJM(object):
             sl_name = name
 
         # Get the number of states and state labels from *.st file.
+        # Initialise dim to 0 so it is defined even if the file is empty.
+        dim = 0
         with open("%s.st_" % sl_name, 'r') as f:
             for d in get_state_number(f):
                 # Guard against empty match (regex didn't find STATES line).
