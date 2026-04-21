@@ -275,7 +275,7 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
 
   data->n_rx_rt[0] = 0;
   for (i=1; i<n; i++) {
-    data->n_rx_rt[i] = data->n_rx_rt[i-1]+exa[i]->n_obs;
+    data->n_rx_rt[i] = data->n_rx_rt[i-1]+exa[i-1]->n_obs;
   }
 
   data->hd_w = (zhd_w **) malloc(nhd_w*sizeof(zhd_w *));

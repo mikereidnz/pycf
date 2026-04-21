@@ -955,8 +955,12 @@ int siman_f(double *x, double *fmin, void *data) {
 
     delta = (u*2-1)*d->stepsize[j];
     if (d->bounds != NULL) {
+      int nattempts = 0;
       tmp_x = delta+d->xnew[j];
       while (!(tmp_x < d->bounds->u[j] && tmp_x > d->bounds->l[j])) {
+        if (++nattempts >= 1000) {
+          CFL_ERROR_VOID("basin-hopping: failed to find in-bounds step after 1000 attempts");
+        }
         u = gsl_rng_uniform(d->rng);
         delta = (u*2-1)*d->stepsize[j];
         tmp_x = delta+d->xnew[j];
