@@ -338,11 +338,11 @@ def gen_e_summary(w, z, labels, label_key, **kwargs):
     ii=0
     for i in range(len(z)):
         line = "{0:<6}".format(i+1)
-        N = np.sum(np.abs(z[:, i]))
+        N = np.sum(np.abs(z[:, i])**2)
         for j in range(nstates):
             si = sort_list[i][j]
             
-            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])**2/N, 
                     si+1, fmt_label(si, labels))
         s += line + " {: >12.4f}".format(w[i])
 
@@ -464,10 +464,10 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
         for ii in range(ex.n_a):
             i = int(exa[ii, 0])
             line = "{0:<6}".format(i+1)
-            N = np.sum(np.abs(z[:, i]))
+            N = np.sum(np.abs(z[:, i])**2)
             for j in range(nstates):
                 si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])**2/N, 
                         si+1, fmt_label(si, labels))
 
             s += line + " {: >12.4f}".format(w[i])
@@ -488,19 +488,19 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
         for ii in range(ex.n_d):
             i = int(exd[ii, 0])
             line = "{0:<6}".format(i+1)
-            N = np.sum(np.abs(z[:, i]))
+            N = np.sum(np.abs(z[:, i])**2)
             for j in range(nstates):
                 si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])**2/N, 
                         si+1, fmt_label(si, labels))
             s += line + "\n"
             tmp_w = w[i]
             i = int(exd[ii, 1])
             line = "{0:<6}".format(i+1)
-            N = np.sum(np.abs(z[:, i]))
+            N = np.sum(np.abs(z[:, i])**2)
             for j in range(nstates):
                 si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])/N, 
+                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(z[si,i], np.abs(z[si,i])**2/N, 
                         si+1, fmt_label(si, labels))
             tmp_w = w[i]-tmp_w
             s += line + " {: >12.4g}".format(tmp_w)
