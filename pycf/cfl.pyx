@@ -1058,7 +1058,7 @@ cdef class SpinHamiltonian:
 
         (w, z) = h.diag()
         cz = <np.ndarray[double complex, ndim=2, mode="fortran"]> z
-        shp_w = zshp_w_alloc(svd, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
+        shp_w = cfl.zshp_w_alloc(svd, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
         a = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(9, dtype=np.float64)
        
         result_list = []
@@ -1076,7 +1076,7 @@ cdef class SpinHamiltonian:
 
             b = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(d_inter, dtype=np.complex128)
 
-            zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, 
+            cfl.zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, 
                 "pycfl.SpinHamiltonian"), shp_w)
             result_list += [np.copy(a.reshape(3,3))]
             
@@ -1089,7 +1089,7 @@ cdef class SpinHamiltonian:
             elif inter == 'quadrupole':
                 sh_matel['quadrupole'] = b.reshape(self.dq, self.dq)
         
-        zshp_w_free(shp_w)
+        cfl.zshp_w_free(shp_w)
         
         # Set small magnetic field that was used for state-label sorting to
         # zero.
@@ -2782,7 +2782,7 @@ cdef class MESHFit(object):
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
                 if self.eshfit_array[i] is NULL:
                     for j in range(i):
-                        eshfit_data_free(self.eshfit_array[j])
+                        cfl.eshfit_data_free(self.eshfit_array[j])
                     free(self.eshfit_array)
                     self.eshfit_array = NULL
                     for ii in range(self.n_h):
@@ -2805,7 +2805,7 @@ cdef class MESHFit(object):
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
                 if self.eshfit_array[i] is NULL:
                     for j in range(i):
-                        eshfit_data_free(self.eshfit_array[j])
+                        cfl.eshfit_data_free(self.eshfit_array[j])
                     free(self.eshfit_array)
                     self.eshfit_array = NULL
                     for ii in range(self.n_h):
