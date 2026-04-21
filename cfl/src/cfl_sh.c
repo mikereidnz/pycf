@@ -629,7 +629,7 @@ zshi_w *zshi_w_alloc(char job, zsh_inv_data *d) {
 
   w = (zshi_w *) malloc(sizeof(zshi_w));
   if (w == 0) {
-    CFL_ERROR_NULL("malloc faild for w");
+    CFL_ERROR_NULL("malloc failed for w");
   }
 
   /* LAPACK workspace query for least-squares eqn solver. The RHS buffer is
@@ -753,7 +753,7 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
 
   w = (zshp_w *) malloc(sizeof(zshp_w));
   if (w == 0) {
-    CFL_ERROR_NULL("malloc faild for w");
+    CFL_ERROR_NULL("malloc failed for w");
   }
 
   w->shp_p_w = (zshp_p_w *) zshp_p_w_alloc(sh);

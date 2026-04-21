@@ -3363,7 +3363,7 @@ cdef class CFLMin:
 
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         if 'dry_run' in self.kwargs:
-            if self.kwargs['dry_run'] == True:
+            if self.kwargs['dry_run']:
                 fmin = 0
             else:
                 with nogil:

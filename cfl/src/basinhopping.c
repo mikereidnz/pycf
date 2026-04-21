@@ -112,7 +112,7 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
     free(w->emin);
     free(w);
     free(x);
-    CFL_ERROR_NULL("malloc failled for w->step_data");
+    CFL_ERROR_NULL("malloc failed for w->step_data");
   }
   w->step_data->stepsize = (double *) malloc(n*sizeof(double));
   if (w->step_data->stepsize == 0) {
