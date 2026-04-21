@@ -149,7 +149,16 @@ def ex_parse_abs(ex, z, labels):
         pc = np.argmax(np.abs(z), axis=0)
         for i,r in enumerate(ex.a_states):
             # Find the index of the principal component of each state label.
-            parsed_ex[i, 0] = np.where((np.array(labels)[pc] == r).all(axis=1))[0][0]
+            # Guard against a missing match: np.where returns an empty array
+            # when no eigenvector has the requested label as its principal
+            # component, which would produce a bare IndexError without context.
+            idxs = np.where((np.array(labels)[pc] == r).all(axis=1))[0]
+            if len(idxs) == 0:
+                raise RuntimeError(
+                    "Experimental state label {} not found in computed "
+                    "eigenvectors; check that the label is correct and that "
+                    "the basis is large enough.".format(r))
+            parsed_ex[i, 0] = idxs[0]
     
     else:
         parsed_ex = np.zeros((ex.n_a, 2))
@@ -194,18 +203,36 @@ def ex_parse_diff(ex, z, labels):
         # eigenvector. 
         pc = np.argmax(np.abs(z), axis=0)
         # Find the index of the principal component of each state label.
+        # Both loops guard against missing matches for the same reason as
+        # ex_parse_abs: a bare IndexError gives no hint about which label
+        # failed or why.
         for i,s in enumerate(ex.id_states):
-            parsed_ex[i, 0] = np.where((np.array(labels)[pc] == s).all(axis=1))[0][0]
+            idxs = np.where((np.array(labels)[pc] == s).all(axis=1))[0]
+            if len(idxs) == 0:
+                raise RuntimeError(
+                    "Initial-state label {} not found in computed "
+                    "eigenvectors; check that the label is correct and that "
+                    "the basis is large enough.".format(s))
+            parsed_ex[i, 0] = idxs[0]
         for i,s in enumerate(ex.fd_states):
-            parsed_ex[i, 1] = np.where((np.array(labels)[pc] == s).all(axis=1))[0][0]
+            idxs = np.where((np.array(labels)[pc] == s).all(axis=1))[0]
+            if len(idxs) == 0:
+                raise RuntimeError(
+                    "Final-state label {} not found in computed "
+                    "eigenvectors; check that the label is correct and that "
+                    "the basis is large enough.".format(s))
+            parsed_ex[i, 1] = idxs[0]
     else:
         parsed_ex = np.zeros((ex.n_d, 3))
         # Diff. energy values are ordered to come after abs. values.
         parsed_ex[:, 2] = ex.e[ex.n_a:]
         parsed_ex[:, 0] = ex.ild
         parsed_ex[:, 1] = ex.fld
-        # Sort ex according to inital level, then final level.
-        parsed_ex = parsed_ex[np.lexsort((parsed_ex[:, 0], parsed_ex[:, 1])), :]
+        # Sort ex according to initial level (col 0), then final level (col 1).
+        # np.lexsort sorts primarily by the *last* key in its tuple, so col 0
+        # (initial level) must come last to be the primary sort key.  The
+        # previous order had the keys reversed, making final level primary.
+        parsed_ex = parsed_ex[np.lexsort((parsed_ex[:, 1], parsed_ex[:, 0])), :]
     
     return parsed_ex
 
