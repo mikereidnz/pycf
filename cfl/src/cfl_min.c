@@ -600,6 +600,9 @@ cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double
       min_f = &gsl_multimin_fndf;
       min_obj_free = gsl_multimin_fndf_free;
       break;
+    default:
+      free(obj);
+      CFL_ERROR_NULL("cfl_gsl_min_setup: unsupported algorithm value");
   }
 
   obj->min_data = min_data;
@@ -667,6 +670,9 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
     case nlopt_esch:
       opt = nlopt_create(NLOPT_GN_ESCH, n);
       break;
+    default:
+      free(obj);
+      CFL_ERROR_NULL("cfl_nlopt_min_setup: unsupported algorithm value");
   }
   if (opt == 0) {
     free(obj);

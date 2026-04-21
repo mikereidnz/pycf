@@ -1829,13 +1829,12 @@ cdef class MHFit(object):
                     parameters, %i, exceeds the number of observables, %i." %
                     (self.n_p_real, self.n_obs))
 
-        # Weights assignment for GSL nonlinear least-squares. 
-        self.wts = np.ascontiguousarray(np.zeros(self.n_obs), dtype=np.float64)
-        i = 0
-        for wi,ex in enumerate(self.ex_list):
-            for ii in range(ex.n_obs):
-                self.wts[i] = weights_list[wi]
-                i += 1
+        # Weights for GSL nonlinear least-squares.  nls_echisq already encodes
+        # the full combined weight (per-level ex.w * per-Hamiltonian scalar) into
+        # each residual as sqrt(w)*(calc-obs), so GSL must not apply additional
+        # weighting on top.  Pass unit weights to gsl_multifit_nlinear_winit so
+        # that it minimises sum(y_i^2) = echisq without double-counting.
+        self.wts = np.ones(self.n_obs, dtype=np.float64)
         
         # Hamiltonian array
         self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
