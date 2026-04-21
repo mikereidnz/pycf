@@ -3091,6 +3091,10 @@ cdef class CFLMin:
     def __dealloc__(self):
         if self.cfl_bounds != NULL:
             free(self.cfl_bounds)
+        if self.min_obj != NULL:
+            cfl.cfl_min_free(self.min_obj)
+        if self.bh_lmin_obj != NULL:
+            cfl.cfl_min_free(self.bh_lmin_obj)
 
     @cython.boundscheck(False)
     cpdef minimize(self, fit_obj, x0):
