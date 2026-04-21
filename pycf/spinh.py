@@ -697,13 +697,13 @@ class SpinH(object):
             self.terms['ias'] = ias(self.I_m, m, self.S_m)
         elif term == 'iqi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
-            # Use integer division; H_dim is always an integer multiple of
-            # (2*I + 1) by construction.
-            n = self.H_dim // (2 * self.I + 1)
+            # self.I is a half-integer float, so cast the denominator to int
+            # before dividing to get an integer result for list repetition.
+            n = self.H_dim // int(2 * self.I + 1)
             self.terms['iqi'] = block_diag(*[iqi(self.I_m, m)]*n)
         elif term == 'bi':
             # Create list of H_dim/(2*I + 1) length and block diagonalize.
-            n = self.H_dim // (2 * self.I + 1)
+            n = self.H_dim // int(2 * self.I + 1)
             self.terms['bi'] = block_diag(*[m*bi(self.B, self.I_m)]*n)
         elif term == 'bmi':
             # bmi is of correct dimension for non-Kramers ions. 
