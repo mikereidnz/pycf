@@ -256,6 +256,17 @@ gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
   }
 
   s = gsl_multimin_fminimizer_alloc(T, n);
+  /* GSL free functions do not handle NULL, so a failed alloc must be caught
+   * before storing s in the workspace struct. */
+  if (s == NULL) {
+    free(w);
+    free(gsl_data);
+    free(x);
+    free(gsl_f);
+    gsl_vector_free(v);
+    gsl_vector_free(ssv);
+    CFL_ERROR_NULL("gsl_multimin_fminimizer_alloc failed");
+  }
   gsl_vector_set_all(ssv, 1.0);
   
   w->s = s;
@@ -391,6 +402,19 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
   }
 
   s = gsl_multimin_fdfminimizer_alloc(T, n);
+  /* GSL free functions do not handle NULL, so a failed alloc must be caught
+   * before storing s in the workspace struct. */
+  if (s == NULL) {
+    free(w);
+    free(x);
+    free(grad);
+    free(dfa);
+    free(df_work);
+    free(gsl_f);
+    gsl_vector_free(v);
+    free(gsl_data);
+    CFL_ERROR_NULL("gsl_multimin_fdfminimizer_alloc failed");
+  }
 
   w->s = s;
   w->f = gsl_f;

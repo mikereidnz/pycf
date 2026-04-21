@@ -453,9 +453,13 @@ class Cfit(GenericErun):
         if spectrum['splitplot'] is not None:
             data = spectrum['splitplot']
             self.splitplot = data
-            splitplot_input = "splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 "
-            "lines nokey ps \n dummy splitplot title \n\n".format(spectrum.name,
-            data['energy'][0], data['energy'][1], data['var'], *data['range'])
+            # Fix: both string literals must be inside the parentheses so that
+            # .format() is applied to the full combined string, not just the
+            # second literal (which would leave the {0}-{5} placeholders raw).
+            splitplot_input = ("splitplot {0}_split.dat {1} {2} {3} {4} {5} 5 "
+                "lines nokey ps \n dummy splitplot title \n\n").format(
+                spectrum.name, data['energy'][0], data['energy'][1],
+                data['var'], *data['range'])
         else:
             splitplot_input = ''
         

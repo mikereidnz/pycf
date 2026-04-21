@@ -660,8 +660,10 @@ inline double shchisq(double *pa, double *xpa) {
   double chisq;
 
   chisq = 0;
+  /* Compare signed values; fabs() on both sides would treat +x and -x as
+   * equivalent and suppress physically meaningful sign differences. */
   for (i = 0; i < 9; i++) {
-    chisq += pow(fabs(pa[i]) - fabs(xpa[i]), 2);
+    chisq += pow(pa[i] - xpa[i], 2);
   }
   
   return chisq;
@@ -1076,15 +1078,17 @@ inline void nls_echisq(double *e, ex_data *d, double *y) {
   int i, ii;
 
   ii = 0;
-  /* The chisq contribution due to absolute energy level data. */
+  /* The chisq contribution due to absolute energy level data. NLS minimises
+   * sum(y_i^2), so y_i must be sqrt(w_i)*(calc-obs) so that sum(y_i^2) equals
+   * the weighted chi^2 = sum(w_i*(calc-obs)^2). */
   for (i = 0; i < d->n_a; i++) {
-    y[ii] = d->w[i] * e[d->la[i]] - d->e[i];
+    y[ii] = sqrt(d->w[i]) * (e[d->la[i]] - d->e[i]);
     ii++;
   }
   /* The chisq contribution due to difference energy level data. */ 
   for (i = 0; i < d->n_d; i++) {
-    y[ii] = d->w[i+d->n_a] * fabs(e[d->fld[i]] - e[d->ild[i]]) 
-      - d->e[i+d->n_a];
+    y[ii] = sqrt(d->w[i+d->n_a]) * (fabs(e[d->fld[i]] - e[d->ild[i]])
+      - d->e[i+d->n_a]);
     ii++;
   }
 }
