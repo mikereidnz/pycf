@@ -545,9 +545,9 @@ class SpinH(object):
         self.mu_n = 7.622593285
 
         for t in terms:
-            if not any(t in term for term in ['bgs', 'ias', 'iqi', 'bi', 'bmi']):
+            if t not in ['bgs', 'ias', 'iqi', 'bi', 'bmi']:
                 raise ValueError("Invalid element in terms list: {}. Allowed"
-                        "values are 'bgs', 'ias', 'iqi', 'bi'.".format(terms))
+                        " values are 'bgs', 'ias', 'iqi', 'bi', 'bmi'.".format(terms))
             else:
                 self.t_list = terms
         self.terms = {}
