@@ -769,6 +769,12 @@ zshp_w *zshp_w_alloc(char job, zsh *sh) {
     CFL_ERROR_NULL("malloc failed for w->shi_w");
   }
 
+  /* Sentinel: if no zeeman interaction exists in the loop below, w->zi is
+   * never set.  Initialising to sh->ninter means every int_i < w->zi in
+   * zshp() will be true, taking the "before zeeman" branch — which is the
+   * correct behaviour when there is no zeeman term. */
+  w->zi = sh->ninter;
+
   /* Alloc inversion workspace. */
   for (i = 0; i < sh->ninter; i++) {
     /* Disable SVD for quadrupole and all non-Kramers spin Hamiltonian
