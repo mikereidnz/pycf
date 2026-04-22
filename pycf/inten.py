@@ -360,9 +360,10 @@ def dipole_str(lrange, tensor_dict, w, md=True, ed=False, Altp=None):
     Parameters
     ----------
     lrange : list
-        The level range, with entries: [first initial level, last initial level,
-        first final level, last final level].  The level index convention calls
-        the ground state level 1.
+        A list of two lists: [initial_levels, final_levels], where each
+        sub-list contains 0-based level indices.
+        Example: [[0, 1], [6, 7, 8, 9]] selects levels 0–1 as initial
+        and levels 6–9 as final.
     tensor_dict : dict
         Expects specific keys (M10, M11, M1-1) pointing to matrix elements of
         the dipole operator in the eigenbasis of the Hamiltonian. 
@@ -459,10 +460,6 @@ def inten(trs, polarization, linewidth, T, xlim=None, npoints=1000):
     
     Parameters
     ----------
-    lrange : list
-        The level range, with entries: [first initial level, last initial level,
-        first final level, last final level].  The level index convention calls
-        the ground state level 1.
     """
     
     # Determine the smallest initial energy level, which we assume to be the
