@@ -461,6 +461,8 @@ def inten(trs, polarization, linewidth, T, xlim=None, npoints=1000):
     Parameters
     ----------
     """
+    if len(trs) == 0:
+        raise ValueError("inten requires at least one transition.")
     
     # Determine the smallest initial energy level, which we assume to be the
     # ground state (used for scaling other energies for boltzmann factor... this

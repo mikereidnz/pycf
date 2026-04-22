@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 #include <gsl/gsl_rng.h>
 
 #include <gsl/gsl_multimin.h>
@@ -68,6 +69,12 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
   size_t n = lmin_obj->n;
   bh_work *w;
   double *x;
+
+  /* bh_min returns the accepted-step count through the int-valued cfl_min
+   * callback interface, so keep niter within the representable range. */
+  if (niter > INT_MAX) {
+    CFL_ERROR_NULL("niter must not exceed INT_MAX for basinhopping");
+  }
 
   w = (bh_work *) malloc(sizeof(bh_work));
   if (w == 0) {
