@@ -940,6 +940,10 @@ int siman_f(double *x, double *fmin, void *data) {
   tic = time(NULL);
 
   T = d->Tstart;
+  /* Validate muT is non-zero to avoid division by zero in cooling schedule. */
+  if (d->muT == 0.0) {
+    return -1;  /* Error: invalid cooling parameter. */
+  }
   Tdec = 1.0 / d->muT;
   nac = 0;
   d->chi2accept[nac] = d->f(d->n, x, NULL, d->data);
