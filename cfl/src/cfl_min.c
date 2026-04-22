@@ -945,7 +945,7 @@ int siman_f(double *x, double *fmin, void *data) {
   d->chi2accept[nac] = d->f(d->n, x, NULL, d->data);
   *fmin = d->chi2accept[nac];
   best_i = nac;
-  memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
+  memcpy(&(d->xaccept[(size_t)nac*d->n]), x, sizeof(double)*d->n);
   
   for (i=0; i<d->niter-1; i++) {
     toc = time(NULL);
@@ -974,7 +974,7 @@ int siman_f(double *x, double *fmin, void *data) {
     if (chi2 < *fmin) {
       x[j] = d->xnew[j];
       nac++;
-      memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
+      memcpy(&(d->xaccept[(size_t)nac*d->n]), x, sizeof(double)*d->n);
       d->chi2accept[nac] = chi2;
       *fmin = chi2;
       best_i = nac;
@@ -985,7 +985,7 @@ int siman_f(double *x, double *fmin, void *data) {
       if (u < exp((d->chi2accept[nac]-chi2)/(d->k*T))) {
           x[j] = d->xnew[j];
           nac++;
-          memcpy(&(d->xaccept[nac*d->n]), x, sizeof(double)*d->n);
+          memcpy(&(d->xaccept[(size_t)nac*d->n]), x, sizeof(double)*d->n);
           d->chi2accept[nac] = chi2;
       }
     }
@@ -994,7 +994,7 @@ int siman_f(double *x, double *fmin, void *data) {
         T *= Tdec; 
     }
   }
-  memcpy(x, &(d->xaccept[best_i*d->n]), sizeof(double)*d->n);
+  memcpy(x, &(d->xaccept[(size_t)best_i*d->n]), sizeof(double)*d->n);
 
   return nac;
 }
