@@ -14,7 +14,11 @@ except ImportError:
     pass
 from Cython.Distutils import build_ext
 
-DEFAULT_BUILD_COMMENT = "MFR: Updated to python 3.13. \nAdded conjugation before lapack call.\nChanged MAGX and MAGY to standard signs."
+DEFAULT_BUILD_COMMENT = "\
+    MFR: Updated to python 3.13. \n\
+    Added conjugation before lapack call.\n\
+    Changed MAGX and MAGY to standard signs.\n\
+    C memory fixes and other minor changes may change behaviour of some calculations."
 
 try:
     compile_args = [os.environ['CFL_CFLAGS']]

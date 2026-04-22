@@ -123,5 +123,106 @@ Python fixes
 
 
 
+Numbered issues above were fixed. I will fix the tests myself later. 
+
+----------------- 21/4/26 12.56
+
+
+  Full Repo Scan Results
+
+  🔴 Critical — Cython error-path double-frees (cfl.pyx)
+
+  Three classes have the same pattern: a C pointer is freed in an __init__ error path but self.<field> is not set to NULL, so __dealloc__ frees it a
+  second time when the exception propagates.
+
+  ┌────┬─────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ #  │ Location                        │ What gets double-freed                                                                                   │
+  ├────┼─────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ P1 │ Hamiltonian.__cinit__ (~line    │ self.tensor_array freed at line 337, then again in __dealloc__ at line 347                               │
+  │    │ 330/337/347)                    │                                                                                                          │
+  ├────┼─────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ P2 │ EFit.__init__ (~line 1557)      │ self.ex_data freed on param_array alloc failure, then again in __dealloc__ at line 1603                  │
+  ├────┼─────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ P3 │ EFit.__init__ (~line 1567)      │ free(self.param_array) is called when self.param_array is still NULL (assignment is line 1582) — leaks   │
+  │    │                                 │ the param_array allocation instead                                                                       │
+  ├────┼─────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ P4 │ ESHFit.__init__ (~line          │ self.param_array assigned early (line 2215), freed in inner error loop (line 2225), then elements +      │
+  │    │ 2215/2225)                      │ outer freed again in __dealloc__                                                                         │
+  └────┴─────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  -----------
+    🔴 Critical — C integer overflow in calloc size arguments
+
+  int * int multiplied before passing to calloc; overflows silently for large dimensions (harmless for typical CF problem sizes, but technically UB):
+
+  ┌───────────────┬──────────┬─────────────────────────────┐
+  │ File          │ Line     │ Expression                  │
+  ├───────────────┼──────────┼─────────────────────────────┤
+  │ cfl_h.c       │ 495, 508 │ block_dim[i]*block_dim[i]   │
+  ├───────────────┼──────────┼─────────────────────────────┤
+  │ cfl_h_fit.c   │ 126      │ h->n*h->n                   │
+  ├───────────────┼──────────┼─────────────────────────────┤
+  │ cfl_zefoz.c   │ 175      │ h->n*h->n                   │
+  └───────────────┴──────────┴─────────────────────────────┘
+
+  Fix: cast to (size_t) before the multiply.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+  🟡 Medium — Python/C
+
+  ┌────┬───────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ #  │ File                      │ Issue                                                                                                          │
+  ├────┼───────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ C1 │ cfl_sh.c:79,256           │ int i loop variable vs size_t ninter upper bound — signed/unsigned comparison                                  │
+  ├────┼───────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ C2 │ cfl_zefoz.c:119–130       │ After two sequential reallocs, if the second fails the first is committed but not rolled back (partial resize) │
+  ├────┼───────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ P5 │ import_sljm.py:51,88      │ Regex for STATES count and state-label lines can fail silently; both return empty lists without raising an     │
+  │    │                           │ error                                                                                                          │
+  ├────┼───────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ T1 │ spin-half_test.py:54–83   │ Module-level coeff dict mutated inside each parametrised variant — creates test-order dependency               │
+  └────┴───────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ------------------------------------
+
+  🟢 Low — cosmetic / known
+
+  ┌─────┬───────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────┐
+  │ #   │ File                                  │ Issue                                                                             │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L1  │ inten.py:62,183,230                   │ Invalid Python escape sequences (\lambda, etc.) in docstrings → SyntaxWarning     │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L2  │ spinh.py:346                          │ Same escape-sequence issue in docstring                                           │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L3  │ spin-half_test.py:66,80–83            │ "complex" parametrize variant identical to "imag" (already known)                 │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L4  │ exdata_example.py:85                  │ Error message says sel_data instead of data_sel (already known)                   │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L5  │ mhfit_siman.py:59/67                  │ Duplicate ZETA key (already known)                                                │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L6  │ mhfit_siman.py:185/192                │ Duplicate 't' key in hf_li (already known)                                        │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L7  │ mhfit_siman.py:163–179                │ 9 dead entries in hf_pd (already known)                                           │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L8  │ mcmc_analysis.py:65                   │ Deprecated set_yticklabels([]) (already known)                                    │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L9  │ mcmc_analysis.py / spinh_example.py   │ plt.show() without non-interactive backend; blocks on headless servers            │
+  ├─────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+  │ L10 │ mesh_fit.py:175                       │ Writes output to git-tracked file (already known)                                 │
+  └─────┴───────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+Fitting changes: April 21. 
+
+  Summary of what actually changes fitting behaviour:
+
+   1. gsl_nls — NLS residuals corrected (w·(calc - obs → sqrt(w)·(calc-obs))
+   2. SpinHamiltonian fits — shchisq now penalises sign differences
+   3. Multi-Hamiltonian gsl_nls fits — n_rx_rt off-by-one (residuals were being mis-routed)
+   4. Projection fits with hpro — uninitialised workspace fields corrected
+
 
 
