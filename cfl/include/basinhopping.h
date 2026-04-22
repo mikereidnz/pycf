@@ -37,7 +37,7 @@ typedef struct {
   /* Number of steps taken. */
   size_t nstep;
   /* Number of accepted steps. */
-  float naccept;
+  size_t naccept;
   /* Target acceptance rate. */
   float target_accept_rate;
   /* Interval for how often to update stepsize. */

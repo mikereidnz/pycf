@@ -206,7 +206,7 @@ inline void bh_takestep(double *x, bh_work *w) {
   if (w->step_data->target_accept_rate != 0) {
     w->step_data->nstep++;
     if (w->step_data->nstep % w->step_data->interval == 0) {
-      accept_rate = w->step_data->naccept/w->step_data->nstep;
+      accept_rate = (double)w->step_data->naccept/w->step_data->nstep;
       if (accept_rate > w->step_data->target_accept_rate) {
         /* We're accepting too many steps; increase the stepsize to escape
          * the basin. */
