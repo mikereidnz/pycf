@@ -596,7 +596,10 @@ def gen_sh_summary(param, sh, **kwargs):
             raise ValueError("The weight argument needs to be provided if you provide ndof.")
         # Fix: the total chi-squared-like sum must be normalized by ndof
         # before taking the RMS square root.
-        s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma/kwargs['ndof']))
+        if kwargs['ndof'] == 0:
+            s += "sigma = N/A (ndof=0)\n"
+        else:
+            s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma/kwargs['ndof']))
 
     return s
 

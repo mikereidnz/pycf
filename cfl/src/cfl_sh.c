@@ -90,6 +90,17 @@ zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
     CFL_ERROR_NULL("malloc failed for sh");
   }
 
+  /* Each interaction type is documented to appear at most once.  Enforce that
+   * contract here so later zeeman-slot expansion logic cannot see duplicates. */
+  for (i = 0; i < ninter; i++) {
+    for (j = i + 1; j < ninter; j++) {
+      if (!strcmp(inter[i], inter[j])) {
+        free(sh);
+        CFL_ERROR_NULL("inter array contained duplicate interaction type");
+      }
+    }
+  }
+
   inv_data = (zsh_inv_data **) malloc(sizeof(zsh_inv_data *)*ninter);
   if (inv_data == 0) {
     free(sh);
