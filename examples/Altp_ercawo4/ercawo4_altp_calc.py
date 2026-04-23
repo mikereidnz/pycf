@@ -3,7 +3,7 @@
 import numpy as np
 import numpy.linalg as LA
 from pymatgen.io.cif import CifParser
-from pycf.inten import *
+from pycf.paramcalc import *    # moved these functions from the old inten.py
 from pycf.cfl_util import *
 
 def nn_coords(struct, site, r): 

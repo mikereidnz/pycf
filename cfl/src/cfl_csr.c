@@ -210,7 +210,8 @@ zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
   /* Determine the number of non-zero diagonal elements. */
   nnz = 0;
   for (i = 0; i < n; i++) {
-    if (hcsr_m->col_in[hcsr_m->row_ptr[i]] == i) {
+    if (hcsr_m->row_ptr[i] < hcsr_m->row_ptr[i+1] &&
+        hcsr_m->col_in[hcsr_m->row_ptr[i]] == i) {
       nnz++;
     }
   }

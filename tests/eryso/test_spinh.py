@@ -8,8 +8,6 @@ from matplotlib import pyplot as plt
 import pycf
 from pycf.spinh import *
 
-RUNNING_UNDER_PYTEST = "pytest" in __import__("sys").modules
-
 # This file shows some of the functionallity of the auxiliary python scipts for
 # spin Hamiltonian calculations. 
 
@@ -40,7 +38,7 @@ def test_spinh() -> None:
     ax = fig.add_subplot(111)
     ax.hlines(E, [0], [1])
     ax.set_ylabel('HFS (MHz)')
-    if not RUNNING_UNDER_PYTEST:
+    if __name__ == '__main__':
         plt.show()
     plt.close(fig)
 
@@ -84,7 +82,6 @@ def test_spinh() -> None:
 if __name__ == '__main__':
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()
-    RUNNING_UNDER_PYTEST = False
     print('\nRun spinh test\n')
     test_spinh()    
 
