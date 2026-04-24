@@ -1030,7 +1030,7 @@ cdef class SpinHamiltonian:
 
         # Validate that the level is within bounds for the given tensors
         if tensors:
-            nstates = tensors[0].get_nstates()
+            nstates = tensors[0].n
             if self.level >= nstates:
                 raise ValueError("level parameter (%d) must be less than number of states (%d)" % 
                                 (self.level + 1, nstates))
