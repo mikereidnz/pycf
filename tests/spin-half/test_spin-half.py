@@ -80,7 +80,7 @@ def test_spin_half(data_sel) -> None:
         coeff['MAGY'] = 1
     elif data_sel == 'complex':
         print('data_sel is complex')
-        coeff['MAGX'] = 0.0
+        coeff['MAGX'] = 1.0
         coeff['MAGY'] = 1.0
 
     print('STATES')
