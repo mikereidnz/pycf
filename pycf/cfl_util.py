@@ -19,13 +19,15 @@
 from __future__ import division
 import numpy as np
 import re
+import logging
 
 from datetime import datetime
 import os, inspect
 from pycf.__version__ import __version__
 try:
     from pycf.__version__ import __build_timestamp__, __build_comment__
-except ImportError:
+except ImportError as e:
+    logging.warning("Could not import build metadata from pycf.__version__: %s", e)
     __build_timestamp__ = 'unknown'
     __build_comment__ = ''
 

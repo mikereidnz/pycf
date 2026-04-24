@@ -21,6 +21,7 @@ from __future__ import division
 import numpy as np
 from scipy.sparse import csr_matrix
 import re
+import os
 import pycf.cfl as cfl
 from pycf.cfl_util import *
 
@@ -144,7 +145,10 @@ class ImportSLJM(object):
         # Generate a dictionary with keys for each tensor and lists of the form
         # [row, col, matel].  These are then used to create Scipy sparse CSR
         # matrices. 
-        data = np.loadtxt('%s.txt' % name, skiprows=2, ndmin=2)
+        filepath = '%s.txt' % name
+        if not os.path.exists(filepath):
+            raise IOError("Required data file not found: %s" % filepath)
+        data = np.loadtxt(filepath, skiprows=2, ndmin=2)
         i = 0
         tensor_elements = {}
         tensor_matrices = {}
@@ -173,7 +177,7 @@ class ImportSLJM(object):
             # MFR: Changed the signs for MAGX and MAGY to the standard definitions
             # of the spherical tensor components. This affects eigenvector phases
             # and therefore transition intensities, but not eigenvalues.
-            tensors['MAGX'] = -1/np.sqrt(2) * tensors['MAG11']
+            tensors['MAGX'] = -1.0/np.sqrt(2) * tensors['MAG11']
             tensors['MAGX'].name = 'MAGX'
             tensors['MAGY'] = complex(0, 1)/np.sqrt(2) * tensors['MAG11']
             tensors['MAGY'].name = 'MAGY'
@@ -188,7 +192,7 @@ class ImportSLJM(object):
 
     def __iter__(self):
         for t in self.tensors:
-            yield self.__dict__[t]
+            yield self.__dict__.get(t)
 
     def print_names(self):
         r"""

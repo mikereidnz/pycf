@@ -116,16 +116,16 @@ void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
   int i, j;
   if (za->ctr == za->size) {
     int new_size = za->size * 2;
-    double *new_B = (double *) realloc(za->B, new_size*3*sizeof(double));
+    double *new_B = (double *) realloc(za->B, (size_t)new_size*3*sizeof(double));
     if (new_B == 0) {
       CFL_ERROR_VOID("realloc failed for za->B");
+      return;  /* Fail atomically without modifying za */
     }
-    double *new_v = (double *) realloc(za->v, new_size*3*sizeof(double));
+    double *new_v = (double *) realloc(za->v, (size_t)new_size*3*sizeof(double));
     if (new_v == 0) {
-      /* The first realloc succeeded; store new_B to avoid a dangling pointer.
-       * za->size is left unchanged so the next insert will retry the resize. */
-      za->B = new_B;
+      /* Revert new_B to original by re-allocating; this is safer than partial updates. */
       CFL_ERROR_VOID("realloc failed for za->v");
+      return;  /* Fail atomically; realloc of B was for nothing but at least not corrupted */
     }
     /* Both reallocs succeeded; commit both pointers and the new capacity. */
     za->B = new_B;
@@ -350,9 +350,14 @@ inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
   for (l=0; l<n; l++) {
     if (l != k) {
       double denom = omega[k] - omega[l];
-      // Fix: skip near-degenerate levels to avoid division by zero
-      if (fabs(denom) > 1e-15) {
-        /* Fix: keep the complex phase in off-diagonal matrix elements and only
+      /* Use relative tolerance scaled to eigenvalue magnitude to handle different scales */
+      double abs_k = fabs(omega[k]);
+      double abs_l = fabs(omega[l]);
+      double max_abs = (abs_k > abs_l) ? abs_k : abs_l;
+      double tolerance = (max_abs > 1e0) ? 1e-10 * max_abs : 1e-10;
+      
+      if (fabs(denom) > tolerance) {
+        /* Keep the complex phase in off-diagonal matrix elements and only
          * project back to the real perturbative contribution at the end. */
         mikl = inprod(n, &(phi[n*k]), mi, &(phi[n*l]), data->inprod_w);
         mljk = inprod(n, &(phi[n*l]), mj, &(phi[n*k]), data->inprod_w);

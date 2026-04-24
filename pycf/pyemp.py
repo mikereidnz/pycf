@@ -317,9 +317,13 @@ class GenericErun(BaseEmp):
         self.emproot = spectrum.emproot
 
         # Create input file 'name_process.dat' and add a header.
-        self.input_file = open('{0}_{1}.dat'.format(self.name, process), 'w+')
-        self.input_file.write('% Input file for {}\n'.format(process))
-        self.input_file.close()
+        filename = '{0}_{1}.dat'.format(self.name, process)
+        try:
+            self.input_file = open(filename, 'w+')
+            self.input_file.write('% Input file for {}\n'.format(process))
+            self.input_file.close()
+        except IOError as e:
+            raise IOError("Failed to create input file {0}: {1}".format(filename, e))
 
     def erun(self, spectrum = None, outfiles = None):
         r"""

@@ -1058,7 +1058,17 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
 
   /* Permute the column indices. */
   for (k = 0; k < nnz; k++) {
-    pm->col_in[k] = p[m->col_in[k]];
+    int col_idx = m->col_in[k];
+    /* Validate column index before permutation */
+    if (col_idx < 0 || col_idx >= m->n) {
+      CFL_ERROR_NULL("invalid column index in input matrix");
+    }
+    int perm_idx = p[col_idx];
+    /* Validate permuted index is within bounds */
+    if (perm_idx < 0 || perm_idx >= m->n) {
+      CFL_ERROR_NULL("permutation array produced out-of-bounds column index");
+    }
+    pm->col_in[k] = perm_idx;
   }
 
   /* Now we sort the resulting matrix by increasing column order. */
@@ -1071,6 +1081,10 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
   for (i = 0; i < m->n; i++) {
     for (k = m->row_ptr[i]; k < m->row_ptr[i+1]; k++) {
       j = pm->col_in[k];
+      /* j is already validated above; this bounds check is redundant but explicit */
+      if (j < 0 || j >= m->n) {
+        CFL_ERROR_NULL("internal error: invalid column index in permuted matrix");
+      }
       pj[j+1] += 1;
     }
   }

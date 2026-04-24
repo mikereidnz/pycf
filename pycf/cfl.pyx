@@ -421,7 +421,12 @@ cdef class Hamiltonian:
         self.coeff = np.array([], dtype=np.complex128)
         for t in self.tensors:
             try:
-                self.coeff = np.append(self.coeff, coeff[t.get_name()])
+                coeff_val = coeff[t.get_name()]
+                # Validate that coefficient is numeric (int, float, or complex)
+                if not isinstance(coeff_val, (int, float, complex, np.number)):
+                    raise TypeError("Coefficient for tensor '%s' must be numeric, got %s" % 
+                                    (t.get_name(), type(coeff_val).__name__))
+                self.coeff = np.append(self.coeff, coeff_val)
             except KeyError:
                 raise KeyError("Missing coefficient for tensor: %s" % t.get_name())
        
@@ -449,10 +454,17 @@ cdef class Hamiltonian:
         elif not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
         
+        # Validate that the current tensor list matches what was used in set_coeff
+        if self.tensors is None or len(self.tensors) != len(self.coeff_dict):
+            raise ValueError("Tensor list has changed since set_coeff was called")
+        
         self.coeff_dict.update(copy.deepcopy(coeff))
         self.coeff = np.array([], dtype=np.complex128)
         for t in self.tensors:
-            self.coeff = np.append(self.coeff, self.coeff_dict[t.get_name()])
+            try:
+                self.coeff = np.append(self.coeff, self.coeff_dict[t.get_name()])
+            except KeyError:
+                raise KeyError("Tensor '%s' not found in coefficient dictionary" % t.get_name())
         
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
@@ -550,8 +562,29 @@ cpdef zeeman_sh_coeff(v, t):
     result : numpy.ndarray
         A `2j+1 \times 2j+1` by `3 \times 3` array.
     """
+    # Validate input arrays
+    if not isinstance(v, np.ndarray):
+        raise TypeError("v must be a numpy.ndarray")
+    if len(v) != 3:
+        raise ValueError("v must have length 3 (B_x, B_y, B_z)")
+    
+    if not isinstance(t, (list, tuple)) or len(t) != 3:
+        raise ValueError("t must be a sequence of 3 matrices (J_x, J_y, J_z)")
+    
+    for i, mat in enumerate(t):
+        if not isinstance(mat, np.ndarray):
+            raise TypeError("t[%d] must be a numpy.ndarray" % i)
+        if mat.ndim != 2:
+            raise ValueError("t[%d] must be 2-dimensional" % i)
+        if mat.shape[0] != mat.shape[1]:
+            raise ValueError("t[%d] must be square" % i)
+    
+    # Verify all matrices have same dimensions
+    tl = t[0].shape[0]
+    for i in range(1, 3):
+        if t[i].shape[0] != tl or t[i].shape[1] != tl:
+            raise ValueError("All matrices in t must have same dimensions")
 
-    tl = len(t[0])
     l = len(t)
     a = np.zeros([tl, tl, l, l], dtype = np.complex128)
 
@@ -992,6 +1025,13 @@ cdef class SpinHamiltonian:
                     "of Tensor objects, not an object of type %s." % type(tensors))
         if not all((isinstance(t, Tensor) for t in tensors)):
             raise TypeError("The tensors argument of set_pro_data must be a list of Tensor objects")
+
+        # Validate that the level is within bounds for the given tensors
+        if tensors:
+            nstates = tensors[0].get_nstates()
+            if self.level >= nstates:
+                raise ValueError("level parameter (%d) must be less than number of states (%d)" % 
+                                (self.level + 1, nstates))
 
         t_array = <cfl.zt **>malloc(len(self.required_tensors)*sizeof(cfl.zt *))
         if t_array == NULL:

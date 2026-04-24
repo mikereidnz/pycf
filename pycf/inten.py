@@ -119,6 +119,9 @@ def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
 
     w = E
     z = V
+    # Validate eigenvector dimensions
+    if not isinstance(z, np.ndarray) or z.ndim != 2:
+        raise ValueError("Eigenvector V must be 2-dimensional (nstates x nstates), got shape %s" % (z.shape,))
     labels = h.tensors[0].states.labels
     # find principle components
     pc = np.argmax(np.abs(z), axis=0)
