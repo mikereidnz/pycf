@@ -149,6 +149,9 @@ def ex_parse_abs(ex, z, labels):
         # Determine the index of the principal component of each
         # eigenvector. 
         pc = np.argmax(np.abs(z), axis=0)
+        # Validate that pc indices are within bounds of labels
+        if np.any(pc >= len(labels)):
+            raise ValueError("Principal component index exceeds bounds of labels array")
         for i,r in enumerate(ex.a_states):
             # Find the index of the principal component of each state label.
             # Guard against a missing match: np.where returns an empty array

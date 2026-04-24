@@ -502,10 +502,12 @@ cdef class Hamiltonian:
             cfl.zh_free(self.cfl_zh)
             raise MemoryError("hd_w alloc failed")
         
-        with nogil:
-            cfl.zhd('V', &w[0], &z[0,0], h, hd_w)
+        try:
+            with nogil:
+                cfl.zhd('V', &w[0], &z[0,0], h, hd_w)
+        finally:
+            cfl.zhd_w_free(hd_w)
         
-        cfl.zhd_w_free(hd_w)
         self.diag_run = 1
 
         return (w, z)
