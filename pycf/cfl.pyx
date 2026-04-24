@@ -454,10 +454,10 @@ cdef class Hamiltonian:
         elif not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
         
-        # Validate that the current tensor list matches what was used in set_coeff
-        if self.tensors is None or len(self.tensors) != len(self.coeff_dict):
-            raise ValueError("Tensor list has changed since set_coeff was called")
-        
+        # Note: coeff_dict may contain extra keys beyond self.tensors because
+        # the same dict is often shared between multiple Hamiltonians built
+        # from different tensor lists. set_coeff only reads the keys matching
+        # self.tensors; the KeyError below catches any genuinely missing one.
         self.coeff_dict.update(copy.deepcopy(coeff))
         self.coeff = np.array([], dtype=np.complex128)
         for t in self.tensors:
