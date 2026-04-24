@@ -678,10 +678,13 @@ inline double shchisq(double *pa, double *xpa) {
   double chisq;
 
   chisq = 0;
-  /* Compare signed values; fabs() on both sides would treat +x and -x as
-   * equivalent and suppress physically meaningful sign differences. */
+  /* Fit absolute values only (Horvath's original design, commit 6904706):
+   * the effective-spin basis has a gauge freedom in signs of S_x, S_y, S_z,
+   * so g/A/Q tensors from different authors differ in off-diagonal signs
+   * without any physical difference. Comparing |pa| to |xpa| makes the SH
+   * chi2 insensitive to this convention choice. */
   for (i = 0; i < 9; i++) {
-    chisq += pow(pa[i] - xpa[i], 2);
+    chisq += pow(fabs(pa[i]) - fabs(xpa[i]), 2);
   }
   
   return chisq;
