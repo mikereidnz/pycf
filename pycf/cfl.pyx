@@ -35,6 +35,18 @@ from pycf.matel import matel
 from pycf.cfl_util import *
 
 
+cdef inline void* _capsule_get_pointer(object cap, const char* name):
+    """
+    Safe capsule pointer extraction with validation.
+    Raises TypeError if capsule is invalid or has wrong name.
+    """
+    if cap is None:
+        raise TypeError("Capsule is None")
+    if not PyCapsule_IsValid(cap, name):
+        raise TypeError("Invalid capsule: either deleted or wrong type")
+    return PyCapsule_GetPointer(cap, name)
+
+
 cdef class StateLabels:
     r"""
     State label type for tensors and spin Hamiltonians.  State labels are
@@ -79,8 +91,8 @@ cdef class StateLabels:
             clabels = nplabels[i]
             l_a[i] = &clabels[0]
         
-        # sl_alloc copies both the label key and the labels, so we do not need
-        # to retain a reference after the alloc call.
+        # sl_alloc copies both the label key and the label arrays (via memcpy),
+        # so nplabels can safely go out of scope after this call.
         self.cfl_sl = cfl.sl_alloc(n, key, l_a)
         if self.cfl_sl == NULL:
             raise MemoryError("cfl_sl alloc failed")
@@ -163,7 +175,12 @@ cdef class Tensor:
 
     def __dealloc__(self):
         if self.t_cap is not None:
-            cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
+            try:
+                if PyCapsule_IsValid(self.t_cap, "pycfl.Tensor"):
+                    cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
+            except TypeError:
+                # Capsule was already invalidated or deleted; skip cleanup
+                pass
     
     def __add__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
@@ -651,8 +668,14 @@ cdef sh_hpro_helper(h, sh):
         # Fix: copy coeff_dict before modifying to avoid mutating the caller's dict.
         tmp_h_coeff = dict(h.coeff_dict)
         tmp_h_coeff['MAGZS'] = 1
-        h = Hamiltonian([magzs] + h.tensors)
-        h.set_coeff(tmp_h_coeff)
+        try:
+            h_new = Hamiltonian([magzs] + h.tensors)
+            h_new.set_coeff(tmp_h_coeff)
+            h = h_new
+        except:
+            # If new Hamiltonian creation fails, use original h
+            h.update_coeff({'MAGZS' : 1})
+            raise
     else:
         h.update_coeff({'MAGZS' : 1})
 
@@ -896,7 +919,12 @@ cdef class SpinHamiltonian:
 
     def __dealloc__(self):
         if self.cfl_zsh != NULL:
-            cfl.zsh_free(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
+            try:
+                if PyCapsule_IsValid(self.sh_cap, "pycfl.SpinHamiltonian"):
+                    cfl.zsh_free(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
+            except TypeError:
+                # Capsule was already invalidated; skip cleanup
+                pass
         if self.inv_data_ptrs != NULL:
             free(self.inv_data_ptrs)
         if self.inter_array != NULL:
@@ -1856,7 +1884,7 @@ cdef class MHFit(object):
                 cap, ex_w_np = exdata_alloc_helper(self.ex_list[i], weights_list[i])
                 self.ex_data[i] = <cfl.ex_data *>PyCapsule_GetPointer(cap, "pycfl.ExData")
                 self._ex_w_backing.append(ex_w_np)
-            except Exception:
+            except BaseException:
                 for j in range(i):
                     free(self.ex_data[j])
                 free(self.ex_data)
@@ -2310,7 +2338,7 @@ cdef class ESHFit(object):
         # Create array of experimental spin Hamiltonian data.
         try:
             (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx, weights)
-        except Exception:
+        except BaseException:
             for i in range(self.n_p):
                 free(param_array[i])
             free(self.ex_data)
@@ -2681,7 +2709,7 @@ cdef class MESHFit(object):
             if ex_list[i] is not None:
                 try:
                     cap, ex_w_np = exdata_alloc_helper(ex_list[i], weights_list[i]['energy'])
-                except Exception:
+                except BaseException:
                     for j in range(i):
                         free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[j], "pycfl.ExData"))
                     raise
@@ -2738,7 +2766,7 @@ cdef class MESHFit(object):
         for shi, sh in enumerate(sh_list):
             try:
                 (shx_ptr, self.shx_list) = shxdata_alloc_helper(sh, shx_list[shi], weights_list[shi])
-            except Exception:
+            except BaseException:
                 for shj in range(shi):
                     shx_j = <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[shj], "pycfl.ShxArray")
                     for j in range(len(sh_list[shj].interactions)):

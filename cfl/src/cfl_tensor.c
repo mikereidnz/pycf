@@ -48,9 +48,18 @@
  */
 uint32_t fnv_hash(void *buf, int len) {
   unsigned char *bp = (unsigned char *)buf;	/* start of buffer */
-  unsigned char *be = bp + len;		        /* beyond end of buffer */
+  unsigned char *be;
   uint32_t hval;
   
+  /* Validate preconditions */
+  if (buf == NULL) {
+    CFL_ERROR_VAL("fnv_hash: buf is NULL", 0);
+  }
+  if (len < 0) {
+    CFL_ERROR_VAL("fnv_hash: len must be non-negative", 0);
+  }
+  
+  be = bp + len;		        /* beyond end of buffer */
   hval = FNV1_32_INIT;
   /* FNV-1 hash each octet in the buffer. */
   while (bp < be) {
@@ -130,10 +139,10 @@ sl *sl_alloc(int n, char *key, int **labels) {
   }
 
   for (i = 0; i < n; i++) {
-    l->lh[i] = fnv_hash(l->labels[i], nl*sizeof(int)/sizeof(char));
+    l->lh[i] = fnv_hash(l->labels[i], (int)((size_t)nl*sizeof(int)));
   }
 
-  l->th = fnv_hash(l->lh, n*sizeof(uint32_t)/sizeof(char));
+  l->th = fnv_hash(l->lh, (int)((size_t)n*sizeof(uint32_t)));
   l->n = n;
 
   return l;

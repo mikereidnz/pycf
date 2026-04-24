@@ -376,26 +376,27 @@ void zhcsr2zhpa(zhcsr *hcsr_m, complex double *ap) {
  *          double values.
  */
 void zhcsr2zha(zhcsr *hcsr_m, complex double *a) {
-  int i, j;
-  int vi = 0;
+  int i, j, k;
   int n = hcsr_m->n;
 
+  /* PASS 1: Fill upper triangular and diagonal from CSR data */
   for (i = 0; i < n; i++) {
-    for (j = 0; j < n; j++) {
-      if (i>j) {
-        a[i*n+j] = conj(a[j*n+i]);
+    for (j = i; j < n; j++) {
+      a[i*n+j] = 0;  /* Default: assume not in sparse matrix */
+      /* Search for element (i,j) in row i of CSR matrix */
+      for (k = hcsr_m->row_ptr[i]; k < hcsr_m->row_ptr[i+1]; k++) {
+        if (hcsr_m->col_in[k] == j) {
+          a[i*n+j] = hcsr_m->val[k];
+          break;
+        }
       }
-      /* Ensure we're matching column indices on the current row. */
-      else if (vi == hcsr_m->row_ptr[i+1]) {
-        a[i*n+j] = 0;
-      }
-      else if (hcsr_m->col_in[vi] == j) {
-        a[i*n+j] = hcsr_m->val[vi];
-        vi++;
-      }
-      else {
-        a[i*n+j] = 0;
-      }
+    }
+  }
+
+  /* PASS 2: Fill lower triangular using Hermitian symmetry */
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < i; j++) {
+      a[i*n+j] = conj(a[j*n+i]);
     }
   }
 }

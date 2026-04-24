@@ -123,8 +123,8 @@ efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
     CFL_ERROR_NULL("zhd_w_alloc failed for data->hd_w");
   }
   if (job == 'S') {
-    /* Cast to size_t before multiplying to prevent int overflow for large n. */
-    data->evect = (complex double *) calloc((size_t)h->n*h->n,sizeof(complex double));
+    /* Cast both operands to size_t before multiplying to prevent int overflow for large n. */
+    data->evect = (complex double *) calloc((size_t)h->n*(size_t)h->n,sizeof(complex double));
     if (data->evect == 0) {
       free(data->eval);
       zhd_w_free(data->hd_w);
@@ -180,16 +180,21 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
   long *lwork;
   int *iwork;
 
+  /* Validate preconditions */
+  if (n <= 0) {
+    CFL_ERROR_NULL("mhfit_data_alloc: n must be positive");
+  }
+
   data = (mhfit_data *) malloc(sizeof(mhfit_data));
   if (data == 0) {
     CFL_ERROR_NULL("malloc failed for mhfit_data");
   }
-  data->job = (char *) malloc(n*sizeof(char));
+  data->job = (char *) malloc((size_t)n*sizeof(char));
   if (data->job == 0) {
     free(data);
     CFL_ERROR_NULL("malloc failed for data->job");
   }
-  memcpy(data->job, job, n*sizeof(char));
+  memcpy(data->job, job, (size_t)n*sizeof(char));
   data->sl_sort = 0;
   
   for (i = 0; i < n; i++) {

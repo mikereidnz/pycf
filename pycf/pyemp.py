@@ -206,7 +206,7 @@ class Spectrum(dict):
                 if self[key] is not None:
                     log +=  "{0}:\n {1}\n".format(key, self[key])
         elif mode == 'full':
-            if self.erun_obj == {}:
+            if len(self.erun_obj) == 0:
                 log += "No record of any erun processes.  Full log file "
                 log += "printing is only supported for erun processes called "
                 log += "via their Spectrum wrapper methods.\n"
