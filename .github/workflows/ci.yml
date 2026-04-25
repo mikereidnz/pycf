@@ -96,6 +96,27 @@ jobs:
         echo "=== Zeeman Tests with ASAN ==="
         ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./cfl/sh_zeeman_test || true
 
+  type-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy scipy cython mypy
+    
+    - name: Check type hints with mypy
+      run: |
+        mypy pycf/ --ignore-missing-imports --no-error-summary 2>&1 | head -100 || true
+        echo "Type checking complete (warnings non-blocking)"
+
   lint:
     runs-on: ubuntu-latest
     

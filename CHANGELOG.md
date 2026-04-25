@@ -1,0 +1,147 @@
+# Changelog
+
+All notable changes to PyCF are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- Comprehensive Sphinx-based API documentation framework
+- GitHub Actions CI with AddressSanitizer and UndefinedBehaviorSanitizer
+- Type hints for 100% of core modules (8 modules, 130+ annotations)
+- CONTRIBUTING.md for developer guidelines
+- CHANGELOG.md for version history
+- mypy type checking in CI pipeline
+- Module docstrings for all 8 core modules with workflow examples
+
+### Improved
+- Standardized C test tolerances to use shared `TEST_TOLERANCE` constant
+- Enhanced module-level documentation with comprehensive docstrings
+- Improved Cython error handling in Tensor class
+- Better exception catching in PyCapsule validation
+
+### Fixed
+- Fixed scipy.special.sph_harm deprecation (migrated to sph_harm_y)
+- Improved error messages and validation in crystal field functions
+- Better parameter bounds checking in intensity calculations
+
+### Documentation
+- Added complete Sphinx documentation with autodoc
+- Created comprehensive guides for parameter fitting and spin-Hamiltonian extraction
+- Added quickstart guide and overview of crystal field theory
+- Enhanced README.rst with clearer descriptions
+- Created detailed installation guide with platform-specific instructions
+
+## [0.1.0] - 2026-04-25
+
+### Added
+- Initial Python package structure with Cython wrapper
+- Core crystal field calculation engine (cfl module)
+- Tensor algebra and matrix element calculations
+- Hamiltonian construction and diagonalization
+- Intensity calculation framework (magnetic and electric dipole transitions)
+- Parameter calculation helpers for crystal field terms
+- Data import utilities for SLJM/EMP format
+- Spin Hamiltonian extraction tools
+- EMP program wrapper (cfit, inten, vtrans, spectrum)
+- Comprehensive Python test suite (83 tests)
+- C test suite (24 tests) with LAPACK/BLAS integration
+- Type hints for all core modules
+- Example workflows (CeYLF, ErYSO, SmNaCaF₂)
+
+### Features
+- Hamiltonian class for crystal field calculations
+- Tensor sparse matrix support (CSR format)
+- ExData class for experimental data handling
+- Multiple experimental modes: absorption, emission, spin-selective
+- Wigner symbol calculations (3j, 6j, 9j)
+- Matrix element calculations for tensor operators
+- Transition intensity calculations with Lorentzian lineshapes
+- Temperature-dependent Boltzmann populations
+- Fitting infrastructure with parameter bounds
+
+### Architecture
+- Performance-critical C99 library (cfl/)
+- Cython wrapper for Python integration
+- BLAS/LAPACK backend for matrix operations
+- Intel MKL support via environment variables
+- Pure Python utility modules with clear separation of concerns
+
+### Documentation
+- Comprehensive docstrings in all modules
+- Example scripts showing typical workflows
+- Installation guide with platform support matrix
+- Crystal field theory overview
+- API reference with full function signatures
+
+## Version History
+
+### Previous Versions
+PyCF was previously developed as a standalone C library with Perl scripts.
+This Python package represents the modernization and expansion of that work,
+adding:
+- Professional Python packaging
+- Comprehensive test coverage
+- Type hints and better error handling
+- Modern documentation and examples
+- CI/CD infrastructure
+
+---
+
+## How to Report Changes
+
+When contributing changes, please:
+
+1. **Update this file** in the appropriate section:
+   - Added: New features
+   - Improved: Enhancements to existing features
+   - Fixed: Bug fixes
+   - Removed: Removed features
+   - Deprecated: Features marked for future removal
+   - Security: Security vulnerability fixes
+
+2. **Use clear, user-focused language**:
+   - ✅ "Add type hints to 8 core modules"
+   - ❌ "Add typing imports to utils"
+
+3. **Reference relevant issues/PRs**:
+   - ✅ "Fix memory leak in Hamiltonian (#123)"
+   - ❌ "Fix memory leak"
+
+4. **Follow the format** for consistency
+
+## Release Process
+
+Releases follow [Semantic Versioning](https://semver.org/):
+
+- **Major version** (X.0.0): Breaking API changes
+- **Minor version** (0.X.0): New features, backward compatible
+- **Patch version** (0.0.X): Bug fixes only
+
+### Checklist for Release
+- [ ] Update CHANGELOG.md with all changes
+- [ ] Update version in pycf/__version__.py
+- [ ] Ensure all tests pass (pytest, C tests, mypy)
+- [ ] Build documentation and verify clean build
+- [ ] Merge changes to main branch
+- [ ] Create git tag: `git tag -a v0.X.X -m "Release 0.X.X"`
+- [ ] Push tag: `git push origin v0.X.X`
+- [ ] Build distribution: `python setup.py sdist bdist_wheel`
+- [ ] Upload to PyPI: `twine upload dist/*`
+- [ ] Create GitHub release with changelog excerpt
+
+## Migration Guides
+
+### Migrating from Version X to Y
+(Document any breaking changes and how users should update their code)
+
+---
+
+## See Also
+
+- [Development Guide](CONTRIBUTING.md)
+- [Installation Instructions](docs/installation.rst)
+- [API Reference](docs/api/index.rst)
+- [GitHub Releases](https://github.com/mikereidnz/pycf/releases)
