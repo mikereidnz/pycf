@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
-from __future__ import division
+from pathlib import Path
 import numpy as np
 
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 
-t = ImportSLJM("matel/f11cf")
-thfs = ImportSLJM("matel/erhfs")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f11cf"))
+thfs = ImportSLJM(str(Path(__file__).parent / "matel" / "erhfs"))
 #t.print_names()
 
 MTOT = t.M0 + 0.56*t.M2 + 0.31*t.M4

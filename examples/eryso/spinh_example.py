@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import division
+from pathlib import Path
 import numpy as np
 from numpy import linalg as LA
 from matplotlib import pyplot as plt

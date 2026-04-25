@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from __future__ import division
+from pathlib import Path
 import numpy as np
 
 
@@ -11,7 +11,7 @@ from pycf.cfl_util import *
 #### Example of Spin Hamiltonian calculations for Ce:YLF, w/ data from
 # 10.1016/j.optmat.2015.06.046
 
-t = ImportSLJM("matel/f1cf")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f1cf"))
 coeff = {
 'EAVG'  :    1035.1277,                
 'ZETA'  :     625.6990,                

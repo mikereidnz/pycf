@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import division
+from pathlib import Path
 import numpy as np
 from numpy import linalg as LA
 
@@ -8,7 +8,7 @@ import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 
-t = ImportSLJM("matel/smcf_trunc")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "smcf_trunc"))
 
 MTOT = t.M0 + 0.56*t.M2 + 0.31*t.M4
 MTOT.name = 'MTOT'

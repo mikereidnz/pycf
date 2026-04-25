@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
 import numpy as np
 
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 
-t = ImportSLJM("matel/f1cf")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f1cf"))
 coeff = {
 'EAVG'  :    1035.1277,                
 'ZETA'  :     625.6990,                

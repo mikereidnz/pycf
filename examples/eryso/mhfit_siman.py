@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import division
+from pathlib import Path
 import numpy as np
 
 import pycf.cfl as cfl
@@ -11,8 +11,8 @@ from numpy import linalg as LA
 
 I = complex(0, 1)
 # Import the matrix elements.
-t = ImportSLJM("matel/f11cf")
-thfs = ImportSLJM("matel/erhfs")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f11cf"))
+thfs = ImportSLJM(str(Path(__file__).parent / "erhfs"))
 
 #t.print_names()
 
