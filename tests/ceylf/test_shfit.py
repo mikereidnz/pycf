@@ -13,7 +13,7 @@ from pycf.cfl_util import *
 
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"
 
-# @pytest.mark.slow  # mark this test as slow, so it can be skipped by default
+#@pytest.mark.slow  # mark this test as slow, so it can be skipped by default
 def test_shfit() -> None:    
     ####
     t = ImportSLJM(str(MATEL_BASE))

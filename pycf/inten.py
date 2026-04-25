@@ -222,6 +222,86 @@ def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
     trs.sort(key=itemgetter('e'))
     return trs
 
+def group_transitions(items, tol=1e-4):
+    """
+    Group transition dictionaries by (ei, ef) level-pair and annotate each group
+    with initial/final degeneracies.
+
+    Parameters
+    ----------
+    items : list of dict
+        Transition dictionaries as returned by :func:`dipole_str`, containing
+        keys ``ei``, ``ef``, ``e``, ``i`` and ``f``.
+    tol : float
+        Tolerance for comparing energies when determining degeneracies and
+        when grouping transitions by level pair.
+
+    Returns
+    -------
+    list of dict
+        A list with entries of the form:
+        ``{"Energy", "e_i", "e_f", "g_i", "g_f", "t_list"}``.
+    """
+    if not items:
+        return []
+
+    def _level_degeneracies(entries, energy_key, state_key):
+        """Build a list of (anchor_energy, degeneracy_count)."""
+        pairs = sorted(set((d[energy_key], d[state_key]) for d in entries))
+        clusters = []
+        for energy, state in pairs:
+            if clusters and abs(energy - clusters[-1][0]) <= tol:
+                clusters[-1][1].add(state)
+            else:
+                clusters.append([energy, set([state])])
+        return [(anchor, len(states)) for anchor, states in clusters]
+
+    def _lookup_degeneracy(anchors, energy):
+        for anchor, count in anchors:
+            if abs(energy - anchor) <= tol:
+                return count
+        return 1
+
+    ei_deg = _level_degeneracies(items, 'ei', 'i')
+    ef_deg = _level_degeneracies(items, 'ef', 'f')
+
+    # Sort by transition energy first, then by level pair so equivalent pairs are
+    # contiguous before grouping.
+    ordered = sorted(items, key=lambda d: (d['e'], d['ei'], d['ef']))
+
+    groups = []
+    cur_ei = ordered[0]['ei']
+    cur_ef = ordered[0]['ef']
+    cur_list = [ordered[0]]
+
+    for tr in ordered[1:]:
+        same_ei = abs(tr['ei'] - cur_ei) <= tol
+        same_ef = abs(tr['ef'] - cur_ef) <= tol
+        if same_ei and same_ef:
+            cur_list.append(tr)
+        else:
+            groups.append({
+                'Energy': cur_ef - cur_ei,
+                'e_i': cur_ei,
+                'e_f': cur_ef,
+                'g_i': _lookup_degeneracy(ei_deg, cur_ei),
+                'g_f': _lookup_degeneracy(ef_deg, cur_ef),
+                't_list': cur_list,
+            })
+            cur_ei = tr['ei']
+            cur_ef = tr['ef']
+            cur_list = [tr]
+
+    groups.append({
+        'Energy': cur_ef - cur_ei,
+        'e_i': cur_ei,
+        'e_f': cur_ef,
+        'g_i': _lookup_degeneracy(ei_deg, cur_ei),
+        'g_f': _lookup_degeneracy(ef_deg, cur_ef),
+        't_list': cur_list,
+    })
+
+    return groups
 
 def boltzmann_factor(e, t):
     """

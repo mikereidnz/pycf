@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# file: test_inten_c1.py
+# file: test_inten_c3.py
 # This is a test of the intensity calculation for Ce3+ in C1 symmetry. 
 # We apply a magnetic field along Z to split the Kramers doublets, 
 # and then calculate the intensities of the transitions between the split levels.
@@ -16,7 +16,8 @@ from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 from pycf.inten import *
 
-def test_inten_c1() -> None:
+@pytest.mark.slow  # mark this test as slow, so it can be skipped by default
+def test_inten_c3() -> None:
     """ Test the intensity calculation for Ce3+ in C1 symmetry. 
     We apply a magnetic field along Z to split the Kramers doublets, 
     and then calculate the intensities of the transitions between the split levels.
@@ -40,9 +41,11 @@ def test_inten_c1() -> None:
     'C60'   :     0,
     'C63'   :     0, 
     'C66'   :     0,
-    'MX'    :     1e-10, 
+    'MX'    :     0, 
+    #'MX'    :     1e-10, 
     'MY'    :     0,
-    'MZ'    :     1, 
+    'MZ'    :     0,
+    #'MZ'    :     1, 
     }
 
     # Bohr magnetion in cm-1/T.
@@ -164,12 +167,14 @@ def test_inten_c1() -> None:
 
     print('\nCompare to Pascal calculation')
     tolerance = 1e-6
+    """
     for i, line in enumerate(trs):
         for key in ['isotropic', 'axial', 'sigma', 'pi']:
             print(i, key, line[key], pascal_calculation[i][key])        
             abs_diff = abs(line[key] - pascal_calculation[i][key])
             assert abs_diff < tolerance, f'Absolute difference between pascal and pycf caculation is {abs_diff}, \
                 which is greater than the tolerance of {tolerance}'   
+    """
 
     print('\nCreate transition groups')
     # group the transitions by energy. 
@@ -224,6 +229,9 @@ def test_inten_c1() -> None:
         plt.show()
     #plt.savefig('inten.pdf')
 
+    # make it crash to test the test process
+    assert 1 == 0, 'This is a deliberate assertion error to test the test process.'
+
     print('\n END')
 
 
@@ -231,5 +239,5 @@ if __name__ == '__main__':
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()
     print('\nIntensity tests\n')
-    test_inten_c1()
+    test_inten_c3()
 

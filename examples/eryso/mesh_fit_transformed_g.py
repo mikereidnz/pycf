@@ -52,30 +52,29 @@ coeff = {
 'MZ'   :                       0.00,
 'MX'   :                       0.00,
 'MY'   :                       0.00,
-'EAVG'       :          35496.34,
-'F2'         :          95972.36,
-'F4'         :          67686.89,
-'F6'         :          53053.60,
-'ZETA'       :           2363.15,
-'C20'        :           -396.17,
-'C21'        :    491.79+320.38j,
-'C22'        :    178.82-185.77j,
-'C40'        :            603.03,
-'C41'        :   1166.47-440.75j,
-'C42'        :    588.10+130.94j,
-'C43'        :    119.11-542.13j,
-'C44'        :   -102.22+982.14j,
-'C60'        :           -187.37,
-'C61'        :   -134.95+168.74j,
-'C62'        :     128.36-21.34j,
-'C63'        :    283.32+194.56j,
-'C64'        :     94.74-142.64j,
-'C65'        :     18.61-194.45j,
-'C66'        :      95.96-22.04j,
+'EAVG'       :            35509.69,
+'F2'         :            96074.10,
+'F4'         :            67615.03,
+'F6'         :            53196.10,
+'ZETA'       :             2363.07,
+'C20'        :             -232.75,
+'C21'        :      531.76+355.50j,
+'C22'        :       85.53-139.07j,
+'C40'        :             1298.25,
+'C41'        :     1065.63-315.04j,
+'C42'        :      347.82+180.31j,
+'C43'        :      -33.55-420.02j,
+'C44'        :     -764.48+789.71j,
+'C60'        :             -108.12,
+'C61'        :       81.11+166.69j,
+'C62'        :        210.67-9.48j,
+'C63'        :      147.32+108.22j,
+'C64'        :      270.51-198.38j,
+'C65'        :        18.44-98.82j,
+'C66'        :        10.67-22.05j,
 'HYP'        :              0.0053,
 'EQHYP'      :               0.044,
 }
-
 
 h1 = cfl.Hamiltonian(t_list)
 h1.set_coeff(coeff)
@@ -89,7 +88,9 @@ sh1 = cfl.SpinHamiltonian(['zeeman'], S=1/2, level=17)
 sh1.set_pro_data([t.MAGX, t.MAGY, t.MAGZ])
 
 # Sun et al. excited state spin Hamiltonian (PRB 77, 085124 (2008))
-ge = np.array([[1.950, -2.212, -3.584], [-2.212, 4.232, 4.986], [-3.584, 4.986, 7.888]])
+#ge = np.array([[1.950, -2.212, -3.584], [-2.212, 4.232, 4.986], [-3.584, 4.986, 7.888]])
+# Transformation for a 180 degree rotation about the z axis (flips (0,2), (2,0), (1,2), (2,1)).
+ge = np.array([[1.950, -2.212, 3.584], [-2.212, 4.232, -4.986], [3.584, -4.986, 7.888]])
 shx1 = {'zeeman': ge}
 weights1 = {'energy': 0.001, 'zeeman': 12.0}
 
@@ -103,9 +104,14 @@ sh2 = cfl.SpinHamiltonian(['zeeman', 'hyperfine', 'quadrupole'], S=1/2, I=7/2, l
 sh2.set_pro_data([thfs.MAGX, thfs.MAGY, thfs.MAGZ, thfs.HYP, thfs.EQHYP], {'HYP': 0.0053, 'EQHYP':0.1})
 
 # Longdell and Chen spin Hamiltonian parameters
-g = np.array([[2.92, -2.97, -3.56],[-2.97, 8.89, 5.56], [-3.56, 5.56, 5.14]])
-A = MHz2cm1(np.array([[256.03, -210.55, -360.36], [-210.55, 846.72, 615.37], [-360.36, 615.36, 705.96]]))
+#g = np.array([[2.92, -2.97, -3.56],[-2.97, 8.89, 5.56], [-3.56, 5.56, 5.14]])
+# Transformation for a 180 degree rotation about the z axis (flips (0,2), (2,0), (1,2), (2,1)).
+g = np.array([[2.92, -2.97, 3.56], [-2.97, 8.89, -5.56], [3.56, -5.56, 5.14]])
+# A = MHz2cm1(np.array([[256.03, -210.55, -360.36], [-210.55, 846.72, 615.37], [-360.36, 615.36, 705.96]]))
+# Transformation for a 180 degree rotation about the z axis (flips (0,2), (2,0), (1,2), (2,1)).
+A = MHz2cm1(np.array([[256.03, -210.55, 360.36], [-210.55, 846.72, -615.37], [360.36, -615.36, 705.96]]))
 Q = MHz2cm1(np.array([[5.45, -11.04, -11.90], [-11.04, -2.98, -17.24], [-11.90, -17.24, -2.48]]))
+# Q (nuclear quadrupole) is not transformed by the 180 degree rotation in the same way as g and A.
 shx2 = {'zeeman': g, 'hyperfine': A, 'quadrupole': Q}
 weights2 = {'zeeman': 20.0, 'hyperfine': 5e5, 'quadrupole': 3e5}
 
@@ -165,7 +171,7 @@ stepsize['EQHYP'] = 0.001
 param = ['EAVG', 'ZETA', 'F2', 'F4', 'F6', 'C20', 'C21', 'C22', 'C40', 'C41', 'C42',
         'C43', 'C44', 'C60', 'C61', 'C62', 'C63', 'C64', 'C65', 'C66']
 
-cfl_min = cfl.CFLMin('nlopt_bobyqa', xtol=1e-5, bounds=bounds, cov=False, dry_run=False)
+cfl_min = cfl.CFLMin('nlopt_bobyqa', xtol=1e-5, bounds=bounds, cov=False)
 #cfl_min = cfl.CFLMin('basinhopping', niter=250, lmin='nlopt_bobyqa', xtol=1e-4,
 #    bounds=bounds, stepsize=stepsize, step_adapt_int=20)
 
@@ -173,5 +179,5 @@ res = cfl.mesh_fit(param, h_sh_list, cfl_min)
 
 print(res['summary'])
 
-with open("2017-05-17_eryso_site1.txt", "w") as summary_file:
+with open("mesh_fit_eryso_site1_transformed_g.txt", "w") as summary_file:
     summary_file.write(res['summary'])

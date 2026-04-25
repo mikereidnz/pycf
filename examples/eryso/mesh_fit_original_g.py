@@ -179,5 +179,5 @@ res = cfl.mesh_fit(param, h_sh_list, cfl_min)
 
 print(res['summary'])
 
-with open("2017-05-17_eryso_site1.txt", "w") as summary_file:
+with open("mesh_fit_eryso_site1_original_g.txt", "w") as summary_file:
     summary_file.write(res['summary'])

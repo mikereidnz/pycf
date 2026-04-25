@@ -226,3 +226,93 @@ Fitting changes: April 21.
 
 
 
+24 April 2026
+
+Trying to verify issues with the eryso example mesh_fit.py
+There was an error in the script where it tried to add some tensors twice, so the output changed with the latest version. 
+Have run it with old version on servers and it gets yet another minimum. Maybe there is some change to the minimisation. 
+
+
+I still have a possible issue with home/users/mfr24/dev/pycf/examples/eryso/mesh_fit.py 
+You previously pointed out that there was an error in the script, which is why the two output files
+2017-05-17_eryso_site1.txt.20260421
+and 
+2017-05-17_eryso_site1.txt.20260424
+were different. 
+
+However, I have now run the new script using an old installation on a different machine (before any of the April 2026 modifications) and I get a different minimum. 
+
+Can you tell me if the modifications over the past week would have changed behaviour of the minimization? 
+
+
+ooking at how mesh_fit works—it's using nonlinear least squares optimization through ExData to fit energies, with a 
+  SpinHamiltonian that includes zeeman, hyperfine, and quadrupole terms, all minimized via the BOBYQA algorithm with 
+  separate weighting for each interaction type. The fitting process adjusts the magnetic field components along with the
+   spin Hamiltonian parameters, accounting for sign conventions in both the field and chi-squared calculations.
+
+  Now I'm thinking through which April changes impact this minimization process.
+
+● Yes — several April changes would definitely change the minimum found by mesh_fit.py. Here are the ones that
+  directly affect its numerical result:
+
+  Changes that alter the minimization landscape
+
+  1. MAGX / MAGY sign change (build comment — pre-audit)
+
+   - mesh_fit.py uses t.MAGX, t.MAGY (lines 25-26, 88, 102) and fits an off-diagonal Zeeman g-tensor (shx1, shx2) with
+   large off-diagonal components. Sign change in MAGX/MAGY changes the sign of cross-products like g_xy, so the chi² 
+  surface is literally different. This alone moves the minimum.
+
+  2. Conjugation before LAPACK call (build comment)
+
+   - Changes the sign convention of eigenvectors / off-diagonal matrix elements used in SH projection.
+
+  3. 44b0ce2 — eigenvector percentage: |z|² not |z|
+
+   - Changes state-labeling → changes which calculated level is mapped to which experimental level in mode 'A'/'AS' 
+  ExData. Different assignments → different chi².
+
+  4. ae3eb4a — NLS double-weighting fix
+
+   - Previously weights were applied twice (or inconsistently). The SH weights ('energy':
+    0.001, 'zeeman': 12.0, 'hyperfine': 5e5, 'quadrupole': 3e5) effectively have different relative magnitudes now — 
+  this directly reshapes the chi² and moves the minimum.
+
+  5. 82ddced — SH chi² sign fix
+
+   - Spin-Hamiltonian chi² contribution sign was wrong; fixing it changes total chi².
+
+  6. 3e259a5 — NLS residual offset off-by-one
+
+   - Residual indexing was shifted; every residual value changed.
+
+  7. 05e4c1f — spinh int division for half-integer spins
+
+   - mesh_fit.py uses S=1/2, I=7/2 (line 101). Int-division bug previously computed some spin matrices incorrectly for
+   half-integer quantum numbers. This directly changes the SpinHamiltonian matrix elements.
+
+  8. 475e9e7 — enforce unique SH interactions / ndof guard
+
+   - Changes which interactions are enrolled and how chi² is normalized.
+
+  9. 9e53d94 / f392fad — siman indexing / bounds
+
+   - Only matters if you enable the basinhopping path (commented out), so not applicable to your current run.
+
+  Bottom line
+
+  Yes — the new minimum is expected to differ, and the new result should be considered more trustworthy than the old
+  one because:
+
+   - The MAGX/MAGY signs now match the standard convention, so the fitted g-tensor off-diagonals are now comparable to
+   the published Sun et al. (PRB 77, 085124) values you're matching against.
+   - The half-integer spin fix (05e4c1f) was a genuine correctness bug for I=7/2.
+   - The NLS double-weighting and SH chi² sign fixes mean chi² is now the physically intended quantity.
+
+  A legitimate sanity check: compare your new fitted g-tensor against the Sun et al. values in shx1 (line 91) and the
+  Longdell/Chen values in shx2 (line 105). If the magnitudes now match more closely than before (even if signs of
+  off-diagonals flip), that's confirmation the new minimum is the correct one.
+
+  Would you like me to isolate which single commit accounts for the largest shift (by temporarily reverting them one
+  at a time and re-running)?
+-----------------------------------------------------------------------
