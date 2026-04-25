@@ -42,14 +42,23 @@ def write_version_file() -> str:
     build_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     build_comment = os.environ.get('PYCF_BUILD_COMMENT', "Build via setup.py")
     
+    # Use a valid PEP 440 version format
+    # Base version + dev suffix with git hash for development builds
+    base_version = "0.1.0"
+    if git_revision != "unknown":
+        # Use PEP 440 local version identifier
+        version_str = f"{base_version}.dev0+{git_revision}"
+    else:
+        version_str = base_version
+    
     version_text = f'''
-__version__ = "{git_revision}"
+__version__ = "{version_str}"
 __build_timestamp__ = "{build_timestamp}"
 __build_comment__ = "{build_comment}"
 
 '''
     VERSION_FILE.write_text(version_text, encoding="utf-8")
-    return git_revision
+    return version_str
 
 
 def run_make(target: str | None = None) -> str:
