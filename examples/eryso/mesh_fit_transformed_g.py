@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+"""
+Mesh fit with transformed g-tensor parameterization for Er:YSO.
+
+Variant of mesh_fit.py using alternative tensor parameter definitions.
+
+This example demonstrates:
+1. Loading Er:YSO matrix elements with transformed tensor basis
+2. Using alternative g-tensor parameterization
+3. Comparing different tensor representations for optimization
+4. Fitting Er^3+ parameters with transformed basis choices
+
+Prerequisites:
+- Er:YSO matrix element data
+- numpy, pycf
+"""
 
 from pathlib import Path
 import numpy as np

@@ -1,4 +1,23 @@
 #!/usr/bin/env python
+"""
+Crystal field analysis for Sm:NaCaF2 system.
+
+This example demonstrates:
+1. Loading Sm^3+ matrix elements in NaCaF2 host
+2. Constructing tensor combinations for optical and magnetic properties
+3. Using truncated basis for efficient calculations
+4. Building Hamiltonian with Slater-Condon and crystal field parameters
+5. Analyzing energy levels and comparing with experimental data
+
+The example uses Sm:NaCaF2 fitted parameters to demonstrate
+complete rare-earth ion fitting with hyperfine and magnetic interactions.
+
+Data source: PRB 61 13593
+
+Prerequisites:
+- Sm:NaCaF2 matrix element data in matel/smcf_trunc/
+- numpy, pycf
+"""
 
 from pathlib import Path
 import numpy as np

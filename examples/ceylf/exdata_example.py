@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+"""
+Demonstrate experimental data fitting with crystal field Hamiltonian.
+
+This example shows how to:
+1. Load Ce:YLF crystal field matrix elements
+2. Construct a Hamiltonian with fitted parameters from literature
+3. Compare calculated energy levels with experimental data
+4. Use ExData for different experimental data formats (absolute, differences, state labels)
+
+Data source: 10.1016/j.optmat.2015.06.046
+
+Prerequisites:
+- Ce:YLF matrix element data in matel/f1cf/ directory
+- numpy, pycf
+"""
 
 from pathlib import Path
 import numpy as np

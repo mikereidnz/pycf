@@ -1,4 +1,23 @@
 #!/usr/bin/env python
+"""
+MCMC parameter analysis and correlation visualization for Er:YSO.
+
+This example demonstrates post-processing of MCMC optimization results:
+1. Load parameter and chi-squared samples from MCMC fitting
+2. Apply burn-in period (discard initial steps)
+3. Thin samples to remove correlation
+4. Visualize parameter distributions and correlations
+5. Organize parameters by crystal field tensors (r2, r4, r6)
+
+Input files expected:
+- 2018-08-08_eryso_site1_chi2accept.npy: chi-squared values
+- 2018-08-08_eryso_site1_xaccept.npy: parameter samples
+
+Prerequisites:
+- MCMC fitting results (*.npy files)
+- numpy, matplotlib
+- Results from prior MCMC fitting run (e.g., mhfit_siman.py)
+"""
 
 from pathlib import Path
 import numpy as np

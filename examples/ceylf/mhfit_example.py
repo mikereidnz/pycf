@@ -1,4 +1,22 @@
 #!/usr/bin/env python3
+"""
+Multi-Hamiltonian fitting example for Ce:YLF crystal field parameters.
+
+This example demonstrates:
+1. Setting up multiple Hamiltonian instances for fitting
+2. Using multi-Hamiltonian fitting (mh_fit) with weighted datasets
+3. Fitting crystal field parameters to match experimental energy levels
+4. Using gsl_nls optimization backend
+
+The example fits Ce:YLF parameters using two datasets with different weights,
+optimizing EAVG, C20, C40, and C44 parameters.
+
+Data source: 10.1016/j.optmat.2015.06.046
+
+Prerequisites:
+- Ce:YLF matrix element data in matel/f1cf/ directory
+- numpy, pycf with GSL optimization support
+"""
 
 from pathlib import Path
 import numpy as np

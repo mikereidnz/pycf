@@ -1,4 +1,24 @@
 #!/usr/bin/env python
+"""
+Spin Hamiltonian construction and diagonalization example.
+
+This example demonstrates:
+1. Building spin Hamiltonian parameter matrices (g-tensor, hyperfine, quadrupole)
+2. Using the SpinH auxiliary class for spin Hamiltonian calculations
+3. Constructing full spin Hamiltonian matrix from terms
+4. Diagonalizing to find eigenvalues and eigenvectors
+5. Analyzing energy level splittings
+
+The example uses Er^3+ spin S=1/2, nuclear I=7/2 with:
+- g-tensor (Zeeman coupling)
+- Hyperfine coupling (A tensor)
+- Quadrupole coupling (Q tensor)
+
+Data source: Guillot-Noël et al., PhysRevB.74.214409
+
+Prerequisites:
+- numpy, matplotlib, pycf.spinh module
+"""
 
 from pathlib import Path
 import numpy as np
