@@ -1,8 +1,42 @@
 #!/usr/bin/env python
 # Filename = paramcalc.py
-# Split parameter calculation functions into separate file for better organization.  
-# This file includes functions for calculating the Altp parameters. 
-# Intensity calculations are in inten.py 
+
+"""
+Crystal field parameter calculations and atomic structure utilities.
+
+This module computes intensities, transition parameters, and lattice coupling
+terms for rare-earth ion crystal fields. Main categories:
+
+**Intensity Parameters (Xi):**
+- Xi(t, λ) parameters for magnetic-dipole and electric-quadrupole transitions
+- From Krupke (1966) systematic tables for Pr, Nd, Eu, Tb, Er, Tm, Yb
+
+**Radial Integrals (RInt4f):**
+- <4f|r^λ|4f> radial integrals for 4f electrons
+- From Freeman & Watson tables for Ce through Yb
+
+**Spherical Harmonics (Ckq):**
+- Solid spherical harmonics in crystal field normalization
+- Used for building static and dynamic coupling terms
+
+**Static Coupling (A_SC):**
+- Point-charge model (Krupke) and dynamic polarizability effects
+- Includes charge and polarizability contributions
+
+**Dynamic Coupling (A_DC):**
+- Isotropic ligand polarizability effects
+- Rank-dependent contributions to A parameters
+
+**Ligand Data:**
+- Ligand class for coordinate and property storage
+- AltpData class for managing multi-ligand systems
+
+Key workflow for complete CF model:
+  1. Load ligand coordinates and charges from experiment
+  2. Calculate Altp parameters using this module
+  3. Build Hamiltonian with these parameters (cfl module)
+  4. Fit to experimental data and refine
+"""
 
 from typing import List, Tuple
 import numpy as np

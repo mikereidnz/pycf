@@ -1,6 +1,38 @@
 #!/usr/bin/env python
 # Filename = njsymbols.py
 
+"""
+Angular momentum coupling and Wigner-Racah algebra symbols.
+
+Implements efficient algorithms for calculating Wigner symbols commonly used
+in atomic and nuclear physics calculations:
+
+**Wigner 3j Symbols:**
+- Couples two angular momenta j1, j2 to resultant j3
+- Used in matrix element calculations and recoupling transformations
+- Implementation: Rational arithmetic method by Rasch (2003)
+
+**Wigner 6j Symbols:**
+- Recoupling coefficients for three coupled angular momenta
+- Used in multi-electron atom coupling schemes
+- Implementation: Calculation via 3j symbols and factorials
+
+**Wigner 9j Symbols:**
+- Recoupling coefficients for four coupled angular momenta
+- Used in rare-earth ion (multiple f-electrons) calculations
+- Implementation: Expansion in 6j symbols
+
+**Triangular Condition Check:**
+- Validates quantum number triangle inequalities
+- Pre-screens invalid symbol combinations
+
+All symbols support both integer and half-integer quantum numbers
+(internally stored as doubled integers for precision).
+
+Used throughout pycf for building tensor operators and calculating
+matrix elements in crystal field Hamiltonians.
+"""
+
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a

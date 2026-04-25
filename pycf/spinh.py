@@ -1,6 +1,28 @@
 #!/usr/bin/env python
 # Filename = spinh.py
 
+"""
+Spin Hamiltonian extraction and manipulation utilities.
+
+This module provides functions for:
+
+- Building spin Hamiltonian matrices from tensor operators
+- Extracting spin Hamiltonian parameters from crystal field calculations
+- Inverting spin Hamiltonians to recover effective parameters
+- Manipulating and formatting spin Hamiltonian terms
+
+The spin Hamiltonian formalism reduces complex rare-earth ion interactions to
+effective magnetic operators acting on the lowest Kramers doublet. This module
+bridges crystal field theory (implemented in cfl) to spin Hamiltonian models
+commonly used in magnetic resonance and magnetism studies.
+
+Key workflow:
+  1. Calculate crystal field Hamiltonian and eigenstates (cfl module)
+  2. Project high-level (J=5/2...) multiplet onto Kramers doublet
+  3. Extract effective spin Hamiltonian parameters
+  4. Verify by comparing predicted vs. experimental properties
+"""
+
 # Copyright (C) 2013-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a

@@ -1,6 +1,33 @@
 #!/usr/bin/env python
 # Filename = pyemp.py
 
+"""
+Python wrapper for Michael F. Reid's empirical crystal field (EMP) programs.
+
+This module provides a high-level Python interface to Michael F. Reid's
+empirical crystal field theory executables:
+
+- cfit: Least-squares fitting of crystal field parameters to experimental data
+- inten: Intensity calculations for absorption/emission spectra
+- vtrans: Transformation of tensor matrix elements to eigenbasis
+- spectrum: Generation of energy level diagrams and spectra
+
+The module handles:
+- File I/O with EMP format files (.txt, .mi_, .st_)
+- Parameter input/output management
+- Spectrum generation and analysis
+- Error handling and validation
+
+Used for empirical crystal field fitting workflows where EMP executables
+are preferred for reliability and compatibility with existing datasets.
+
+Example workflow:
+  1. Prepare experimental data file
+  2. Use cfit wrapper to optimize CF parameters
+  3. Use inten wrapper to calculate intensities
+  4. Analyze results with intensity summary functions
+"""
+
 # pyemp is a python module to facilitate scripting of Michael F. Reid's F-shell
 # empirical crystal field theory routines.
 

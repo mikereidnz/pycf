@@ -1,6 +1,22 @@
 #!/usr/bin/env python
 # Filename = cfl_util.py
 
+"""
+Utility functions for crystal field calculations and data presentation.
+
+This module provides formatting, summary, and analysis helpers for crystal field
+Hamiltonians and experimental data. Key functions include:
+
+- Energy level summaries and formatting
+- State label parsing and manipulation
+- Experimental data handling and normalization
+- Transition grouping and analysis
+- Result printing and visualization
+
+Used throughout pycf for formatting output and presenting crystal field
+calculation results to users.
+"""
+
 #   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 #   This program is free software: you can redistribute it and/or modify

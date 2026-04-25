@@ -1,6 +1,32 @@
 #!/usr/bin/env python
 # Filename = matel.py
 
+"""
+Angular momentum matrix element calculations.
+
+Provides efficient methods for calculating matrix elements of angular momentum
+operators and tensor operators, essential for crystal field Hamiltonian
+construction.
+
+**Tensor Matrix Elements (t_q):**
+- <j1, m1 | T_q^(1) | j2, m2> for rank-1 tensor operators
+- Used in coupling different angular momentum spaces
+- Implementation: Wigner-Eckart theorem with 3j symbols
+
+**Angular Momentum Components (matel):**
+- Matrix elements of Jx, Jy, Jz in basis |j, m>
+- Built using Wigner symbol algebra
+- Used for dipole operators and spin Hamiltonian construction
+
+Key features:
+- Supports half-integer j (including rare-earth ions like j=5/2)
+- Hermitian matrices (Jz, Jx) and rank-raising/lowering (J+, J-)
+- Efficient numeric computation with factorial optimization
+
+Used throughout pycf for building tensor operators in the crystal field
+Hamiltonian and for intensity calculations.
+"""
+
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a
