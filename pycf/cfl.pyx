@@ -35,6 +35,72 @@ from pycf.matel import matel
 from pycf.cfl_util import *
 
 
+# Global storage for Python error handler callback
+_python_error_handler = None
+
+
+# C callback wrapper for Python error handlers
+cdef void _c_error_handler_wrapper(const char *func, const char *file,
+    int line, const char *message) noexcept nogil:
+    """
+    C callback that bridges to Python error handler.
+    Must acquire GIL before calling Python code.
+    """
+    global _python_error_handler
+    with gil:
+        if _python_error_handler is not None:
+            _python_error_handler(
+                func.decode('utf-8') if func else "",
+                file.decode('utf-8') if file else "",
+                line,
+                message.decode('utf-8') if message else ""
+            )
+
+
+def set_error_handler(handler):
+    """
+    Register custom error handler for CFL library errors.
+    
+    The error handler receives:
+    - func: C function name where error occurred
+    - file: Source file name
+    - line: Line number
+    - message: Error message
+    
+    Parameters
+    ----------
+    handler : callable or None
+        Error handler function with signature:
+            handler(func: str, file: str, line: int, message: str) -> None
+        
+        If None, restores default printf() error reporting.
+    
+    Examples
+    --------
+    >>> def log_error(func, file, line, msg):
+    ...     print(f"ERROR in {func} ({file}:{line}): {msg}")
+    >>> pycf.cfl.set_error_handler(log_error)
+    
+    >>> # Restore default behavior
+    >>> pycf.cfl.set_error_handler(None)
+    
+    Notes
+    -----
+    The handler function should be fast and non-blocking, as it may be called
+    from performance-critical code paths. Avoid heavy computation or I/O.
+    
+    The handler will be called even for non-fatal warnings and informational
+    messages, depending on the error type.
+    """
+    global _python_error_handler
+    _python_error_handler = handler
+    
+    if handler is not None:
+        cfl.cfl_set_error_handler(_c_error_handler_wrapper)
+    else:
+        cfl.cfl_set_error_handler(NULL)
+
+
 cdef inline void* _capsule_get_pointer(object cap, const char* name):
     """
     Safe capsule pointer extraction with validation.
