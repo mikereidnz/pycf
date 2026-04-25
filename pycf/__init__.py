@@ -1,10 +1,10 @@
 from datetime import datetime
 import sys
 
-from pycf.__version__ import __version__
 try:
-    from pycf.__version__ import __build_timestamp__, __build_comment__
+    from pycf.__version__ import __version__, __build_timestamp__, __build_comment__
 except ImportError:
+    __version__ = 'unknown'
     __build_timestamp__ = 'unknown'
     __build_comment__ = ''
 

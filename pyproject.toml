@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-  "setuptools>=68",
+  "setuptools>=77",
   "wheel",
   "Cython>=3",
   "numpy>=1.26",
@@ -12,6 +12,7 @@ name = "pycf"
 version = "0+git"
 description = "Python crystal field theory modules"
 readme = "README.rst"
+license = "GPL-3.0-or-later"
 authors = [
     {name = "Mike Reid", email = "mike.reid@canterbury.ac.nz"},
 ]
@@ -20,7 +21,6 @@ maintainers = [
 ]
 keywords = ["crystal field", "rare earth", "magnetism"]
 classifiers = [
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -36,6 +36,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "matplotlib>=3.8",
+    "setuptools>=68",
+    "wheel",
+    "Cython>=3",
 ]
 examples = [
     "matplotlib>=3.8",

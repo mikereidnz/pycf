@@ -202,8 +202,8 @@ def test_mesh_fit() -> None:
 
     print(res['summary'])
 
-    with open("mesh_fit_eryso_site1.txt", "w") as summary_file:
-        summary_file.write(res['summary'])
+    #with open("mesh_fit_eryso_site1.txt", "w") as summary_file:
+    #    summary_file.write(res['summary'])
 
     fit_coeff = res['coeff']        
     print('Check fitted parameters:')

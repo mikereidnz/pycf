@@ -145,26 +145,40 @@ source env/bin/activate
 
 Add these functions to your `~/.bashrc` for quick access:
 
+Replace `/path/to/pycf` below with the absolute path to your checkout.
+
 ```bash
-# Activate venv in current directory
+# Activate venv in current directory (no directory change)
 pycf_activate() {
+    local old_ps1="${PS1:-}"
+    export VIRTUAL_ENV_DISABLE_PROMPT=1
     source /path/to/pycf/env/bin/activate
-    export VIRTUAL_ENV_PROMPT="pycf"
+    unset VIRTUAL_ENV_DISABLE_PROMPT
+    export _OLD_VIRTUAL_PS1="$old_ps1"
+    PS1="(pycf) ${old_ps1}"
+    export PS1
 }
 
 # Activate venv and change to pycf repo directory
 pycf_dev() {
+    local old_ps1="${PS1:-}"
+    export VIRTUAL_ENV_DISABLE_PROMPT=1
     cd /path/to/pycf
     source env/bin/activate
-    export VIRTUAL_ENV_PROMPT="pycf"
+    unset VIRTUAL_ENV_DISABLE_PROMPT
+    export _OLD_VIRTUAL_PS1="$old_ps1"
+    PS1="(pycf) ${old_ps1}"
+    export PS1
 }
 ```
 
 Then use:
-- `pycf_activate` — Activates environment in current directory (prompt shows `(pycf)`)
-- `pycf_dev` — Changes to repo directory AND activates environment
+- `pycf_activate` — Activates environment in the current directory without changing directory (prompt shows `(pycf)`)
+- `pycf_dev` — Changes to the repo directory and activates the environment (prompt shows `(pycf)`)
 
-Both commands set the prompt to `(pycf)` for clarity.
+Both commands disable the built-in venv prompt and replace it with `(pycf)`. If you are already in conda base, the prompt will still also show `(base)`, which is expected.
+
+`pycf/__version__.py` is generated automatically during builds and installs. Do not edit it by hand.
 
 #### Step 3: Install in Editable Mode
 
@@ -189,7 +203,7 @@ pip install -e ".[dev,examples]"
 ```
 
 pycf requires `numpy` and `scipy` at runtime (automatically installed with `pip install -e .`).
-Examples require `matplotlib`. Development/testing requires `pytest`.
+Examples require `matplotlib`. The `[dev]` extra installs the Python test dependencies and the build tools needed for `python setup.py build_ext --inplace`.
 
 #### Step 4: Rebuild After Code Changes
 
@@ -203,7 +217,7 @@ Examples require `matplotlib`. Development/testing requires `pytest`.
 python setup.py build_ext --inplace
 
 # Or using the modern approach:
-pip install --no-build-isolation -e .
+pip install -e .
 ```
 
 #### Step 5: Run Tests
@@ -249,7 +263,7 @@ export CFL_CFLAGS="-O3 -march=native"
 ```bash
 git clone https://github.com/mikereidnz/pycf.git ~/pycf_source
 cd ~/pycf_source
-pip install --no-build-isolation .
+pip install .
 ```
 
 #### Step 3: Verify MKL is Used
@@ -344,7 +358,7 @@ print(eigenvalues[:10])  # First 10 energy levels
    ```bash
    unset CFL_CC
    unset INTEL_PATH
-   pip install pycf
+   pip install .
    ```
 
 2. Or locate Intel:
@@ -395,7 +409,7 @@ pip install --force-reinstall --no-cache-dir -e .
 
 2. Reinstall with verbose output:
    ```bash
-   pip install --verbose --no-cache-dir pycf
+   pip install --verbose --no-cache-dir .
    ```
 
 3. Check for compilation errors in output and address any missing dependencies.
@@ -407,8 +421,8 @@ pip install --force-reinstall --no-cache-dir -e .
 **Solution:**
 
 ```bash
-pip install pytest matplotlib scipy
 cd ~/pycf_repo
+pip install -e ".[dev]"
 python -m pytest tests/ -q
 ```
 
@@ -421,7 +435,7 @@ If using development mode (`pip install -e .`), pull the latest code and rebuild
 ```bash
 cd ~/pycf_repo
 git pull
-pip install --no-build-isolation -e .
+pip install -e .
 ```
 
 ---
@@ -435,10 +449,9 @@ If you plan to contribute or modify pycf:
 ```bash
 git clone https://github.com/mikereidnz/pycf.git ~/pycf_dev
 cd ~/pycf_dev
-python3 -m venv venv
-source venv/bin/activate
-pip install -e .
-pip install pytest matplotlib scipy
+python3 -m venv env
+source env/bin/activate
+pip install -e ".[dev,examples]"
 ```
 
 ### Development Workflow
@@ -450,7 +463,7 @@ pip install pytest matplotlib scipy
    python setup.py build_ext --inplace
    
    # Or using modern approach
-   pip install --no-build-isolation -e .
+   pip install -e .
    ```
 3. **Run tests**:
    ```bash
@@ -473,7 +486,7 @@ python -m build
 
 ## Getting Help
 
-- **Documentation**: See `README.rst` for overview and `doc/` directory for detailed guides
+- **Documentation**: See `README.rst` for overview, `INSTALL.md` for current setup instructions, and `docs/legacy/` for older reference material
 - **Examples**: Study `examples/` directory for usage patterns
 - **Tests**: Run `python -m pytest tests/ -v` to see what pycf can do
 - **Issues**: Report bugs at https://github.com/mikereidnz/pycf/issues
@@ -514,7 +527,7 @@ source ~/pycf_hpc/bin/activate
 export INTEL_PATH=/path/to/intel
 export CFL_CC=icc
 cd ~/pycf_source
-pip install --no-build-isolation .
+pip install .
 ```
 
 ---
