@@ -17,13 +17,12 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import division
 import numpy as np
 from scipy.sparse import csr_matrix
 import re
 import os
 import pycf.cfl as cfl
-from pycf.cfl_util import *
+from pycf.cfl_util import term2L
 
 def get_tensor_dim(source):
     "Generator for extracting tensor dimensions from ``*.mi_`` files."

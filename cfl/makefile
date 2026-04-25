@@ -1,11 +1,11 @@
 CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
-CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -I/usr/include/lapacke
+CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=x86-64 -mtune=generic -I/usr/include/lapacke
 #CFLAGS=-g -O -fPIC -I/usr/include/lapacke 
 LDLIBS=-llapacke -llapack -lblas -lgfortran -lgslcblas -lgsl -lm -lnlopt
 LDFLAGS=
-MKL_CFLAGS=-mkl -O3 -fPIC -std=c99 -ansi-alias -xhost -lpthread -openmp
+MKL_CFLAGS=-mkl -O3 -fPIC -std=c99 -ansi-alias -march=x86-64 -mtune=generic -lpthread -openmp
 MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 MKL_LDFLAGS=-Wl,-rpath,$(INTEL_PATH)/lib/intel64/ -Wl,-rpath,$(INTEL_PATH)/mkl/lib/intel64/
 ARFLAGS=rcs

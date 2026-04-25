@@ -4,11 +4,9 @@
 # This file includes functions for calculating the Altp parameters. 
 # Intensity calculations are in inten.py 
 
-from __future__ import division
 import numpy as np
 from scipy.special import sph_harm
 from pycf.njsymbols import wigner_3j
-from pycf.cfl_util import *
 
 def Xi_val(t, l, Ln):
     """

@@ -5,10 +5,8 @@
 A rewrite of the intensity calculation to follow the old Pascal code more closely, 
 """
 
-from __future__ import division
 import numpy as np
 from pycf.njsymbols import wigner_3j
-from pycf.cfl_util import *
 from operator import itemgetter
 
 def vtrans(tensors, z):

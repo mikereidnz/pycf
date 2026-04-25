@@ -23,7 +23,6 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-from __future__ import division
 import numpy as np
 from scipy.special import factorial
 from math import fsum
