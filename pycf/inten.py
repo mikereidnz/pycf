@@ -5,13 +5,14 @@
 A rewrite of the intensity calculation to follow the old Pascal code more closely, 
 """
 
+from typing import List, Dict, Tuple, Optional, Any
 import numpy as np
 from pycf.njsymbols import wigner_3j
 from pycf.constants import (ELECTRON_MASS, ELEMENTARY_CHARGE, EPSILON_0, HBAR,
                              SPEED_OF_LIGHT, BOLTZMANN_CM_INVERSE)
 from operator import itemgetter
 
-def vtrans(tensors, z):
+def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
     """
     Transform tensor matrix elements into eigenbasis previously calculated by
     diagonalizing a Hamiltonian. 
@@ -89,7 +90,8 @@ def vtrans(tensors, z):
     return tensor_dict
 
 
-def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
+def dipole_str(lrange: List[List[int]], tensor_dict: Dict[str, Any], h: Any, E: np.ndarray, V: np.ndarray, 
+               md: bool = True, ed: bool = False, Altp: Optional[List[float]] = None) -> Dict[str, Any]:
     """
     Calculate dipole strengths and transition properties in eigenbasis.
 
@@ -281,7 +283,7 @@ def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
     trs.sort(key=itemgetter('e'))
     return trs
 
-def group_transitions(items, tol=1e-4):
+def group_transitions(items: List[Dict[str, Any]], tol: float = 1e-4) -> List[Dict[str, Any]]:
     """
     Group transition dictionaries by (ei, ef) level-pair and annotate each group
     with initial/final degeneracies.
@@ -362,7 +364,7 @@ def group_transitions(items, tol=1e-4):
 
     return groups
 
-def A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0):
+def A_and_f_calc(S_ED: float, S_MD: float, energy: float, g_i: float, nrefractive: float = 1.0) -> Tuple[float, float]:
     """
     Calculate the Einstein A coefficient and oscillator strength for a transition
     with given electric and magnetic dipole strengths and transition energy.
@@ -421,7 +423,7 @@ def A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0):
     return abs(A), abs(f)
 
 
-def add_oscillator_strengths_and_A_coefficients(groups, refractive_index=1.0):
+def add_oscillator_strengths_and_A_coefficients(groups: List[Dict[str, Any]], refractive_index: float = 1.0) -> None:
     """
     Add oscillator strengths and Einstein A coefficients to transition groups.
 
@@ -445,7 +447,7 @@ def add_oscillator_strengths_and_A_coefficients(groups, refractive_index=1.0):
         group['f'] = f  
     # no return value since we are modifying the input list in place.
 
-def boltzmann_factor(e, t):
+def boltzmann_factor(e: float, t: float) -> float:
     """
     Calculate the Boltzmann factor for a given energy and temperature.
 
@@ -471,7 +473,7 @@ def boltzmann_factor(e, t):
     return(ans)
       
 
-def lorentzian(x, x0, fwhm):
+def lorentzian(x: float | np.ndarray, x0: float, fwhm: float) -> float | np.ndarray:
     """
     Calculate Lorentzian line shape.
 
@@ -502,7 +504,8 @@ def lorentzian(x, x0, fwhm):
     return(gamma_sq / ((x - x0)**2 + gamma_sq))
 
 
-def inten(trs, polarization, linewidth, T, xlim=None, npoints=1000):
+def inten(trs: List[Dict[str, Any]], polarization: str, linewidth: float, T: float, 
+          xlim: Optional[Tuple[float, float]] = None, npoints: int = 1000) -> Tuple[np.ndarray, np.ndarray]:
     """
     Calculate intensity spectrum from transitions and produce spectral data.
 

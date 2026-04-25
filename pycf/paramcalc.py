@@ -4,12 +4,13 @@
 # This file includes functions for calculating the Altp parameters. 
 # Intensity calculations are in inten.py 
 
+from typing import List, Tuple
 import numpy as np
 from scipy.special import sph_harm_y
 from pycf.njsymbols import wigner_3j
 from pycf.constants import BOHR_RADIUS
 
-def Xi_val(t, l, Ln):
+def Xi_val(t: int, l: int, Ln: str) -> float:
     """
     Xi(t, l) parameters in Angstrom^(t+1) erg^-1 from Krupke Phys Rev 145, 1
     (1966).
@@ -70,7 +71,7 @@ def Xi_val(t, l, Ln):
     return v
 
 
-def RInt4f(l, Ln):
+def RInt4f(l: int, Ln: str) -> float:
     r"""
     Radial integrals of the form <4f|r^\lambda|4f> for the RE3+ ions, from
     Freeman and Watson, 10.1103/PhysRev.127.2058. 
@@ -143,13 +144,13 @@ class Ligand(object):
     alpha_bar : float
         Mean polarizability of ligand species in Angstrom^3. 
     """
-    def __init__(self, coords, q, alpha_bar):
+    def __init__(self, coords: np.ndarray, q: float, alpha_bar: float) -> None:
         self.coords = coords
         self.q = q
         self.alpha_bar = alpha_bar
 
 
-def Ckq(k, q, theta, phi):
+def Ckq(k: int, q: int, theta: float, phi: float) -> np.complexfloating:
     """
     Solid spherical harmonic functions in normalization conventionally used for CF calcs.
 
@@ -184,7 +185,7 @@ def Ckq(k, q, theta, phi):
     return C 
 
 
-def A_SC(l, t, p, Ln, q_Ln, ligands):
+def A_SC(l: int, t: int, p: int, Ln: str, q_Ln: float, ligands: List[Ligand]) -> Tuple[float, float]:
     r"""
     Calculate the A^lambda_tp parameters for static coupling using a
     point-charge model, following Reid and Richardson, J. Chem. Phys. 79(12)
@@ -234,7 +235,7 @@ def A_SC(l, t, p, Ln, q_Ln, ligands):
     return (A_chg, A_pol)
 
 
-def A_DC(l, t, p, Ln, ligands):
+def A_DC(l: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
     r"""
     Calculate the A^lambda_tp parameters for dynamic coupling assuming isotropic
     ligands, following Reid and Richardson, J. Chem. Phys. 79(12) 1983, pg 5739. 
@@ -292,7 +293,7 @@ class AltpData(object):
     ligands : list
         List of Ligand objects. 
     """
-    def __init__(self, Ln, q_Ln, ligands):
+    def __init__(self, Ln: str, q_Ln: int, ligands: List[Ligand]) -> None:
         self.Ln = Ln
         self.q_Ln = q_Ln
         self.ligands = ligands
