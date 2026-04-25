@@ -17,6 +17,7 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from typing import Any, Generator, List, Optional
 import numpy as np
 from scipy.sparse import csr_matrix
 import re
@@ -24,7 +25,7 @@ import os
 import pycf.cfl as cfl
 from pycf.cfl_util import term2L
 
-def get_tensor_dim(source):
+def get_tensor_dim(source: Any) -> Generator[List[tuple], None, None]:
     "Generator for extracting tensor dimensions from ``*.mi_`` files."
     parse = False
     for line in source:
@@ -36,7 +37,7 @@ def get_tensor_dim(source):
         else: 
             yield ''
 
-def get_state_number(source):
+def get_state_number(source: Any) -> Generator[List[int], None, None]:
     "Generator for extracting the number of states from a ``*.st_`` file."
     parse = False
     done = False
@@ -69,7 +70,7 @@ class ImportSLJM(object):
         label file with a different base name than the intensity matrix element
         file.  It should be specified without the extension, like name above.
     """
-    def __init__(self, name, sl_name=False):
+    def __init__(self, name: str, sl_name: Optional[str] = False) -> None:
         # Create list of tuples of the form ('tensor_name', 'tensor_dim')
         tensor_dims = []
         with open("%s.mi_" % name, 'r' ) as f:
@@ -189,11 +190,11 @@ class ImportSLJM(object):
         self.tensors = tensors
         self.__dict__.update(tensors)
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[Any, None, None]:
         for t in self.tensors:
             yield self.__dict__.get(t)
 
-    def print_names(self):
+    def print_names(self) -> None:
         r"""
         Print the names of all the tensors that have been loaded.
 
