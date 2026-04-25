@@ -57,6 +57,8 @@ sudo dnf install -y \
     gcc-gfortran
 ```
 
+**Note on RedHat Systems:** If `nlopt-devel` is not available in your repository, or if you encounter linking errors mentioning C++ symbols, see the **"Building Libraries From Source"** section below. RedHat systems sometimes provide a C++ version of nlopt that requires special handling for Python C extensions.
+
 #### macOS
 
 Using Homebrew:
