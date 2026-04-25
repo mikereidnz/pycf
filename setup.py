@@ -144,7 +144,7 @@ def compute_build_flags() -> tuple[list[str], list[str]]:
     compile_args = split_flags(os.environ.get("CFL_CFLAGS"))
     link_args = split_flags(os.environ.get("CFL_LDLIBS"))
 
-    link_args += ["cfl/libcfl.a", "-lgsl", "-lnlopt", "-lm"]
+    link_args += ["cfl/libcfl.a", "-lgsl", "-lnlopt", "-lm", "-lgomp"]
 
     if os.environ.get("CFL_CC") == "icc":
         intel_path = os.environ.get("INTEL_PATH")
