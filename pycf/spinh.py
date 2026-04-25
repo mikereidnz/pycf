@@ -46,13 +46,14 @@ Key workflow:
 
 import warnings
 import numpy as np
+from typing import Optional, Dict, Tuple, Any, List, Union
 from numpy.linalg import lstsq
 from scipy.linalg import block_diag, svd, diagsvd
 from scipy.optimize import basinhopping
 from pycf.matel import matel
 
 
-def bmj(v, m, t):
+def bmj(v: np.ndarray, m: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BgS` or `BMI` term, an array of size `(2 \times j + 1)` by `(2 \times j
     + 1)`, with `j` the angular momentum of the tensor `S` or `I`.
@@ -88,7 +89,7 @@ def bmj(v, m, t):
     
     return(result)
 
-def ias(t1, m, t2):
+def ias(t1: List[np.ndarray], m: np.ndarray, t2: List[np.ndarray]) -> np.ndarray:
     r""" 
     Generate the `IAS` term, an array of size `(2 \times j_1+1) \times (2 \times
     j_2+1)` by `(2 \times j_1+1) \times (2 \times j_2+1)`, with `j_1` and `j_2`
@@ -132,7 +133,7 @@ def ias(t1, m, t2):
     return(result)
 
 
-def iqi(t, m):
+def iqi(t: List[np.ndarray], m: np.ndarray) -> np.ndarray:
     r"""
     Generate the `IQI` term, an array of size `(2 \times j + 1)` by `(2 \times j
     + 1)`, with `j` the angular momentum of the rank one tensor `I`.
@@ -172,7 +173,7 @@ def iqi(t, m):
     return(result)
 
 
-def bi(v, t):
+def bi(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BI` term, an array of size `(2 \times j + 1)` by `(2 \times j
     + 1)`, with `j` the angular momentum of the rank one tensor `I`.
@@ -207,7 +208,7 @@ def bi(v, t):
     return(result)
 
 
-def bmj_coeff_array(v, t):
+def bmj_coeff_array(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BgS` or `BMI` coefficient array.  This consists of a `2j+1
     \times 2j+1` by `3 \times 3` array containing the matrix elements of the
@@ -244,7 +245,7 @@ def bmj_coeff_array(v, t):
     return(np.reshape(bmj_a, (tl*tl, l*l)))
 
 
-def ias_coeff_array(t1, t2):
+def ias_coeff_array(t1: List[np.ndarray], t2: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `IAS` coefficient array.  This consists of a `2j_1+1 \times
     2j_2+1` by `3 \times 3` array containing the matrix elements of the
@@ -285,7 +286,7 @@ def ias_coeff_array(t1, t2):
     return(np.reshape(ias_a, (t1l*t2l*t1l*t2l, l*l)))
 
 
-def iqi_coeff_array(t):
+def iqi_coeff_array(t: List[np.ndarray]) -> np.ndarray:
     r""" 
     Generate the `IQI` coefficient array.  This consists of a `2j+1 \times 2j+1`
     by `3 \times 3` array containing the matrix elements of the operators `I_a
@@ -323,7 +324,7 @@ def iqi_coeff_array(t):
     return(np.reshape(iqi_a, (tl*tl, l*l)))
 
 
-def invert_term(coeff_a, b):
+def invert_term(coeff_a: np.ndarray, b: np.ndarray) -> np.ndarray:
     r"""
     Invert a spin Hamiltonian term.
 
@@ -355,7 +356,7 @@ def invert_term(coeff_a, b):
     return(np.real(lstsq(coeff_a, b, rcond=None)[0]))
 
 
-def su2_rz(p, m):
+def su2_rz(p: float, m: np.ndarray) -> np.ndarray:
     """
     Apply an SU(2) rotation about the z-axis of the spin-half matrix elements of a
     spin Hamiltonian term, specifically, a Zeeman interaction term or a magnetic
@@ -385,7 +386,7 @@ def su2_rz(p, m):
     return(mp)
 
 
-def su2_rz_lsq_f(p, coeff_a, b):
+def su2_rz_lsq_f(p: float, coeff_a: np.ndarray, b: np.ndarray) -> float:
     """
     Helper function for least squares fitting of the SU(2) rotation required to
     symmetrize spin Hamiltonian terms containing spin half matrix elements.
@@ -426,7 +427,7 @@ def su2_rz_lsq_f(p, coeff_a, b):
 
     return r
 
-def su2_rotation(p, m):
+def su2_rotation(p: np.ndarray, m: np.ndarray) -> np.ndarray:
     """
     Apply an SU(2) rotation an about the z, y, and x axes respectively to the 
     spin-half matrix elements of a spin Hamiltonian term, specifically, a Zeeman
@@ -464,7 +465,7 @@ def su2_rotation(p, m):
     return rm
 
 
-def su2_rotation_lsq_f(p, coeff_a, b):
+def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> float:
     """
     Helper function for least squares fitting of the SU(2) rotation required to
     symmetrize spin Hamiltonian terms containing spin half matrix elements.
@@ -506,7 +507,7 @@ def su2_rotation_lsq_f(p, coeff_a, b):
 
     return r
 
-def param_ten_svd(t):
+def param_ten_svd(t: np.ndarray) -> np.ndarray:
     U, s, Vh = svd(t)
     S = diagsvd(s, 3, 3)
     t = np.dot(t, Vh.T).dot(U.T)
