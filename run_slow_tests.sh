@@ -26,3 +26,4 @@ fi
 
 exit $exit_code
 
+q

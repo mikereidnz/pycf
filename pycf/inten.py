@@ -40,8 +40,6 @@ def vtrans(tensors, z):
             'U60', 'U61', 'U62', 'U63', 'U64', 'U65', 'U66', 'M10', 'M11']
     if len(tensors) == 0:
         raise ValueError("vtrans requires at least one tensor.")
-    labels = tensors[0].states.labels
-    tolerance = 1e-10 # for deleting small values 
 
     for t in tensors:
         if t.name not in vtrans_ten:
@@ -115,15 +113,15 @@ def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
     hbar = 1.0545903e-27    # erg-sec 
     me = 9.109553e-28        # gm 
     md_prefac = -(e*hbar) / (2 * me * clight)
-    dipole_cutoff = 1e-10 # Throw out dipole moments of magnitude less than this
 
     w = E
     z = V
     # Validate eigenvector dimensions
     if not isinstance(z, np.ndarray) or z.ndim != 2:
-        raise ValueError("Eigenvector V must be 2-dimensional (nstates x nstates), got shape %s" % (z.shape,))
+        shape = getattr(z, 'shape', None)
+        raise ValueError("Eigenvector V must be 2-dimensional (nstates x nstates), got shape %s" % (shape,))
     labels = h.tensors[0].states.labels
-    # find principle components
+    # find principal components
     pc = np.argmax(np.abs(z), axis=0)
     
     #print('\n##############')
@@ -203,19 +201,62 @@ def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
                                 ed_mom[q+1] += (D) # order is -1, 0, 1
                                 #print('ed_mom', ed_mom)
                                 
+            # Keep all transitions, otherwise our degeneracy calculations will be wrong. 
+            # Electric and magnetic dipole strengths for -1, 0, +1 components
+            S_ED_m = np.abs(ed_mom[0])**2
+            S_ED_0 = np.abs(ed_mom[1])**2
+            S_ED_p = np.abs(ed_mom[2])**2
+            S_MD_m = np.abs(md_mom[0])**2
+            S_MD_0 = np.abs(md_mom[1])**2
+            S_MD_p = np.abs(md_mom[2])**2
+            # In future we should consider more flexible polarization choices,
+            # but for now will stick with the same definitions as in the old Pascal code.
+            # For electric dipole, the isotropic component is the average of the three q components.
+            # For axial symmetries: 
+            # the axial component is the average of the q=±1 components, 
+            # the sigma component is the q=0 component,  
+            # the pi component is the average of the q=±1 components.
+            S_ED_isotropic = (S_ED_m + S_ED_0 + S_ED_p) / 3
+            S_ED_axial = (S_ED_m + S_ED_p) / 2
+            S_ED_sigma = S_ED_axial
+            S_ED_pi = S_ED_0
+            # Note that E and B are perpedicular for linear polarization. 
+            # For magnetic dipole, the sigma component is the one with q=0, 
+            # and the pi component is the average of the q=±1 components. 
+            S_MD_isotropic = (S_MD_m + S_MD_0 + S_MD_p) / 3
+            S_MD_axial = (S_MD_m + S_MD_p) / 2
+            S_MD_sigma = S_MD_0
+            S_MD_pi = S_MD_axial
 
-            if any(abs(d) > dipole_cutoff for d in md_mom) or any(abs(d) > dipole_cutoff for d in ed_mom):
-                # temporarily stick with the totals that were in Sebastian's version
-                isotropic = sum(np.abs(md_mom)**2)/3 + sum(np.abs(ed_mom)**2)/3
-                axial = (np.abs(md_mom[0])**2 + np.abs(md_mom[2])**2)/2 + (np.abs(ed_mom[0])**2 + np.abs(ed_mom[2])**2)/2
-                sigma = np.abs(md_mom[1])**2 + (np.abs(ed_mom[0])**2+np.abs(ed_mom[2])**2)/2
-                pi = (np.abs(md_mom[0])**2+np.abs(md_mom[2])**2)/2 + np.abs(ed_mom[1])**2
-                
+            # Keep the totals that the Pascal code calculates, 
+            # which are the sum of the electric and magnetic dipole contributions.
+            # However, these are problematical as ED and MD have different refractive index prefactors, 
+            # so we should be careful about how we use these totals.
+            isotropic = S_ED_isotropic + S_MD_isotropic
+            axial = S_ED_axial + S_MD_axial
+            sigma = S_ED_sigma + S_MD_sigma
+            pi = S_ED_pi + S_MD_pi
 
-                trs += [{'md_-1': md_mom[0], 'md_0': md_mom[1], 'md_+1': md_mom[2], 
-                    'ed_-1': ed_mom[0], 'ed_0': ed_mom[1], 'ed_+1': ed_mom[2],
-                    'isotropic': isotropic, 'axial': axial,'sigma': sigma, 'pi': pi, 
-                    'ei': w[i], 'ef': w[f], 'e': w[f]-w[i],'i': i, 'f': f, 'pci': pc[i], 'pcf': pc[f] }]
+            # transition moments for a single intial and final state, 
+            # which we will later group by energy to get the total transition moment 
+            # for a given transition.
+            trs += [{
+                # states and principal components
+                'i': i, 'f': f, 'pci': pc[i], 'pcf': pc[f],
+                # energies
+                'ei': w[i], 'ef': w[f], 'e': w[f]-w[i],
+                # dipole moments
+                'md_-1': md_mom[0], 'md_0': md_mom[1], 'md_+1': md_mom[2], 
+                'ed_-1': ed_mom[0], 'ed_0': ed_mom[1], 'ed_+1': ed_mom[2],
+                # dipole strengths
+                'S_ED_-1': S_ED_m, 'S_ED_0': S_ED_0, 'S_ED_+1': S_ED_p,
+                'S_MD_-1': S_MD_m, 'S_MD_0': S_MD_0, 'S_MD_+1': S_MD_p,
+                'S_ED_isotropic': S_ED_isotropic, 'S_MD_isotropic': S_MD_isotropic,
+                'S_ED_axial': S_ED_axial, 'S_MD_axial': S_MD_axial,
+                'S_ED_sigma': S_ED_sigma, 'S_MD_sigma': S_MD_sigma,
+                'S_ED_pi': S_ED_pi, 'S_MD_pi': S_MD_pi, 
+                'isotropic': isotropic, 'axial': axial,'sigma': sigma, 'pi': pi, 
+                }]
             #print('trs')
             #print(trs)
             
@@ -302,6 +343,73 @@ def group_transitions(items, tol=1e-4):
     })
 
     return groups
+
+def A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0):
+    """
+    Calculate the Einstein A coefficient and oscillator strength for a transition
+    with given electric and magnetic dipole strengths and transition energy.
+
+    Parameters
+    ----------
+    S_ED : float
+        Electric dipole strength (in appropriate units).
+    S_MD : float
+        Magnetic dipole strength (in appropriate units).
+    e : float
+        Transition energy (in cm^-1).
+    n : float, optional
+        Refractive index of the medium (default is 1.0 for vacuum).
+
+    Returns
+    -------
+    A : float
+        Einstein A coefficient for the transition.
+    f : float
+    """
+    # Constants, in SI units
+    melectron = 9.1093897e-31    # {kg}
+    echarge   = 1.60217733e-19   # {C}
+    epsilon0  = 8.8541878e-12    # {NA-2}
+    hbar      = 1.05457266e-34   # {Js}
+    clight    = 2.997924580e8    # {ms-1}
+    rpi       = 3.14159265358972 # {dimensionless}
+
+    if energy==0:
+        lambda_= 0
+        omega  = 0
+    else:
+        lambda_ = 1e-2 /energy         # {cm-1}; {m}
+        omega   = 2*rpi*clight/lambda_ # {hz}
+    chilocal = ((nrefractive**2 + 2)/3)**2
+
+    # our dipole strengths are in units of 10-20 cm2, 
+    # so we need to convert to SI units of C2m2 for the A and f calculations.
+    sed    = echarge*echarge* S_ED * 1e-20 * 1e-4 # {C2m2}
+    smd    = echarge*echarge*S_MD * 1e-20 * 1e-4 # {C2m2}
+    oscfactor = 2*melectron/hbar/echarge/echarge
+    afactor = 1/(4*rpi*epsilon0) * 4 /(hbar*clight*clight*clight)
+    f = omega * oscfactor *  (sed * 1/nrefractive * chilocal
+                            + smd * nrefractive
+                            )/g_i
+    A = omega*omega*omega * afactor * (sed * nrefractive * chilocal 
+                                     + smd * nrefractive * nrefractive *nrefractive
+                                     )/g_i
+    return abs(A), abs(f)
+
+
+def add_oscillator_strengths_and_A_coefficients(groups, refractive_index=1.0):
+    """
+    This function adds oscillator strengths and Einstein A coefficients 
+    to the transition groups calculated by group_transitions. 
+    This is done in place, so the input groups list is modified. 
+    """
+    for group in groups:
+        group['S_ED_isotropic'] = sum(tr['S_ED_isotropic'] for tr in group['t_list'])
+        group['S_MD_isotropic'] = sum(tr['S_MD_isotropic'] for tr in group['t_list'])
+        A, f = A_and_f_calc(group['S_ED_isotropic'], group['S_MD_isotropic'], group['Energy'], group['g_i'], nrefractive=refractive_index)
+        group['A'] = A
+        group['f'] = f  
+    # no return value since we are modifying the input list in place.
 
 def boltzmann_factor(e, t):
     """

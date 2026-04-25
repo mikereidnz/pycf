@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # file: test_inten_c3.py
-# This is a test of the intensity calculation for Ce3+ in C1 symmetry. 
-# We apply a magnetic field along Z to split the Kramers doublets, 
-# and then calculate the intensities of the transitions between the split levels.
-# A small magnetic field is applied along X to achieve C1 symmetry. 
+# This is a test of the intensity calculation for Ce3+ in C3 symmetry.
+# It calculates transition intensities between the split levels without
+# applying a symmetry-lowering magnetic field.
 
 from pathlib import Path
 import pytest
 import numpy as np
-import matplotlib.pyplot as plt
 
 import pycf
 import pycf.cfl as cfl
@@ -16,12 +14,12 @@ from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 from pycf.inten import *
 
-@pytest.mark.slow  # mark this test as slow, so it can be skipped by default
+#@pytest.mark.slow  # mark this test as slow, so it can be skipped by default
 def test_inten_c3() -> None:
-    """ Test the intensity calculation for Ce3+ in C1 symmetry. 
-    We apply a magnetic field along Z to split the Kramers doublets, 
-    and then calculate the intensities of the transitions between the split levels.
-    A small magnetic field is applied along X to achieve C1 symmetry. 
+    """Test the intensity calculation for Ce3+ in C3 symmetry.
+
+    This computes transition intensities between the split levels without
+    applying a symmetry-lowering magnetic field.
     """
     # Read the tensors for the crystal-field calculation and the intensity calculation. 
     MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"
@@ -56,7 +54,6 @@ def test_inten_c3() -> None:
     MX.name = 'MX' 
     MY.name = 'MY'
     MZ.name = 'MZ'
-    t_list = [t.EAVG, t.ZETA, t.C20, t.C40, t.C43, t.C60, t.C63, t.C66, MX, MY, MZ]
     h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C43, t.C60, t.C63, t.C66, MX, MY, MZ])
 
     h.set_coeff(coeff)
@@ -126,6 +123,8 @@ def test_inten_c3() -> None:
     print('Altp')
     for A in Altp:
         print(A)
+
+
     lrange = [[0, 1], [6, 7, 8, 9]]  # Z1 to Y1 + Y2
     print('lrange', lrange)
     trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
@@ -136,17 +135,6 @@ def test_inten_c3() -> None:
     labels = h.tensors[0].states.labels
     print('\ntrs\n')
 
-    # From Pascal calculation (cfit/vtrans/inten)
-    pascal_calculation = [
-    {'isotropic':  1.71098e-05, 'axial':    0           , 'sigma':    4.22286e-05   , 'pi':     9.10073e-06   },            
-    {'isotropic':  6.32926e-03, 'axial':    9.49388e-03 , 'sigma':     5.70304e-05  , 'pi':     9.43685e-03   },            
-    {'isotropic':  6.33295e-03, 'axial':    9.49943e-03 , 'sigma':     5.74526e-05  , 'pi':     9.44198e-03   },            
-    {'isotropic':  1.78411e-05, 'axial':    0           , 'sigma':    4.35112e-05   , 'pi':     1.00121e-05   },            
-    {'isotropic':  1.66891e-04, 'axial':    2.50337e-04 , 'sigma':     2.43952e-04  , 'pi':     6.38448e-06   },            
-    {'isotropic':  5.35368e-03, 'axial':    0           , 'sigma':    4.38493e-03   , 'pi':     1.16761e-02   },            
-    {'isotropic':  5.34163e-03, 'axial':    0           , 'sigma':    4.38983e-03   , 'pi':     1.16351e-02   },            
-    {'isotropic':  1.57487e-04, 'axial':    2.36230e-04 , 'sigma':     2.30619e-04  , 'pi':     5.61136e-06   },   
-    ]
 
     print('INTENSITIES')
     for i, line in enumerate(trs):
@@ -165,21 +153,20 @@ def test_inten_c3() -> None:
             )
         #print('\n', line)
 
-    print('\nCompare to Pascal calculation')
-    tolerance = 1e-6
-    """
-    for i, line in enumerate(trs):
-        for key in ['isotropic', 'axial', 'sigma', 'pi']:
-            print(i, key, line[key], pascal_calculation[i][key])        
-            abs_diff = abs(line[key] - pascal_calculation[i][key])
-            assert abs_diff < tolerance, f'Absolute difference between pascal and pycf caculation is {abs_diff}, \
-                which is greater than the tolerance of {tolerance}'   
-    """
-
+   
     print('\nCreate transition groups')
     # group the transitions by energy. 
     groups = group_transitions(trs, tol=1e-3)
-    #print(groups)
+    add_oscillator_strengths_and_A_coefficients(groups)
+    
+    
+    #print(groups) 
+    print('\nCompare oscillator strengths to Pascal calculation')
+    tolerance = 1e-6
+    # From Pascal calculation (cfit/vtrans/inten)
+    pascal_f =[4.482614e-08,4.148602e-08]
+    #pascal_f =[4.482614e-08,4.14e-08]# deliberately less precise value for the second transition to test the assertion
+
     for i, group in enumerate(groups):
         print(
             'Group', i, 'Energy:', group['Energy'],
@@ -188,51 +175,117 @@ def test_inten_c3() -> None:
             )
         for line in group['t_list']:
             print('\t', line['i'], line['f'], line['e'], line['isotropic'])
-            
+        print('\tA:', group['A'], 'f:', group['f'], 'Compare to Pascal f:', pascal_f[i])
+        assert group['f'] == pytest.approx(pascal_f[i], rel=tolerance), f'Group {i} oscillator strength \
+        {group["f"]} differs from Pascal calculation {pascal_f[i]} by more than the tolerance of {tolerance}'       
 
 
+    # Nolrange = [[0, 1], [6, 7, 8, 9]]  # Z1 to Y1 + Y2
+    print('lrange', lrange)
+    trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
+
+    # sort the dictionary
+    from operator import itemgetter
+    trs.sort(key=itemgetter('e'))
+    labels = h.tensors[0].states.labels
+    print('\ntrs\n')
 
 
-    """
-    Plot data
-    """
-    polarization = 'isotropic'
-    linewidth = 2
-    T = 1e10
+    print('INTENSITIES')
+    for i, line in enumerate(trs):
+        print('\n', i, ':', line['i'], line['ei'], labels[line['pci']], '\t->\t', line['f'], line['ef'], labels[line['pcf']], '\tEnergy:', line['e'])
+        print('\tD_ISO:',
+            '\tED:', (abs(line['ed_-1'])**2 + abs(line['ed_0'])**2 +abs(line['ed_+1'])**2)/3,
+            '\tMD:', (abs(line['md_-1'])**2 + abs(line['md_0'])**2 +abs(line['md_+1'])**2)/3,
+            '\tTOT:', line['isotropic'],
+            )
+        print('ED', '\t-1:', line['ed_-1'], abs(line['ed_-1']), 
+                '\t 0:', line['ed_0'], abs(line['ed_0']), 
+                '\t+1:', line['ed_+1'], abs(line['ed_+1']), 
+            '\nMD', '\t-1:', line['md_-1'], abs(line['md_-1']), 
+                '\t 0:', line['md_0'], abs(line['md_0']), 
+                '\t+1:', line['md_+1'], abs(line['md_+1']), 
+            )
+        #print('\n', line)
 
-
-    line_energies, line_inten, curve_energies, curve_inten = inten(trs, polarization, linewidth, T)
-
-    print('\nEnergies:', line_energies)
-    print('\nInten:')
-    for i, line in enumerate(line_inten): 
-        print(i, ':', line_energies[i], ':', line)
-
+   
+    print('\nCreate transition groups')
+    # group the transitions by energy. 
+    groups = group_transitions(trs, tol=1e-3)
+    add_oscillator_strengths_and_A_coefficients(groups)
     
-    """ Add the pairs """
-    #print('Totals: ', line_inten[0]+line_inten[1], line_inten[2]+line_inten[3])   
+    
+    #print(groups) 
+    print('\nCompare oscillator strengths to Pascal calculation')
+    tolerance = 1e-6
+    # From Pascal calculation (cfit/vtrans/inten)
+    pascal_f =[4.482614e-08,4.148602e-08]
+    #pascal_f =[4.482614e-08,4.14e-08]# deliberately less precise value for the second transition to test the assertion
 
-    """
-    Do the plot
-    """
+    for i, group in enumerate(groups):
+        print(
+            'Group', i, 'Energy:', group['Energy'],
+            'g_i', group['g_i'], 'g_f', group['g_f'],
+            'e_i', group['e_i'], 'e_f', group['e_f']
+            )
+        for line in group['t_list']:
+            print('\t', line['i'], line['f'], line['e'], line['isotropic'])
+        print('\tA:', group['A'], 'f:', group['f'], 'Compare to Pascal f:', pascal_f[i])
+        assert group['f'] == pytest.approx(pascal_f[i], rel=tolerance), f'Group {i} oscillator strength \
+        {group["f"]} differs from Pascal calculation {pascal_f[i]} by more than the tolerance of {tolerance}'       
 
-    fig = plt.figure('testplot')
-    fig.clf()
-    ax = fig.add_subplot()
-    ax.stem(line_energies, line_inten)
-    ax.plot(curve_energies, curve_inten)
-    ax.set_title('Intensity plot')
-    ax.set_xlabel('Energy (cm$^{-1}$)')
-    ax.set_ylabel('Intensity')
-    #print(RUNNING_UNDER_PYTEST)
-    if __name__ == '__main__':
-        plt.show()
-    #plt.savefig('inten.pdf')
 
-    # make it crash to test the test process
-    assert 1 == 0, 'This is a deliberate assertion error to test the test process.'
+    # Now do emission from Y1 and Y2 to Z
+    print('\nNow do emission from Y1 and Y2 to Z\n')
 
-    print('\n END')
+    lrange = [[6,7 ], [0, 1, 2, 3, 4, 5]]  # Y1, Y2 to Z    
+    print('lrange', lrange)
+    trs_em = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
+
+    # sort the dictionary
+    from operator import itemgetter
+    trs_em.sort(key=itemgetter('e'))
+    labels = h.tensors[0].states.labels
+    #print('\ntrs_em\n')
+
+
+    print('\nCreate transition groups')
+    # group the transitions by energy. 
+    groups_em = group_transitions(trs_em, tol=1e-3)
+    add_oscillator_strengths_and_A_coefficients(groups_em)
+    
+    
+    #print(groups_em) 
+    print('\nCompare oscillator strengths to Pascal calculation')
+    tolerance = 1e-6
+    # From Pascal calculation (cfit/vtrans/inten)
+    pascal_f =[4.482614e-08,4.148602e-08]
+    #pascal_f =[4.482614e-08,4.14e-08]# deliberately less precise value for the second transition to test the assertion
+
+    for i, group in enumerate(groups_em):
+        print(
+            'Group', i, 'Energy:', group['Energy'],
+            'g_i', group['g_i'], 'g_f', group['g_f'],
+            'e_i', group['e_i'], 'e_f', group['e_f']
+            )
+        for line in group['t_list']:
+            print('\t', line['i'], line['f'], line['e'], line['isotropic'])
+        print('\tA:', group['A'], 'f:', group['f']) 
+        #'Compare to Pascal f:', pascal_f[i])
+        #assert group['f'] == pytest.approx(pascal_f[i], rel=tolerance), f'Group {i} oscillator strength \
+        #{group["f"]} differs from Pascal calculation {pascal_f[i]} by more than the tolerance of {tolerance}'       
+
+    A_total = sum(group['A'] for group in groups_em)
+    print('\nTotal A coefficient for all transitions:', A_total)
+    print('Lifetime corresponding to total A coefficient:', 1/A_total, 'seconds',
+          'or', 1e3/A_total, 'milliseconds')
+    
+    pascal_A = 3.193699e-01
+    tolerance
+    print('Pascal calculation A coefficient:', pascal_A)
+    assert A_total == pytest.approx(pascal_A, rel=tolerance), f'Atotal \
+        {A_total} differs from Pascal calculation {pascal_A} by more than the tolerance of {tolerance}'       
+
 
 
 if __name__ == '__main__':
