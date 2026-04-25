@@ -29,19 +29,28 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install numpy scipy cython pytest
+        pip install numpy scipy cython pytest pytest-cov coverage
     
     - name: Build and install pycf
       run: |
         python setup.py install
     
-    - name: Run Python tests
+    - name: Run Python tests with coverage
       run: |
-        python -m pytest tests/ -v
+        python -m pytest tests/ -v --cov=pycf --cov-report=xml --cov-report=term
     
     - name: Check for deprecation warnings
       run: |
         python -m pytest tests/ -v 2>&1 | grep -i deprecat || echo "No deprecation warnings"
+    
+    - name: Upload coverage to Codecov (Python 3.11 only)
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        flags: python-tests
+        fail_ci_if_error: false
+        verbose: true
 
   c-tests:
     runs-on: ubuntu-latest
@@ -144,3 +153,54 @@ jobs:
         python -c "from pycf import cfl; print('cfl import OK')"
         python -c "from pycf.import_sljm import ImportSLJM; print('import_sljm OK')"
         python -c "from pycf import inten; print('inten import OK')"
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install pre-commit
+      run: |
+        python -m pip install --upgrade pip
+        pip install pre-commit black isort flake8 mypy
+    
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit run --all-files || true
+      continue-on-error: true
+
+  benchmarks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy scipy cython pytest pytest-benchmark
+    
+    - name: Build and install pycf
+      run: |
+        python setup.py install
+    
+    - name: Run benchmarks
+      run: |
+        python -m pytest tests/test_benchmarks.py -v --benchmark-only 2>&1 | head -200 || true
+      continue-on-error: true

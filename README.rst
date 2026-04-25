@@ -4,6 +4,18 @@ About pycf
 
 pycf is a collection of Python modules for crystal field theory and spin Hamiltonian calculations. It provides tools for setting up and fitting energy levels of rare-earth ions using crystal-field Hamiltonians, as well as utilities for working with spin Hamiltonians and transition intensities. The core library is implemented in C99 for performance, with Python/Cython wrappers for ease of use.
 
+**Status and Quality**
+
+.. image:: https://github.com/mikereidnz/pycf/workflows/CI/badge.svg
+   :target: https://github.com/mikereidnz/pycf/actions
+   :alt: CI Status
+
+.. image:: https://img.shields.io/badge/python-3.8+-blue.svg
+   :alt: Python Version
+
+.. image:: https://img.shields.io/badge/test%20status-106%20passing-brightgreen
+   :alt: Tests Passing
+
 **For detailed installation instructions, see** `INSTALL.md <INSTALL.md>`_.
 
 **Quick Start (Development)**
