@@ -1,4 +1,4 @@
-"""Performance benchmarks for pycf core operations.
+"""Performance benchmarks for pycf using pytest-benchmark.
 
 These benchmarks track performance of critical operations:
 - Array operations
@@ -6,10 +6,18 @@ These benchmarks track performance of critical operations:
 - NumPy performance baseline
 
 Run with: pytest tests/test_benchmarks.py --benchmark-only
+Install: pip install pytest-benchmark (optional - tests will skip if not installed)
 """
 
 import numpy as np
 import pytest
+
+try:
+    import pytest_benchmark
+    HAS_BENCHMARK = True
+except ImportError:
+    HAS_BENCHMARK = False
+    pytest.skip("pytest-benchmark not installed", allow_module_level=True)
 
 try:
     from pycf import cfl

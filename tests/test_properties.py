@@ -4,11 +4,18 @@ These tests verify invariants and properties that should hold
 across a wide range of inputs.
 
 Run with: pytest tests/test_properties.py -v
+Install: pip install hypothesis (optional - tests will skip if not installed)
 """
 
 import numpy as np
 import pytest
-from hypothesis import given, strategies as st, settings
+
+try:
+    from hypothesis import given, strategies as st, settings
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+    pytest.skip("hypothesis not installed", allow_module_level=True)
 
 try:
     from pycf import cfl
