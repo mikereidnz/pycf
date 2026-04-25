@@ -143,16 +143,28 @@ source env/bin/activate
 
 **Simplified activation (optional):**
 
-Add this to your `~/.bashrc` for quick access:
+Add these functions to your `~/.bashrc` for quick access:
 
 ```bash
+# Activate venv in current directory
 pycf_activate() {
-    cd /path/to/pycf && source env/bin/activate
+    source /path/to/pycf/env/bin/activate
+    export VIRTUAL_ENV_PROMPT="pycf"
 }
-alias pycf_dev='pycf_activate'
+
+# Activate venv and change to pycf repo directory
+pycf_dev() {
+    cd /path/to/pycf
+    source env/bin/activate
+    export VIRTUAL_ENV_PROMPT="pycf"
+}
 ```
 
-Then simply run `pycf_dev` from anywhere to activate the environment and change to the repo directory.
+Then use:
+- `pycf_activate` — Activates environment in current directory (prompt shows `(pycf)`)
+- `pycf_dev` — Changes to repo directory AND activates environment
+
+Both commands set the prompt to `(pycf)` for clarity.
 
 #### Step 3: Install in Editable Mode
 
