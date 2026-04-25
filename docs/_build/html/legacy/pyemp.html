@@ -1,0 +1,558 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyemp tutorial &mdash; PyCF 179b2ce Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=c2aaae26"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            PyCF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#what-is-pycf">What is PyCF?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#crystal-field-theory-basics">Crystal Field Theory Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#core-concepts">Core Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#module-organization">Module Organization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#performance-characteristics">Performance Characteristics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#supported-platforms">Supported Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#language-support">Language Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#history-and-references">History and References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#quick-install">Quick Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#detailed-installation-steps">Detailed Installation Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#platform-specific-notes">Platform-Specific Notes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#linux-debian-ubuntu">Linux (Debian/Ubuntu)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#macos">macOS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#windows-wsl2">Windows (WSL2)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#intel-mkl-support">Intel MKL Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#verification">Verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#running-examples">Running Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#uninstallation">Uninstallation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#development-installation">Development Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#basic-example-ceylf">Basic Example: CeYLF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#key-concepts">Key Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#parameters-and-fitting">Parameters and Fitting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#common-patterns">Common Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#next-steps">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#core-modules">Core Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl.html">cfl</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.CFLMin"><code class="docutils literal notranslate"><span class="pre">CFLMin</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.EFit"><code class="docutils literal notranslate"><span class="pre">EFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.ESHFit"><code class="docutils literal notranslate"><span class="pre">ESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.MESHFit"><code class="docutils literal notranslate"><span class="pre">MESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.MHFit"><code class="docutils literal notranslate"><span class="pre">MHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.SpinHamiltonian"><code class="docutils literal notranslate"><span class="pre">SpinHamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.StateLabels"><code class="docutils literal notranslate"><span class="pre">StateLabels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.ZEFOZSearch"><code class="docutils literal notranslate"><span class="pre">ZEFOZSearch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.__reduce_cython__"><code class="docutils literal notranslate"><span class="pre">__reduce_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.__setstate_cython__"><code class="docutils literal notranslate"><span class="pre">__setstate_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.e_fit"><code class="docutils literal notranslate"><span class="pre">e_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.esh_fit"><code class="docutils literal notranslate"><span class="pre">esh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.hyperfine_sh_coeff"><code class="docutils literal notranslate"><span class="pre">hyperfine_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.mesh_fit"><code class="docutils literal notranslate"><span class="pre">mesh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.mh_fit"><code class="docutils literal notranslate"><span class="pre">mh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.quadrupole_sh_coeff"><code class="docutils literal notranslate"><span class="pre">quadrupole_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.set_error_handler"><code class="docutils literal notranslate"><span class="pre">set_error_handler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.sh_svd"><code class="docutils literal notranslate"><span class="pre">sh_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.zeeman_sh_coeff"><code class="docutils literal notranslate"><span class="pre">zeeman_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.zefoz"><code class="docutils literal notranslate"><span class="pre">zefoz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/import_sljm.html"><code class="docutils literal notranslate"><span class="pre">get_tensor_dim()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.get_state_number"><code class="docutils literal notranslate"><span class="pre">get_state_number()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.ImportSLJM.__init__"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.ImportSLJM.print_names"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.print_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/inten.html">INTEN</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.vtrans"><code class="docutils literal notranslate"><span class="pre">vtrans()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.dipole_str"><code class="docutils literal notranslate"><span class="pre">dipole_str()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.group_transitions"><code class="docutils literal notranslate"><span class="pre">group_transitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.A_and_f_calc"><code class="docutils literal notranslate"><span class="pre">A_and_f_calc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.add_oscillator_strengths_and_A_coefficients"><code class="docutils literal notranslate"><span class="pre">add_oscillator_strengths_and_A_coefficients()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.boltzmann_factor"><code class="docutils literal notranslate"><span class="pre">boltzmann_factor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.lorentzian"><code class="docutils literal notranslate"><span class="pre">lorentzian()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.inten"><code class="docutils literal notranslate"><span class="pre">inten()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/paramcalc.html">PARAMCALC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.Xi_val"><code class="docutils literal notranslate"><span class="pre">Xi_val()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.RInt4f"><code class="docutils literal notranslate"><span class="pre">RInt4f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.Ligand"><code class="docutils literal notranslate"><span class="pre">Ligand</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.Ckq"><code class="docutils literal notranslate"><span class="pre">Ckq()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.A_SC"><code class="docutils literal notranslate"><span class="pre">A_SC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.A_DC"><code class="docutils literal notranslate"><span class="pre">A_DC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.AltpData"><code class="docutils literal notranslate"><span class="pre">AltpData</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#utility-modules">Utility Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/spinh.html">SPINH</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.bmj"><code class="docutils literal notranslate"><span class="pre">bmj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.ias"><code class="docutils literal notranslate"><span class="pre">ias()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.iqi"><code class="docutils literal notranslate"><span class="pre">iqi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.bi"><code class="docutils literal notranslate"><span class="pre">bi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.bmj_coeff_array"><code class="docutils literal notranslate"><span class="pre">bmj_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.ias_coeff_array"><code class="docutils literal notranslate"><span class="pre">ias_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.iqi_coeff_array"><code class="docutils literal notranslate"><span class="pre">iqi_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.invert_term"><code class="docutils literal notranslate"><span class="pre">invert_term()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rz"><code class="docutils literal notranslate"><span class="pre">su2_rz()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rz_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rz_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rotation"><code class="docutils literal notranslate"><span class="pre">su2_rotation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rotation_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rotation_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.param_ten_svd"><code class="docutils literal notranslate"><span class="pre">param_ten_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.SpinH"><code class="docutils literal notranslate"><span class="pre">SpinH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/pyemp.html">PYEMP</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Spectrum"><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.BaseEmp"><code class="docutils literal notranslate"><span class="pre">BaseEmp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.GenericErun"><code class="docutils literal notranslate"><span class="pre">GenericErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Cfit"><code class="docutils literal notranslate"><span class="pre">Cfit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Vtrans"><code class="docutils literal notranslate"><span class="pre">Vtrans</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Inten"><code class="docutils literal notranslate"><span class="pre">Inten</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.SpectrumData"><code class="docutils literal notranslate"><span class="pre">SpectrumData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.SpectrumErun"><code class="docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.SpectrumAxes"><code class="docutils literal notranslate"><span class="pre">SpectrumAxes</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html"><code class="docutils literal notranslate"><span class="pre">uline_char()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.term2L"><code class="docutils literal notranslate"><span class="pre">term2L()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.L2term"><code class="docutils literal notranslate"><span class="pre">L2term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.fmt_timestamp"><code class="docutils literal notranslate"><span class="pre">fmt_timestamp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_pycf_details"><code class="docutils literal notranslate"><span class="pre">gen_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_pycf_summary"><code class="docutils literal notranslate"><span class="pre">gen_pycf_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_pycf_details"><code class="docutils literal notranslate"><span class="pre">print_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_completed_str"><code class="docutils literal notranslate"><span class="pre">gen_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_completed_str"><code class="docutils literal notranslate"><span class="pre">print_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.ex_parse_abs"><code class="docutils literal notranslate"><span class="pre">ex_parse_abs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.ex_parse_diff"><code class="docutils literal notranslate"><span class="pre">ex_parse_diff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_e_summary"><code class="docutils literal notranslate"><span class="pre">gen_e_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_e_summary_trunc"><code class="docutils literal notranslate"><span class="pre">gen_e_summary_trunc()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_sh_summary"><code class="docutils literal notranslate"><span class="pre">gen_sh_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_fit_summary"><code class="docutils literal notranslate"><span class="pre">gen_fit_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_as_fortran_array"><code class="docutils literal notranslate"><span class="pre">print_as_fortran_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_as_c_array"><code class="docutils literal notranslate"><span class="pre">print_as_c_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.MHz2cm1"><code class="docutils literal notranslate"><span class="pre">MHz2cm1()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.cm12MHz"><code class="docutils literal notranslate"><span class="pre">cm12MHz()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.bal_bounds"><code class="docutils literal notranslate"><span class="pre">bal_bounds()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.rJmmp"><code class="docutils literal notranslate"><span class="pre">rJmmp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.WignerR"><code class="docutils literal notranslate"><span class="pre">WignerR()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.rotate_cf_params"><code class="docutils literal notranslate"><span class="pre">rotate_cf_params()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/njsymbols.html">NJSYMBOLS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.tricon_ck"><code class="docutils literal notranslate"><span class="pre">tricon_ck()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.wigner_3j"><code class="docutils literal notranslate"><span class="pre">wigner_3j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.wigner_6j"><code class="docutils literal notranslate"><span class="pre">wigner_6j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.wigner_9j"><code class="docutils literal notranslate"><span class="pre">wigner_9j()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/matel.html">MATEL</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/matel.html#pycf.matel.t_q"><code class="docutils literal notranslate"><span class="pre">t_q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/matel.html#pycf.matel.matel"><code class="docutils literal notranslate"><span class="pre">matel()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#quick-reference">Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#classes">Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#hamiltonian">Hamiltonian</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#tensor">Tensor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#exdata">ExData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#importsljm">ImportSLJM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#key-functions">Key Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/fitting_example.html">Fitting Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#basic-fitting-workflow">Basic Fitting Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#example-ceylf">Example: CeYLF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#multiple-parameter-fitting">Multiple Parameter Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#temperature-dependent-fitting">Temperature-Dependent Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#advanced-constrained-fitting">Advanced: Constrained Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spin_hamiltonian.html">Spin Hamiltonian</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#what-is-a-spin-hamiltonian">What is a Spin Hamiltonian?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#basic-extraction">Basic Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#g-tensor">G-Tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#anisotropy">Anisotropy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#temperature-dependent-g-factor">Temperature-Dependent G-Factor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#hyperfine-coupling">Hyperfine Coupling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#advanced-kramers-doublet-projection">Advanced: Kramers Doublet Projection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#common-tasks">Common Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#resources">Resources</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">PyCF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">pyemp tutorial</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/legacy/pyemp.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pyemp-tutorial">
+<h1>pyemp tutorial<a class="headerlink" href="#pyemp-tutorial" title="Link to this heading"></a></h1>
+<p>pyemp is a python wrapper for Michael F. Reid’s emperical crystal field theory
+routines, henceforth abbreviated as emp.  It is primarily intended to ease
+automated calling of emp processes in python scripts.  It can also be useful for
+interactive plotting sessions using IPython.</p>
+<p>The examples provided for pyemp are all an adaptation of crystal field
+calculations of Ho<sup>3+</sup>:KY<sub>3</sub>F<sub>10</sub>.  Initially, we will fit the crystal field levels,
+calculate the transition intensities, and plot the resulting spectrum.  The
+example is then adapted to vary the magnetic dipole interaction parameter to
+produce a 3D plot showing transition intensities with respect to energy and the
+magnetic dipole parameter.</p>
+<section id="energy-level-fitting-for-ho3-ky3f10">
+<h2>Energy level fitting for Ho3+:KY3F10<a class="headerlink" href="#energy-level-fitting-for-ho3-ky3f10" title="Link to this heading"></a></h2>
+<p>Since <code class="xref py py-mod docutils literal notranslate"><span class="pre">pyemp</span></code> presently only supports the cfit, vtrans, inten and spectrum
+programs the below code has to be executed in a directory that contains states
+and tensors previously generated with jmcalc and sljcalc.  The directory
+<code class="docutils literal notranslate"><span class="pre">pycf/examples/ho_ky3f10</span></code> contains all the required matrix element and state
+input files.</p>
+<p>The first step is to create a <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> object.  The <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code>
+class is used to abstracting all the information required to run the various emp
+programs.  Consequently we have a large number of parameters that must be passed
+to the <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> constructor as keyword arguments.  A convenient way of
+handling this is  create a function that returns a dictionary with the
+appropriate key value pairs.  This has the advantage that if one wants to later
+vary one of these parameters one can simply add the parameter as an argument to
+this function and automate the creation of <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> instances.  For the
+example of Ho<sup>3+</sup>:KY<sub>3</sub>F<sub>10</sub> (see the <code class="docutils literal notranslate"><span class="pre">ho_ky3f10.py</span></code> example file) we use the
+following function:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">spec_params</span><span class="p">(</span><span class="n">levels</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">al</span><span class="p">):</span>
+    <span class="n">spectrum_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;emproot&#39;</span><span class="p">:</span> <span class="s1">&#39;/home/sph/local/linuxemp&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;states&#39;</span><span class="p">:</span> <span class="s1">&#39;hoc4v_i&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;tensors&#39;</span><span class="p">:</span> <span class="s1">&#39;hoc4v_i&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;matel&#39;</span><span class="p">:</span> <span class="s1">&#39;hoc4vint_i&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;addtensors&#39;</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;addten MTOT M0 1 M2 0.56 M4 0.31</span>
+<span class="sd">               addten PTOT P2 1 P4 0.5 P6 0.1</span>
+<span class="sd">               addten m111 mag10 0.2695 mag11 -0.190595+i0.190595</span>
+<span class="sd">               addten m001 mag10 0.466860</span>
+<span class="sd">               addten m100 mag11 0.330120</span>
+<span class="sd">               addten magx mag11   0.707106781186547</span>
+<span class="sd">               addten magy mag11 -i0.707106781186547</span>
+<span class="sd">               addten magz mag10 1</span>
+<span class="sd">               addten al ahyp 1 bhyp -3.16227766&quot;&quot;&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;addassign&#39;</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;assign F2 80063 F4 66361 F6 51637</span>
+<span class="sd">               assign ALPHA 17.15 BETA -607.9 GAMMA 1800</span>
+<span class="sd">               assign t2 400 t3 37 t4 105 t6 -264 t7 316 t8 336</span>
+<span class="sd">               assign ZETA 2142</span>
+<span class="sd">               assign MTOT 2.54 PTOT 605</span>
+<span class="sd">               assign c20  -669</span>
+<span class="sd">               assign c40 -1269</span>
+<span class="sd">               assign c44   344</span>
+<span class="sd">               assign c60   525</span>
+<span class="sd">               assign c64     9</span>
+<span class="sd">               assign al {0}</span>
+<span class="sd">               assign eqhyp 0.06&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">al</span><span class="p">),</span>
+            <span class="s1">&#39;expparams&#39;</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;exptval unweighted.exp weight</span>
+<span class="sd">               delta c20 1 c40 1 c44 1 c60 1 c64 1</span>
+<span class="sd">               delta f2 0.2 f4 1 f6 1</span>
+<span class="sd">               delta zeta 1</span>
+<span class="sd">               lsq 10&quot;&quot;&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;levels&#39;</span><span class="p">:</span> <span class="n">levels</span><span class="p">,</span>
+            <span class="s1">&#39;edconstruct&#39;</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;EDCONSTRUCT 9</span>
+<span class="sd">               Ho ky3f10 hyperfine transitions</span>
+<span class="sd">               A210  2 1 0</span>
+<span class="sd">               A230  2 3 0</span>
+<span class="sd">               A430  4 3 0</span>
+<span class="sd">               A450  4 5 0</span>
+<span class="sd">               A454  4 5 4</span>
+<span class="sd">               A650  6 5 0</span>
+<span class="sd">               A654  6 5 4</span>
+<span class="sd">               A670  6 7 0</span>
+<span class="sd">               A674  6 7 4&quot;&quot;&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;edipoletensor&#39;</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;A210 2.978914463e-10 %</span>
+<span class="sd">               A230 6.624105316e-11 %</span>
+<span class="sd">               A430 -5.492288570e-11 %</span>
+<span class="sd">               A450 -2.252749050e-11 %</span>
+<span class="sd">               A454 4.052097980e-12 %</span>
+<span class="sd">               A650 2.529080178e-10 %</span>
+<span class="sd">               A654 -4.549144380e-11 %</span>
+<span class="sd">               A670 4.912922087e-15 %</span>
+<span class="sd">               A674 1.750735430e-13 \n&quot;&quot;&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;edipole&#39;</span><span class="p">:</span> <span class="s1">&#39;1&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;mdipole&#39;</span><span class="p">:</span> <span class="s1">&#39;1&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;plotargs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;polarization&#39;</span><span class="p">:</span> <span class="s1">&#39;isotropic&#39;</span><span class="p">,</span> <span class="s1">&#39;lines&#39;</span><span class="p">:</span> <span class="s1">&#39;lines&#39;</span><span class="p">,</span> <span class="s1">&#39;linewidth&#39;</span><span class="p">:</span>
+                    <span class="s1">&#39;0.12&#39;</span><span class="p">,</span> <span class="s1">&#39;temp&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s1">&#39;xrange&#39;</span><span class="p">:</span> <span class="n">x</span><span class="p">}}</span>
+
+    <span class="k">return</span> <span class="n">spectrum_data</span>
+</pre></div>
+</div>
+<p>When called, <code class="docutils literal notranslate"><span class="pre">spec_params</span></code> will return a dictionary that can be directly
+passed to the <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> constructor.  For details of the individual
+dictionary keys, see the <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> reference.  Note that the path
+<code class="docutils literal notranslate"><span class="pre">linuxemp</span></code> must be updated to reflect the installation directory of emp
+programs on your machine.</p>
+<p>The next section of <code class="docutils literal notranslate"><span class="pre">ho_ky3f10.py</span></code> specifies the values of a few parameters
+that we have chosen to explicitly pass to <code class="docutils literal notranslate"><span class="pre">spec_params</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Specifying transition energy and level range for 5F5 -&gt; 5I8.</span>
+<span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="mf">15472.6</span><span class="p">,</span> <span class="mf">15473.3</span><span class="p">]</span>
+<span class="n">levels</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;1&#39;</span><span class="p">,</span> <span class="s1">&#39;16&#39;</span><span class="p">,</span> <span class="s1">&#39;537&#39;</span><span class="p">,</span> <span class="s1">&#39;552&#39;</span><span class="p">,</span> <span class="s1">&#39;5F5&#39;</span><span class="p">,</span> <span class="s1">&#39;5I8&#39;</span><span class="p">]</span>
+
+<span class="c1"># Nuclear magnetic dipole parameter.</span>
+<span class="n">al</span> <span class="o">=</span> <span class="mf">0.038</span>
+</pre></div>
+</div>
+<p>We can now create a <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> object:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ho</span> <span class="o">=</span> <span class="n">Spectrum</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;ho&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">spec_params</span><span class="p">(</span><span class="n">levels</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">al</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>The double asterisk unpacks the dictionary and passes the values as keyword
+arguments; see <a class="reference external" href="http://docs.python.org/2/tutorial/controlflow.html#tut-unpacking-arguments">Unpacking Argument Lists</a> for details.</p>
+<p>To execute the emp programs we run the methods <code class="xref py py-func docutils literal notranslate"><span class="pre">Spectrum.cfit()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">Spectrum.vtrans()</span></code>, <code class="xref py py-func docutils literal notranslate"><span class="pre">Spectrum.inten()</span></code> and
+<code class="xref py py-func docutils literal notranslate"><span class="pre">Spectrum.spectrum_data()</span></code>.  These must be called in this order, just like
+their corresponding erun programs, but if parameters are varied for <code class="docutils literal notranslate"><span class="pre">ho</span></code> which
+only affect later calculations, one does not have to re-run earlier programs.</p>
+<p>Calling the four methods:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cfit_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">cfit</span><span class="p">()</span>
+<span class="n">vtrans_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">vtrans</span><span class="p">()</span>
+<span class="n">inten_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">inten</span><span class="p">()</span>
+<span class="n">spectrum_data_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">spectrum_data</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>To plot the resulting spectrum data <code class="docutils literal notranslate"><span class="pre">pyemp</span></code> provides a new matplotlib
+projection which automatically parses data from a <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> object.  To
+use this functionality we have to specify the keyword argument <code class="docutils literal notranslate"><span class="pre">projection</span> <span class="pre">=</span>
+<span class="pre">'spectrum'</span></code> when instantiating the axis object:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">spectrumplot</span><span class="p">(</span><span class="n">ho</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Wavenumbers (cm$</span><span class="si">{}</span><span class="s1">^{-1}$)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For details of <code class="xref py py-func docutils literal notranslate"><span class="pre">spectrumplot()</span></code> see the <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumAxes</span></code> reference.</p>
+</section>
+<section id="scripting-pyemp">
+<h2>Scripting pyemp<a class="headerlink" href="#scripting-pyemp" title="Link to this heading"></a></h2>
+<p>We will now extend the above example to vary the magnetic hyperfine parameter
+<code class="docutils literal notranslate"><span class="pre">al</span></code> and execute the emp routines to generate a 3D plot of transition
+intensities.  In anticipation
+of this, the <code class="docutils literal notranslate"><span class="pre">spec_params</span></code> function provided in the <a class="reference internal" href="#energy-level-fitting-for-ho3-ky3f10">Energy level fitting for
+Ho3+:KY3F10</a> example already has an argument for <code class="docutils literal notranslate"><span class="pre">al</span></code>.  Since the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumAxes</span></code> projection does not support 3D plots, we will need to use
+the standard matplotlib 3D projection.  We can obtain the data from the spectrum
+object using the <code class="docutils literal notranslate"><span class="pre">curve_energies</span></code> and <code class="docutils literal notranslate"><span class="pre">curve_inten</span></code> attributes:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">ho</span> <span class="o">=</span> <span class="n">Spectrum</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;ho&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">spec_params</span><span class="p">(</span><span class="n">levels</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="mf">0.025</span> <span class="o">+</span> <span class="n">i</span><span class="o">/</span><span class="mf">500.0</span><span class="p">))</span>
+
+    <span class="n">cfit_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">cfit</span><span class="p">()</span>
+    <span class="n">vtrans_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">vtrans</span><span class="p">()</span>
+    <span class="n">inten_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">inten</span><span class="p">()</span>
+    <span class="n">spectrum_data_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">spectrum_data</span><span class="p">()</span>
+    <span class="n">al</span> <span class="o">=</span> <span class="mf">0.025</span> <span class="o">+</span> <span class="n">i</span><span class="o">/</span><span class="mf">500.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ho</span><span class="o">.</span><span class="n">curve_energies</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ho</span><span class="o">.</span><span class="n">curve_energies</span><span class="p">,</span> <span class="n">al</span><span class="p">,</span> <span class="n">ho</span><span class="o">.</span><span class="n">curve_inten</span><span class="p">)</span>
+
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Energy&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Magnetic dipole moment&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_zlabel</span><span class="p">(</span><span class="s1">&#39;Isotropic&#39;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For a complete version of this example, see the <code class="docutils literal notranslate"><span class="pre">ho_ky3f10_al.py</span></code> file.</p>
+</section>
+<section id="transition-labels">
+<h2>Transition labels<a class="headerlink" href="#transition-labels" title="Link to this heading"></a></h2>
+<p>One useful feature made possible by the reading of the inten program log file is
+the labeling of transitions by their initial and final states.  To enable this,
+the plotting section from the <a class="reference internal" href="#energy-level-fitting-for-ho3-ky3f10">Energy level fitting for Ho3+:KY3F10</a> example
+should be adapted to read:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">spectrumplot</span><span class="p">(</span><span class="n">ho</span><span class="p">,</span> <span class="n">transitionlabels</span><span class="o">=</span><span class="s1">&#39;true&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Wavenumbers (cm$</span><span class="si">{}</span><span class="s1">^{-1}$)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This yields a plot such as:</p>
+<img alt="../_images/transition_labels.pdf" src="../_images/transition_labels.pdf" />
+<p>For further details and options, see the <code class="xref py py-func docutils literal notranslate"><span class="pre">SpectrumAxes.spectrumplot()</span></code>
+method reference.</p>
+</section>
+<section id="spectrumdata-vs-spectrumerun">
+<h2>SpectrumData vs SpectrumErun<a class="headerlink" href="#spectrumdata-vs-spectrumerun" title="Link to this heading"></a></h2>
+<p>There are two different ways for generating spectrum data that can be used with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumAxes</span></code>, in particular, <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code>.  <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code> mines data from the inten log file
+and natively generates the line and curve data.  This method provides additional
+information such as the initial and final state labels of transitions.  If you
+wish to use the transitions label feature of <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumAxes</span></code> you must
+generate the lines and curves data with <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code>.
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code> executes the c spectrum program and then loads the
+resulting <code class="docutils literal notranslate"><span class="pre">lines.gp_</span></code> and <code class="docutils literal notranslate"><span class="pre">curves.gp_</span></code> files.  This allows one to take
+advantage of several options that the c spectrum program supports, such as
+vibronics calculations.  Additionally, <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code> can be used for
+loading existing <code class="docutils literal notranslate"><span class="pre">lines.gp_</span></code> and <code class="docutils literal notranslate"><span class="pre">curves.gp_</span></code> files.</p>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading"></a></h2>
+<p>If you write a script that you edit often and re-execute then it is easy to run
+into execution order problems with emp methods.  Say, for example, one initially
+has a script that instantiates all four <code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code>,
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code> and <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code> objects, and then one wants to manually
+change the initial and final energy levels and re-execute the script.  Since
+only <code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code> and <code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code> depend on the initial and final
+energy level variables, it is tempting to comment out the cfit and vtrans lines;
+however, the dependency checking of <code class="xref py py-class docutils literal notranslate"><span class="pre">GenericErun</span></code> will fail, since the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> object does not have a <code class="docutils literal notranslate"><span class="pre">tvals</span></code> or <code class="docutils literal notranslate"><span class="pre">trans</span></code> attribute.  A
+convenient workaround is to pass these to the <code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code> constructors or their <code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> wrapper methods,
+which have the same name specified as a keyword argument when the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code> method was created.  For example, in <a class="reference internal" href="#energy-level-fitting-for-ho3-ky3f10">Energy level fitting for
+Ho3+:KY3F10</a>, one would use:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">inten_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">inten</span><span class="p">(</span><span class="n">tvals</span><span class="o">=</span><span class="s1">&#39;ho&#39;</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="s1">&#39;ho&#39;</span><span class="p">)</span>
+<span class="n">spectrum_data_obj</span> <span class="o">=</span> <span class="n">ho</span><span class="o">.</span><span class="n">spectrum_data</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Sebastian Horvath.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

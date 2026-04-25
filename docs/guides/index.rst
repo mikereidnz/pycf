@@ -1,0 +1,77 @@
+=======
+Guides
+=======
+
+Comprehensive guides for common tasks and workflows.
+
+.. toctree::
+   :maxdepth: 2
+
+   fitting_example
+   spin_hamiltonian
+
+Getting Help
+============
+
+- Check the :doc:`../quickstart` for basic usage
+- Read :doc:`../overview` for crystal field concepts
+- See :doc:`../api/index` for complete API reference
+- Look at ``examples/`` directory for working code
+
+Common Tasks
+============
+
+**Load SLJM Data**
+
+See :doc:`../api/import_sljm`
+
+**Create Hamiltonian**
+
+See :doc:`../api/cfl`
+
+**Calculate Spectrum**
+
+See :doc:`../api/inten`
+
+**Fit Parameters**
+
+See :doc:`fitting_example`
+
+**Extract Spin Hamiltonian**
+
+See :doc:`spin_hamiltonian`
+
+FAQ
+===
+
+**Q: What units does PyCF use?**
+
+A: Energy in cm⁻¹, magnetic fields in Tesla, temperature in Kelvin.
+
+**Q: Can I fit multiple parameters simultaneously?**
+
+A: Yes, see the fitting example guide.
+
+**Q: How do I calculate the g-tensor?**
+
+A: Use the magnetic moment tensor (MAGX, MAGY, MAGZ) and diagonalize.
+
+**Q: What's the difference between DM and exchange interactions?**
+
+A: Currently PyCF focuses on single-ion crystal field. Use spinh for spin-Hamiltonian extraction.
+
+**Q: Can I use PyCF for other lanthanides?**
+
+A: Yes, any rare-earth ion with appropriate SLJM output.
+
+**Q: How do I optimize performance?**
+
+A: See see `ENVIRONMENT.md <../ENVIRONMENT.md>`__ for compiler flags and MKL setup.
+
+Resources
+=========
+
+- **Academic Papers**: See references in :doc:`../overview`
+- **Crystal Field Theory**: Wybourne "Classificationof Lanthanides and Actinides"
+- **SLJM Program**: Michael F. Reid's EMP suite
+- **Examples**: ``examples/`` directory

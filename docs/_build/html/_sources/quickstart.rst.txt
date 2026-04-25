@@ -1,0 +1,248 @@
+===========
+Quickstart
+===========
+
+This guide walks through a basic PyCF calculation in 5 minutes.
+
+Installation
+============
+
+First, install PyCF::
+
+    python setup.py install --prefix=$HOME/.local
+
+Verify installation::
+
+    python -c "import pycf; print(pycf.__version__)"
+
+Basic Example: CeYLF
+====================
+
+Let's calculate the crystal field states for Ce³⁺ in YLF (YLiF₄).
+
+**Step 1: Import Required Modules**
+
+.. code-block:: python
+
+    from pycf.import_sljm import ImportSLJM
+    from pycf import cfl
+    import numpy as np
+
+**Step 2: Load Crystal Field Tensors**
+
+.. code-block:: python
+
+    # Load SLJM/EMP output files
+    importer = ImportSLJM('path/to/matel/directory')
+    
+    # Access loaded tensors
+    print(importer.print_names())  # List available tensors
+
+**Step 3: Build Hamiltonian**
+
+.. code-block:: python
+
+    # Create a Hamiltonian for Ce³⁺
+    h = cfl.Hamiltonian()
+    
+    # Add crystal field term (typical: ~1 cm⁻¹ per 10 Oe)
+    # Ce³⁺ ⁴f¹: J=5/2 (6-dimensional space)
+    h.add_term(importer.CF, 1.0)  # CF parameters already in cm⁻¹
+
+**Step 4: Diagonalize**
+
+.. code-block:: python
+
+    # Compute eigenvalues and eigenvectors
+    h.diag()
+    
+    # Get results
+    eigenvalues = h.eigenvalues()
+    eigenvectors = h.eigenvectors()
+    
+    print("Eigenvalues (cm⁻¹):")
+    print(eigenvalues)
+    
+    # Results show energy levels relative to ground state
+    # Output: [0.0, E1, E2, E3, E4, E5]
+
+**Step 5: Calculate Transition Intensities**
+
+.. code-block:: python
+
+    from pycf import inten
+    
+    # Transform dipole tensor to eigenbasis
+    dipole = h.apply_unitary(importer.MAG)
+    
+    # Calculate transition strengths between levels 0 and 1
+    # For magnetic dipole transitions (electronic)
+    strengths = inten.dipole_str(dipole)
+    
+    # Calculate full spectrum
+    spec = inten.inten(
+        h,
+        importer.MAG,
+        hwhm=50,  # Half-width half-maximum in cm⁻¹
+        temp=300  # Temperature in K
+    )
+
+Key Concepts
+============
+
+Hamiltonian
+-----------
+
+The ``Hamiltonian`` object stores tensor terms and their coefficients::
+
+    h = cfl.Hamiltonian()
+    h.add_term(tensor1, coeff1)
+    h.add_term(tensor2, coeff2)
+    h.diag()
+
+After ``diag()``:
+
+- ``h.eigenvalues()`` returns energy levels
+- ``h.eigenvectors()`` returns the transformation matrix
+- States are ordered by increasing energy
+
+Tensors
+-------
+
+Tensors represent crystal field operators (sparse matrices)::
+
+    # Available tensors from SLJM import
+    importer.CF      # Crystal field operator
+    importer.MAG     # Magnetic dipole moment (= gJ*mu_B*J)
+    importer.MAGX    # X-component
+    importer.MAGY    # Y-component
+    importer.MAGZ    # Z-component
+    importer.HYP     # Hyperfine coupling (if available)
+
+Experimental Data
+-----------------
+
+Load and compare with experimental spectra::
+
+    # Create experimental data object
+    exdata = cfl.ExData(mode='A')  # Absorption mode
+    exdata.add_peak(energy=100.5, intensity=0.8, label='1')
+    exdata.add_peak(energy=250.3, intensity=1.0, label='2')
+    
+    # Compare with calculated spectrum
+    calc_spec = inten.inten(h, importer.MAG, hwhm=50, temp=300)
+
+Parameters and Fitting
+======================
+
+**Crystal Field Parameters**
+
+Crystal field parameters (B^k_q) are stored as coefficients in tensors.
+Modify them by scaling tensor contributions::
+
+    # Adjust CF strength
+    h = cfl.Hamiltonian()
+    h.add_term(importer.CF, scale_factor)  # Multiply by scale factor
+    h.diag()
+
+**Fitting to Experiment**
+
+Use scipy optimization to fit parameters::
+
+    from scipy.optimize import minimize
+    
+    def residual(params):
+        h = cfl.Hamiltonian()
+        h.add_term(importer.CF, params[0])
+        h.diag()
+        # Calculate spectrum and compare with experiment
+        calc = inten.inten(h, importer.MAG, hwhm=50, temp=300)
+        return np.sum((calc - experimental_spectrum)**2)
+    
+    result = minimize(residual, x0=[1.0])
+    print(f"Best CF parameter: {result.x[0]:.4f}")
+
+Common Patterns
+===============
+
+**Get Energy Level Differences**
+
+.. code-block:: python
+
+    evals = h.eigenvalues()
+    splittings = evals[1:] - evals[0]  # Relative to ground state
+
+**Rotate Hamiltonian**
+
+.. code-block:: python
+
+    # Apply coordinate transformation (e.g., change quantization axis)
+    h_rotated = h.rotate(angles)  # angles = (theta, phi)
+
+**Export Results**
+
+.. code-block:: python
+
+    # Write to file
+    np.savetxt('eigenvalues.txt', h.eigenvalues())
+    np.savetxt('eigenvectors.txt', h.eigenvectors())
+
+**Check Level Ordering**
+
+.. code-block:: python
+
+    # Verify Kramers doublet structure (for half-integer J)
+    evals = h.eigenvalues()
+    for i in range(0, len(evals), 2):
+        print(f"Doublet {i//2}: {evals[i]:.2f}, {evals[i+1]:.2f} cm⁻¹")
+
+Troubleshooting
+===============
+
+**ImportError: Cannot find SLJM files**
+
+Check the path and file names::
+
+    # List available files
+    import os
+    path = 'path/to/matel'
+    print(os.listdir(path))
+
+**ImportError: Tensor not found**
+
+Check available tensors::
+
+    importer.print_names()
+
+**Diagonalization fails**
+
+Ensure Hamiltonian has terms::
+
+    print(len(h._terms))  # Should be > 0
+
+**Energy levels have wrong scale**
+
+Check tensor units and scaling factors::
+
+    evals = h.eigenvalues()
+    print(f"Range: {evals.min():.2f} to {evals.max():.2f} cm⁻¹")
+
+Next Steps
+==========
+
+After this quickstart:
+
+- Explore full :doc:`../api/index` reference
+- Run examples in ``examples/`` directory
+- Read crystal field theory background in :doc:`overview`
+- Check :doc:`installation` for optimization options
+- See :doc:`../ENVIRONMENT.md` for performance tuning
+
+Resources
+=========
+
+- **Examples**: ``examples/`` directory (CeYLF, ErYSO, SmNaCaF₂)
+- **API Docs**: :doc:`../api/index`
+- **Installation**: :doc:`installation`
+- **Environment**: :doc:`../ENVIRONMENT.md`
+- **GitHub**: https://github.com/mikereidnz/pycf

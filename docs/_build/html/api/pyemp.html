@@ -1,0 +1,976 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PYEMP &mdash; PyCF 179b2ce Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=c2aaae26"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="cfl_util.html" />
+    <link rel="prev" title="SPINH" href="spinh.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            PyCF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#what-is-pycf">What is PyCF?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#crystal-field-theory-basics">Crystal Field Theory Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#core-concepts">Core Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#module-organization">Module Organization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#performance-characteristics">Performance Characteristics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#supported-platforms">Supported Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#language-support">Language Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#history-and-references">History and References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#quick-install">Quick Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#detailed-installation-steps">Detailed Installation Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#platform-specific-notes">Platform-Specific Notes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#linux-debian-ubuntu">Linux (Debian/Ubuntu)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#macos">macOS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#windows-wsl2">Windows (WSL2)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#intel-mkl-support">Intel MKL Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#verification">Verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#running-examples">Running Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#uninstallation">Uninstallation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#development-installation">Development Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#basic-example-ceylf">Basic Example: CeYLF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#key-concepts">Key Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#parameters-and-fitting">Parameters and Fitting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#common-patterns">Common Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#next-steps">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#core-modules">Core Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cfl.html">cfl</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.CFLMin"><code class="docutils literal notranslate"><span class="pre">CFLMin</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.EFit"><code class="docutils literal notranslate"><span class="pre">EFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.ESHFit"><code class="docutils literal notranslate"><span class="pre">ESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.MESHFit"><code class="docutils literal notranslate"><span class="pre">MESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.MHFit"><code class="docutils literal notranslate"><span class="pre">MHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.SpinHamiltonian"><code class="docutils literal notranslate"><span class="pre">SpinHamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.StateLabels"><code class="docutils literal notranslate"><span class="pre">StateLabels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.ZEFOZSearch"><code class="docutils literal notranslate"><span class="pre">ZEFOZSearch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.__reduce_cython__"><code class="docutils literal notranslate"><span class="pre">__reduce_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.__setstate_cython__"><code class="docutils literal notranslate"><span class="pre">__setstate_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.e_fit"><code class="docutils literal notranslate"><span class="pre">e_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.esh_fit"><code class="docutils literal notranslate"><span class="pre">esh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.hyperfine_sh_coeff"><code class="docutils literal notranslate"><span class="pre">hyperfine_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.mesh_fit"><code class="docutils literal notranslate"><span class="pre">mesh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.mh_fit"><code class="docutils literal notranslate"><span class="pre">mh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.quadrupole_sh_coeff"><code class="docutils literal notranslate"><span class="pre">quadrupole_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.set_error_handler"><code class="docutils literal notranslate"><span class="pre">set_error_handler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.sh_svd"><code class="docutils literal notranslate"><span class="pre">sh_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.zeeman_sh_coeff"><code class="docutils literal notranslate"><span class="pre">zeeman_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.zefoz"><code class="docutils literal notranslate"><span class="pre">zefoz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="import_sljm.html"><code class="docutils literal notranslate"><span class="pre">get_tensor_dim()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.get_state_number"><code class="docutils literal notranslate"><span class="pre">get_state_number()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.ImportSLJM.__init__"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.ImportSLJM.print_names"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.print_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="inten.html">INTEN</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.vtrans"><code class="docutils literal notranslate"><span class="pre">vtrans()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.dipole_str"><code class="docutils literal notranslate"><span class="pre">dipole_str()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.group_transitions"><code class="docutils literal notranslate"><span class="pre">group_transitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.A_and_f_calc"><code class="docutils literal notranslate"><span class="pre">A_and_f_calc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.add_oscillator_strengths_and_A_coefficients"><code class="docutils literal notranslate"><span class="pre">add_oscillator_strengths_and_A_coefficients()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.boltzmann_factor"><code class="docutils literal notranslate"><span class="pre">boltzmann_factor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.lorentzian"><code class="docutils literal notranslate"><span class="pre">lorentzian()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="inten.html#pycf.inten.inten"><code class="docutils literal notranslate"><span class="pre">inten()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="paramcalc.html">PARAMCALC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.Xi_val"><code class="docutils literal notranslate"><span class="pre">Xi_val()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.RInt4f"><code class="docutils literal notranslate"><span class="pre">RInt4f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.Ligand"><code class="docutils literal notranslate"><span class="pre">Ligand</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.Ckq"><code class="docutils literal notranslate"><span class="pre">Ckq()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.A_SC"><code class="docutils literal notranslate"><span class="pre">A_SC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.A_DC"><code class="docutils literal notranslate"><span class="pre">A_DC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.AltpData"><code class="docutils literal notranslate"><span class="pre">AltpData</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#utility-modules">Utility Modules</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="spinh.html">SPINH</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.bmj"><code class="docutils literal notranslate"><span class="pre">bmj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.ias"><code class="docutils literal notranslate"><span class="pre">ias()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.iqi"><code class="docutils literal notranslate"><span class="pre">iqi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.bi"><code class="docutils literal notranslate"><span class="pre">bi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.bmj_coeff_array"><code class="docutils literal notranslate"><span class="pre">bmj_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.ias_coeff_array"><code class="docutils literal notranslate"><span class="pre">ias_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.iqi_coeff_array"><code class="docutils literal notranslate"><span class="pre">iqi_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.invert_term"><code class="docutils literal notranslate"><span class="pre">invert_term()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rz"><code class="docutils literal notranslate"><span class="pre">su2_rz()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rz_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rz_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rotation"><code class="docutils literal notranslate"><span class="pre">su2_rotation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rotation_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rotation_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.param_ten_svd"><code class="docutils literal notranslate"><span class="pre">param_ten_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.SpinH"><code class="docutils literal notranslate"><span class="pre">SpinH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">PYEMP</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.Spectrum"><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.BaseEmp"><code class="docutils literal notranslate"><span class="pre">BaseEmp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.GenericErun"><code class="docutils literal notranslate"><span class="pre">GenericErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.Cfit"><code class="docutils literal notranslate"><span class="pre">Cfit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.Vtrans"><code class="docutils literal notranslate"><span class="pre">Vtrans</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.Inten"><code class="docutils literal notranslate"><span class="pre">Inten</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.SpectrumData"><code class="docutils literal notranslate"><span class="pre">SpectrumData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.SpectrumErun"><code class="docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.pyemp.SpectrumAxes"><code class="docutils literal notranslate"><span class="pre">SpectrumAxes</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html"><code class="docutils literal notranslate"><span class="pre">uline_char()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.term2L"><code class="docutils literal notranslate"><span class="pre">term2L()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.L2term"><code class="docutils literal notranslate"><span class="pre">L2term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.fmt_timestamp"><code class="docutils literal notranslate"><span class="pre">fmt_timestamp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_pycf_details"><code class="docutils literal notranslate"><span class="pre">gen_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_pycf_summary"><code class="docutils literal notranslate"><span class="pre">gen_pycf_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_pycf_details"><code class="docutils literal notranslate"><span class="pre">print_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_completed_str"><code class="docutils literal notranslate"><span class="pre">gen_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_completed_str"><code class="docutils literal notranslate"><span class="pre">print_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.ex_parse_abs"><code class="docutils literal notranslate"><span class="pre">ex_parse_abs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.ex_parse_diff"><code class="docutils literal notranslate"><span class="pre">ex_parse_diff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_e_summary"><code class="docutils literal notranslate"><span class="pre">gen_e_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_e_summary_trunc"><code class="docutils literal notranslate"><span class="pre">gen_e_summary_trunc()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_sh_summary"><code class="docutils literal notranslate"><span class="pre">gen_sh_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_fit_summary"><code class="docutils literal notranslate"><span class="pre">gen_fit_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_as_fortran_array"><code class="docutils literal notranslate"><span class="pre">print_as_fortran_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_as_c_array"><code class="docutils literal notranslate"><span class="pre">print_as_c_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.MHz2cm1"><code class="docutils literal notranslate"><span class="pre">MHz2cm1()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.cm12MHz"><code class="docutils literal notranslate"><span class="pre">cm12MHz()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.bal_bounds"><code class="docutils literal notranslate"><span class="pre">bal_bounds()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.rJmmp"><code class="docutils literal notranslate"><span class="pre">rJmmp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.WignerR"><code class="docutils literal notranslate"><span class="pre">WignerR()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.rotate_cf_params"><code class="docutils literal notranslate"><span class="pre">rotate_cf_params()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="njsymbols.html">NJSYMBOLS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.tricon_ck"><code class="docutils literal notranslate"><span class="pre">tricon_ck()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.wigner_3j"><code class="docutils literal notranslate"><span class="pre">wigner_3j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.wigner_6j"><code class="docutils literal notranslate"><span class="pre">wigner_6j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.wigner_9j"><code class="docutils literal notranslate"><span class="pre">wigner_9j()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="matel.html">MATEL</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="matel.html#pycf.matel.t_q"><code class="docutils literal notranslate"><span class="pre">t_q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="matel.html#pycf.matel.matel"><code class="docutils literal notranslate"><span class="pre">matel()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#quick-reference">Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#classes">Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="index.html#hamiltonian">Hamiltonian</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="index.html#tensor">Tensor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="index.html#exdata">ExData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="index.html#importsljm">ImportSLJM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#key-functions">Key Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/fitting_example.html">Fitting Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#basic-fitting-workflow">Basic Fitting Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#example-ceylf">Example: CeYLF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#multiple-parameter-fitting">Multiple Parameter Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#temperature-dependent-fitting">Temperature-Dependent Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#advanced-constrained-fitting">Advanced: Constrained Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spin_hamiltonian.html">Spin Hamiltonian</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#what-is-a-spin-hamiltonian">What is a Spin Hamiltonian?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#basic-extraction">Basic Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#g-tensor">G-Tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#anisotropy">Anisotropy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#temperature-dependent-g-factor">Temperature-Dependent G-Factor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#hyperfine-coupling">Hyperfine Coupling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#advanced-kramers-doublet-projection">Advanced: Kramers Doublet Projection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#common-tasks">Common Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#resources">Resources</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">PyCF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API</a></li>
+      <li class="breadcrumb-item active">PYEMP</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/pyemp.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pycf.pyemp">
+<span id="pyemp"></span><h1>PYEMP<a class="headerlink" href="#module-pycf.pyemp" title="Link to this heading"></a></h1>
+<p>Python wrapper for Michael F. Reid’s empirical crystal field (EMP) programs.</p>
+<p>This module provides a high-level Python interface to Michael F. Reid’s
+empirical crystal field theory executables:</p>
+<ul class="simple">
+<li><p>cfit: Least-squares fitting of crystal field parameters to experimental data</p></li>
+<li><p>inten: Intensity calculations for absorption/emission spectra</p></li>
+<li><p>vtrans: Transformation of tensor matrix elements to eigenbasis</p></li>
+<li><p>spectrum: Generation of energy level diagrams and spectra</p></li>
+</ul>
+<p>The module handles:
+- File I/O with EMP format files (.txt, .mi_, .st_)
+- Parameter input/output management
+- Spectrum generation and analysis
+- Error handling and validation</p>
+<p>Used for empirical crystal field fitting workflows where EMP executables
+are preferred for reliability and compatibility with existing datasets.</p>
+<dl class="simple">
+<dt>Example workflow:</dt><dd><ol class="arabic simple">
+<li><p>Prepare experimental data file</p></li>
+<li><p>Use cfit wrapper to optimize CF parameters</p></li>
+<li><p>Use inten wrapper to calculate intensities</p></li>
+<li><p>Analyze results with intensity summary functions</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">Spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a></p>
+<p>Implements all the defining parameters of a Spectrum object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>string</em>) – The name for log and output files.</p></li>
+<li><p><strong>emproot</strong> (<em>string</em>) – The path to the linuxemp directory.</p></li>
+<li><p><strong>states</strong> (<em>string</em>) – The .st_ input file name - can also be specified when instantiating a
+<a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a> object.</p></li>
+<li><p><strong>tensors</strong> (<em>string</em>) – The .mi_ and .mm_ input file names - can also be specified when
+instantiating a <a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a>, <a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code></a> or <a class="reference internal" href="#pycf.pyemp.Inten" title="pycf.pyemp.Inten"><code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code></a> object.</p></li>
+<li><p><strong>addtensor</strong> (<em>string</em>) – Newline separated <code class="docutils literal notranslate"><span class="pre">addten</span></code> statements following cfit input file
+syntax.</p></li>
+<li><p><strong>addassign</strong> (<em>string</em>) – Newline separated <code class="docutils literal notranslate"><span class="pre">addassign</span></code> statements following cfit input file
+syntax.</p></li>
+<li><p><strong>expparams</strong> (<em>string</em><em>, </em><em>optional</em>) – Specifies values for <code class="docutils literal notranslate"><span class="pre">exptval</span></code>, <code class="docutils literal notranslate"><span class="pre">delta</span></code> and <code class="docutils literal notranslate"><span class="pre">lsq</span></code> with their usual
+cfit input file meaning.</p></li>
+<li><p><strong>splitplot</strong> (<em>dictionary</em><em>, </em><em>optional</em>) – If specified, <a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a> will generate and parse splitplot data.
+Required keys are <code class="docutils literal notranslate"><span class="pre">energy</span></code>, <code class="docutils literal notranslate"><span class="pre">var</span></code> and <code class="docutils literal notranslate"><span class="pre">range</span></code>; see the
+<a class="reference internal" href="#pycf.pyemp.SpectrumAxes.splitplot" title="pycf.pyemp.SpectrumAxes.splitplot"><code class="xref py py-func docutils literal notranslate"><span class="pre">SpectrumAxes.splitplot()</span></code></a> method for further details.</p></li>
+<li><p><strong>spinh</strong> (<em>dictionary</em><em>, or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><em>dictionaries</em><em>, </em><em>optional</em>) – <p>If specified, <a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a> will generate and parse spin Hamiltonian
+data.  Required dictionary keys are</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">terms</span></code>, a list of strings with possible values of ‘bgs’, ‘ias’
+and ‘iqi’, which enable, respectively, Zeeman interactions,
+magnetic dipole hyperfine interactions and electric quadrupole
+hyperfine interactions;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">levels</span></code>, a tuple of integers specifying the lower and upper
+energy levels for which to generate the spin Hamiltonian.</p></li>
+</ul>
+</div></blockquote>
+<p>If the argument is a list of dictonaries then spin Hamiltonian data will
+be generated for each element.</p>
+</p></li>
+<li><p><strong>edconstruct</strong> (<em>string</em>) – String using the vtrans EDCONSTRUCT input syntax to use transformed
+tensors to construct the A tensors.</p></li>
+<li><p><strong>levels</strong> (<em>array</em>) – <p>Of the form:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="s1">&#39;initstart&#39;</span><span class="p">,</span> <span class="s1">&#39;initend&#39;</span><span class="p">,</span> <span class="s1">&#39;finstart&#39;</span><span class="p">,</span> <span class="s1">&#39;finend&#39;</span><span class="p">,</span> <span class="s1">&#39;initname&#39;</span><span class="p">,</span> <span class="s1">&#39;finname&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>where ‘initstart’ to ‘initend’ spans the range of initial energy levels,
+etc.</p>
+</p></li>
+<li><p><strong>edipoletensor</strong> (<em>string</em>) – Newline separated electric dipole tensor assignments passed to the vtrans
+input file - can also be specified when instantiating a <a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code></a>
+object.</p></li>
+<li><p><strong>tvals</strong> (<em>string</em>) – The .vi_ and .vm_ input file names - can also be specified when
+instantiating a <a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code></a> or <a class="reference internal" href="#pycf.pyemp.Inten" title="pycf.pyemp.Inten"><code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code></a> object.</p></li>
+<li><p><strong>matel</strong> (<em>string</em>) – The vtrans matrix element .mi_ and .mm_ input file names - can also be
+specified when instantiating a <a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code></a> object.</p></li>
+<li><p><strong>trans</strong> (<em>string</em>) – The .ti_ and .tm_ input file names - can also be specified when
+instantiating an <a class="reference internal" href="#pycf.pyemp.Inten" title="pycf.pyemp.Inten"><code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code></a> object.</p></li>
+<li><p><strong>plotargs</strong> (<em>dictionary</em>) – Keys of <code class="docutils literal notranslate"><span class="pre">polarization</span></code>, <code class="docutils literal notranslate"><span class="pre">temp</span></code>, <code class="docutils literal notranslate"><span class="pre">linewidth</span></code>, <code class="docutils literal notranslate"><span class="pre">npoints</span></code>,
+<code class="docutils literal notranslate"><span class="pre">xrange</span></code> and <code class="docutils literal notranslate"><span class="pre">linewidth</span></code>, with some arguments optional depending on
+which plotting method is used, see the <a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a> and
+<a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a> docstrings for details.</p></li>
+<li><p><strong>plt</strong> (<em>string</em>) – The SpectrumErun input data file, the existence of which is also checked
+by SpectrumData to ensure Inten was run successfully.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>object</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum">Spectrum</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The following list details attributes of Spectrum objects that need to be
+called explicitly for certain applications.</p>
+<dl class="simple">
+<dt>sh_terms<span class="classifier">list</span></dt><dd><p>Elements are dictionaries containing spin Hamiltonian data, set by
+<a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a> if the provided Spectrum object was instantiated with the
+<code class="docutils literal notranslate"><span class="pre">spinh</span></code> kwarg.  Keys correspond to the <code class="docutils literal notranslate"><span class="pre">terms</span></code> specified by
+<code class="docutils literal notranslate"><span class="pre">spinh</span></code> kwarg and values are the respective spin Hamiltonian terms.
+For the term <code class="docutils literal notranslate"><span class="pre">bgs</span></code> this is a list of three terms for a magnetic field
+along ‘x’, ‘y’ and ‘z’, respectively.</p>
+</dd>
+<dt>sh_energies<span class="classifier">np.ndarray</span></dt><dd><p>Contains spin Hamiltonian energy level data read from expthelp files,
+intended for use with <code class="xref py py-func docutils literal notranslate"><span class="pre">spinhamiltonian.sh_lsq_func()</span></code>.</p>
+</dd>
+<dt>sh_bl<span class="classifier">np.ndarray</span></dt><dd><p>Contains spin Hamiltonian block and level numbers.</p>
+</dd>
+<dt>line_energies<span class="classifier">np.ndarray</span></dt><dd><p>Set by <a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a> or <a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a>; energy data for
+individual transitions in wavenumbers, useful for scripting plotting
+procedure.</p>
+</dd>
+<dt>line_inten<span class="classifier">np.ndarray</span></dt><dd><p>Set by <a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a> or <a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a>; intensity data
+for individual transitions, useful for scripting plotting procedure.</p>
+</dd>
+<dt>curve_energies<span class="classifier">np.ndarray</span></dt><dd><p>Set by <a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a> or <a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a>; energy data for
+lineshapes in wavenumbers, useful for scripting plotting procedure.</p>
+</dd>
+<dt>curve_inten<span class="classifier">np.ndarry</span></dt><dd><p>Set by <a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a> or <a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a>; intensity data
+for lineshapes, useful for scripting plotting procedure.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum.print_log">
+<span class="sig-name descname"><span class="pre">print_log</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'brief'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum.print_log"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum.print_log" title="Link to this definition"></a></dt>
+<dd><p>Generate a log of the executed erun programs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mode</strong> (<em>string</em>) – Allowed values are ‘brief’ and ‘full’.  ‘brief’ will return the erun
+input parameters of all executed erun programs, whereas ‘full’ will
+return the log files of all executed erun programs.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>log</strong> – The log output.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>string</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum.cfit">
+<span class="sig-name descname"><span class="pre">cfit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum.cfit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum.cfit" title="Link to this definition"></a></dt>
+<dd><p>Generate and return object of type <a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a>.  See the <a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a>
+documentation for further details.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum.vtrans">
+<span class="sig-name descname"><span class="pre">vtrans</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum.vtrans"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum.vtrans" title="Link to this definition"></a></dt>
+<dd><p>Generate and return object of type <a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code></a>.  See the
+<a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code></a> documentation for further details.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum.inten">
+<span class="sig-name descname"><span class="pre">inten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum.inten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum.inten" title="Link to this definition"></a></dt>
+<dd><p>Generate and return object of type <a class="reference internal" href="#pycf.pyemp.Inten" title="pycf.pyemp.Inten"><code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code></a>.  See the
+<a class="reference internal" href="#pycf.pyemp.Inten" title="pycf.pyemp.Inten"><code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code></a> documentation for further details.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum.spectrum_data">
+<span class="sig-name descname"><span class="pre">spectrum_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum.spectrum_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum.spectrum_data" title="Link to this definition"></a></dt>
+<dd><p>Generate and return object of type <a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a>.  See the
+<a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a> documentation for further details.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Spectrum.spectrum_erun">
+<span class="sig-name descname"><span class="pre">spectrum_erun</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Spectrum.spectrum_erun"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Spectrum.spectrum_erun" title="Link to this definition"></a></dt>
+<dd><p>Generate and return object of type <a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a>.  See the
+<a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a> documentation for further details.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.BaseEmp">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">BaseEmp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">infiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#BaseEmp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.BaseEmp" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Base class for <a class="reference internal" href="#pycf.pyemp.GenericErun" title="pycf.pyemp.GenericErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenericErun</span></code></a> and <a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumData</span></code></a>.  Ensures the
+first argument is an instance of <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a>, and whether all
+necessary input files have been provided.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.BaseEmp.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">infiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#BaseEmp.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.BaseEmp.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.GenericErun">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">GenericErun</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">infiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#GenericErun"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.GenericErun" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pycf.pyemp.BaseEmp" title="pycf.pyemp.BaseEmp"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseEmp</span></code></a></p>
+<p>Base class for <a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a>, <a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vtrans</span></code></a>, <a class="reference internal" href="#pycf.pyemp.Inten" title="pycf.pyemp.Inten"><code class="xref py py-class docutils literal notranslate"><span class="pre">Inten</span></code></a> and
+<a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a>.  Sets up input files and handles execution of erun
+programs, along with erun log files.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.GenericErun.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">infiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#GenericErun.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.GenericErun.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.GenericErun.erun">
+<span class="sig-name descname"><span class="pre">erun</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#GenericErun.erun"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.GenericErun.erun" title="Link to this definition"></a></dt>
+<dd><p>A wrapper for the erun script.  Any subclasses of GenericErun must have
+attributes <code class="docutils literal notranslate"><span class="pre">self.name</span></code> and <code class="docutils literal notranslate"><span class="pre">self.process</span></code>.  Additionally, this
+method writes the logfile output to the file <code class="docutils literal notranslate"><span class="pre">name_process_log.txt</span></code>
+and appends names of created data files to the <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a>
+instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – An instance of the Spectrum class.</p></li>
+<li><p><strong>outfiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – The names of files created by the specific erun program.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.GenericErun.print_log">
+<span class="sig-name descname"><span class="pre">print_log</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#GenericErun.print_log"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.GenericErun.print_log" title="Link to this definition"></a></dt>
+<dd><p>Print the log file generated by by erun for a given GenericErun object.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.GenericErun.add_input">
+<span class="sig-name descname"><span class="pre">add_input</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#GenericErun.add_input"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.GenericErun.add_input" title="Link to this definition"></a></dt>
+<dd><p>Append data to erun program input file ‘name_process.dat’.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.Cfit">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">Cfit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Cfit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Cfit" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pycf.pyemp.GenericErun" title="pycf.pyemp.GenericErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenericErun</span></code></a></p>
+<p>Generate a cfit.dat input file and execute the cfit program.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – The object must have attributes <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">emproot</span></code>, and keys
+<code class="docutils literal notranslate"><span class="pre">addtensors</span></code>, and <code class="docutils literal notranslate"><span class="pre">addassign</span></code> and optionally <code class="docutils literal notranslate"><span class="pre">states</span></code> and
+<code class="docutils literal notranslate"><span class="pre">tensors</span></code>; see the Spectrum docstring for a more detailed description
+of these attributes.</p></li>
+<li><p><strong>states</strong> (<em>string</em><em>, </em><em>optional</em>) – The .st_ input file name; must be provided if it was not specified when
+the Spectrum object was instantiated.</p></li>
+<li><p><strong>tensors</strong> (<em>string</em><em>, </em><em>optional</em>) – The .mi_ and .mm_ input file name; must be provided if it was not
+specified when the Spectrum object was instantiated.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>object</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit">Cfit</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Instantiating an object of this type automatically sets the <code class="docutils literal notranslate"><span class="pre">tvals</span></code>
+keyword of the provided <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a> object.  Furthermore, the Cfit log
+file can be displayed using the print_log() method.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Cfit.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Cfit.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Cfit.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.Vtrans">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">Vtrans</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Vtrans"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Vtrans" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pycf.pyemp.GenericErun" title="pycf.pyemp.GenericErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenericErun</span></code></a></p>
+<p>Generate a vtrans.dat input file and execute the vtrans program.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – The object must have attributes <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">emproot</span></code>, and keys
+<code class="docutils literal notranslate"><span class="pre">edconstruct</span></code>, and <code class="docutils literal notranslate"><span class="pre">levels</span></code> and optionally for <code class="docutils literal notranslate"><span class="pre">states</span></code>, <code class="docutils literal notranslate"><span class="pre">tvals</span></code>
+and <code class="docutils literal notranslate"><span class="pre">matel</span></code>; see the Spectrum docstring for a more detailed
+description of these attributes.</p></li>
+<li><p><strong>states</strong> (<em>string</em><em>, </em><em>optional</em>) – The .st_ input file name; must be provided if it was not specified when
+the Spectrum object was instantiated, or for a previous <code class="xref py py-func docutils literal notranslate"><span class="pre">cfit()</span></code>
+call.</p></li>
+<li><p><strong>tvals</strong> (<em>string</em><em>, </em><em>optional</em>) – The .vi_ and .vm_ input file name; must be provided if it was not
+specified when the Spectrum object was instantiated.</p></li>
+<li><p><strong>matel</strong> (<em>string</em><em>, </em><em>optional</em>) – The vtrans matrix element .mi_ and .mm_ input file name; must be
+provided if it was not specified when the Spectrum object was
+instantiated.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>object</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pycf.pyemp.Vtrans" title="pycf.pyemp.Vtrans">Vtrans</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Instantiating an object of this type automatically sets the <code class="docutils literal notranslate"><span class="pre">trans</span></code>
+keyword of the provided <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a> object.  Furthermore, the Vtrans
+log file can be displayed using the print_log() method.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Vtrans.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Vtrans.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Vtrans.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.Inten">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">Inten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Inten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Inten" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pycf.pyemp.GenericErun" title="pycf.pyemp.GenericErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenericErun</span></code></a></p>
+<p>Generate an inten.dat input file and execute the inten program.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – The object must have attributes <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">emproot</span></code>, and keys
+<code class="docutils literal notranslate"><span class="pre">edipoletensor</span></code>, <code class="docutils literal notranslate"><span class="pre">edipole</span></code>, <code class="docutils literal notranslate"><span class="pre">mdipole</span></code>, and <code class="docutils literal notranslate"><span class="pre">levels</span></code> and
+optionally for <code class="docutils literal notranslate"><span class="pre">states</span></code>, <code class="docutils literal notranslate"><span class="pre">tvals</span></code> and <code class="docutils literal notranslate"><span class="pre">trans</span></code>; see the Spectrum
+docstring for a more detailed description of these attributes.</p></li>
+<li><p><strong>states</strong> (<em>string</em><em>, </em><em>optional</em>) – The .st_ input file name; must be provided if it was not specified
+when the Spectrum object was instantiated, or for a previous
+<code class="xref py py-func docutils literal notranslate"><span class="pre">cfit()</span></code> of <code class="xref py py-func docutils literal notranslate"><span class="pre">vtrans()</span></code> call.</p></li>
+<li><p><strong>tvals</strong> (<em>string</em><em>, </em><em>optional</em>) – The .vi_ and .vm_ input file name; must be provided if it was not
+specified when the Spectrum object was instantiated, or for a
+previous <code class="xref py py-func docutils literal notranslate"><span class="pre">vtrans()</span></code> call.</p></li>
+<li><p><strong>trans</strong> (<em>string</em><em>, </em><em>optional</em>) – The .ti_ and .tm_ input file name; must be provided if it was not
+specified when the Spectrum object was instantiated.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>object</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pycf.pyemp.Inten" title="pycf.pyemp.Inten">Inten</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Instantiating an object of this type automatically sets the <code class="docutils literal notranslate"><span class="pre">plt</span></code> keyword
+of the provided <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a> object.  Furthermore, the Inten log file
+can be displayed using the print_log() method.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.Inten.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#Inten.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.Inten.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumData">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">SpectrumData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#SpectrumData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.SpectrumData" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pycf.pyemp.BaseEmp" title="pycf.pyemp.BaseEmp"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseEmp</span></code></a></p>
+<p>Natively generate spectrum data.  Intensity data is mined from the inten log
+file, which provides information such as the initial and final state of a
+transition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – <p>The object must have attributes <code class="docutils literal notranslate"><span class="pre">plotargs</span></code> - a dictionary that must
+have values for:</p>
+<blockquote>
+<div><blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">polarization</span></code> a string, with possible values of <code class="docutils literal notranslate"><span class="pre">isotropic</span></code>,
+<code class="docutils literal notranslate"><span class="pre">axial</span></code>, <code class="docutils literal notranslate"><span class="pre">sigma</span></code> or <code class="docutils literal notranslate"><span class="pre">pi</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">temp</span></code> an int or float specifying the temperature;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">linewidth</span></code> an int or float specifying the Lorentzian linewidth;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xrange</span></code> a list of length two, with xmin and xmax limits;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">npoints</span></code> an optional argument specifying the number of points
+for the spectrum curve;</p></li>
+</ul>
+</div></blockquote>
+<p>and optionally <code class="docutils literal notranslate"><span class="pre">plt</span></code> - the filename of the data created by inten,
+which while unused is employed as an indicator of whether inten
+executed successfully.</p>
+</div></blockquote>
+</p></li>
+<li><p><strong>plt</strong> (<em>string</em>) – The filename of the data created by inten, which must be specified here
+if it is not a Spectrum attribute.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>object</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pycf.pyemp.SpectrumData" title="pycf.pyemp.SpectrumData">SpectrumData</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Instantiating an object of this type adds a <code class="docutils literal notranslate"><span class="pre">transitions</span></code> attribute to the
+provided <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a> object, which returns a list of dictionaries,
+corresponding to distinct transitions, where each transition has keys:</p>
+<dl class="simple">
+<dt>initialstate<span class="classifier">string</span></dt><dd><p>The initial state label.</p>
+</dd>
+<dt>finalstate<span class="classifier">string</span></dt><dd><p>The final state label.</p>
+</dd>
+<dt>energy<span class="classifier">string</span></dt><dd><p>The transition energy.</p>
+</dd>
+<dt>isotropic<span class="classifier">string</span></dt><dd><p>The isotropic dipole strength.</p>
+</dd>
+<dt>axial<span class="classifier">string</span></dt><dd><p>The axial dipole strength.</p>
+</dd>
+<dt>sigma<span class="classifier">string</span></dt><dd><p>The sigma dipole strength.</p>
+</dd>
+<dt>pi<span class="classifier">string</span></dt><dd><p>The pi dipole strength.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumData.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#SpectrumData.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.SpectrumData.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumErun">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">SpectrumErun</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#SpectrumErun"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.SpectrumErun" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pycf.pyemp.GenericErun" title="pycf.pyemp.GenericErun"><code class="xref py py-class docutils literal notranslate"><span class="pre">GenericErun</span></code></a></p>
+<p>Facilitates the loading of c spectrum output files, or the execution of the
+c spectrum program and the subsequent loading of output files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – <p>The object must have attributes <code class="docutils literal notranslate"><span class="pre">plotargs</span></code>, a dictionary with values:</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">polarization</span></code> a string, with possible values of <code class="docutils literal notranslate"><span class="pre">isotropic</span></code>,
+<code class="docutils literal notranslate"><span class="pre">axial</span></code>, <code class="docutils literal notranslate"><span class="pre">sigma</span></code> or <code class="docutils literal notranslate"><span class="pre">pi</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">temp</span></code> an int or float specifying the temperature, required if
+<code class="docutils literal notranslate"><span class="pre">action</span> <span class="pre">=</span> <span class="pre">exec</span></code> (see below);</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">linewidth</span></code> an int or float specifying the Lorentzian linewidth,
+required if <code class="docutils literal notranslate"><span class="pre">action</span> <span class="pre">=</span> <span class="pre">exec</span></code> (see below);</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xrange</span></code> a list of the form <code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> where <code class="docutils literal notranslate"><span class="pre">min</span></code> and
+<code class="docutils literal notranslate"><span class="pre">max</span></code> specify the lower and upper bound of the spectrum curve,
+respectively, required if <code class="docutils literal notranslate"><span class="pre">action</span> <span class="pre">=</span> <span class="pre">exec</span></code> (see below);</p></li>
+</ul>
+</div></blockquote>
+<p>and optionally <code class="docutils literal notranslate"><span class="pre">plt</span></code> - the filename of the data created by inten.</p>
+</p></li>
+<li><p><strong>plt</strong> (<em>string</em>) – The filename of the data created by inten, which must be specified here
+if it is not a Spectrum attribute.</p></li>
+<li><p><strong>action</strong> (<em>string</em>) – Kwarg, with allowed values of <code class="docutils literal notranslate"><span class="pre">load</span></code> (default) and <code class="docutils literal notranslate"><span class="pre">exec</span></code>, to change
+between loading existing <code class="docutils literal notranslate"><span class="pre">lines.gp</span></code> and <code class="docutils literal notranslate"><span class="pre">curves.gp_</span></code> files or first
+executing the c spectrum program and then loading the resulting files.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>object</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pycf.pyemp.SpectrumErun" title="pycf.pyemp.SpectrumErun">SpectrumErun</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The SpectrumErun log file can be displayed using the print_log() method.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumErun.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#SpectrumErun.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.SpectrumErun.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumAxes">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pycf.pyemp.</span></span><span class="sig-name descname"><span class="pre">SpectrumAxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">facecolor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frameon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharex</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sharey</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xscale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yscale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_aspect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forward_navigation_events</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#SpectrumAxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.SpectrumAxes" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Axes</span></code></p>
+<p>The SpectrumAxes matplotlib projection; when instantiating an axis object,
+add the <code class="docutils literal notranslate"><span class="pre">projection</span> <span class="pre">=</span> <span class="pre">'spectrum'</span></code> kwarg, then run the spectrumplot method
+of the returned axis instance which takes as an argument an object of type
+Spectrum.</p>
+<p>To create an axis object one calls the figure constructor, which in turn
+instantiates the axis object.  As a consequence one does not directly
+instantiate the axis object so that the easiest workaround for adding a
+plotting method to the axis class is by using the projection option of the
+figure class.</p>
+<p class="rubric">Notes</p>
+<p>In order for the figure class to be aware of the spectrum projection one
+must run <code class="docutils literal notranslate"><span class="pre">register_projection(SpectrumAxes)</span></code> which requires the
+<code class="docutils literal notranslate"><span class="pre">matplotlib.projections.register_projection</span></code> module.  Importing all of the
+pycf module automatically handles this.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumAxes.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'spectrum'</span></em><a class="headerlink" href="#pycf.pyemp.SpectrumAxes.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumAxes.spectrumplot">
+<span class="sig-name descname"><span class="pre">spectrumplot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#SpectrumAxes.spectrumplot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.SpectrumAxes.spectrumplot" title="Link to this definition"></a></dt>
+<dd><p>Create a spectrum plot from a <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a> object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – <p>The object should have the following spectrum plot specific
+keywords:</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">transitionlabels</span></code> enables or disables explicit labels for
+all plotted transitions - allowed values are <code class="docutils literal notranslate"><span class="pre">False</span></code>
+(default) or <code class="docutils literal notranslate"><span class="pre">True</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">labelsize</span></code> the fontsize for transition labels;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">intencutoff</span></code> the minimum intensity for transitions to be
+plotted, primarily useful for suppressing uninteresting
+transition labels;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">energylabels</span></code> if transition labels are enabled, then this
+option appends the transition energy - allowed values are
+<code class="docutils literal notranslate"><span class="pre">False</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</div></blockquote>
+</p></li>
+<li><p><strong>*args</strong> – Additional arguments are passed passed to the vlines and plot
+routines have their usual functions.</p></li>
+<li><p><strong>optional</strong> – Additional arguments are passed passed to the vlines and plot
+routines have their usual functions.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments are passed passed to the vlines and
+plot routines have their usual functions.</p></li>
+<li><p><strong>optional</strong> – Additional keyword arguments are passed passed to the vlines and
+plot routines have their usual functions.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumAxes.set">
+<span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adjustable=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agg_filter=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anchor=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">animated=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aspect=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoscale_on=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoscalex_on=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoscaley_on=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes_locator=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axisbelow=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box_aspect=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_box=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_on=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_path=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">facecolor=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forward_navigation_events=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_on=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gid=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_layout=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mouseover=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">navigate=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_effects=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">picker=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prop_cycle=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rasterization_zorder=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rasterized=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sketch_params=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">snap=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subplotspec=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">visible=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xbound=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmargin=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xscale=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xticklabels=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xticks=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ybound=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylim=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ymargin=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yscale=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yticklabels=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yticks=&lt;UNSET&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zorder=&lt;UNSET&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pycf.pyemp.SpectrumAxes.set" title="Link to this definition"></a></dt>
+<dd><p>Set multiple properties at once.</p>
+<p>Supported properties are</p>
+<dl class="simple">
+<dt>Properties:</dt><dd><p>adjustable: {‘box’, ‘datalim’}
+agg_filter: a filter function, which takes a (m, n, 3) float array and a dpi value, and returns a (m, n, 3) array and two offsets from the bottom left corner of the image
+alpha: float or None
+anchor: (float, float) or {‘C’, ‘SW’, ‘S’, ‘SE’, ‘E’, ‘NE’, …}
+animated: bool
+aspect: {‘auto’, ‘equal’} or float
+autoscale_on: bool
+autoscalex_on: unknown
+autoscaley_on: unknown
+axes_locator: Callable[[Axes, Renderer], Bbox]
+axisbelow: bool or ‘line’
+box_aspect: float or None
+clip_box: <cite>~matplotlib.transforms.BboxBase</cite> or None
+clip_on: bool
+clip_path: Patch or (Path, Transform) or None
+facecolor or fc: <a href="#id1"><span class="problematic" id="id2">:mpltype:`color`</span></a>
+figure: <cite>~matplotlib.figure.Figure</cite> or <cite>~matplotlib.figure.SubFigure</cite>
+forward_navigation_events: bool or “auto”
+frame_on: bool
+gid: str
+in_layout: bool
+label: object
+mouseover: bool
+navigate: bool
+navigate_mode: unknown
+path_effects: list of <cite>.AbstractPathEffect</cite>
+picker: None or bool or float or callable
+position: [left, bottom, width, height] or <cite>~matplotlib.transforms.Bbox</cite>
+prop_cycle: <cite>~cycler.Cycler</cite>
+rasterization_zorder: float or None
+rasterized: bool
+sketch_params: (scale: float, length: float, randomness: float)
+snap: bool or None
+subplotspec: unknown
+title: str
+transform: <cite>~matplotlib.transforms.Transform</cite>
+url: str
+visible: bool
+xbound: (lower: float, upper: float)
+xlabel: str
+xlim: (left: float, right: float)
+xmargin: float greater than -0.5
+xscale: unknown
+xticklabels: unknown
+xticks: unknown
+ybound: (lower: float, upper: float)
+ylabel: str
+ylim: (bottom: float, top: float)
+ymargin: float greater than -0.5
+yscale: unknown
+yticklabels: unknown
+yticks: unknown
+zorder: float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pycf.pyemp.SpectrumAxes.splitplot">
+<span class="sig-name descname"><span class="pre">splitplot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pycf/pyemp.html#SpectrumAxes.splitplot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.pyemp.SpectrumAxes.splitplot" title="Link to this definition"></a></dt>
+<dd><p>Create a splitplot from a <a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a> object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spectrum</strong> (<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><em>Spectrum</em></a>) – <p>The object must have the <code class="docutils literal notranslate"><span class="pre">splitplotdata</span></code> attribute.  This is
+achieved by adding the <code class="docutils literal notranslate"><span class="pre">splitplot</span></code> keyword to the
+<a class="reference internal" href="#pycf.pyemp.Spectrum" title="pycf.pyemp.Spectrum"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></a> object prior to instantiating the <a class="reference internal" href="#pycf.pyemp.Cfit" title="pycf.pyemp.Cfit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Cfit</span></code></a>
+object; <code class="docutils literal notranslate"><span class="pre">splitplot</span></code> is a dictionary with keys:</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">energy</span></code> a list of the form <code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code>, where <code class="docutils literal notranslate"><span class="pre">min</span></code>
+and <code class="docutils literal notranslate"><span class="pre">max</span></code> are integer values of the energy levels to be
+plotted;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">var</span></code> a string of the variable name to be a varied;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">range</span></code> a list of the form <code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> where <code class="docutils literal notranslate"><span class="pre">min</span></code> and
+<code class="docutils literal notranslate"><span class="pre">max</span></code> are floating point numbers indicating the range over
+which <code class="docutils literal notranslate"><span class="pre">var</span></code> wil be varied.</p></li>
+</ul>
+</div></blockquote>
+</p></li>
+<li><p><strong>*args</strong> – Additional arguments are passed to the vlines and plot routines have
+their usual functions.</p></li>
+<li><p><strong>optional</strong> – Additional arguments are passed to the vlines and plot routines have
+their usual functions.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments are passed to the vlines and plot
+routines have their usual functions.</p></li>
+<li><p><strong>optional</strong> – Additional keyword arguments are passed to the vlines and plot
+routines have their usual functions.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="spinh.html" class="btn btn-neutral float-left" title="SPINH" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cfl_util.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Sebastian Horvath.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

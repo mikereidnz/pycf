@@ -1,0 +1,549 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INTEN &mdash; PyCF 179b2ce Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=c2aaae26"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PARAMCALC" href="paramcalc.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="import_sljm.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            PyCF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#what-is-pycf">What is PyCF?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#crystal-field-theory-basics">Crystal Field Theory Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#core-concepts">Core Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#module-organization">Module Organization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#performance-characteristics">Performance Characteristics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#supported-platforms">Supported Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#language-support">Language Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#history-and-references">History and References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#quick-install">Quick Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#detailed-installation-steps">Detailed Installation Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#platform-specific-notes">Platform-Specific Notes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#linux-debian-ubuntu">Linux (Debian/Ubuntu)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#macos">macOS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#windows-wsl2">Windows (WSL2)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#intel-mkl-support">Intel MKL Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#verification">Verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#running-examples">Running Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#uninstallation">Uninstallation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#development-installation">Development Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#basic-example-ceylf">Basic Example: CeYLF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#key-concepts">Key Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#parameters-and-fitting">Parameters and Fitting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#common-patterns">Common Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#next-steps">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#core-modules">Core Modules</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="cfl.html">cfl</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.CFLMin"><code class="docutils literal notranslate"><span class="pre">CFLMin</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.EFit"><code class="docutils literal notranslate"><span class="pre">EFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.ESHFit"><code class="docutils literal notranslate"><span class="pre">ESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.MESHFit"><code class="docutils literal notranslate"><span class="pre">MESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.MHFit"><code class="docutils literal notranslate"><span class="pre">MHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.SpinHamiltonian"><code class="docutils literal notranslate"><span class="pre">SpinHamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.StateLabels"><code class="docutils literal notranslate"><span class="pre">StateLabels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.ZEFOZSearch"><code class="docutils literal notranslate"><span class="pre">ZEFOZSearch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.__reduce_cython__"><code class="docutils literal notranslate"><span class="pre">__reduce_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.__setstate_cython__"><code class="docutils literal notranslate"><span class="pre">__setstate_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.e_fit"><code class="docutils literal notranslate"><span class="pre">e_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.esh_fit"><code class="docutils literal notranslate"><span class="pre">esh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.hyperfine_sh_coeff"><code class="docutils literal notranslate"><span class="pre">hyperfine_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.mesh_fit"><code class="docutils literal notranslate"><span class="pre">mesh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.mh_fit"><code class="docutils literal notranslate"><span class="pre">mh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.quadrupole_sh_coeff"><code class="docutils literal notranslate"><span class="pre">quadrupole_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.set_error_handler"><code class="docutils literal notranslate"><span class="pre">set_error_handler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.sh_svd"><code class="docutils literal notranslate"><span class="pre">sh_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.zeeman_sh_coeff"><code class="docutils literal notranslate"><span class="pre">zeeman_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cfl.html#pycf.cfl.zefoz"><code class="docutils literal notranslate"><span class="pre">zefoz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="import_sljm.html"><code class="docutils literal notranslate"><span class="pre">get_tensor_dim()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.get_state_number"><code class="docutils literal notranslate"><span class="pre">get_state_number()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.ImportSLJM.__init__"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="import_sljm.html#pycf.import_sljm.ImportSLJM.print_names"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.print_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">INTEN</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.vtrans"><code class="docutils literal notranslate"><span class="pre">vtrans()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.dipole_str"><code class="docutils literal notranslate"><span class="pre">dipole_str()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.group_transitions"><code class="docutils literal notranslate"><span class="pre">group_transitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.A_and_f_calc"><code class="docutils literal notranslate"><span class="pre">A_and_f_calc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.add_oscillator_strengths_and_A_coefficients"><code class="docutils literal notranslate"><span class="pre">add_oscillator_strengths_and_A_coefficients()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.boltzmann_factor"><code class="docutils literal notranslate"><span class="pre">boltzmann_factor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.lorentzian"><code class="docutils literal notranslate"><span class="pre">lorentzian()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pycf.inten.inten"><code class="docutils literal notranslate"><span class="pre">inten()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="paramcalc.html">PARAMCALC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.Xi_val"><code class="docutils literal notranslate"><span class="pre">Xi_val()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.RInt4f"><code class="docutils literal notranslate"><span class="pre">RInt4f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.Ligand"><code class="docutils literal notranslate"><span class="pre">Ligand</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.Ckq"><code class="docutils literal notranslate"><span class="pre">Ckq()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.A_SC"><code class="docutils literal notranslate"><span class="pre">A_SC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.A_DC"><code class="docutils literal notranslate"><span class="pre">A_DC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="paramcalc.html#pycf.paramcalc.AltpData"><code class="docutils literal notranslate"><span class="pre">AltpData</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#utility-modules">Utility Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spinh.html">SPINH</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.bmj"><code class="docutils literal notranslate"><span class="pre">bmj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.ias"><code class="docutils literal notranslate"><span class="pre">ias()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.iqi"><code class="docutils literal notranslate"><span class="pre">iqi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.bi"><code class="docutils literal notranslate"><span class="pre">bi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.bmj_coeff_array"><code class="docutils literal notranslate"><span class="pre">bmj_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.ias_coeff_array"><code class="docutils literal notranslate"><span class="pre">ias_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.iqi_coeff_array"><code class="docutils literal notranslate"><span class="pre">iqi_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.invert_term"><code class="docutils literal notranslate"><span class="pre">invert_term()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rz"><code class="docutils literal notranslate"><span class="pre">su2_rz()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rz_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rz_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rotation"><code class="docutils literal notranslate"><span class="pre">su2_rotation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.su2_rotation_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rotation_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.param_ten_svd"><code class="docutils literal notranslate"><span class="pre">param_ten_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spinh.html#pycf.spinh.SpinH"><code class="docutils literal notranslate"><span class="pre">SpinH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pyemp.html">PYEMP</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.Spectrum"><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.BaseEmp"><code class="docutils literal notranslate"><span class="pre">BaseEmp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.GenericErun"><code class="docutils literal notranslate"><span class="pre">GenericErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.Cfit"><code class="docutils literal notranslate"><span class="pre">Cfit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.Vtrans"><code class="docutils literal notranslate"><span class="pre">Vtrans</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.Inten"><code class="docutils literal notranslate"><span class="pre">Inten</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.SpectrumData"><code class="docutils literal notranslate"><span class="pre">SpectrumData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.SpectrumErun"><code class="docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pyemp.html#pycf.pyemp.SpectrumAxes"><code class="docutils literal notranslate"><span class="pre">SpectrumAxes</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html"><code class="docutils literal notranslate"><span class="pre">uline_char()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.term2L"><code class="docutils literal notranslate"><span class="pre">term2L()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.L2term"><code class="docutils literal notranslate"><span class="pre">L2term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.fmt_timestamp"><code class="docutils literal notranslate"><span class="pre">fmt_timestamp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_pycf_details"><code class="docutils literal notranslate"><span class="pre">gen_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_pycf_summary"><code class="docutils literal notranslate"><span class="pre">gen_pycf_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_pycf_details"><code class="docutils literal notranslate"><span class="pre">print_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_completed_str"><code class="docutils literal notranslate"><span class="pre">gen_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_completed_str"><code class="docutils literal notranslate"><span class="pre">print_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.ex_parse_abs"><code class="docutils literal notranslate"><span class="pre">ex_parse_abs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.ex_parse_diff"><code class="docutils literal notranslate"><span class="pre">ex_parse_diff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_e_summary"><code class="docutils literal notranslate"><span class="pre">gen_e_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_e_summary_trunc"><code class="docutils literal notranslate"><span class="pre">gen_e_summary_trunc()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_sh_summary"><code class="docutils literal notranslate"><span class="pre">gen_sh_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.gen_fit_summary"><code class="docutils literal notranslate"><span class="pre">gen_fit_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_as_fortran_array"><code class="docutils literal notranslate"><span class="pre">print_as_fortran_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.print_as_c_array"><code class="docutils literal notranslate"><span class="pre">print_as_c_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.MHz2cm1"><code class="docutils literal notranslate"><span class="pre">MHz2cm1()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.cm12MHz"><code class="docutils literal notranslate"><span class="pre">cm12MHz()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.bal_bounds"><code class="docutils literal notranslate"><span class="pre">bal_bounds()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.rJmmp"><code class="docutils literal notranslate"><span class="pre">rJmmp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.WignerR"><code class="docutils literal notranslate"><span class="pre">WignerR()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cfl_util.html#pycf.cfl_util.rotate_cf_params"><code class="docutils literal notranslate"><span class="pre">rotate_cf_params()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="njsymbols.html">NJSYMBOLS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.tricon_ck"><code class="docutils literal notranslate"><span class="pre">tricon_ck()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.wigner_3j"><code class="docutils literal notranslate"><span class="pre">wigner_3j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.wigner_6j"><code class="docutils literal notranslate"><span class="pre">wigner_6j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="njsymbols.html#pycf.njsymbols.wigner_9j"><code class="docutils literal notranslate"><span class="pre">wigner_9j()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="matel.html">MATEL</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="matel.html#pycf.matel.t_q"><code class="docutils literal notranslate"><span class="pre">t_q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="matel.html#pycf.matel.matel"><code class="docutils literal notranslate"><span class="pre">matel()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#quick-reference">Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#classes">Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="index.html#hamiltonian">Hamiltonian</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="index.html#tensor">Tensor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="index.html#exdata">ExData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="index.html#importsljm">ImportSLJM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="index.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#key-functions">Key Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/fitting_example.html">Fitting Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#basic-fitting-workflow">Basic Fitting Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#example-ceylf">Example: CeYLF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#multiple-parameter-fitting">Multiple Parameter Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#temperature-dependent-fitting">Temperature-Dependent Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#advanced-constrained-fitting">Advanced: Constrained Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spin_hamiltonian.html">Spin Hamiltonian</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#what-is-a-spin-hamiltonian">What is a Spin Hamiltonian?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#basic-extraction">Basic Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#g-tensor">G-Tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#anisotropy">Anisotropy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#temperature-dependent-g-factor">Temperature-Dependent G-Factor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#hyperfine-coupling">Hyperfine Coupling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#advanced-kramers-doublet-projection">Advanced: Kramers Doublet Projection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#common-tasks">Common Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#resources">Resources</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">PyCF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API</a></li>
+      <li class="breadcrumb-item active">INTEN</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/inten.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pycf.inten">
+<span id="inten"></span><h1>INTEN<a class="headerlink" href="#module-pycf.inten" title="Link to this heading"></a></h1>
+<p>A rewrite of the intensity calculation to follow the old Pascal code more closely,</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.vtrans">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">vtrans</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pycf/inten.html#vtrans"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.vtrans" title="Link to this definition"></a></dt>
+<dd><p>Transform tensor matrix elements into eigenbasis previously calculated by
+diagonalizing a Hamiltonian.
+This does the transformation part of the Pascal vtrans program, but not the
+construction of the electric-dipole operators, which is now done in the
+dipole_str function.</p>
+<dl class="simple">
+<dt>Mike Reid 3 April 2026:</dt><dd><p>Delete lower-diagonal elements that are mistakenly added by t.get_matel()</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tensors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Elements are tensors of type cfl.Tensor.</p></li>
+<li><p><strong>z</strong> (<em>np.ndarray</em>) – The eigenvectors, columnwise, used for the transformation.  This is
+generally the second output variable from h.diag() where H is a
+cfl.Hamiltonian.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>tensor_dict</strong> – Transformed tensors</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.dipole_str">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">dipole_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lrange</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">V</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">md</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Altp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pycf/inten.html#dipole_str"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.dipole_str" title="Link to this definition"></a></dt>
+<dd><p>Calculate dipole strengths and transition properties in eigenbasis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lrange</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – A list of two lists: [initial_levels, final_levels], where each
+sub-list contains 0-based level indices.
+Example: [[0, 1], [6, 7, 8, 9]] selects levels 0–1 as initial
+and levels 6–9 as final.</p></li>
+<li><p><strong>tensor_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – Dictionary of transformed dipole tensors with keys (M10, M11, M1-1, etc.)
+pointing to matrix elements in the eigenbasis.</p></li>
+<li><p><strong>h</strong> (<a class="reference internal" href="index.html#pycf.cfl.Hamiltonian" title="pycf.cfl.Hamiltonian"><em>cfl.Hamiltonian</em></a>) – Hamiltonian object containing state information and labels.</p></li>
+<li><p><strong>E</strong> (<em>np.ndarray</em>) – Array of eigenvalues from Hamiltonian diagonalization.</p></li>
+<li><p><strong>V</strong> (<em>np.ndarray</em>) – Array of eigenvectors (columnwise) from Hamiltonian diagonalization.</p></li>
+<li><p><strong>md</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>optional</em>) – Include magnetic dipole transitions (default True).</p></li>
+<li><p><strong>ed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em>, </em><em>optional</em>) – Include electric dipole transitions via Altp parameters (default False).</p></li>
+<li><p><strong>Altp</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>, </em><em>optional</em>) – Altp coupling parameters for electric dipole calculation, required if ed=True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>trs</strong> – List of dictionaries containing transition data:
+- ‘e’: transition energy (cm^-1)
+- ‘ei’: initial state energy (cm^-1)
+- ‘ef’: final state energy (cm^-1)
+- dipole strengths by polarization</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.group_transitions">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">group_transitions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">items</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pycf/inten.html#group_transitions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.group_transitions" title="Link to this definition"></a></dt>
+<dd><p>Group transition dictionaries by (ei, ef) level-pair and annotate each group
+with initial/final degeneracies.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>items</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – Transition dictionaries as returned by <a class="reference internal" href="#pycf.inten.dipole_str" title="pycf.inten.dipole_str"><code class="xref py py-func docutils literal notranslate"><span class="pre">dipole_str()</span></code></a>, containing
+keys <code class="docutils literal notranslate"><span class="pre">ei</span></code>, <code class="docutils literal notranslate"><span class="pre">ef</span></code>, <code class="docutils literal notranslate"><span class="pre">e</span></code>, <code class="docutils literal notranslate"><span class="pre">i</span></code> and <code class="docutils literal notranslate"><span class="pre">f</span></code>.</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Tolerance for comparing energies when determining degeneracies and
+when grouping transitions by level pair.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list with entries of the form:
+<code class="docutils literal notranslate"><span class="pre">{&quot;Energy&quot;,</span> <span class="pre">&quot;e_i&quot;,</span> <span class="pre">&quot;e_f&quot;,</span> <span class="pre">&quot;g_i&quot;,</span> <span class="pre">&quot;g_f&quot;,</span> <span class="pre">&quot;t_list&quot;}</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.A_and_f_calc">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">A_and_f_calc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">S_ED</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">S_MD</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_i</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">nrefractive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pycf/inten.html#A_and_f_calc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.A_and_f_calc" title="Link to this definition"></a></dt>
+<dd><p>Calculate the Einstein A coefficient and oscillator strength for a transition
+with given electric and magnetic dipole strengths and transition energy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>S_ED</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Electric dipole strength (in 10^-20 cm^2 units).</p></li>
+<li><p><strong>S_MD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Magnetic dipole strength (in 10^-20 cm^2 units).</p></li>
+<li><p><strong>energy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Transition energy (in cm^-1).</p></li>
+<li><p><strong>g_i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Degeneracy of the initial state.</p></li>
+<li><p><strong>nrefractive</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Refractive index of the medium (default is 1.0 for vacuum).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>A</strong> (<em>float</em>) – Einstein A coefficient for the transition (s^-1).</p></li>
+<li><p><strong>f</strong> (<em>float</em>) – Oscillator strength (dimensionless).</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.add_oscillator_strengths_and_A_coefficients">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">add_oscillator_strengths_and_A_coefficients</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refractive_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/pycf/inten.html#add_oscillator_strengths_and_A_coefficients"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.add_oscillator_strengths_and_A_coefficients" title="Link to this definition"></a></dt>
+<dd><p>Add oscillator strengths and Einstein A coefficients to transition groups.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>groups</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – List of transition groups from group_transitions(), modified in place.</p></li>
+<li><p><strong>refractive_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Refractive index of the medium (default 1.0 for vacuum).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Modifies input groups list in place, adding ‘A’ and ‘f’ fields.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.boltzmann_factor">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">boltzmann_factor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../_modules/pycf/inten.html#boltzmann_factor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.boltzmann_factor" title="Link to this definition"></a></dt>
+<dd><p>Calculate the Boltzmann factor for a given energy and temperature.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>e</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Energy difference (cm^-1).</p></li>
+<li><p><strong>t</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Temperature (K).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Boltzmann factor (dimensionless).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.lorentzian">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">lorentzian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">fwhm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../_modules/pycf/inten.html#lorentzian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.lorentzian" title="Link to this definition"></a></dt>
+<dd><p>Calculate Lorentzian line shape.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>array</em>) – Energy points (cm^-1).</p></li>
+<li><p><strong>x0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Center of the Lorentzian (cm^-1).</p></li>
+<li><p><strong>fwhm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Full width at half maximum (cm^-1).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Lorentzian function values.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a> or array</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If fwhm &lt;= 0.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pycf.inten.inten">
+<span class="sig-prename descclassname"><span class="pre">pycf.inten.</span></span><span class="sig-name descname"><span class="pre">inten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polarization</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">linewidth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npoints</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/pycf/inten.html#inten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pycf.inten.inten" title="Link to this definition"></a></dt>
+<dd><p>Calculate intensity spectrum from transitions and produce spectral data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – List of transition dictionaries, each containing ‘e’ (transition energy),
+‘ei’ (initial state energy), and transition strengths by polarization.</p></li>
+<li><p><strong>polarization</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Polarization type for intensity calculation (e.g., ‘pi’, ‘sigma’).</p></li>
+<li><p><strong>linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Full width at half maximum (FWHM) of the Lorentzian line shape (cm^-1).</p></li>
+<li><p><strong>T</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Temperature in Kelvin for Boltzmann factor calculation.</p></li>
+<li><p><strong>xlim</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Energy range [xmin, xmax] for plotting. If None, computed from transitions.</p></li>
+<li><p><strong>npoints</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Number of points in the intensity curve (default 1000).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing:
+- ‘curve_energies’: numpy array of energy values
+- ‘curve_inten’: numpy array of intensities
+- ‘line_energies’: numpy array of line positions
+- ‘line_inten’: numpy array of line intensities</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If linewidth &lt;= 0, T &lt; 0, npoints &lt; 1, or trs is empty.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="import_sljm.html" class="btn btn-neutral float-left" title="&lt;no title&gt;" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="paramcalc.html" class="btn btn-neutral float-right" title="PARAMCALC" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Sebastian Horvath.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

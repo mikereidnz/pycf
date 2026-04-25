@@ -1,0 +1,389 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation of gpc-19990118 for compilation of Mike’s programs on Debian &mdash; PyCF 179b2ce Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=c2aaae26"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            PyCF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#what-is-pycf">What is PyCF?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#crystal-field-theory-basics">Crystal Field Theory Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#core-concepts">Core Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../overview.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#module-organization">Module Organization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#performance-characteristics">Performance Characteristics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#supported-platforms">Supported Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#language-support">Language Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../overview.html#history-and-references">History and References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#quick-install">Quick Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#detailed-installation-steps">Detailed Installation Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#platform-specific-notes">Platform-Specific Notes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#linux-debian-ubuntu">Linux (Debian/Ubuntu)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#macos">macOS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#windows-wsl2">Windows (WSL2)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#intel-mkl-support">Intel MKL Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#verification">Verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#running-examples">Running Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#uninstallation">Uninstallation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#development-installation">Development Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#basic-example-ceylf">Basic Example: CeYLF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#key-concepts">Key Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quickstart.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#parameters-and-fitting">Parameters and Fitting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#common-patterns">Common Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#next-steps">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#core-modules">Core Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl.html">cfl</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.CFLMin"><code class="docutils literal notranslate"><span class="pre">CFLMin</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.EFit"><code class="docutils literal notranslate"><span class="pre">EFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.ESHFit"><code class="docutils literal notranslate"><span class="pre">ESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.MESHFit"><code class="docutils literal notranslate"><span class="pre">MESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.MHFit"><code class="docutils literal notranslate"><span class="pre">MHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.SpinHamiltonian"><code class="docutils literal notranslate"><span class="pre">SpinHamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.StateLabels"><code class="docutils literal notranslate"><span class="pre">StateLabels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.ZEFOZSearch"><code class="docutils literal notranslate"><span class="pre">ZEFOZSearch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.__reduce_cython__"><code class="docutils literal notranslate"><span class="pre">__reduce_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.__setstate_cython__"><code class="docutils literal notranslate"><span class="pre">__setstate_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.e_fit"><code class="docutils literal notranslate"><span class="pre">e_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.esh_fit"><code class="docutils literal notranslate"><span class="pre">esh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.hyperfine_sh_coeff"><code class="docutils literal notranslate"><span class="pre">hyperfine_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.mesh_fit"><code class="docutils literal notranslate"><span class="pre">mesh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.mh_fit"><code class="docutils literal notranslate"><span class="pre">mh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.quadrupole_sh_coeff"><code class="docutils literal notranslate"><span class="pre">quadrupole_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.set_error_handler"><code class="docutils literal notranslate"><span class="pre">set_error_handler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.sh_svd"><code class="docutils literal notranslate"><span class="pre">sh_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.zeeman_sh_coeff"><code class="docutils literal notranslate"><span class="pre">zeeman_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/cfl.html#pycf.cfl.zefoz"><code class="docutils literal notranslate"><span class="pre">zefoz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/import_sljm.html"><code class="docutils literal notranslate"><span class="pre">get_tensor_dim()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.get_state_number"><code class="docutils literal notranslate"><span class="pre">get_state_number()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.ImportSLJM.__init__"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/import_sljm.html#pycf.import_sljm.ImportSLJM.print_names"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.print_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/inten.html">INTEN</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.vtrans"><code class="docutils literal notranslate"><span class="pre">vtrans()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.dipole_str"><code class="docutils literal notranslate"><span class="pre">dipole_str()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.group_transitions"><code class="docutils literal notranslate"><span class="pre">group_transitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.A_and_f_calc"><code class="docutils literal notranslate"><span class="pre">A_and_f_calc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.add_oscillator_strengths_and_A_coefficients"><code class="docutils literal notranslate"><span class="pre">add_oscillator_strengths_and_A_coefficients()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.boltzmann_factor"><code class="docutils literal notranslate"><span class="pre">boltzmann_factor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.lorentzian"><code class="docutils literal notranslate"><span class="pre">lorentzian()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/inten.html#pycf.inten.inten"><code class="docutils literal notranslate"><span class="pre">inten()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/paramcalc.html">PARAMCALC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.Xi_val"><code class="docutils literal notranslate"><span class="pre">Xi_val()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.RInt4f"><code class="docutils literal notranslate"><span class="pre">RInt4f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.Ligand"><code class="docutils literal notranslate"><span class="pre">Ligand</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.Ckq"><code class="docutils literal notranslate"><span class="pre">Ckq()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.A_SC"><code class="docutils literal notranslate"><span class="pre">A_SC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.A_DC"><code class="docutils literal notranslate"><span class="pre">A_DC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/paramcalc.html#pycf.paramcalc.AltpData"><code class="docutils literal notranslate"><span class="pre">AltpData</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#utility-modules">Utility Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/spinh.html">SPINH</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.bmj"><code class="docutils literal notranslate"><span class="pre">bmj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.ias"><code class="docutils literal notranslate"><span class="pre">ias()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.iqi"><code class="docutils literal notranslate"><span class="pre">iqi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.bi"><code class="docutils literal notranslate"><span class="pre">bi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.bmj_coeff_array"><code class="docutils literal notranslate"><span class="pre">bmj_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.ias_coeff_array"><code class="docutils literal notranslate"><span class="pre">ias_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.iqi_coeff_array"><code class="docutils literal notranslate"><span class="pre">iqi_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.invert_term"><code class="docutils literal notranslate"><span class="pre">invert_term()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rz"><code class="docutils literal notranslate"><span class="pre">su2_rz()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rz_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rz_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rotation"><code class="docutils literal notranslate"><span class="pre">su2_rotation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.su2_rotation_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rotation_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.param_ten_svd"><code class="docutils literal notranslate"><span class="pre">param_ten_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spinh.html#pycf.spinh.SpinH"><code class="docutils literal notranslate"><span class="pre">SpinH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/pyemp.html">PYEMP</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Spectrum"><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.BaseEmp"><code class="docutils literal notranslate"><span class="pre">BaseEmp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.GenericErun"><code class="docutils literal notranslate"><span class="pre">GenericErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Cfit"><code class="docutils literal notranslate"><span class="pre">Cfit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Vtrans"><code class="docutils literal notranslate"><span class="pre">Vtrans</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.Inten"><code class="docutils literal notranslate"><span class="pre">Inten</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.SpectrumData"><code class="docutils literal notranslate"><span class="pre">SpectrumData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.SpectrumErun"><code class="docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pyemp.html#pycf.pyemp.SpectrumAxes"><code class="docutils literal notranslate"><span class="pre">SpectrumAxes</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html"><code class="docutils literal notranslate"><span class="pre">uline_char()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.term2L"><code class="docutils literal notranslate"><span class="pre">term2L()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.L2term"><code class="docutils literal notranslate"><span class="pre">L2term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.fmt_timestamp"><code class="docutils literal notranslate"><span class="pre">fmt_timestamp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_pycf_details"><code class="docutils literal notranslate"><span class="pre">gen_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_pycf_summary"><code class="docutils literal notranslate"><span class="pre">gen_pycf_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_pycf_details"><code class="docutils literal notranslate"><span class="pre">print_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_completed_str"><code class="docutils literal notranslate"><span class="pre">gen_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_completed_str"><code class="docutils literal notranslate"><span class="pre">print_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.ex_parse_abs"><code class="docutils literal notranslate"><span class="pre">ex_parse_abs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.ex_parse_diff"><code class="docutils literal notranslate"><span class="pre">ex_parse_diff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_e_summary"><code class="docutils literal notranslate"><span class="pre">gen_e_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_e_summary_trunc"><code class="docutils literal notranslate"><span class="pre">gen_e_summary_trunc()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_sh_summary"><code class="docutils literal notranslate"><span class="pre">gen_sh_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.gen_fit_summary"><code class="docutils literal notranslate"><span class="pre">gen_fit_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_as_fortran_array"><code class="docutils literal notranslate"><span class="pre">print_as_fortran_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.print_as_c_array"><code class="docutils literal notranslate"><span class="pre">print_as_c_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.MHz2cm1"><code class="docutils literal notranslate"><span class="pre">MHz2cm1()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.cm12MHz"><code class="docutils literal notranslate"><span class="pre">cm12MHz()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.bal_bounds"><code class="docutils literal notranslate"><span class="pre">bal_bounds()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.rJmmp"><code class="docutils literal notranslate"><span class="pre">rJmmp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.WignerR"><code class="docutils literal notranslate"><span class="pre">WignerR()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/cfl_util.html#pycf.cfl_util.rotate_cf_params"><code class="docutils literal notranslate"><span class="pre">rotate_cf_params()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/njsymbols.html">NJSYMBOLS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.tricon_ck"><code class="docutils literal notranslate"><span class="pre">tricon_ck()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.wigner_3j"><code class="docutils literal notranslate"><span class="pre">wigner_3j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.wigner_6j"><code class="docutils literal notranslate"><span class="pre">wigner_6j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/njsymbols.html#pycf.njsymbols.wigner_9j"><code class="docutils literal notranslate"><span class="pre">wigner_9j()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/matel.html">MATEL</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/matel.html#pycf.matel.t_q"><code class="docutils literal notranslate"><span class="pre">t_q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/matel.html#pycf.matel.matel"><code class="docutils literal notranslate"><span class="pre">matel()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#quick-reference">Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#classes">Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#hamiltonian">Hamiltonian</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#tensor">Tensor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#exdata">ExData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#importsljm">ImportSLJM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#key-functions">Key Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/fitting_example.html">Fitting Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#basic-fitting-workflow">Basic Fitting Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#example-ceylf">Example: CeYLF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#multiple-parameter-fitting">Multiple Parameter Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#temperature-dependent-fitting">Temperature-Dependent Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#advanced-constrained-fitting">Advanced: Constrained Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/fitting_example.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spin_hamiltonian.html">Spin Hamiltonian</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#what-is-a-spin-hamiltonian">What is a Spin Hamiltonian?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#basic-extraction">Basic Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#g-tensor">G-Tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#anisotropy">Anisotropy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#temperature-dependent-g-factor">Temperature-Dependent G-Factor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#hyperfine-coupling">Hyperfine Coupling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#advanced-kramers-doublet-projection">Advanced: Kramers Doublet Projection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spin_hamiltonian.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#common-tasks">Common Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/index.html#resources">Resources</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">PyCF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Installation of gpc-19990118 for compilation of Mike’s programs on Debian</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/legacy/gpc_installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="installation-of-gpc-19990118-for-compilation-of-mike-s-programs-on-debian">
+<h1>Installation of gpc-19990118 for compilation of Mike’s programs on Debian<a class="headerlink" href="#installation-of-gpc-19990118-for-compilation-of-mike-s-programs-on-debian" title="Link to this heading"></a></h1>
+<section id="installing-the-compiler">
+<h2>Installing the compiler<a class="headerlink" href="#installing-the-compiler" title="Link to this heading"></a></h2>
+<p>The only compiler that I have found that compiles fully-functional versions of
+Mike’s emp programs on Linux is the GNU pascal compiler version 19990118. Newer
+versions seem to compile the programs fine, but the resulting exectuables are
+unreliable and often fail to execute, yielding hard to debug errors such as a
+<code class="docutils literal notranslate"><span class="pre">CANNOT</span> <span class="pre">FIND</span> <span class="pre">MOMENT</span></code> warning by inten.</p>
+<p>You need to install both the pascal compiler,
+gpc-19990118-1.i386-pc-linux-gnu.rpm, and a compatible version of gcc contained
+in gpc-extras-19990118-1.i386-pc-linux-gnu.rpm. I installed the compiler in my
+home directory, so the easiest method on a dpkg based system is to install
+rpm2cpio and extract the archieves using:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">rpm2cpio</span> <span class="n">gpc</span><span class="o">-</span><span class="mi">19990118</span><span class="o">-</span><span class="mf">1.</span><span class="n">i386</span><span class="o">-</span><span class="n">pc</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnu</span><span class="o">.</span><span class="n">rpm</span> <span class="o">|</span> <span class="n">cpio</span> <span class="o">-</span><span class="n">idmv</span>
+</pre></div>
+</div>
+<p>You only need the <code class="docutils literal notranslate"><span class="pre">bin</span></code> and the <code class="docutils literal notranslate"><span class="pre">lib</span></code> folder. Do the same for the extras
+package and move the resulting <code class="docutils literal notranslate"><span class="pre">libgcc.a</span></code> archieve to the
+<code class="docutils literal notranslate"><span class="pre">lib/gcc-lib/i386-redhat-linux/2.8.1/</span></code> directory.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">install-gpc-binary.sh</span></code> script provided on the gpc website is too new for
+this version of gpc and will always fail since it searches for gpcpp, which in
+our version is called gpc-cpp. Furthermore the <code class="docutils literal notranslate"><span class="pre">GPC_EXEC_PREFIX</span></code> environment
+variable does not seem to be used by this version of gpc. Consequently, I ended
+up creating symbolic links in the <code class="docutils literal notranslate"><span class="pre">bin</span></code> directory targeted at the <code class="docutils literal notranslate"><span class="pre">gpc-cpp</span></code>
+binary and the <code class="docutils literal notranslate"><span class="pre">gpc1</span></code> binary, both in the <code class="docutils literal notranslate"><span class="pre">2.8.1</span></code> directory. After adding
+the <code class="docutils literal notranslate"><span class="pre">bin</span></code> directory to the PATH, gpc seemed to execute fine.</p>
+</section>
+<section id="specifying-the-linker-search-path">
+<h2>Specifying the linker search path<a class="headerlink" href="#specifying-the-linker-search-path" title="Link to this heading"></a></h2>
+<p>Since gpc (or rather the version of gcc that gpc calls) passes a default search
+path to the linker, the current installation will fail to assemble compiled
+programs correctly. This can be solved by adding the:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">lib</span><span class="o">/</span><span class="n">gcc</span><span class="o">-</span><span class="n">lib</span><span class="o">/</span><span class="n">i386</span><span class="o">-</span><span class="n">redhat</span><span class="o">-</span><span class="n">linux</span><span class="o">/</span><span class="mf">2.8.1</span><span class="o">/</span>
+</pre></div>
+</div>
+<p>directory to the <code class="docutils literal notranslate"><span class="pre">LIBRARY_PATH</span></code> environment variable.</p>
+</section>
+<section id="compiling-in-an-amd64-environment">
+<h2>Compiling in an amd64 environment<a class="headerlink" href="#compiling-in-an-amd64-environment" title="Link to this heading"></a></h2>
+<p>Note: below instructions fail with Debian Stretch (2018-01-09), but I will
+retain the text just in case. For Stretch, after trying to install a bunch of
+i386 packages manually (such as <code class="docutils literal notranslate"><span class="pre">libc6:i386</span></code>), I finally got the necessary
+dependencies by installing <code class="docutils literal notranslate"><span class="pre">gcc-multilib</span></code>. I is a meta package which installs
+all kinds of libraries, and I assume it made all my previous, manual, installs
+redundant.  Old instructions for Jessie follow below.</p>
+<p>If you have a 64-bit enviroment, you will need to install the 32-bit c
+libraries, called <code class="docutils literal notranslate"><span class="pre">libc6:i386</span></code> and <code class="docutils literal notranslate"><span class="pre">libglib2.0-0:i386</span></code> on Debian Jessie.
+Furthermore you will need to explicitly specify the path to shared 32-bit
+library objects for the linker, using the <code class="docutils literal notranslate"><span class="pre">LIBRARY_PATH</span></code> environment variable.
+On Debian multilib (since Wheezy), the 32-bit libraries are in <code class="docutils literal notranslate"><span class="pre">/bin/lib32</span></code>.</p>
+<p>Additionally, you need to explicitly pass the <code class="docutils literal notranslate"><span class="pre">-32</span></code> flag to the linker using
+the <code class="docutils literal notranslate"><span class="pre">-Wa</span></code> argument of gcc. My modified <code class="docutils literal notranslate"><span class="pre">gnu_pco.csh</span></code> now has the following
+line</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>time gpc -mcpu=i386 -Wa,-32 -I$EMPSRC -I$EMPSRC/gnu -O3 -o $EMPBIN/$1.exe $1.p
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Sebastian Horvath.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
