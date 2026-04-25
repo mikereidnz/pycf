@@ -1,15 +1,15 @@
 [build-system]
 requires = [
   "setuptools>=77",
-  "wheel",
-  "Cython>=3",
+  "wheel>=0.40,<1.0",
+  "Cython>=3,<4",
   "numpy>=1.26",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycf"
-version = "0+git"
+dynamic = ["version"]
 description = "Python crystal field theory modules"
 readme = "README.rst"
 license = "GPL-3.0-or-later"
@@ -38,8 +38,8 @@ dev = [
     "pytest>=7.0",
     "matplotlib>=3.8",
     "setuptools>=68",
-    "wheel",
-    "Cython>=3",
+    "wheel>=0.40,<1.0",
+    "Cython>=3,<4",
 ]
 examples = [
     "matplotlib>=3.8",
@@ -49,3 +49,6 @@ examples = [
 Homepage = "https://github.com/mikereidnz/pycf"
 Repository = "https://github.com/mikereidnz/pycf"
 "Legacy Repository" = "https://bitbucket.org/sebastianhorvath/pycf/"
+
+[tool.setuptools.dynamic]
+version = {attr = "pycf.__version__"}

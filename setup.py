@@ -101,6 +101,36 @@ def split_flags(value: str | None) -> list[str]:
     return shlex.split(value)
 
 
+def find_lapacke_include() -> str:
+    """Find LAPACKE include directory with fallbacks for different systems."""
+    # Check environment variable first
+    if lapacke_env := os.environ.get("LAPACKE_INCLUDE_DIR"):
+        if Path(lapacke_env).is_dir():
+            return lapacke_env
+        print(f"Warning: LAPACKE_INCLUDE_DIR={lapacke_env} does not exist", file=sys.stderr)
+    
+    # Try common system paths
+    candidates = [
+        "/usr/include/lapacke",           # Linux (Debian/Ubuntu/RHEL)
+        "/usr/local/opt/lapack/include",  # macOS Homebrew (Intel)
+        "/opt/homebrew/opt/lapack/include",  # macOS Homebrew (Apple Silicon)
+        "/opt/local/include",             # MacPorts
+        "/usr/local/include",             # Generic custom installs
+    ]
+    
+    for path in candidates:
+        if Path(path).is_dir():
+            return path
+    
+    # No LAPACKE headers found - raise error
+    raise RuntimeError(
+        "LAPACKE headers not found. Please either:\n"
+        "1. Install LAPACK development files (e.g., liblapack-dev on Debian/Ubuntu)\n"
+        "2. Set LAPACKE_INCLUDE_DIR environment variable to the directory containing lapacke.h\n"
+        "3. Install via Homebrew: brew install lapack"
+    )
+
+
 def compute_build_flags() -> tuple[list[str], list[str]]:
     compile_args = split_flags(os.environ.get("CFL_CFLAGS"))
     link_args = split_flags(os.environ.get("CFL_LDLIBS"))
@@ -116,7 +146,14 @@ def compute_build_flags() -> tuple[list[str], list[str]]:
                     "CFL_CC=icc was requested but icc could not be found and "
                     "INTEL_PATH was not provided."
                 )
-            intel_path = icc[: -len("/bin/icc")]
+            # Use Path to safely extract parent directory
+            intel_path = str(Path(icc).parent.parent)
+        
+        # Validate the path exists
+        if not Path(intel_path).is_dir():
+            raise RuntimeError(
+                f"INTEL_PATH={intel_path} does not exist or is not a directory"
+            )
 
         compile_args += [f"-I{intel_path}/include", "-openmp"]
         link_args += [
@@ -169,9 +206,9 @@ class CleanCommand(Command):
 
 
 git_revision = write_version_file()
-version = f"0+{git_revision}"
 
 compile_args, link_args = compute_build_flags()
+lapacke_include = find_lapacke_include()
 
 ext_modules = cythonize(
     [
@@ -181,7 +218,7 @@ ext_modules = cythonize(
             include_dirs=[
                 "cfl/include",
                 np.get_include(),
-                "/usr/include/lapacke",
+                lapacke_include,
             ],
             extra_compile_args=compile_args,
             extra_link_args=link_args,
@@ -191,7 +228,6 @@ ext_modules = cythonize(
 
 setup(
     name="pycf",
-    version=version,
     description="Python crystal field theory modules",
     long_description=(ROOT / "README.rst").read_text(encoding="utf-8"),
     author="Mike Reid",

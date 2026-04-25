@@ -104,7 +104,8 @@ sl *sl_alloc(int n, char *key, int **labels) {
     free(l);
     CFL_ERROR_NULL("malloc failed for l.key");
   }
-  strcpy(l->key, key);
+  strncpy(l->key, key, nl);
+  l->key[nl] = '\0';
 
   l->labels = (int **) malloc(n*sizeof(int *));
   if (l->labels == 0) {

@@ -281,7 +281,7 @@ def test_inten_c3() -> None:
           'or', 1e3/A_total, 'milliseconds')
     
     pascal_A = 3.193699e-01
-    tolerance
+    tolerance = 1e-5
     print('Pascal calculation A coefficient:', pascal_A)
     assert A_total == pytest.approx(pascal_A, rel=tolerance), f'Atotal \
         {A_total} differs from Pascal calculation {pascal_A} by more than the tolerance of {tolerance}'       

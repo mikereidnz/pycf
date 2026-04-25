@@ -374,12 +374,15 @@ def A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0):
     clight    = 2.997924580e8    # {ms-1}
     rpi       = 3.14159265358972 # {dimensionless}
 
-    if energy==0:
-        lambda_= 0
-        omega  = 0
+    if energy == 0:
+        lambda_ = 0
+        omega = 0
     else:
-        lambda_ = 1e-2 /energy         # {cm-1}; {m}
-        omega   = 2*rpi*clight/lambda_ # {hz}
+        lambda_ = 1e-2 / energy  # {cm-1}; {m}
+        if lambda_ != 0:
+            omega = 2*rpi*clight/lambda_  # {hz}
+        else:
+            omega = 0
     chilocal = ((nrefractive**2 + 2)/3)**2
 
     # our dipole strengths are in units of 10-20 cm2, 
