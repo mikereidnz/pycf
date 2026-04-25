@@ -150,6 +150,22 @@ pip install -e .
 
 This installs pycf in "development mode": changes to Python files take effect immediately, and Cython/C changes require rebuilding.
 
+**Optional:** If you want to run tests or examples, install with optional dependencies:
+
+```bash
+# For development/testing:
+pip install -e ".[dev]"
+
+# For running examples (requires matplotlib):
+pip install -e ".[examples]"
+
+# For both dev and examples:
+pip install -e ".[dev,examples]"
+```
+
+pycf requires `numpy` and `scipy` at runtime (automatically installed with `pip install -e .`).
+Examples require `matplotlib`. Development/testing requires `pytest`.
+
 #### Step 4: Rebuild After Code Changes
 
 **For Python-only changes** (e.g., modifications to `pycf/*.py`):
