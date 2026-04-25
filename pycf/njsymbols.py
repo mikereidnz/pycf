@@ -28,7 +28,7 @@ from scipy.special import factorial
 from math import fsum
 
 
-def tricon_ck(a, b, c):
+def tricon_ck(a: float | int, b: float | int, c: float | int) -> bool:
     r"""
     Triangular condition check; returns True if the triangular condition on the
     three integers or half-integers a, b and c is satisfied.
@@ -36,7 +36,8 @@ def tricon_ck(a, b, c):
     return (a + b >= c and c >= np.abs(a - b))
 
 
-def wigner_3j(j1, j2, j3, m1, m2, m3):
+def wigner_3j(j1: float | int, j2: float | int, j3: float | int, 
+              m1: float | int, m2: float | int, m3: float | int) -> float:
     r"""
     Calculate the Wigner 3j symbol, given in terms of the Clebsch-Gordon
     coefficents as
@@ -106,7 +107,8 @@ def wigner_3j(j1, j2, j3, m1, m2, m3):
     return result 
 
 
-def wigner_6j(a, b, c, d, e, f):
+def wigner_6j(a: float | int, b: float | int, c: float | int, 
+              d: float | int, e: float | int, f: float | int) -> float:
     r"""
     Calculate the Wigner 6j symbol
 
@@ -169,7 +171,9 @@ def wigner_6j(a, b, c, d, e, f):
     return result 
 
 
-def wigner_9j(a, b, c, d, e, f, g, h, i):
+def wigner_9j(a: float | int, b: float | int, c: float | int, 
+              d: float | int, e: float | int, f: float | int,
+              g: float | int, h: float | int, i: float | int) -> float:
     r"""
     Calculate the Wigner 9j symbol
 
