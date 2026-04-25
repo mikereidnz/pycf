@@ -35,6 +35,7 @@ calculation results to users.
 import numpy as np
 import re
 import logging
+from typing import Optional, List, Dict, Tuple, Any, Union
 
 from datetime import datetime
 import os, inspect
@@ -49,7 +50,7 @@ except ImportError as e:
 from scipy.special import factorial
 from math import fsum
 
-def uline_char(s):
+def uline_char(s: str) -> str:
     """Underline all non-whitespace characters in a string, except for single
     spaces between non-whitespace characters."""
     ul = ""
@@ -68,14 +69,14 @@ def uline_char(s):
     else:
         return s + ul
 
-def term2L(c):
+def term2L(c: str) -> int:
     "Convert an L quantum number term character to its numerical value."
     try:
         return 'SPDFGHIKLMNOQRTUV'.index(c)
     except ValueError:
        raise ValueError("Unsupported L quantum number: {}.".format(c))
 
-def L2term(i):
+def L2term(i: int) -> str:
     "Convert an L quantum number numerical value to its term character."
     if i < 0: 
         raise ValueError("Unsupported L quantum number: {}.".format(i))
@@ -84,14 +85,14 @@ def L2term(i):
     except IndexError:
         raise ValueError("Unsupported L quantum number: {}.".format(i))
 
-def fmt_timestamp(timestamp=None):
+def fmt_timestamp(timestamp: Optional[Union[datetime, str]] = None) -> str:
     if timestamp is None:
         timestamp = datetime.now()
     if isinstance(timestamp, str):
         return timestamp
     return timestamp.strftime('%Y-%m-%d %H:%M:%S')
 
-def gen_pycf_details(started_at=None):
+def gen_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> str:
     r"""
     Generate the pycf metadata block for summaries and stdout.
     """
@@ -103,7 +104,7 @@ def gen_pycf_details(started_at=None):
 
     return s
 
-def gen_pycf_summary(started_at=None):
+def gen_pycf_summary(started_at: Optional[Union[datetime, str]] = None) -> str:
     r"""
     Read input file and add to long string. Further, print the pycf version and
     date/time.
@@ -119,10 +120,10 @@ def gen_pycf_summary(started_at=None):
 
     return s
  
-def print_pycf_details(started_at=None):
+def print_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> None:
     print(gen_pycf_details(started_at), end="")
 
-def gen_completed_str(completed_at=None):
+def gen_completed_str(completed_at: Optional[Union[datetime, str]] = None) -> str:
     r"""
     Return string of fit completion time.
     """
@@ -130,10 +131,10 @@ def gen_completed_str(completed_at=None):
 
     return s
 
-def print_completed_str(completed_at=None):
+def print_completed_str(completed_at: Optional[Union[datetime, str]] = None) -> None:
     print(gen_completed_str(completed_at), end="")
 
-def ex_parse_abs(ex, z, labels):
+def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
     from an ExData object for absolute energy level data.
@@ -190,7 +191,7 @@ def ex_parse_abs(ex, z, labels):
 
     return parsed_ex
 
-def ex_parse_diff(ex, z, labels):
+def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
     from an ExData object for energy level differences.
@@ -256,7 +257,7 @@ def ex_parse_diff(ex, z, labels):
     
     return parsed_ex
 
-def gen_e_summary(w, z, labels, label_key, **kwargs):
+def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any) -> str:
     r"""
     Generate energy level summary given eigenvalues and eigenvectors. 
 
@@ -401,7 +402,7 @@ def gen_e_summary(w, z, labels, label_key, **kwargs):
     return s
 
 
-def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
+def gen_e_summary_trunc(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, ex: Any, name: str, **kwargs: Any) -> str:
     r"""
     Generate a truncated energy level summary displaying only levels for which
     experimental energy level data is provided.
@@ -547,7 +548,7 @@ def gen_e_summary_trunc(w, z, labels, label_key, ex, name, **kwargs):
     return s
 
 
-def gen_sh_summary(param, sh, **kwargs):
+def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
     spin Hamiltonian data. 
@@ -623,7 +624,7 @@ def gen_sh_summary(param, sh, **kwargs):
 
     return s
 
-def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
+def gen_fit_summary(coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float, **kwargs: Any) -> str:
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
 
@@ -751,7 +752,7 @@ def gen_fit_summary(coeff, fit_obj, method, fmin, **kwargs):
     return s
 
 
-def print_as_fortran_array(a):
+def print_as_fortran_array(a: np.ndarray) -> None:
     r"""
     Print a two dimensional numpy array in a form that makes it easy to include
     in a c program, using column major ordering.
@@ -774,7 +775,7 @@ def print_as_fortran_array(a):
     s += "};"
     print(s)
 
-def print_as_c_array(a):
+def print_as_c_array(a: np.ndarray) -> None:
     r"""
     Print a two dimensional numpy array in a form that makes it easy to include
     in a c program, using row major ordering.  
@@ -801,15 +802,15 @@ def print_as_c_array(a):
     s += "};"
     print(s)
 
-def MHz2cm1(val):
+def MHz2cm1(val: float) -> float:
     r"Convert MHz to cm$^{-1}$."
     return (1.0/29979.2458)*val
 
-def cm12MHz(val):
+def cm12MHz(val: float) -> float:
     r"Convert cm$^{-1}$ to MHz."
     return 29979.2458*val
 
-def bal_bounds(coeff, bounds):
+def bal_bounds(coeff: Dict[str, float], bounds: Dict[str, float]) -> Dict[str, Tuple[float, float]]:
     r"""
     Helper function for creating balanced bounds dictionary.  That is, the
     bounds are are some constant, symmetric, $\pm$ offset from the starting
@@ -837,7 +838,7 @@ def bal_bounds(coeff, bounds):
     return bal_b
 
 
-def rJmmp(j, m, mp, beta):
+def rJmmp(j: Union[int, float], m: Union[int, float], mp: Union[int, float], beta: float) -> float:
     r"""
     Equation (C.72) of Messiah. 
     
@@ -869,7 +870,7 @@ def rJmmp(j, m, mp, beta):
 
     return r
 
-def WignerR(j, m, mp, alpha, beta, gamma):
+def WignerR(j: Union[int, float], m: Union[int, float], mp: Union[int, float], alpha: float, beta: float, gamma: float) -> complex:
     r""" 
     Implement Wigner rotation of state vector; Eq. (C56) of Messiah.
 
@@ -884,7 +885,7 @@ def WignerR(j, m, mp, alpha, beta, gamma):
     return r1*r2*r3
 
 
-def rotate_cf_params(coeff, alpha, beta, gamma):
+def rotate_cf_params(coeff: Dict[str, Any], alpha: float, beta: float, gamma: float) -> Dict[str, Any]:
     r"""
     Rotate crystal-field parameters by angles alpha, beta, and gamma, using the
     Euler angle convention of Messiah (zyz'). 
