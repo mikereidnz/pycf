@@ -21,9 +21,9 @@ def Xi_val(t, l, Ln):
     Parameters
     ----------
     t : int
-        Degree of the parameter.
+        Degree of the parameter. Must be in {1, 3, 5, 7}.
     l: int
-        Transition intensity lambda parameter, with values of (2, 4, 6).
+        Transition intensity lambda parameter, with values of {2, 4, 6}.
     Ln : string
         The chemical symbol of the Lanthanide dopant.
 
@@ -31,6 +31,11 @@ def Xi_val(t, l, Ln):
     -------
     xi : float
         value
+        
+    Raises
+    ------
+    ValueError
+        If t, l, or Ln are not in the valid set.
     """
     
     xi_tl = {
@@ -43,10 +48,17 @@ def Xi_val(t, l, Ln):
     }
    
     Ln_list =  ['Pr', 'Nd', 'Eu', 'Tb', 'Er', 'Tm', 'Yb']
+    
+    # Validate inputs
+    if t not in {1, 3, 5, 7}:
+        raise ValueError(f"t must be in {{1, 3, 5, 7}} (got {t})")
+    if l not in {2, 4, 6}:
+        raise ValueError(f"l must be in {{2, 4, 6}} (got {l})")
+    
     try:
         i = Ln_list.index(Ln)
     except ValueError:
-        raise ValueError("Invalid parameter: Ln=%s" % Ln)
+        raise ValueError(f"Invalid lanthanide: Ln={Ln} (valid: {', '.join(Ln_list)})")
     
     try:
         v = xi_tl['%i%i' % (t, l)][i]
@@ -66,7 +78,7 @@ def RInt4f(l, Ln):
     Parameters
     ----------
     l : int
-        The power lambda, with available values of (2, 4, 6). 
+        The power lambda, with available values of {2, 4, 6}. 
     Ln : string
         The chemical symbol of the Lanthanide dopant.
 
@@ -74,7 +86,12 @@ def RInt4f(l, Ln):
     -------
     rint : float
         The radial integral, in units of Angstrom^2, Angstrom^4, and
-        Angstrom^6 depending on lambda. 
+        Angstrom^6 depending on lambda.
+        
+    Raises
+    ------
+    ValueError
+        If l or Ln are not in the valid set.
 
     """
     # Bohr radius in Angstrom
@@ -97,15 +114,15 @@ def RInt4f(l, Ln):
     Ln_list =  ['Ce', 'Pr', 'Nd', 'Sm', 'Eu', 'Dy', 'Er', 'Yb']
     l_list = [2, 4, 6]
     
+    if l not in l_list:
+        raise ValueError(f"l must be in {l_list} (got {l})")
+    
     try:
         i = Ln_list.index(Ln)
     except ValueError:
-        raise ValueError("Invalid parameter: Ln=%s" % Ln)
-    try:
-        li = l_list.index(l)
-    except ValueError:
-        raise ValueError("Invalid parameter: l=%s" % l)
+        raise ValueError(f"Invalid lanthanide: Ln={Ln} (valid: {', '.join(Ln_list)})")
     
+    li = l_list.index(l)
     val = rint[i][li]*a0**l
 
     return val
@@ -139,9 +156,9 @@ def Ckq(k, q, theta, phi):
     Parameters
     ----------
     k : int
-        Degree of the harmonic.
+        Degree of the harmonic. Must be >= 0.
     q : int
-        Order of the harmonic.
+        Order of the harmonic. Must satisfy -k <= q <= k.
     theta : float
         Polar angle in radians.
     phi : float
@@ -151,7 +168,17 @@ def Ckq(k, q, theta, phi):
     -------
     Ckq : float
         Value of spherical harmonic.
+        
+    Raises
+    ------
+    ValueError
+        If k < 0 or |q| > k.
     """
+    if k < 0:
+        raise ValueError(f"k must be >= 0 (got {k})")
+    if abs(q) > k:
+        raise ValueError(f"q must satisfy |q| <= k (got q={q}, k={k})")
+    
     C = np.sqrt((4*np.pi)/(2*k+1)) * sph_harm(q, k, phi, theta)
     
     return C 

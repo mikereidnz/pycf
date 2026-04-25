@@ -488,7 +488,15 @@ def lorentzian(x, x0, fwhm):
     -------
     float or array
         Lorentzian function values.
+        
+    Raises
+    ------
+    ValueError
+        If fwhm <= 0.
     """
+    if fwhm <= 0:
+        raise ValueError(f"fwhm must be positive (got {fwhm})")
+    
     gamma_sq = (fwhm / 2)**2
 
     return(gamma_sq / ((x - x0)**2 + gamma_sq))
@@ -522,9 +530,20 @@ def inten(trs, polarization, linewidth, T, xlim=None, npoints=1000):
         - 'curve_inten': numpy array of intensities
         - 'line_energies': numpy array of line positions
         - 'line_inten': numpy array of line intensities
+        
+    Raises
+    ------
+    ValueError
+        If linewidth <= 0, T < 0, npoints < 1, or trs is empty.
     """
     if len(trs) == 0:
         raise ValueError("inten requires at least one transition.")
+    if linewidth <= 0:
+        raise ValueError(f"linewidth must be positive (got {linewidth})")
+    if T < 0:
+        raise ValueError(f"Temperature T must be non-negative (got {T})")
+    if npoints < 1:
+        raise ValueError(f"npoints must be >= 1 (got {npoints})")
     
     # Determine the smallest initial energy level, which we assume to be the
     # ground state (used for scaling other energies for boltzmann factor... this
