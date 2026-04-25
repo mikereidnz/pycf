@@ -89,6 +89,126 @@ python3 --version
 
 ---
 
+## Building Libraries From Source
+
+If system packages are not available (particularly on RedHat/Fedora systems), or if package manager versions have issues, you can build libraries from source.
+
+### When to Build From Source
+
+**You need to build from source if:**
+- The library isn't available via your package manager (common on RedHat/Fedora)
+- Package manager provides a C++ version requiring g++ linker (nlopt on RedHat)
+- You get undefined symbol errors even though `ldd` reports libraries as linked
+
+### Key Requirement: Position-Independent Code (-fPIC)
+
+**Critical:** Since pycf uses Cython (Python C extensions compiled as shared objects), all linked static libraries **must** be compiled with the `-fPIC` flag. If you skip this step, you'll get cryptic "undefined symbol" errors at runtime.
+
+### Building Individual Libraries
+
+#### NLOpt (NonLinear OPTimization)
+
+**RedHat/Fedora Issue:** The package manager provides a C++ version that requires g++ linking, which fails for Python C extensions. Building from source is the solution.
+
+```bash
+# Create installation directory
+mkdir -p $HOME/opt
+cd /tmp
+
+# Download and extract
+wget https://github.com/stevengj/nlopt/archive/v2.7.1.tar.gz
+tar xzf v2.7.1.tar.gz
+cd nlopt-2.7.1
+
+# Configure with -fPIC (CRITICAL)
+./configure --prefix=$HOME/opt --enable-shared CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"
+
+# Build and install
+make
+make install
+```
+
+#### GSL (GNU Scientific Library)
+
+```bash
+mkdir -p $HOME/opt
+cd /tmp
+
+wget https://mirror.ibm.com/pub/gnu/gsl/gsl-2.7.1.tar.gz
+tar xzf gsl-2.7.1.tar.gz
+cd gsl-2.7.1
+
+./configure --prefix=$HOME/opt CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"
+make
+make install
+```
+
+#### LAPACK/BLAS
+
+For RedHat systems without lapacke-devel:
+
+```bash
+mkdir -p $HOME/opt
+cd /tmp
+
+# Download from netlib
+wget http://www.netlib.org/lapack/lapack-3.12.0.tar.gz
+tar xzf lapack-3.12.0.tar.gz
+cd lapack-3.12.0
+
+# Create cmake build
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_C_FLAGS="-O2 -fPIC" -DCMAKE_Fortran_FLAGS="-O2 -fPIC" \
+         -DBUILD_SHARED_LIBS=ON
+
+make
+make install
+```
+
+### Using Locally-Built Libraries
+
+After building libraries from source, tell pycf where to find them:
+
+```bash
+export CFL_CFLAGS="-I$HOME/opt/include"
+export CFL_LDLIBS="-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib"
+
+# Now install pycf
+pip install .
+```
+
+**Explanation of flags:**
+- `-I$HOME/opt/include`: Add include directory for headers
+- `-L$HOME/opt/lib`: Add library directory at link time
+- `-Wl,-rpath,$HOME/opt/lib`: Embed runtime library path (so the binary finds libraries even if not in system LD_LIBRARY_PATH)
+
+### Troubleshooting Library Build Issues
+
+**Problem: "undefined symbol" errors at runtime despite ldd showing libraries linked**
+
+**Cause:** Libraries were not compiled with `-fPIC`
+
+**Solution:** Rebuild the library with `CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"`
+
+**Problem: "error while loading shared libraries: cannot open shared object"**
+
+**Cause:** Runtime library path not set during pycf build
+
+**Solution:** Ensure `-Wl,-rpath,$HOME/opt/lib` is included in CFL_LDLIBS (note the comma separating -rpath and the path)
+
+**Problem: Multiple library versions installed**
+
+**Solution:** Use full rpath to prefer your installed version:
+
+```bash
+export CFL_LDLIBS="-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib -L/usr/lib64 -Wl,-rpath,/usr/lib64"
+```
+
+Libraries in $HOME/opt/lib are preferred first, system libraries as fallback.
+
+---
+
 ## Installation Methods
 
 ### Option A: Install from Source (Recommended for Most Users)
