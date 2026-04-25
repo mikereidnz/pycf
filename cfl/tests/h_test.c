@@ -11,6 +11,9 @@
 #include "cfl_h.h"
 #include "cfl_sh.h"
 
+/* Test tolerance for floating-point comparisons */
+#define TEST_TOLERANCE 1e-8
+
 /* This file contains tests for:
  *  * tensor allocation and scaling/addition functions
  *  * hamiltonian allocation, and diagonalization
@@ -33,7 +36,7 @@ void zequ_chk(complex double *a, complex double *b, size_t n) {
   int p = 0;
 
   for (i=0; i<n; i++) {
-    if (cabs(a[i]-b[i]) >= 1e-8) {
+    if (cabs(a[i]-b[i]) >= TEST_TOLERANCE) {
       p = 1;
     }
   }
@@ -58,8 +61,7 @@ void dequ_chk(double *a, double *b, size_t n) {
   int p = 0;
 
   for (i=0; i<n; i++) {
-    // Fix: use fabs() for proper two-sided tolerance check
-    if (fabs(a[i]-b[i]) >= pow(10,-8)) {
+    if (fabs(a[i]-b[i]) >= TEST_TOLERANCE) {
       p = 1;
     }
   }
