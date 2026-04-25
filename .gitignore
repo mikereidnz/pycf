@@ -14,10 +14,15 @@ perf.*
 *.directory
 work
 build 
-doc/_build
 dist
+*.egg-info/
+pycf.egg-info/
+pycf/__pycache__/
+doc/_build
 pycf/cfl.c
+pycf/__version__.py
 pycf/_build_info.py
+pycf/cfl*.so
 pycf.egg-info/
 cfl/*_test
 .vscode/

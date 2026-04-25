@@ -27,75 +27,25 @@ parsing their output.  Currently wrapped erun applications are 'cfit', 'inten',
 
 
 Installation
+Installation
 ============
 
-Note: the instructions below are only applicable to linux, and have been tested
-for Debian (incl. Ubuntu) and Fedora.  While porting to Windows is presumably
-not too much work, I have no experience with this. 
+**For detailed installation instructions, see** `INSTALL.md <INSTALL.md>`_.
+
+**Quick Start:**
+
+- **Linux/macOS users**: Install system dependencies, then ``pip install pycf``
+- **Development**: Clone repo and run ``pip install -e .``
+- **Intel/MKL**: Set ``CFL_CC=icc INTEL_PATH=...`` before ``pip install``
+
+The `INSTALL.md` file provides:
+  * Per-OS system library installation commands (Debian, RHEL, macOS, Windows/WSL)
+  * Multiple installation methods (PyPI, GitHub, editable development)
+  * Comprehensive troubleshooting guide
+  * HPC cluster setup notes
+  * System-specific guidance (macOS M1/M2, WSL2)
 
 
-Basic installation
-------------------
-First, grab a copy of the source using::
-
-  git clone https://bitbucket.org/sebastianhorvath/pycf/ 
-
-This clones the master branch into a local directory called pycf.  I tend to
-merge updates into master somewhat sporadically, but generally will only include
-well tested commits.  Specific versions of pycf (printed in log files)
-correspond to the git revisions, so it should always be possible to figure out
-what source was used to produce a specific output file.  For a branch other than
-master, for example devel, use the ``-b branchname`` argument of git. 
-
-Before building, there's a number of dependencies that have to be satisfied. See
-the subsection below for details, but if you're on Debian or a derivative
-system, the following packages should take care of it:: 
-
-  sudo apt-get install build-essential gfortran liblapacke-dev liblapack-dev \
-  libgsl0-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
-
-Then, in the package root directory, execute::
-
-  python setup.py install --prefix=/path/to/dir
-
-This first builds both the cfl library and the python bindings, and then
-installs them to the specified ``prefix`` directory.  It is typically a good
-idea to specify ``prefix`` to something other than the default (``/usr/local``).
-For a non-default ``prefix`` you need to tell the python interpreter where the
-modules are installed.  This is achieved using the ``PYTHONPATH`` environment
-variable, which has to be set to include the path to the ``site-packages``
-directory into which the module was installed. 
-
-Here is a quick example which installs pycf to ``opt`` in the ``$HOME``
-directory.  Assuming you're in the pycf root directory::
-
-  python setup.py install --prefix $HOME/opt
-
-which (for python 2.7) will install all the modules into::
-
-  $HOME/opt/lib/python2.7/site-packages 
-
-To add this directory to the ``PYTHONPATH`` environment variable, run::
-
-  export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages
-
-This environment variable change can be made persistent for future terminal
-sessions by adding the above line to the ``~/.bashrc`` file::
-  
-  echo 'export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages' >> ~/.bashrc 
-
-Note that Debian (and derivative distributions) install to a directory called
-``dist-packages`` for system wide installations.  Consequently, if python can't
-find pycf (``import cfl`` fails in the interpreter), explicitly check the path
-to make sure you're specifying the correct directory.  For further details on
-this convention, have a look at the Debian Python `wiki
-<https://wiki.debian.org/Python#Deviations_from_upstream>`_.
-
-
-Dependencies
-------------
-
-Before building you will need to satisfy the following dependencies:
  
   * GCC and gfortran
   * build-essential package or your distributions equivalent
