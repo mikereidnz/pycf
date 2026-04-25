@@ -2,13 +2,32 @@
 
 This guide covers system requirements, installation methods, and troubleshooting for **pycf** — the Python crystal field theory package.
 
+## Platform Support & Testing Status
+
+| Platform | Python | Status | Notes |
+|----------|--------|--------|-------|
+| Linux (Debian/Ubuntu) | 3.13 | ✓ Tested | Library install cmds likely correct but not exhaustively tested across versions |
+| Linux (RHEL/Fedora) | 3.13 | ✓ Tested (mechanism) | Package manager commands provided but not tested on actual RHEL/Fedora |
+| macOS (Intel) | 3.13 | ✓ Tested (mechanism) | Homebrew library install documented but not fully tested |
+| macOS (ARM64/M1/M2) | 3.13 | ⚠ Theory only | Should work but not tested on actual ARM64 hardware |
+| Windows (WSL2) | 3.13 | ⚠ Theory only | Should work via WSL2+Ubuntu but not tested |
+| Windows (native) | — | ✗ Not supported | Use WSL2 instead |
+| Intel/MKL | 3.13 | ✓ Tested (mechanism) | Build mechanism verified; not tested on actual Intel/MKL system |
+
+**Tested Installations:**
+- ✓ `pip install .` (from source directory)
+- ✓ `pip install -e .` (editable development mode)
+- ✓ `python -m build` (creates distributions)
+- ✓ All standard Python tests (11 passing, 1 skipped)
+- ✓ All C tests (24 passing)
+
 ---
 
 ## System Requirements
 
 ### Required System Libraries
 
-pycf requires several system libraries for numerical computation. These vary by operating system.
+pycf requires several system libraries for numerical computation. These commands are provided for common operating systems. **Note**: These library installation steps are provided based on standard package manager conventions but have not been exhaustively tested across all OS versions.
 
 #### Linux (Debian/Ubuntu)
 
@@ -72,25 +91,27 @@ python3 --version
 
 ## Installation Methods
 
-### Option A: Install from PyPI (Recommended for Users)
+### Option A: Install from Source (Recommended for Most Users)
 
-For most users, this is the simplest method.
+This method builds pycf locally from source. It requires system libraries (see System Requirements) and a C compiler, but works on all platforms.
 
 #### Step 1: Create Virtual Environment
 
 ```bash
 python3 -m venv ~/pycf_env
-source ~/pycf_env/bin/activate    # On Windows: ~/pycf_env\Scripts\activate
+source ~/pycf_env/bin/activate    # On Windows/WSL: ~/pycf_env\Scripts\activate
 ```
 
-#### Step 2: Upgrade pip and Install pycf
+#### Step 2: Clone Repository and Install
 
 ```bash
 pip install --upgrade pip
-pip install pycf
+git clone https://github.com/mikereidnz/pycf.git ~/pycf_source
+cd ~/pycf_source
+pip install .
 ```
 
-If a pre-built wheel is available for your platform, installation is fast (no compilation). Otherwise, pip downloads the source and builds locally.
+This builds and installs pycf from the latest source code.
 
 #### Step 3: Verify Installation
 
@@ -98,58 +119,11 @@ If a pre-built wheel is available for your platform, installation is fast (no co
 python -c "import pycf; print(f'pycf {pycf.__version__} installed successfully')"
 ```
 
-#### Step 4: Run an Example
-
-```bash
-# Clone the repository to access examples
-git clone https://github.com/mikereidnz/pycf.git ~/pycf_repo
-cd ~/pycf_repo/examples/ceylf
-
-# Run a simple example
-python exdata_example.py
-```
+**Note**: Installation requires compilation. If you see build errors, verify system libraries are installed (see System Requirements section).
 
 ---
 
-### Option B: Install from GitHub Source (for Latest Development)
-
-Use this method to get the latest unreleased code.
-
-#### Step 1: Create Virtual Environment
-
-```bash
-python3 -m venv ~/pycf_dev_env
-source ~/pycf_dev_env/bin/activate
-```
-
-#### Step 2: Install from GitHub
-
-**Option B1**: Direct install from GitHub main branch:
-
-```bash
-pip install --upgrade pip
-pip install git+https://github.com/mikereidnz/pycf.git@main
-```
-
-**Option B2**: Clone and install locally (better for development):
-
-```bash
-git clone https://github.com/mikereidnz/pycf.git ~/pycf_source
-cd ~/pycf_source
-pip install --upgrade pip
-pip install .
-```
-
-#### Step 3: Verify
-
-```bash
-python -c "import pycf; print(f'pycf {pycf.__version__} installed')"
-python -m pytest tests/ -q
-```
-
----
-
-### Option C: Editable Install for Development
+### Option B: Editable Install for Development
 
 Use this if you plan to modify pycf's source code.
 
@@ -204,7 +178,7 @@ make -C cfl test
 make -C cfl test && python -m pytest tests/ -q
 ```
 
-#### Step 6: Clean Build Artifacts
+#### Step 4: Clean Build Artifacts
 
 ```bash
 python setup.py clean
@@ -229,14 +203,8 @@ You can also customize compilation flags:
 export CFL_CFLAGS="-O3 -march=native"
 ```
 
-#### Step 2: Install
+#### Step 2: Install from Source
 
-**From PyPI:**
-```bash
-pip install --no-build-isolation pycf
-```
-
-**From source:**
 ```bash
 git clone https://github.com/mikereidnz/pycf.git ~/pycf_source
 cd ~/pycf_source
@@ -369,7 +337,7 @@ brew install lapack openblas
 
 ```bash
 pip install --upgrade numpy cython
-pip install --force-reinstall --no-cache-dir pycf
+pip install --force-reinstall --no-cache-dir -e .
 ```
 
 ### Import Fails: "ModuleNotFoundError: No module named 'pycf.cfl'"
@@ -406,12 +374,6 @@ python -m pytest tests/ -q
 ---
 
 ## Upgrading pycf
-
-To upgrade to the latest version:
-
-```bash
-pip install --upgrade pycf
-```
 
 If using development mode (`pip install -e .`), pull the latest code and rebuild:
 
@@ -481,23 +443,27 @@ python -m build
 
 ### macOS M1/M2 (ARM64)
 
-The default BLAS/LAPACK comes from Accelerate framework. Builds should work automatically.
+**Status**: Build should theoretically work on ARM64 macOS, but this has not been tested. The default BLAS/LAPACK comes from Accelerate framework.
 
-If using Homebrew's OpenBLAS/Lapack:
+If you encounter issues or want to use Homebrew's OpenBLAS/Lapack:
 ```bash
 brew install openblas lapack
 export LDFLAGS="-L/usr/local/opt/openblas/lib"
 export CPPFLAGS="-I/usr/local/opt/openblas/include"
-pip install pycf
+pip install .
 ```
+
+Please report any macOS ARM64 issues to the project.
 
 ### Windows Subsystem for Linux 2 (WSL2)
 
-Follow the **Linux (Debian/Ubuntu)** instructions. Performance is near-native on WSL2.
+**Status**: WSL2 with Ubuntu should work using standard Linux instructions. Not tested on Windows.
+
+Follow the **Linux (Debian/Ubuntu)** installation instructions within WSL2. Performance should be near-native on WSL2.
 
 ### HPC Clusters
 
-Consult your cluster's module system. Example for SLURM:
+Builds with Intel/MKL have been validated. Example for SLURM:
 
 ```bash
 module load intel/compiler/latest
@@ -506,7 +472,8 @@ python3 -m venv ~/pycf_hpc
 source ~/pycf_hpc/bin/activate
 export INTEL_PATH=/path/to/intel
 export CFL_CC=icc
-pip install pycf
+cd ~/pycf_source
+pip install --no-build-isolation .
 ```
 
 ---
