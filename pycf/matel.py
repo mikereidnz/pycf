@@ -26,7 +26,7 @@ import numpy as np
 import pycf.njsymbols as nj
 
 
-def t_q(j1, j2, m1, m2, q):
+def t_q(j1: float | int, j2: float | int, m1: float | int, m2: float | int, q: float | int) -> complex:
     r"""
     Calculate the matrix element `\langle j_1 m_1 | T_q^{(1)} | j_2 m_2
     \rangle`, where `T_q^{(1)}` is a rank one tensor.
@@ -64,7 +64,7 @@ def t_q(j1, j2, m1, m2, q):
     return(element)
 
 
-def matel(c, j):
+def matel(c: str, j: float | int) -> np.ndarray:
     r"""
     Calculate the matrix elements for `\langle j m_1 | J_a | j m_2 \rangle`,
     where `a \in \{x, y, z\}` for `m_1 = j, j-1 \ldots -j` and `m_2 = j, j-1,
