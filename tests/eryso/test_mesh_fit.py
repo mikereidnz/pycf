@@ -236,7 +236,8 @@ def test_mesh_fit() -> None:
     tolerance = 10
     for label, value in fit_coeff.items():
         if label in expected_coeff:
-            print(label, value, ' should be equal to ', expected_coeff[label])
+            print(label, value, ' should be equal to ', expected_coeff[label],
+                 ' difference is ', value - expected_coeff[label])
             assert value == pytest.approx(expected_coeff[label], abs=tolerance)
 
 

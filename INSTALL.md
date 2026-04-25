@@ -311,23 +311,38 @@ pip install -e .
 
 This installs pycf in "development mode": changes to Python files take effect immediately, and Cython/C changes require rebuilding.
 
-**Optional:** If you want to run tests or examples, install with optional dependencies:
+#### Step 4: Choose Your Installation
+
+pycf offers optional dependency bundles for different use cases:
 
 ```bash
-# For development/testing:
-pip install -e ".[dev]"
+# Just use pycf (minimal)
+pip install -e .
 
-# For running examples (requires matplotlib):
+# Verify installation works (RECOMMENDED for first-time users)
+pip install -e ".[test]"
+python -m pytest tests/ -q
+
+# Run examples and tutorials
 pip install -e ".[examples]"
+cd examples/ceylf
+python exdata_example.py
 
-# For both dev and examples:
-pip install -e ".[dev,examples]"
+# Both testing and examples (most common)
+pip install -e ".[test,examples]"
+
+# Full development (testing, examples, build tools, linting)
+pip install -e ".[dev]"
 ```
 
-pycf requires `numpy` and `scipy` at runtime (automatically installed with `pip install -e .`).
-Examples require `matplotlib`. The `[dev]` extra installs the Python test dependencies and the build tools needed for `python setup.py build_ext --inplace`.
+**Bundle Contents:**
+- **`[test]`** - pytest and hypothesis for running tests
+- **`[examples]`** - matplotlib for running example scripts
+- **`[dev]`** - everything: testing, examples, build tools (setuptools, Cython), and code quality tools (black, flake8, mypy)
 
-#### Step 4: Rebuild After Code Changes
+pycf requires `numpy` and `scipy` at runtime (automatically installed with `pip install -e .`).
+
+#### Step 5: Rebuild After Code Changes
 
 **For Python-only changes** (e.g., modifications to `pycf/*.py`):
 - No rebuild needed; changes are visible immediately.
@@ -602,7 +617,7 @@ pip install --force-reinstall --no-cache-dir -e .
 
 ```bash
 cd ~/pycf_repo
-pip install -e ".[dev]"
+pip install -e ".[test]"
 python -m pytest tests/ -q
 ```
 
