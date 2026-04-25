@@ -137,9 +137,22 @@ cd ~/pycf_repo
 #### Step 2: Create Virtual Environment
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv env
+source env/bin/activate
 ```
+
+**Simplified activation (optional):**
+
+Add this to your `~/.bashrc` for quick access:
+
+```bash
+pycf_activate() {
+    cd /path/to/pycf && source env/bin/activate
+}
+alias pycf_dev='pycf_activate'
+```
+
+Then simply run `pycf_dev` from anywhere to activate the environment and change to the repo directory.
 
 #### Step 3: Install in Editable Mode
 
