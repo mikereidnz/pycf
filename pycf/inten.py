@@ -89,6 +89,8 @@ def vtrans(tensors, z):
 
 def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
     """
+    Calculate dipole strengths and transition properties in eigenbasis.
+
     Parameters
     ----------
     lrange : list
@@ -97,13 +99,29 @@ def dipole_str(lrange, tensor_dict, h, E, V, md=True, ed=False, Altp=None):
         Example: [[0, 1], [6, 7, 8, 9]] selects levels 0–1 as initial
         and levels 6–9 as final.
     tensor_dict : dict
-        Expects specific keys (M10, M11, M1-1) pointing to matrix elements of
-        the dipole operator in the eigenbasis of the Hamiltonian. 
-    Returns:
-    --------
+        Dictionary of transformed dipole tensors with keys (M10, M11, M1-1, etc.)
+        pointing to matrix elements in the eigenbasis.
+    h : cfl.Hamiltonian
+        Hamiltonian object containing state information and labels.
+    E : np.ndarray
+        Array of eigenvalues from Hamiltonian diagonalization.
+    V : np.ndarray
+        Array of eigenvectors (columnwise) from Hamiltonian diagonalization.
+    md : bool, optional
+        Include magnetic dipole transitions (default True).
+    ed : bool, optional
+        Include electric dipole transitions via Altp parameters (default False).
+    Altp : list, optional
+        Altp coupling parameters for electric dipole calculation, required if ed=True.
+
+    Returns
+    -------
     trs : list
-        A list of dictionaries for each transition component that contains
-        energies, dipole moments, and dipole strengths. 
+        List of dictionaries containing transition data:
+        - 'e': transition energy (cm^-1)
+        - 'ei': initial state energy (cm^-1)
+        - 'ef': final state energy (cm^-1)
+        - dipole strengths by polarization
     """
     e =  1e10                # means that diople moments are in e-10 cm
     # e = 4.803246e-10       # esu 
@@ -350,19 +368,22 @@ def A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0):
     Parameters
     ----------
     S_ED : float
-        Electric dipole strength (in appropriate units).
+        Electric dipole strength (in 10^-20 cm^2 units).
     S_MD : float
-        Magnetic dipole strength (in appropriate units).
-    e : float
+        Magnetic dipole strength (in 10^-20 cm^2 units).
+    energy : float
         Transition energy (in cm^-1).
-    n : float, optional
+    g_i : float
+        Degeneracy of the initial state.
+    nrefractive : float, optional
         Refractive index of the medium (default is 1.0 for vacuum).
 
     Returns
     -------
     A : float
-        Einstein A coefficient for the transition.
+        Einstein A coefficient for the transition (s^-1).
     f : float
+        Oscillator strength (dimensionless).
     """
     # Constants, in SI units
     melectron = 9.1093897e-31    # {kg}
@@ -400,9 +421,19 @@ def A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0):
 
 def add_oscillator_strengths_and_A_coefficients(groups, refractive_index=1.0):
     """
-    This function adds oscillator strengths and Einstein A coefficients 
-    to the transition groups calculated by group_transitions. 
-    This is done in place, so the input groups list is modified. 
+    Add oscillator strengths and Einstein A coefficients to transition groups.
+
+    Parameters
+    ----------
+    groups : list of dict
+        List of transition groups from group_transitions(), modified in place.
+    refractive_index : float, optional
+        Refractive index of the medium (default 1.0 for vacuum).
+
+    Returns
+    -------
+    None
+        Modifies input groups list in place, adding 'A' and 'f' fields.
     """
     for group in groups:
         group['S_ED_isotropic'] = sum(tr['S_ED_isotropic'] for tr in group['t_list'])
@@ -414,8 +445,19 @@ def add_oscillator_strengths_and_A_coefficients(groups, refractive_index=1.0):
 
 def boltzmann_factor(e, t):
     """
-    The Boltzmann factor for a given energy e and temperature t in units
-    of cm^-1 K^-1.
+    Calculate the Boltzmann factor for a given energy and temperature.
+
+    Parameters
+    ----------
+    e : float
+        Energy difference (cm^-1).
+    t : float
+        Temperature (K).
+
+    Returns
+    -------
+    float
+        Boltzmann factor (dimensionless).
     """
     if t < 0:
         ans = 0
@@ -429,7 +471,21 @@ def boltzmann_factor(e, t):
 
 def lorentzian(x, x0, fwhm):
     """
-    Lorentzian function.
+    Calculate Lorentzian line shape.
+
+    Parameters
+    ----------
+    x : float or array
+        Energy points (cm^-1).
+    x0 : float
+        Center of the Lorentzian (cm^-1).
+    fwhm : float
+        Full width at half maximum (cm^-1).
+
+    Returns
+    -------
+    float or array
+        Lorentzian function values.
     """
     gamma_sq = (fwhm / 2)**2
 
@@ -438,9 +494,32 @@ def lorentzian(x, x0, fwhm):
 
 def inten(trs, polarization, linewidth, T, xlim=None, npoints=1000):
     """
-    
+    Calculate intensity spectrum from transitions and produce spectral data.
+
     Parameters
     ----------
+    trs : list of dict
+        List of transition dictionaries, each containing 'e' (transition energy),
+        'ei' (initial state energy), and transition strengths by polarization.
+    polarization : str
+        Polarization type for intensity calculation (e.g., 'pi', 'sigma').
+    linewidth : float
+        Full width at half maximum (FWHM) of the Lorentzian line shape (cm^-1).
+    T : float
+        Temperature in Kelvin for Boltzmann factor calculation.
+    xlim : list of float, optional
+        Energy range [xmin, xmax] for plotting. If None, computed from transitions.
+    npoints : int, optional
+        Number of points in the intensity curve (default 1000).
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'curve_energies': numpy array of energy values
+        - 'curve_inten': numpy array of intensities
+        - 'line_energies': numpy array of line positions
+        - 'line_inten': numpy array of line intensities
     """
     if len(trs) == 0:
         raise ValueError("inten requires at least one transition.")
