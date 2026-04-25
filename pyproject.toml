@@ -1,0 +1,31 @@
+[build-system]
+requires = [
+  "setuptools>=68",
+  "wheel",
+  "Cython>=3",
+  "numpy>=1.26",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pycf"
+version = "0+git"
+description = "Python crystal field theory modules"
+readme = "README.rst"
+authors = [
+    {name = "Sebastian Horvath", email = "sebastian.horvath@gmail.com"},
+]
+keywords = ["crystal field", "rare earth", "magnetism"]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.10"
+
+[project.urls]
+Homepage = "https://github.com/mikereidnz/pycf"
+Repository = "https://github.com/mikereidnz/pycf"

@@ -1,107 +1,207 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from setuptools import setup, Extension
-from shutil import which
+from pathlib import Path
+from shutil import which, rmtree
+from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext
+from setuptools import Command
 
-import subprocess 
 import os
+import shlex
+import subprocess
 import sys
-from datetime import datetime
+
 import numpy as np
-try:
-    import numpy.distutils.intelccompiler
-except ImportError:
-    pass
-from Cython.Distutils import build_ext
+from Cython.Build import cythonize
 
-DEFAULT_BUILD_COMMENT = "\
-    MFR: Updated to python 3.13. \n\
-    Added conjugation before lapack call.\n\
-    Changed MAGX and MAGY to standard signs.\n\
-    C memory fixes and other minor changes may change behaviour of some calculations."
 
-try:
-    compile_args = [os.environ['CFL_CFLAGS']]
-except KeyError:
-    compile_args = []
+ROOT = Path(__file__).resolve().parent
+CFL_DIR = ROOT / "cfl"
+PYCF_DIR = ROOT / "pycf"
+PYX_FILE = PYCF_DIR / "cfl.pyx"
+VERSION_FILE = PYCF_DIR / "__version__.py"
 
-try:
-    link_args=[os.environ['CFL_LDLIBS']]
-except KeyError:
-    link_args=[]
-link_args += ['cfl/libcfl.a', '-lgsl', '-lnlopt', '-lm']
 
-if '--compiler=intel' in sys.argv:
-    icc = which('icc')
-    if icc == None:
-        raise RuntimeError("Cannot locate the icc compiler.")
-    else:
-        intelpath = icc[:-len('/bin/icc')]
+def get_git_revision() -> str:
+    proc = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return "unknown"
+    rev = proc.stdout.strip()
+    return rev or "unknown"
+
+
+def write_version_file() -> str:
+    from datetime import datetime
     
-    os.environ['CFL_CC'] = 'icc'
-    os.environ['INTEL_PATH'] = intelpath
-    compile_args += ['-openmp -I%s/include' % intelpath]
-    link_args += ['-mkl', '-lmkl_def', 
-            '-L%s/lib/intel64/' % intelpath, 
-            '-L%s/mkl/lib/intel64/' % intelpath, 
-            '-Wl,-rpath,%s/lib/intel64/' % intelpath, 
-            '-Wl,-rpath,%s/mkl/lib/intel64/' % intelpath]
-else:
-    link_args += ['-llapacke', '-llapack', '-lblas', '-lgfortran', '-lgslcblas']
-
-
-if 'clean' in sys.argv:
-    ret = subprocess.call(['make', 'clean'], cwd='./cfl')
-    if ret != 0:
-        raise RuntimeError("Clean failed for cfl.")
-else:
-    popen = subprocess.Popen(['make'], cwd='./cfl', stdout=subprocess.PIPE, universal_newlines=True)
+    git_revision = get_git_revision()
+    build_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    build_comment = os.environ.get('PYCF_BUILD_COMMENT', "Build via setup.py")
     
-    output = ""
-    for line in iter(popen.stdout.readline, ''):
+    version_text = f'''
+__version__ = "{git_revision}"
+__build_timestamp__ = "{build_timestamp}"
+__build_comment__ = "{build_comment}"
 
+'''
+    VERSION_FILE.write_text(version_text, encoding="utf-8")
+    return git_revision
+
+
+def run_make(target: str | None = None) -> str:
+    cmd = ["make"]
+    if target:
+        cmd.append(target)
+
+    proc = subprocess.Popen(
+        cmd,
+        cwd=CFL_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+    )
+
+    output = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
         sys.stdout.write(line)
-        output += line
-    
-    popen.wait()
-    if popen.returncode != 0:
-        raise RuntimeError("Building cfl failed.")
+        output.append(line)
 
-    if not "make: Nothing to be done" in output:
-        subprocess.call(['touch', 'pycf/cfl.pyx'])
+    proc.wait()
+    if proc.returncode != 0:
+        raise RuntimeError(f"`{' '.join(cmd)}` failed in cfl/.")
 
-popen = subprocess.Popen(
-    ['git', 'rev-parse', '--short', 'HEAD'],
-    stdout=subprocess.PIPE,
-    universal_newlines=True,
+    return "".join(output)
+
+
+def build_cfl() -> None:
+    output = run_make()
+
+    # Preserve the current behavior: if the C archive changed, force Cython
+    # to consider the extension stale.
+    if "Nothing to be done for 'all'." not in output and "Nothing to be done" not in output:
+        PYX_FILE.touch()
+
+
+def clean_cfl() -> None:
+    try:
+        run_make("clean")
+    except RuntimeError:
+        # Keep clean resilient if cfl/ was only partially built.
+        pass
+
+
+def split_flags(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return shlex.split(value)
+
+
+def compute_build_flags() -> tuple[list[str], list[str]]:
+    compile_args = split_flags(os.environ.get("CFL_CFLAGS"))
+    link_args = split_flags(os.environ.get("CFL_LDLIBS"))
+
+    link_args += ["cfl/libcfl.a", "-lgsl", "-lnlopt", "-lm"]
+
+    if os.environ.get("CFL_CC") == "icc":
+        intel_path = os.environ.get("INTEL_PATH")
+        if not intel_path:
+            icc = which("icc")
+            if icc is None:
+                raise RuntimeError(
+                    "CFL_CC=icc was requested but icc could not be found and "
+                    "INTEL_PATH was not provided."
+                )
+            intel_path = icc[: -len("/bin/icc")]
+
+        compile_args += [f"-I{intel_path}/include", "-openmp"]
+        link_args += [
+            "-mkl",
+            "-lmkl_def",
+            f"-L{intel_path}/lib/intel64/",
+            f"-L{intel_path}/mkl/lib/intel64/",
+            f"-Wl,-rpath,{intel_path}/lib/intel64/",
+            f"-Wl,-rpath,{intel_path}/mkl/lib/intel64/",
+        ]
+    else:
+        link_args += ["-llapacke", "-llapack", "-lblas", "-lgfortran", "-lgslcblas"]
+
+    return compile_args, link_args
+
+
+class BuildExtCommand(build_ext):
+    def run(self) -> None:
+        build_cfl()
+        super().run()
+
+
+class CleanCommand(Command):
+    description = "Clean Python and cfl build artifacts"
+    user_options: list[tuple[str, str | None, str]] = []
+
+    def initialize_options(self) -> None:
+        pass
+
+    def finalize_options(self) -> None:
+        pass
+
+    def run(self) -> None:
+        clean_cfl()
+
+        for path in [
+            ROOT / "build",
+            ROOT / "dist",
+            ROOT / "pycf.egg-info",
+        ]:
+            if path.exists():
+                rmtree(path)
+
+        for path in PYCF_DIR.glob("cfl*.so"):
+            path.unlink()
+
+        c_file = PYCF_DIR / "cfl.c"
+        if c_file.exists():
+            c_file.unlink()
+
+
+git_revision = write_version_file()
+version = f"0+{git_revision}"
+
+compile_args, link_args = compute_build_flags()
+
+ext_modules = cythonize(
+    [
+        Extension(
+            "pycf.cfl",
+            sources=["pycf/cfl.pyx"],
+            include_dirs=[
+                "cfl/include",
+                np.get_include(),
+                "/usr/include/lapacke",
+            ],
+            extra_compile_args=compile_args,
+            extra_link_args=link_args,
+        )
+    ]
 )
-git_revision = popen.communicate()[0].strip()
-if popen.returncode != 0 or not git_revision:
-    git_revision = 'unknown'
 
-build_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-build_comment = os.environ.get('PYCF_BUILD_COMMENT', DEFAULT_BUILD_COMMENT)
-
-with open('pycf/_build_info.py', 'w') as f:
-    f.write('\n__version__ = %r\n' % git_revision)
-    f.write('__build_timestamp__ = %r\n' % build_timestamp)
-    f.write('__build_comment__ = %r\n\n' % build_comment)
-
-version = '0+%s' % git_revision
-
-pycfl_ext = Extension('pycf.cfl', 
-        sources=['pycf/cfl.pyx'],
-        extra_compile_args = compile_args,
-        extra_link_args=link_args,
-        include_dirs=['cfl/include', np.get_include(), '/usr/include/lapacke'])
-
-setup(name='pycf',
-      version=version,
-      description='Python crystal field theory modules',
-      author='Sebastian Horvath',
-      author_email='sebastian.horvath@gmail.com',
-      url='https://bitbucket.org/sebastianhorvath/pycf/',
-      packages=['pycf'],
-      cmdclass = {'build_ext': build_ext},
-      ext_modules = [pycfl_ext],
-      )
+setup(
+    name="pycf",
+    version=version,
+    description="Python crystal field theory modules",
+    long_description=(ROOT / "README.rst").read_text(encoding="utf-8"),
+    author="Sebastian Horvath",
+    author_email="sebastian.horvath@gmail.com",
+    url="https://github.com/mikereidnz/pycf",
+    packages=["pycf"],
+    ext_modules=ext_modules,
+    cmdclass={
+        "build_ext": BuildExtCommand,
+        "clean": CleanCommand,
+    },
+    zip_safe=False,
+)

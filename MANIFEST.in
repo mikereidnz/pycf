@@ -1,0 +1,26 @@
+include README.rst
+include TODO.rst
+include pyproject.toml
+include setup.py
+
+include cfl/makefile
+include cfl/cfl_testing.sh
+recursive-include cfl/include *.h
+recursive-include cfl/src *.c
+recursive-include cfl/tests *.c
+
+recursive-include pycf *.py
+recursive-include pycf *.pyx
+recursive-include pycf *.pxd
+
+recursive-include tests *.py
+recursive-include tests *.txt
+recursive-include tests *.mi_
+recursive-include tests *.st_
+
+recursive-include examples *.py
+recursive-include examples *.txt
+recursive-include examples *.mi_
+recursive-include examples *.st_
+
+recursive-include doc *.rst
