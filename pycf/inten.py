@@ -7,6 +7,8 @@ A rewrite of the intensity calculation to follow the old Pascal code more closel
 
 import numpy as np
 from pycf.njsymbols import wigner_3j
+from pycf.constants import (ELECTRON_MASS, ELEMENTARY_CHARGE, EPSILON_0, HBAR,
+                             SPEED_OF_LIGHT, BOLTZMANN_CM_INVERSE)
 from operator import itemgetter
 
 def vtrans(tensors, z):
@@ -386,12 +388,12 @@ def A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0):
         Oscillator strength (dimensionless).
     """
     # Constants, in SI units
-    melectron = 9.1093897e-31    # {kg}
-    echarge   = 1.60217733e-19   # {C}
-    epsilon0  = 8.8541878e-12    # {NA-2}
-    hbar      = 1.05457266e-34   # {Js}
-    clight    = 2.997924580e8    # {ms-1}
-    rpi       = 3.14159265358972 # {dimensionless}
+    melectron = ELECTRON_MASS
+    echarge   = ELEMENTARY_CHARGE
+    epsilon0  = EPSILON_0
+    hbar      = HBAR
+    clight    = SPEED_OF_LIGHT
+    rpi       = np.pi
 
     if energy == 0:
         lambda_ = 0
@@ -464,7 +466,7 @@ def boltzmann_factor(e, t):
     elif t == 0:
         ans = 1
     else:
-        ans = np.exp(-e / (t * 0.6952))
+        ans = np.exp(-e / (t * BOLTZMANN_CM_INVERSE))
 
     return(ans)
       

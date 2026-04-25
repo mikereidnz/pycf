@@ -7,6 +7,7 @@
 import numpy as np
 from scipy.special import sph_harm
 from pycf.njsymbols import wigner_3j
+from pycf.constants import BOHR_RADIUS
 
 def Xi_val(t, l, Ln):
     """
@@ -78,7 +79,7 @@ def RInt4f(l, Ln):
     """
     # Bohr radius in Angstrom
     # (https://physics.nist.gov/cgi-bin/cuu/Value?bohrrada0)
-    a0 = 0.529177210903
+    a0 = BOHR_RADIUS
     
     # Units in Freeman and Watson are specified as a0^{-lambda}, but I can't
     # make sense of inverse length for the radial integrals?  Treating as

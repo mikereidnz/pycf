@@ -34,6 +34,7 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.projections import register_projection
+from pycf.constants import BOLTZMANN_CM_INVERSE
 
 
 #TODO:
@@ -810,7 +811,7 @@ class SpectrumData(BaseEmp):
             elif t == 0:
                 ans = 1
             else:
-                ans = np.exp(-e / (t * 0.6952))
+                ans = np.exp(-e / (t * BOLTZMANN_CM_INVERSE))
             return(ans)
         
         def __lorentzian(x, x0, fwhm):
