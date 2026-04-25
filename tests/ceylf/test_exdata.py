@@ -115,6 +115,35 @@ def test_exdata(data_sel) -> None:
     for label, value in fit_coeff.items():
         print(label, value, ' should be equal to ', expected_coeff[label])
         assert value == pytest.approx(expected_coeff[label], rel=tolerance)
+
+
+def test_exdata_missing_files() -> None:
+    """Test that ImportSLJM raises error when files are missing."""
+    nonexistent_path = Path(__file__).resolve().parent / "nonexistent_matel" / "fake_data"
+    with pytest.raises(FileNotFoundError):
+        ImportSLJM(str(nonexistent_path))
+
+
+def test_exdata_invalid_mode() -> None:
+    """Test that state label mode without label_key raises TypeError."""
+    ex = np.array([[1, 2, 3, 4, 100], [2, 3, 5, 1, 200]])
+    with pytest.raises(TypeError):
+        cfl.ExData(ex, 'AS')
+
+
+def test_exdata_empty_abs_valid() -> None:
+    """Test that empty absolute energy data is accepted (no-op case)."""
+    ex = np.array([]).reshape(0, 2)
+    exdata = cfl.ExData(ex, 'A')
+    assert exdata is not None
+
+
+def test_exdata_invalid_weights() -> None:
+    """Test that mismatched weights raise ValueError."""
+    ex = np.array([[1, 100], [2, 200]])
+    with pytest.raises(ValueError):
+        cfl.ExData(ex, 'A', weights=np.array([1]))  # Only 1 weight for 2 data points
+
  
 if __name__ == '__main__':
     # for running from spyder or as a stand-alone file
@@ -127,5 +156,3 @@ if __name__ == '__main__':
         ]
     for data_sel in data_sel_list:
         test_exdata(data_sel)
-    
-    
