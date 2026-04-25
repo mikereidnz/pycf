@@ -23,9 +23,31 @@
  *
  * Spin Hamiltonian data structure used for spin Hamiltonian projection from a
  * complete Hamiltonian (see cfl_h.c) and inversion of spin Hamiltonians to
- * obtain the spin Hamiltonian parameter matrices. 
+ * obtain the spin Hamiltonian parameter matrices.
  *
- * TODO: explain call sequence of gen sort, proj, and inv. 
+ * Call Sequence
+ * =============
+ *
+ * 1. GENERATE: zsh_alloc()
+ *    - Allocates the spin Hamiltonian structure and inversion data arrays
+ *    - Stores inversion coefficient matrices (A from Ax=b)
+ *    - Initializes interaction types and Kramers symmetry information
+ *
+ * 2. SET PROJECTION: zsh_set_pro()
+ *    - Configures projection tensors and coupling strengths
+ *    - Maps full-dimension tensor to spin Hamiltonian subspace
+ *    - Stores projection data and tensor state labels
+ *
+ * 3. SORT/PREPARE: zshp_w_alloc()
+ *    - Allocates workspace for projection/inversion operations
+ *    - Prepares LAPACK work arrays and intermediate storage buffers
+ *    - Creates SVD symmetrization workspace if needed
+ *
+ * 4. INVERT: zshp()
+ *    - Computes spin Hamiltonian parameter matrices via least-squares inversion
+ *    - Projects full-dimension matrix elements into spin Hamiltonian space
+ *    - Solves Ax=b using LAPACK (zgels) to extract parameter tensors
+ *    - Optionally symmetrizes results via SVD decomposition
  */
 
 #include <stdio.h>
