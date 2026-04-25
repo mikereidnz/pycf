@@ -119,13 +119,16 @@ void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
     double *new_B = (double *) realloc(za->B, (size_t)new_size*3*sizeof(double));
     if (new_B == 0) {
       CFL_ERROR_VOID("realloc failed for za->B");
-      return;  /* Fail atomically without modifying za */
+      return;  /* Fail atomically; original za->B unchanged */
     }
     double *new_v = (double *) realloc(za->v, (size_t)new_size*3*sizeof(double));
     if (new_v == 0) {
-      /* Revert new_B to original by re-allocating; this is safer than partial updates. */
+      /* new_v failed, but new_B was allocated. Revert new_B to avoid partial state.
+       * In production, we could try to recover, but safest is to free new_B and
+       * return without modifying za at all. */
       CFL_ERROR_VOID("realloc failed for za->v");
-      return;  /* Fail atomically; realloc of B was for nothing but at least not corrupted */
+      free(new_B);  /* Free the successfully allocated new_B */
+      return;  /* Fail atomically; za remains in consistent state */
     }
     /* Both reallocs succeeded; commit both pointers and the new capacity. */
     za->B = new_B;
