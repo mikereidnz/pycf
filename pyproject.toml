@@ -13,7 +13,10 @@ version = "0+git"
 description = "Python crystal field theory modules"
 readme = "README.rst"
 authors = [
-    {name = "Sebastian Horvath", email = "sebastian.horvath@gmail.com"},
+    {name = "Mike Reid", email = "mike.reid@canterbury.ac.nz"},
+]
+maintainers = [
+    {name = "Mike Reid", email = "mike.reid@canterbury.ac.nz"},
 ]
 keywords = ["crystal field", "rare earth", "magnetism"]
 classifiers = [
@@ -41,3 +44,4 @@ examples = [
 [project.urls]
 Homepage = "https://github.com/mikereidnz/pycf"
 Repository = "https://github.com/mikereidnz/pycf"
+"Legacy Repository" = "https://bitbucket.org/sebastianhorvath/pycf/"

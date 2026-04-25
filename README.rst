@@ -30,6 +30,12 @@ pycf is a collection of Python modules for crystal field theory and spin Hamilto
 - `doc/ <doc/>`_ — Design notes and technical documentation
 - `examples/ <examples/>`_ — Material-specific usage examples
 
+**Authorship**
+
+Originally developed by Sebastian Horvath (sebastian.horvath@gmail.com). Currently maintained by Mike Reid (mike.reid@canterbury.ac.nz).
+
+A legacy version is available at https://bitbucket.org/sebastianhorvath/pycf/.
+
 **License**
 
-GNU General Public License v3 (GPLv3) 
+GNU General Public License v3 (GPLv3)
