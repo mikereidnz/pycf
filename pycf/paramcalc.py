@@ -5,7 +5,7 @@
 # Intensity calculations are in inten.py 
 
 import numpy as np
-from scipy.special import sph_harm
+from scipy.special import sph_harm_y
 from pycf.njsymbols import wigner_3j
 from pycf.constants import BOHR_RADIUS
 
@@ -179,7 +179,7 @@ def Ckq(k, q, theta, phi):
     if abs(q) > k:
         raise ValueError(f"q must satisfy |q| <= k (got q={q}, k={k})")
     
-    C = np.sqrt((4*np.pi)/(2*k+1)) * sph_harm(q, k, phi, theta)
+    C = np.sqrt((4*np.pi)/(2*k+1)) * sph_harm_y(k, q, theta, phi)
     
     return C 
 
