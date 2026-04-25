@@ -233,11 +233,69 @@ make -C cfl test
 make -C cfl test && python -m pytest tests/ -q
 ```
 
-#### Step 4: Clean Build Artifacts
+#### Step 6: Clean Build Artifacts
 
 ```bash
 python setup.py clean
 ```
+
+---
+
+### Option C: Performance Optimization (Advanced)
+
+By default, pycf is built with portable compiler flags (`-march=x86-64 -mtune=generic`) to ensure compatibility across different machines. If you want maximum performance on your specific hardware, you can enable CPU-specific optimizations.
+
+#### CPU-Native Optimization
+
+This option builds pycf optimized specifically for your CPU's instruction set, which can provide **2-5% additional performance** over the default portable build.
+
+**⚠️ Important Limitations:**
+- The resulting binary will **only run on CPUs with the same or newer instruction sets**
+- **Do not use this if you plan to:**
+  - Share the binary with others
+  - Use CI/CD pipelines or GitHub Actions
+  - Deploy to cloud environments (AWS, Azure, GCP)
+  - Run in containers (Docker, Singularity)
+  - Deploy to HPC clusters with heterogeneous hardware
+- **Safe to use only if you:**
+  - Build and run on the same specific machine
+  - Never distribute the binary
+
+#### How to Use CPU-Native Optimization
+
+```bash
+# Option 1: Environment variable (recommended for temporary builds)
+export CFL_CFLAGS="-march=native"
+pip install -e .
+
+# Option 2: One-line build
+CFL_CFLAGS="-march=native" pip install -e .
+
+# Option 3: Edit the makefile directly (for permanent use)
+# Edit cfl/makefile line 4:
+# CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -fopenmp -I/usr/include/lapacke
+```
+
+#### Verify Your CPU's Capabilities
+
+To see what instruction sets your CPU supports and what will be optimized:
+
+```bash
+# Show instruction sets detected by GCC for your CPU
+gcc -march=native -dM -E - < /dev/null | grep -E "AVX|SSE|BMI|FMA"
+
+# Show all CPU flags (longer list)
+cat /proc/cpuinfo | grep flags | head -1
+```
+
+#### Performance vs. Portability Trade-off
+
+| Configuration | Portability | Performance | Use Case |
+|---------------|-------------|-------------|----------|
+| `-march=x86-64` (default) | ✅ High (any x86-64 CPU since 2013) | 100% | Distribution, CI/CD, sharing |
+| `-march=native` | ❌ Low (only your CPU or newer) | 102-105% | Single-machine, personal use |
+
+For most users, the default `-march=x86-64` is recommended because **OpenMP parallelization provides 2-8x speedup**, which far outweighs the 2-5% optimization from native tuning.
 
 ---
 
