@@ -42,7 +42,7 @@ def nn_coords(struct, site, r):
 
 # cif file from https://materialsproject.org/materials/mp-19426/
 parser = CifParser("CaWO4_mp-19426_conventional_standard.cif")
-cawo4_struct = parser.get_structures()[0]
+cawo4_struct = parser.parse_structures(primitive=False)[0]
 
 # Add nearest neighbors in 3 Angstrom radius to summary string, which is all the
 # oxygens.
