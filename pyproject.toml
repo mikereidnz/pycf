@@ -8,7 +8,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pycf"
+name = "pycf-crystalfield"
 dynamic = ["version"]
 description = "Python crystal field theory modules"
 readme = "README.rst"
