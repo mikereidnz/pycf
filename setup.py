@@ -120,11 +120,12 @@ def find_lapacke_include() -> str:
     
     # Try common system paths
     candidates = [
-        "/usr/include/lapacke",           # Linux (Debian/Ubuntu/RHEL)
-        "/usr/local/opt/lapack/include",  # macOS Homebrew (Intel)
-        "/opt/homebrew/opt/lapack/include",  # macOS Homebrew (Apple Silicon)
-        "/opt/local/include",             # MacPorts
-        "/usr/local/include",             # Generic custom installs
+        "/usr/include",                       # Linux (most common - directly in /usr/include)
+        "/usr/include/lapacke",               # Linux (alternative - separate lapacke dir)
+        "/usr/local/opt/lapack/include",      # macOS Homebrew (Intel)
+        "/opt/homebrew/opt/lapack/include",   # macOS Homebrew (Apple Silicon)
+        "/opt/local/include",                 # MacPorts
+        "/usr/local/include",                 # Generic custom installs
     ]
     
     for path in candidates:
@@ -134,7 +135,7 @@ def find_lapacke_include() -> str:
     # No LAPACKE headers found - raise error
     raise RuntimeError(
         "LAPACKE headers not found. Please either:\n"
-        "1. Install LAPACK development files (e.g., liblapack-dev on Debian/Ubuntu)\n"
+        "1. Install LAPACK development files (e.g., liblapacke-dev on Debian/Ubuntu)\n"
         "2. Set LAPACKE_INCLUDE_DIR environment variable to the directory containing lapacke.h\n"
         "3. Install via Homebrew: brew install lapack"
     )

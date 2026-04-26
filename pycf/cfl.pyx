@@ -246,10 +246,11 @@ cdef class Tensor:
 
     def __dealloc__(self):
         if self.t_cap is not None:
-            # Check if capsule is valid before attempting to access it.
-            # PyCapsule_IsValid returns 1 if valid, 0 otherwise.
-            if PyCapsule_IsValid(self.t_cap, "pycfl.Tensor"):
-                cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
+            try:
+                if PyCapsule_IsValid(self.t_cap, "pycfl.Tensor"):
+                    cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
+            except (TypeError, ValueError):
+                pass
     
     def __add__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
