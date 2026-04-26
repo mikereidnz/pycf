@@ -6,7 +6,6 @@ import pytest
 
 import pycf
 import pycf.cfl as cfl
-from pycf.cfl_util import *
 from pycf.import_sljm import ImportSLJM
 
 

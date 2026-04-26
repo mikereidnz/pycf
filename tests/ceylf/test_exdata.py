@@ -15,7 +15,7 @@ MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"
 #  python -m pytest tests
 @pytest.mark.parametrize("data_sel", ["abs", "abs_diff", "sl_diff"])
 def test_exdata(data_sel) -> None:
-    #### Example for Ce:YLF, w/ data from 10.1016/j.optmat.2015.06.046
+    # Example for Ce:YLF, w/ data from 10.1016/j.optmat.2015.06.046
     # Select what kind of experimental energy level data should be used
     # Options:  abs - absolute energy level values
     #           abs_diff - absolute energy level data incl. level differences

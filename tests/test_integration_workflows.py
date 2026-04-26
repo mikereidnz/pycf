@@ -10,8 +10,6 @@ Tests verify end-to-end scenarios:
 import numpy as np
 import pytest
 
-from pycf import cfl
-
 
 class TestHamiltonianIntegration:
     """Integration tests for Hamiltonian workflow."""
@@ -33,7 +31,7 @@ class TestParameterValidation:
 
     def test_crystal_field_parameter_bounds(self):
         """Verify CF parameter bounds are enforced."""
-        from pycf.paramcalc import Ckq, RInt4f, Xi_val
+        from pycf.paramcalc import RInt4f, Xi_val
 
         # Valid parameters work
         xi = Xi_val(1, 2, "Er")

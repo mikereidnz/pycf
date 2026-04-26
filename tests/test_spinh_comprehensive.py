@@ -10,7 +10,6 @@ Tests cover core spin Hamiltonian functionality including:
 """
 
 import numpy as np
-import pytest
 
 from pycf.matel import matel
 from pycf.spinh import param_ten_svd, su2_rotation, su2_rz

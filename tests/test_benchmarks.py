@@ -11,14 +11,14 @@ import numpy as np
 import pytest
 
 try:
-    import pytest_benchmark
+    import pytest_benchmark  # noqa: F401
 
     HAS_BENCHMARK = True
 except ImportError:
     HAS_BENCHMARK = False
     pytest.skip("pytest-benchmark not installed", allow_module_level=True)
 try:
-    from pycf import cfl
+    import pycf.cfl  # noqa: F401
 except ImportError:
     pytest.skip("pycf not installed", allow_module_level=True)
 

@@ -5,8 +5,6 @@ Verifies that custom error handlers work correctly and that
 errors are properly routed through the logging system.
 """
 
-import pytest
-
 import pycf.cfl as cfl
 
 

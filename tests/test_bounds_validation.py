@@ -8,7 +8,7 @@ for physical plausibility (e.g., positive temperatures, positive linewidths).
 import numpy as np
 import pytest
 
-from pycf.inten import boltzmann_factor, inten, lorentzian
+from pycf.inten import inten, lorentzian
 from pycf.paramcalc import Ckq, RInt4f, Xi_val
 
 
