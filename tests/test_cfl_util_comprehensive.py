@@ -168,13 +168,17 @@ class TestWignerR:
 
     def test_WignerR_j_half_integer(self) -> None:
         """Test Wigner-R with half-integer j."""
-        try:
-            result = WignerR(0.5, 0, 0, 0, 0, 0)
-            assert isinstance(result, complex)
-            # Half-integer j may return NaN depending on implementation
-        except (ValueError, RuntimeWarning):
-            # Some cases may raise exceptions
-            pass
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            try:
+                result = WignerR(0.5, 0, 0, 0, 0, 0)
+                assert isinstance(result, complex)
+                # Half-integer j may return NaN depending on implementation
+            except ValueError:
+                # Some cases may raise exceptions
+                pass
 
     def test_WignerR_various_arguments(self) -> None:
         """Test Wigner-R with various valid argument combinations."""
