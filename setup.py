@@ -36,6 +36,20 @@ def get_git_revision() -> str:
     return rev or "unknown"
 
 
+def is_release_tag() -> bool:
+    """Check if current HEAD is tagged with a release tag (v*.*.*)"""
+    proc = subprocess.run(
+        ["git", "describe", "--tags", "--exact-match", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return False
+    tag = proc.stdout.strip()
+    return tag.startswith("v") and tag[1].isdigit()
+
+
 def write_version_file() -> str:
     from datetime import datetime
     
@@ -44,10 +58,12 @@ def write_version_file() -> str:
     build_comment = os.environ.get('PYCF_BUILD_COMMENT', "Build via setup.py")
     
     # Use a valid PEP 440 version format
-    # Base version + dev suffix with git hash for development builds
+    # For release tags (v0.1.0), use just the base version
+    # For dev builds, add .dev0+git_hash
     base_version = "0.1.0"
-    if git_revision != "unknown":
-        # Use PEP 440 local version identifier
+    if is_release_tag():
+        version_str = base_version
+    elif git_revision != "unknown":
         version_str = f"{base_version}.dev0+{git_revision}"
     else:
         version_str = base_version
