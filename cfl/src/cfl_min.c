@@ -464,7 +464,7 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
   /* Run the minimization. */
   status = gsl_multimin_fminimizer_set(w->s, w->f, w->v, w->ssv);
   if (status) {
-    CFL_ERROR_VOID("gsl_multimin_fminimizer_set failed");
+    CFL_ERROR_VAL("gsl_multimin_fminimizer_set failed", -1);
   }
   
   do {
