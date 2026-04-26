@@ -52,9 +52,7 @@ def test_inten_c3() -> None:
     MX.name = "MX"
     MY.name = "MY"
     MZ.name = "MZ"
-    h = cfl.Hamiltonian(
-        [t.EAVG, t.ZETA, t.C20, t.C40, t.C43, t.C60, t.C63, t.C66, MX, MY, MZ]
-    )
+    h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C43, t.C60, t.C63, t.C66, MX, MY, MZ])
     h.set_coeff(coeff)
     ex = np.array(
         [
@@ -110,6 +108,7 @@ def test_inten_c3() -> None:
     trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
     # sort the dictionary
     from operator import itemgetter
+
     trs.sort(key=itemgetter("e"))
     labels = h.tensors[0].states.labels
     print("\ntrs\n")
@@ -132,11 +131,9 @@ def test_inten_c3() -> None:
         print(
             "\tD_ISO:",
             "\tED:",
-            (abs(line["ed_-1"]) ** 2 + abs(line["ed_0"]) ** 2 + abs(line["ed_+1"]) ** 2)
-            / 3,
+            (abs(line["ed_-1"]) ** 2 + abs(line["ed_0"]) ** 2 + abs(line["ed_+1"]) ** 2) / 3,
             "\tMD:",
-            (abs(line["md_-1"]) ** 2 + abs(line["md_0"]) ** 2 + abs(line["md_+1"]) ** 2)
-            / 3,
+            (abs(line["md_-1"]) ** 2 + abs(line["md_0"]) ** 2 + abs(line["md_+1"]) ** 2) / 3,
             "\tTOT:",
             line["isotropic"],
         )
@@ -200,6 +197,7 @@ def test_inten_c3() -> None:
     trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
     # sort the dictionary
     from operator import itemgetter
+
     trs.sort(key=itemgetter("e"))
     labels = h.tensors[0].states.labels
     print("\ntrs\n")
@@ -222,11 +220,9 @@ def test_inten_c3() -> None:
         print(
             "\tD_ISO:",
             "\tED:",
-            (abs(line["ed_-1"]) ** 2 + abs(line["ed_0"]) ** 2 + abs(line["ed_+1"]) ** 2)
-            / 3,
+            (abs(line["ed_-1"]) ** 2 + abs(line["ed_0"]) ** 2 + abs(line["ed_+1"]) ** 2) / 3,
             "\tMD:",
-            (abs(line["md_-1"]) ** 2 + abs(line["md_0"]) ** 2 + abs(line["md_+1"]) ** 2)
-            / 3,
+            (abs(line["md_-1"]) ** 2 + abs(line["md_0"]) ** 2 + abs(line["md_+1"]) ** 2) / 3,
             "\tTOT:",
             line["isotropic"],
         )
@@ -292,6 +288,7 @@ def test_inten_c3() -> None:
     trs_em = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
     # sort the dictionary
     from operator import itemgetter
+
     trs_em.sort(key=itemgetter("e"))
     labels = h.tensors[0].states.labels
     # print('\ntrs_em\n')
@@ -343,6 +340,8 @@ def test_inten_c3() -> None:
         pascal_A, rel=tolerance
     ), f"Atotal \
         {A_total} differs from Pascal calculation {pascal_A} by more than the tolerance of {tolerance}"
+
+
 if __name__ == "__main__":
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()

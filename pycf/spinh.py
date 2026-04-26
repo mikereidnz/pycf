@@ -17,6 +17,7 @@ Key workflow:
   3. Extract effective spin Hamiltonian parameters
   4. Verify by comparing predicted vs. experimental properties
 """
+
 # Copyright (C) 2013-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -79,6 +80,8 @@ def bmj(v: np.ndarray, m: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
                     elem += v[i] * m[i, j] * t[j][tr, tc]
             result[tr, tc] = elem
     return result
+
+
 def ias(t1: List[np.ndarray], m: np.ndarray, t2: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `IAS` term, an array of size `(2 \times j_1+1) \times (2 \times
@@ -116,6 +119,8 @@ def ias(t1: List[np.ndarray], m: np.ndarray, t2: List[np.ndarray]) -> np.ndarray
                             elem += t1[i][t1r, t1c] * m[i, j] * t2[j][t2r, t2c]
                     result[t1r + t1l * t2r, t1c + t1l * t2c] = elem
     return result
+
+
 def iqi(t: List[np.ndarray], m: np.ndarray) -> np.ndarray:
     r"""
     Generate the `IQI` term, an array of size `(2 \times j + 1)` by `(2 \times j
@@ -149,6 +154,8 @@ def iqi(t: List[np.ndarray], m: np.ndarray) -> np.ndarray:
                     elem += m[i, j] * components
             result[tr, tc] = elem
     return result
+
+
 def bi(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BI` term, an array of size `(2 \times j + 1)` by `(2 \times j
@@ -179,6 +186,8 @@ def bi(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
                 elem += v[i] * t[i][tr, tc]
             result[tr, tc] = elem
     return result
+
+
 def bmj_coeff_array(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BgS` or `BMI` coefficient array.  This consists of a `2j+1
@@ -209,6 +218,8 @@ def bmj_coeff_array(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
                 for j in range(l):
                     bmj_a[tr, tc, i, j] = v[i] * t[j][tr, tc]
     return np.reshape(bmj_a, (tl * tl, l * l))
+
+
 def ias_coeff_array(t1: List[np.ndarray], t2: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `IAS` coefficient array.  This consists of a `2j_1+1 \times
@@ -244,6 +255,8 @@ def ias_coeff_array(t1: List[np.ndarray], t2: List[np.ndarray]) -> np.ndarray:
                                 t1[i][t1r, t1c] * t2[j][t2r, t2c]
                             )
     return np.reshape(ias_a, (t1l * t2l * t1l * t2l, l * l))
+
+
 def iqi_coeff_array(t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `IQI` coefficient array.  This consists of a `2j+1 \times 2j+1`
@@ -275,6 +288,8 @@ def iqi_coeff_array(t: List[np.ndarray]) -> np.ndarray:
                         components += t[i][tr, ci] * t[j][ci, tc]
                     iqi_a[tr, tc, i, j] = components
     return np.reshape(iqi_a, (tl * tl, l * l))
+
+
 def invert_term(coeff_a: np.ndarray, b: np.ndarray) -> np.ndarray:
     r"""
     Invert a spin Hamiltonian term.
@@ -302,6 +317,8 @@ def invert_term(coeff_a: np.ndarray, b: np.ndarray) -> np.ndarray:
     # Solve the equation coeff_a * x = b for x.
     # Fix: explicitly set rcond to suppress FutureWarning
     return np.real(lstsq(coeff_a, b, rcond=None)[0])
+
+
 def su2_rz(p: float, m: np.ndarray) -> np.ndarray:
     """
     Apply an SU(2) rotation about the z-axis of the spin-half matrix elements of a
@@ -326,6 +343,8 @@ def su2_rz(p: float, m: np.ndarray) -> np.ndarray:
     mp[0::2, 1::2] = m[0::2, 1::2] * t
     mp[1::2, 0::2] = m[1::2, 0::2] * np.conj(t)
     return mp
+
+
 def su2_rz_lsq_f(p: float, coeff_a: np.ndarray, b: np.ndarray) -> float:
     """
     Helper function for least squares fitting of the SU(2) rotation required to
@@ -361,6 +380,8 @@ def su2_rz_lsq_f(p: float, coeff_a: np.ndarray, b: np.ndarray) -> float:
     for i in [(1, 3), (2, 6), (5, 7)]:
         r += np.abs(tensor[i[0]] - tensor[i[1]])
     return r
+
+
 def su2_rotation(p: np.ndarray, m: np.ndarray) -> np.ndarray:
     """
     Apply an SU(2) rotation an about the z, y, and x axes respectively to the
@@ -407,6 +428,8 @@ def su2_rotation(p: np.ndarray, m: np.ndarray) -> np.ndarray:
                 rotation,
             )
     return rm
+
+
 def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> float:
     """
     Helper function for least squares fitting of the SU(2) rotation required to
@@ -443,10 +466,14 @@ def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> flo
     for i in [(1, 3), (2, 6), (5, 7)]:
         r += np.abs(tensor[i[0]] - tensor[i[1]])
     return r
+
+
 def param_ten_svd(t: np.ndarray) -> np.ndarray:
     U, s, Vh = svd(t)
     t = np.dot(t, Vh.T).dot(U.T)
     return t
+
+
 class SpinH(object):
     r"""
     Container for holding data about the spin Hamiltonian.  Can either be used
@@ -486,6 +513,7 @@ class SpinH(object):
     -------
     object : SpinH
     """
+
     def __init__(self, terms, **kwargs):
         # Bohr magneton in MHz/T
         # http://physics.nist.gov/cgi-bin/cuu/Value?mubshhz|search_for=bohr+magneton
@@ -565,16 +593,13 @@ class SpinH(object):
             # Use identity comparison rather than == for booleans.
             if kwargs["inv"] is True:
                 if "bi" in terms:
-                    raise ValueError(
-                        "Nuclear Zeeman cannot be inverted" " (no parameter matrix)."
-                    )
+                    raise ValueError("Nuclear Zeeman cannot be inverted" " (no parameter matrix).")
                 self.H_terms = {}
                 self.coeff_a = {}
                 if "bgs" in terms:
                     if not isinstance(B, list):
                         raise TypeError(
-                            "When passing inv = True, B must be a"
-                            "list of numpy.ndarrays."
+                            "When passing inv = True, B must be a" "list of numpy.ndarrays."
                         )
                     S_dimsq = int((2 * S + 1) ** 2)
                     B_a = np.zeros([len(B), S_dimsq, 9], dtype=complex)
@@ -588,8 +613,7 @@ class SpinH(object):
                 if "bmi" in terms:
                     if not isinstance(B, list):
                         raise TypeError(
-                            "When passing inv = True, B must be a"
-                            "list of numpy.ndarrays."
+                            "When passing inv = True, B must be a" "list of numpy.ndarrays."
                         )
                     I_dimsq = int((2 * I + 1) ** 2)
                     B_a = np.zeros([len(B), I_dimsq, 9], dtype=complex)
@@ -602,6 +626,7 @@ class SpinH(object):
                     "valid values are either True or False."
                 )
             self.inv = kwargs["inv"]
+
     def add_term(self, term, m):
         r"""
         Add the specified parameter matrix to the spin Hamiltonian.
@@ -620,6 +645,7 @@ class SpinH(object):
                 "This SpinH object was not instantiated "
                 "with support for the specified term: {}".format(term)
             )
+
         def bgs_helper(mat, hdim):
             """
             Create matrix with dimension of hdim, with elements of mat in
@@ -633,6 +659,7 @@ class SpinH(object):
                 for c in range(matd):
                     H[r * bd : (r + 1) * bd, c * bd : (c + 1) * bd] += d * mat[r, c]
             return H
+
         if term == "bgs":
             # Create list of H_dim/(2*S + 1) length and block diagonalize.
             self.terms["bgs"] = bgs_helper(bmj(self.B, m, self.S_m), self.H_dim)
@@ -652,6 +679,7 @@ class SpinH(object):
         elif term == "bmi":
             # bmi is of correct dimension for non-Kramers ions.
             self.terms["bmi"] = bmj(self.B, m, self.I_m)
+
     def add_H_term(self, term, val):
         r"""
         Extract the elements of the specified term from a spin Hamiltonian with
@@ -688,6 +716,7 @@ class SpinH(object):
             self.H_terms["iqi"] = val[:I_dim, :I_dim]
         elif term == "bmi":
             self.H_terms["bmi"] = np.array(val)
+
     def inv_term(self, term, sym=False, sym_phase=None):
         r"""
         Invert the specified term of this spin Hamiltonian.
@@ -720,12 +749,12 @@ class SpinH(object):
                 "with support for the specified term: {}".format(term)
             )
         if sym:
+
             def print_fun(x, f, accepted):
                 print("Symmeterization minimum %.4f accepted %d" % (f, int(accepted)))
+
             if sym_phase is None:
-                fmin = lambda p: su2_rotation_lsq_f(
-                    p, self.coeff_a[term], self.H_terms[term]
-                )
+                fmin = lambda p: su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
                 r = basinhopping(
                     fmin,
                     [0, 0, 0],
@@ -751,6 +780,7 @@ class SpinH(object):
             self.sym_phase = [0, 0, 0]
         m = invert_term(self.coeff_a[term], self.H_terms[term])
         return m
+
     def get_H(self):
         r"""
         Calculate the full Hamiltonian and return the result.

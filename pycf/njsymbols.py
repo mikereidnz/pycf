@@ -24,6 +24,7 @@ All symbols support both integer and half-integer quantum numbers
 Used throughout pycf for building tensor operators and calculating
 matrix elements in crystal field Hamiltonians.
 """
+
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -56,6 +57,8 @@ def tricon_ck(a: float | int, b: float | int, c: float | int) -> bool:
     three integers or half-integers a, b and c is satisfied.
     """
     return a + b >= c and c >= np.abs(a - b)
+
+
 def wigner_3j(
     j1: float | int,
     j2: float | int,
@@ -96,6 +99,7 @@ def wigner_3j(
     Uses the algorithm from Wybourne, notes on "Analysis of Hyperfine Structure
     in Crystals."
     """
+
     def phase(n):
         "(-1)^n which for n an integer (both positive and negative)"
         if n % 2 == 0:
@@ -103,6 +107,7 @@ def wigner_3j(
         else:
             p = -1
         return p
+
     if not tricon_ck(j1, j2, j3):
         result = 0
     elif m1 + m2 + m3 != 0:
@@ -150,6 +155,8 @@ def wigner_3j(
             )
         )
     return result
+
+
 def wigner_6j(
     a: float | int,
     b: float | int,
@@ -188,6 +195,7 @@ def wigner_6j(
     Uses the algorithm on page 99 of Edmonds - Angular Momentum in Quantum
     Mechanics.
     """
+
     def triad(a, b, c):
         """
         Evaluate the triangular portion of the 6j symbol formula.
@@ -199,12 +207,8 @@ def wigner_6j(
             / factorial(a + b + c + 1)
         )
         return r
-    if (
-        tricon_ck(a, b, c)
-        and tricon_ck(d, b, f)
-        and tricon_ck(d, e, c)
-        and tricon_ck(a, e, f)
-    ):
+
+    if tricon_ck(a, b, c) and tricon_ck(d, b, f) and tricon_ck(d, e, c) and tricon_ck(a, e, f):
         pre_fact = triad(a, b, c) * triad(a, e, f) * triad(d, b, f) * triad(d, e, c)
         xmin = max(a + b + c, a + e + f, d + b + f, d + e + c)
         xmax = min(a + b + d + e, b + c + e + f, c + a + f + d)
@@ -230,6 +234,8 @@ def wigner_6j(
     else:
         result = 0
     return result
+
+
 def wigner_9j(
     a: float | int,
     b: float | int,

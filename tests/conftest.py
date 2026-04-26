@@ -7,6 +7,7 @@ This module provides reusable fixtures for:
 - ExData (experimental data) setup for different test scenarios
 - Common test parameters and data paths
 """
+
 from pathlib import Path
 
 import numpy as np
@@ -23,22 +24,32 @@ from pycf.import_sljm import ImportSLJM
 def ceylf_matel_path():
     """Path to Ce:YLF crystal field matrix elements directory."""
     return Path(__file__).resolve().parent / "ceylf" / "matel" / "f1cf"
+
+
 @pytest.fixture
 def ceylf_inten_path():
     """Path to Ce:YLF intensity matrix elements directory."""
     return Path(__file__).resolve().parent / "inten" / "matel" / "f1int"
+
+
 @pytest.fixture
 def inten_c1_matel_path():
     """Path to C1 intensity test matrix elements directory."""
     return Path(__file__).resolve().parent / "inten" / "matel" / "f1cf"
+
+
 @pytest.fixture
 def inten_c3_matel_path():
     """Path to C3 intensity test matrix elements directory."""
     return Path(__file__).resolve().parent / "inten" / "matel" / "f1cf"
+
+
 @pytest.fixture
 def eryso_path():
     """Path to Er:YSO example data directory."""
     return Path(__file__).resolve().parent / "eryso"
+
+
 # ============================================================================
 # ImportSLJM Fixtures (Tensor Loading)
 # ============================================================================
@@ -46,18 +57,26 @@ def eryso_path():
 def ceylf_tensors(ceylf_matel_path):
     """Load Ce:YLF crystal field tensors from standard test data."""
     return ImportSLJM(str(ceylf_matel_path))
+
+
 @pytest.fixture
 def ceylf_inten_tensors(ceylf_inten_path, ceylf_matel_path):
     """Load Ce:YLF intensity tensors, aligned with crystal field basis."""
     return ImportSLJM(str(ceylf_inten_path), sl_name=str(ceylf_matel_path))
+
+
 @pytest.fixture
 def inten_c1_tensors(inten_c1_matel_path):
     """Load C1 intensity test tensors."""
     return ImportSLJM(str(inten_c1_matel_path))
+
+
 @pytest.fixture
 def inten_c3_tensors(inten_c3_matel_path):
     """Load C3 intensity test tensors."""
     return ImportSLJM(str(inten_c3_matel_path))
+
+
 # ============================================================================
 # Hamiltonian Fixtures
 # ============================================================================
@@ -78,6 +97,8 @@ def ceylf_hamiltonian(ceylf_tensors):
             ceylf_tensors.C64,
         ]
     )
+
+
 @pytest.fixture
 def ceylf_hamiltonian_configured(ceylf_hamiltonian):
     """
@@ -95,6 +116,8 @@ def ceylf_hamiltonian_configured(ceylf_hamiltonian):
     }
     ceylf_hamiltonian.set_coeff(coeff)
     return ceylf_hamiltonian
+
+
 @pytest.fixture
 def ceylf_diagonalized(ceylf_hamiltonian_configured):
     """
@@ -104,6 +127,8 @@ def ceylf_diagonalized(ceylf_hamiltonian_configured):
     w, z = ceylf_hamiltonian_configured.diag()
     w = w - np.min(w)  # Shift to ground state at zero energy
     return w, z
+
+
 # ============================================================================
 # ExData Fixtures (Experimental Data)
 # ============================================================================
@@ -127,6 +152,8 @@ def ceylf_exdata_abs():
         ]
     )
     return cfl.ExData(data, "A")
+
+
 @pytest.fixture
 def ceylf_exdata_abs_diff():
     """
@@ -145,6 +172,8 @@ def ceylf_exdata_abs_diff():
         ]
     )
     return cfl.ExData((data[:4], data[4:]), ("A", "D"))
+
+
 @pytest.fixture
 def ceylf_exdata_sl_diff():
     """
@@ -161,6 +190,8 @@ def ceylf_exdata_sl_diff():
     )
     ex_dsl = np.array([[3, 2, 216], [8, 2, 2216], [9, 8, 96.8]])
     return cfl.ExData((ex_asl, ex_dsl), ("AS", "DS"), label_key="SLJM")
+
+
 # ============================================================================
 # Minimizer Fixtures (if needed in future)
 # ============================================================================
@@ -189,6 +220,8 @@ def standard_ceylf_coefficients():
         "C60": -191.5100,
         "C64": -1743.1424 + 692.8662j,
     }
+
+
 @pytest.fixture
 def inten_c1_coefficients():
     """
@@ -204,6 +237,8 @@ def inten_c1_coefficients():
         "C43": 200 + 100j,
         "C60": 0,
     }
+
+
 @pytest.fixture
 def inten_c3_coefficients():
     """

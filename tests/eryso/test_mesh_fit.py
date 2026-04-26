@@ -23,6 +23,8 @@ from pycf.import_sljm import ImportSLJM
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f11cf"
 HFS_BASE = Path(__file__).resolve().parent / "matel" / "erhfs"
 EXPERIMENT_BASE = Path(__file__).resolve().parent / "eryso_site1_energy.txt"
+
+
 @pytest.mark.slow  # mark this test as slow, so it can be skipped by default
 def test_mesh_fit() -> None:
     t = ImportSLJM(MATEL_BASE)
@@ -140,8 +142,7 @@ def test_mesh_fit() -> None:
         "ZETA": 2363.15,
         "C20": -396.17,
         #'C21'        :    491.79+320.38j,
-        "C21": 500
-        + 300j,  # small difference from expected value to test the fitting process
+        "C21": 500 + 300j,  # small difference from expected value to test the fitting process
         "C22": 178.82 - 185.77j,
         "C40": 603.03,
         "C41": 1166.47 - 440.75j,
@@ -167,9 +168,7 @@ def test_mesh_fit() -> None:
     sh1 = cfl.SpinHamiltonian(["zeeman"], S=1 / 2, level=17)
     sh1.set_pro_data([t.MAGX, t.MAGY, t.MAGZ])
     # Sun et al. excited state spin Hamiltonian (PRB 77, 085124 (2008))
-    ge = np.array(
-        [[1.950, -2.212, -3.584], [-2.212, 4.232, 4.986], [-3.584, 4.986, 7.888]]
-    )
+    ge = np.array([[1.950, -2.212, -3.584], [-2.212, 4.232, 4.986], [-3.584, 4.986, 7.888]])
     shx1 = {"zeeman": ge}
     weights1 = {"energy": 0.001, "zeeman": 12.0}
     h_sh_list = [
@@ -185,9 +184,7 @@ def test_mesh_fit() -> None:
     # Fix: thfs_list already contains HYP and EQHYP (line 36)
     h2 = cfl.Hamiltonian(thfs_list)
     h2.set_coeff(coeff)
-    sh2 = cfl.SpinHamiltonian(
-        ["zeeman", "hyperfine", "quadrupole"], S=1 / 2, I=7 / 2, level=1
-    )
+    sh2 = cfl.SpinHamiltonian(["zeeman", "hyperfine", "quadrupole"], S=1 / 2, I=7 / 2, level=1)
     sh2.set_pro_data(
         [thfs.MAGX, thfs.MAGY, thfs.MAGZ, thfs.HYP, thfs.EQHYP],
         {"HYP": 0.0053, "EQHYP": 0.1},
@@ -204,15 +201,11 @@ def test_mesh_fit() -> None:
         )
     )
     Q = MHz2cm1(
-        np.array(
-            [[5.45, -11.04, -11.90], [-11.04, -2.98, -17.24], [-11.90, -17.24, -2.48]]
-        )
+        np.array([[5.45, -11.04, -11.90], [-11.04, -2.98, -17.24], [-11.90, -17.24, -2.48]])
     )
     shx2 = {"zeeman": g, "hyperfine": A, "quadrupole": Q}
     weights2 = {"zeeman": 20.0, "hyperfine": 5e5, "quadrupole": 3e5}
-    h_sh_list += [
-        {"h": h2, "sh": sh2, "shx": shx2, "weights": weights2, "svd_sym": True}
-    ]
+    h_sh_list += [{"h": h2, "sh": sh2, "shx": shx2, "weights": weights2, "svd_sym": True}]
     bounds = bal_bounds(
         coeff,
         {
@@ -286,9 +279,7 @@ def test_mesh_fit() -> None:
         "C65",
         "C66",
     ]
-    cfl_min = cfl.CFLMin(
-        "nlopt_bobyqa", xtol=1e-5, bounds=bounds, cov=False, dry_run=False
-    )
+    cfl_min = cfl.CFLMin("nlopt_bobyqa", xtol=1e-5, bounds=bounds, cov=False, dry_run=False)
     # cfl_min = cfl.CFLMin('basinhopping', niter=250, lmin='nlopt_bobyqa', xtol=1e-4,
     #    bounds=bounds, stepsize=stepsize, step_adapt_int=20)
     res = cfl.mesh_fit(param, h_sh_list, cfl_min)
@@ -334,6 +325,8 @@ def test_mesh_fit() -> None:
                 value - expected_coeff[label],
             )
             assert value == pytest.approx(expected_coeff[label], abs=tolerance)
+
+
 if __name__ == "__main__":
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()

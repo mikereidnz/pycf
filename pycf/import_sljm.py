@@ -36,6 +36,8 @@ def get_tensor_dim(source: Any) -> Generator[List[tuple], None, None]:
             yield re.findall(r"(\w+)\s+(\d+)", line)
         else:
             yield ""
+
+
 def get_state_number(source: Any) -> Generator[List[int], None, None]:
     "Generator for extracting the number of states from a ``*.st_`` file."
     parse = False
@@ -51,6 +53,8 @@ def get_state_number(source: Any) -> Generator[List[int], None, None]:
             yield re.findall(r"(\d+)\s+STATES", line)
         else:
             yield [0]
+
+
 class ImportSLJM(object):
     r"""
     Import the matrix elements and state labels from an SLJM calc plain text file.
@@ -67,6 +71,7 @@ class ImportSLJM(object):
         label file with a different base name than the intensity matrix element
         file.  It should be specified without the extension, like name above.
     """
+
     def __init__(self, name: str, sl_name: Optional[str] = False) -> None:
         # Create list of tuples of the form ('tensor_name', 'tensor_dim')
         tensor_dims = []
@@ -195,9 +200,11 @@ class ImportSLJM(object):
             tensors["HYP"].name = "HYP"
         self.tensors = tensors
         self.__dict__.update(tensors)
+
     def __iter__(self) -> Generator[Any, None, None]:
         for t in self.tensors:
             yield self.__dict__.get(t)
+
     def print_names(self) -> None:
         r"""
         Print the names of all the tensors that have been loaded.

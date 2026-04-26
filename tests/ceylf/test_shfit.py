@@ -11,6 +11,8 @@ from pycf.import_sljm import ImportSLJM
 #### Example of Spin Hamiltonian calculations for Ce:YLF, w/ data from
 # 10.1016/j.optmat.2015.06.046
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"
+
+
 # @pytest.mark.slow  # mark this test as slow, so it can be skipped by default
 def test_shfit() -> None:
     ####
@@ -33,9 +35,7 @@ def test_shfit() -> None:
     print("Spin Hamiltonian w/ input CF parameters:")
     print(np.real(sh.calc_param(h)))
     # Spin Hamiltonian and energy level fitting.
-    ex = np.array(
-        [[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]]
-    )
+    ex = np.array([[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]])
     g_tensor = np.array([[1.473, 0, 0], [0, 1.473, 0], [0, 0, 2.765]])
     shx = {"zeeman": g_tensor}
     weights = {"energy": 1, "zeeman": 1e7}
@@ -68,6 +68,8 @@ def test_shfit() -> None:
     for label, value in fit_coeff.items():
         print(label, value, " should be equal to ", expected_coeff[label])
         assert value == pytest.approx(expected_coeff[label], rel=tolerance)
+
+
 if __name__ == "__main__":
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()

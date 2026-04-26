@@ -56,6 +56,8 @@ combining density-functional-theory (DFT) computations with experimental fitting
 See individual module headers for copyright information. Most modules under
 GNU GPL v3 (Sebastian Horvath) or MIT License (as noted).
 """
+
+
 def _fmt_pycf_time(value=None):
     """Format pycf timestamp."""
     if value is None:
@@ -63,6 +65,8 @@ def _fmt_pycf_time(value=None):
     if isinstance(value, str):
         return value
     return value.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def pycf_info(current_time=None, stream=None):
     r"""
     Print and return a short pycf metadata block for scripts and notebooks.
@@ -85,4 +89,6 @@ def pycf_info(current_time=None, stream=None):
     )
     print(info, file=stream)
     return info
+
+
 __all__ = ["__version__", "__build_timestamp__", "__build_comment__", "pycf_info"]

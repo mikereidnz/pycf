@@ -12,6 +12,7 @@ Hamiltonians and experimental data. Key functions include:
 Used throughout pycf for formatting output and presenting crystal field
 calculation results to users.
 """
+
 #   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 #   This program is free software: you can redistribute it and/or modify
@@ -54,12 +55,7 @@ def uline_char(s: str) -> str:
     for i in range(end):
         if s[i].isspace():
             # A space gets an underline dash if it sits between two non-space chars
-            if (
-                i > 0
-                and i < end - 1
-                and not s[i - 1].isspace()
-                and not s[i + 1].isspace()
-            ):
+            if i > 0 and i < end - 1 and not s[i - 1].isspace() and not s[i + 1].isspace():
                 ul += "-"
             else:
                 ul += " "
@@ -69,12 +65,16 @@ def uline_char(s: str) -> str:
         return s + ul + "\n"
     else:
         return s + ul
+
+
 def term2L(c: str) -> int:
     "Convert an L quantum number term character to its numerical value."
     try:
         return "SPDFGHIKLMNOQRTUV".index(c)
     except ValueError:
         raise ValueError("Unsupported L quantum number: {}.".format(c))
+
+
 def L2term(i: int) -> str:
     "Convert an L quantum number numerical value to its term character."
     if i < 0:
@@ -83,12 +83,16 @@ def L2term(i: int) -> str:
         return "SPDFGHIKLMNOQRTUV"[i]
     except IndexError:
         raise ValueError("Unsupported L quantum number: {}.".format(i))
+
+
 def fmt_timestamp(timestamp: Optional[Union[datetime, str]] = None) -> str:
     if timestamp is None:
         timestamp = datetime.now()
     if isinstance(timestamp, str):
         return timestamp
     return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def gen_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> str:
     r"""
     Generate the pycf metadata block for summaries and stdout.
@@ -99,6 +103,8 @@ def gen_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> str:
     s += "Build comment: {}\n".format(__build_comment__)
     s += "Calculation started at: {}\n".format(fmt_timestamp(started_at))
     return s
+
+
 def gen_pycf_summary(started_at: Optional[Union[datetime, str]] = None) -> str:
     r"""
     Read input file and add to long string. Further, print the pycf version and
@@ -112,16 +118,24 @@ def gen_pycf_summary(started_at: Optional[Union[datetime, str]] = None) -> str:
     s += "\n\n"
     s += gen_pycf_details(started_at)
     return s
+
+
 def print_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> None:
     print(gen_pycf_details(started_at), end="")
+
+
 def gen_completed_str(completed_at: Optional[Union[datetime, str]] = None) -> str:
     r"""
     Return string of fit completion time.
     """
     s = "Calculation completed at: {}\n\n".format(fmt_timestamp(completed_at))
     return s
+
+
 def print_completed_str(completed_at: Optional[Union[datetime, str]] = None) -> None:
     print(gen_completed_str(completed_at), end="")
+
+
 def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
@@ -175,6 +189,8 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         # Sort ex according to index column.
         parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
     return parsed_ex
+
+
 def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
@@ -239,6 +255,8 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         # previous order had the keys reversed, making final level primary.
         parsed_ex = parsed_ex[np.lexsort((parsed_ex[:, 1], parsed_ex[:, 0])), :]
     return parsed_ex
+
+
 def gen_e_summary(
     w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
 ) -> str:
@@ -277,6 +295,7 @@ def gen_e_summary(
     e_shift : bool, optional
         Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero.
     """
+
     def fmt_label(li, labels):
         label = "|"
         for i, l in enumerate(labels[li]):
@@ -298,6 +317,7 @@ def gen_e_summary(
             else:
                 label += "{: >3d}>".format(l)
         return label
+
     if "nstates" not in kwargs:
         nstates = 2
     else:
@@ -328,11 +348,7 @@ def gen_e_summary(
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]
     heading = (
         "Lev.  "
-        + (
-            "Percentage                 "
-            + "State"
-            + " " * (len(fmt_label(0, labels)) - 4)
-        )
+        + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4))
         * nstates
         + "       Theory"
     )
@@ -353,10 +369,7 @@ def gen_e_summary(
         s += line + " {: >12.4f}".format(w[i])
         if ex.size != 0:
             if ex[ii, 0] == i:
-                s += (
-                    "   {: >12.4f}  {: >12.4f}".format(ex[ii, 1], ex[ii, 1] - w[i])
-                    + "\n"
-                )
+                s += "   {: >12.4f}  {: >12.4f}".format(ex[ii, 1], ex[ii, 1] - w[i]) + "\n"
                 if ii != len(ex) - 1:
                     ii += 1
             else:
@@ -368,9 +381,7 @@ def gen_e_summary(
         s += "weighted chi2 = {:.4f}\n".format(kwargs["chi2"])
         if "ndof" in kwargs:
             if "weighting" not in kwargs:
-                raise ValueError(
-                    "The weight argument needs to be provided if you provide ndof."
-                )
+                raise ValueError("The weight argument needs to be provided if you provide ndof.")
             else:
                 weighting = kwargs["weighting"]
             # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
@@ -387,6 +398,8 @@ def gen_e_summary(
         if kwargs["e_shift"]:
             s += "Energy level shift: {:.4f}\n".format(e_shift)
     return s
+
+
 def gen_e_summary_trunc(
     w: np.ndarray,
     z: np.ndarray,
@@ -427,6 +440,7 @@ def gen_e_summary_trunc(
     weighting : float, optional
         The weighting applied during the chi2 fit.  This should be set if ndof is set.
     """
+
     def fmt_label(li, labels):
         label = "|"
         for i, l in enumerate(labels[li]):
@@ -448,6 +462,7 @@ def gen_e_summary_trunc(
             else:
                 label += "{: >3d}>".format(l)
         return label
+
     if "nstates" not in kwargs:
         nstates = 2
     else:
@@ -466,11 +481,7 @@ def gen_e_summary_trunc(
         exa = ex_parse_abs(ex, z, labels)
         heading = (
             "Lev.  "
-            + (
-                "Percentage                 "
-                + "State"
-                + " " * (len(fmt_label(0, labels)) - 4)
-            )
+            + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4))
             * nstates
             + "       Theory"
         )
@@ -486,9 +497,7 @@ def gen_e_summary_trunc(
                     z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, fmt_label(si, labels)
                 )
             s += line + " {: >12.4f}".format(w[i])
-            s += (
-                "   {: >12.4f}  {: >12.4f}".format(exa[ii, 1], exa[ii, 1] - w[i]) + "\n"
-            )
+            s += "   {: >12.4f}  {: >12.4f}".format(exa[ii, 1], exa[ii, 1] - w[i]) + "\n"
         s += "\n"
     # Difference energy level summary.
     if ex.n_d != 0:
@@ -497,11 +506,7 @@ def gen_e_summary_trunc(
         exd = ex_parse_diff(ex, z, labels)
         heading = (
             "Lev.  "
-            + (
-                "Percentage                 "
-                + "State"
-                + " " * (len(fmt_label(0, labels)) - 4)
-            )
+            + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4))
             * nstates
             + "    Th. diff."
         )
@@ -528,19 +533,14 @@ def gen_e_summary_trunc(
                 )
             tmp_w = w[i] - tmp_w
             s += line + " {: >12.4g}".format(tmp_w)
-            s += (
-                "   {: >12.4g}  {: >12.4g}".format(exd[ii, 2], exd[ii, 2] - tmp_w)
-                + "\n"
-            )
+            s += "   {: >12.4g}  {: >12.4g}".format(exd[ii, 2], exd[ii, 2] - tmp_w) + "\n"
         s += "\n"
     s += "Label key: {}\n".format(label_key)
     if "chi2" in kwargs:
         s += "weighted chi2 = {:.4f}\n".format(kwargs["chi2"])
         if "ndof" in kwargs:
             if "weighting" not in kwargs:
-                raise ValueError(
-                    "The weight argument needs to be provided if you provide ndof."
-                )
+                raise ValueError("The weight argument needs to be provided if you provide ndof.")
             else:
                 weighting = kwargs["weighting"]
             # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
@@ -554,6 +554,8 @@ def gen_e_summary_trunc(
                 s += "weighting factor = {:.2e}\n".format(weighting)
     s += "\n"
     return s
+
+
 def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
@@ -610,11 +612,7 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
                     "  "
                     + str(np.abs(shx[inter]).reshape(3, 3)[j, :])
                     + "  "
-                    + str(
-                        (np.abs(shx[inter]) - np.abs(np.real(param[i]))).reshape(3, 3)[
-                            j, :
-                        ]
-                    )
+                    + str((np.abs(shx[inter]) - np.abs(np.real(param[i]))).reshape(3, 3)[j, :])
                     + "\n"
                 )
             else:
@@ -627,9 +625,7 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
         s += "\n"
     if "chi2" in kwargs and "ndof" in kwargs:
         if "weighting" not in kwargs:
-            raise ValueError(
-                "The weight argument needs to be provided if you provide ndof."
-            )
+            raise ValueError("The weight argument needs to be provided if you provide ndof.")
         # Fix: the total chi-squared-like sum must be normalized by ndof
         # before taking the RMS square root.
         if kwargs["ndof"] == 0:
@@ -637,6 +633,8 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
         else:
             s += "sigma = {:.4f}\n".format(np.sqrt(tmp_sigma / kwargs["ndof"]))
     return s
+
+
 def gen_fit_summary(
     coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float, **kwargs: Any
 ) -> str:
@@ -697,9 +695,7 @@ def gen_fit_summary(
     cov = None
     s = "Fitting summary\n"
     s += "===============\n\n"
-    heading = (
-        "Tensor name           Fitted coeff       Initial coeff          Difference"
-    )
+    heading = "Tensor name           Fitted coeff       Initial coeff          Difference"
     if "covar" in kwargs:
         cov = kwargs["covar"]
         heading += "      Uncertainty"
@@ -748,9 +744,7 @@ def gen_fit_summary(
         del kwargs["bounds"]
     if "stepsize" in kwargs:
         del kwargs["stepsize"]
-    np.set_printoptions(
-        formatter={"float": lambda x: "{:11.2f}".format(x)}, linewidth=200
-    )
+    np.set_printoptions(formatter={"float": lambda x: "{:11.2f}".format(x)}, linewidth=200)
     if kwargs["cov"]:
         s += "\n" + uline_char("Covariance matrix:\n")
         s += str(cov) + "\n"
@@ -770,6 +764,8 @@ def gen_fit_summary(
         if k not in ["chi2accept", "xaccept"]:
             s += "{0:<20} {1: <}\n".format(k + ":", kwargs[k])
     return s
+
+
 def print_as_fortran_array(a: np.ndarray) -> None:
     r"""
     Print a two dimensional numpy array in a form that makes it easy to include
@@ -792,6 +788,8 @@ def print_as_fortran_array(a: np.ndarray) -> None:
                 s += ", "
     s += "};"
     print(s)
+
+
 def print_as_c_array(a: np.ndarray) -> None:
     r"""
     Print a two dimensional numpy array in a form that makes it easy to include
@@ -818,15 +816,19 @@ def print_as_c_array(a: np.ndarray) -> None:
             s += ", "
     s += "};"
     print(s)
+
+
 def MHz2cm1(val: float) -> float:
     r"Convert MHz to cm$^{-1}$."
     return (1.0 / 29979.2458) * val
+
+
 def cm12MHz(val: float) -> float:
     r"Convert cm$^{-1}$ to MHz."
     return 29979.2458 * val
-def bal_bounds(
-    coeff: Dict[str, float], bounds: Dict[str, float]
-) -> Dict[str, Tuple[float, float]]:
+
+
+def bal_bounds(coeff: Dict[str, float], bounds: Dict[str, float]) -> Dict[str, Tuple[float, float]]:
     r"""
     Helper function for creating balanced bounds dictionary.  That is, the
     bounds are are some constant, symmetric, $\pm$ offset from the starting
@@ -850,9 +852,9 @@ def bal_bounds(
         except KeyError:
             pass
     return bal_b
-def rJmmp(
-    j: Union[int, float], m: Union[int, float], mp: Union[int, float], beta: float
-) -> float:
+
+
+def rJmmp(j: Union[int, float], m: Union[int, float], mp: Union[int, float], beta: float) -> float:
     r"""
     Equation (C.72) of Messiah.
     Parameters
@@ -893,6 +895,8 @@ def rJmmp(
     else:
         r = 0
     return r
+
+
 def WignerR(
     j: Union[int, float],
     m: Union[int, float],
@@ -910,6 +914,8 @@ def WignerR(
     r2 = rJmmp(j, m, mp, beta)
     r3 = np.exp(-1j * gamma * mp)
     return r1 * r2 * r3
+
+
 def rotate_cf_params(
     coeff: Dict[str, Any], alpha: float, beta: float, gamma: float
 ) -> Dict[str, Any]:

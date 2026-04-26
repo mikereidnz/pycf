@@ -28,6 +28,7 @@ Key workflow for complete CF model:
   3. Build Hamiltonian with these parameters (cfl module)
   4. Fit to experimental data and refine
 """
+
 from typing import List, Tuple
 
 import numpy as np
@@ -85,6 +86,8 @@ def Xi_val(t: int, l: int, Ln: str) -> float:
         raise ValueError("Invalid parameters: t=%i, l=%i" % (t, l))
     v *= 1e10  # Scale units to Angstrom^(t+1) erg^-1
     return v
+
+
 def RInt4f(l: int, Ln: str) -> float:
     r"""
     Radial integrals of the form <4f|r^\lambda|4f> for the RE3+ ions, from
@@ -133,6 +136,8 @@ def RInt4f(l: int, Ln: str) -> float:
     li = l_list.index(l)
     val = rint[i][li] * a0**l
     return val
+
+
 class Ligand(object):
     """
     Class for holding data of a specific ligand type.
@@ -147,10 +152,13 @@ class Ligand(object):
     alpha_bar : float
         Mean polarizability of ligand species in Angstrom^3.
     """
+
     def __init__(self, coords: np.ndarray, q: float, alpha_bar: float) -> None:
         self.coords = coords
         self.q = q
         self.alpha_bar = alpha_bar
+
+
 def Ckq(k: int, q: int, theta: float, phi: float) -> np.complexfloating:
     """
     Solid spherical harmonic functions in normalization conventionally used for CF calcs.
@@ -179,6 +187,8 @@ def Ckq(k: int, q: int, theta: float, phi: float) -> np.complexfloating:
         raise ValueError(f"q must satisfy |q| <= k (got q={q}, k={k})")
     C = np.sqrt((4 * np.pi) / (2 * k + 1)) * sph_harm_y(k, q, theta, phi)
     return C
+
+
 def A_SC(
     l: int, t: int, p: int, Ln: str, q_Ln: float, ligands: List[Ligand]
 ) -> Tuple[float, float]:
@@ -224,6 +234,8 @@ def A_SC(
     A_chg = np.real(A_chg)
     A_pol = np.real(A_pol)
     return (A_chg, A_pol)
+
+
 def A_DC(l: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
     r"""
     Calculate the A^lambda_tp parameters for dynamic coupling assuming isotropic
@@ -248,13 +260,7 @@ def A_DC(l: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
     A = 0
     if t == l + 1:
         rint = RInt4f(l, Ln)
-        prefac = (
-            7
-            * wigner_3j(3, l, 3, 0, 0, 0)
-            * np.sqrt((l + 1) * (2 * l + 1))
-            * rint
-            * (-1) ** p
-        )
+        prefac = 7 * wigner_3j(3, l, 3, 0, 0, 0) * np.sqrt((l + 1) * (2 * l + 1)) * rint * (-1) ** p
         for L in ligands:
             c = L.coords
             A += Ckq(l + 1, -p, c[1], c[2]) * c[0] ** (-(l + 2)) * L.alpha_bar
@@ -262,6 +268,8 @@ def A_DC(l: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
         A *= prefac * 10 ** (-8)
         A = np.real(A)
     return A
+
+
 class AltpData(object):
     """
     Class for holding data required for calculating Altp parameters.
@@ -278,11 +286,13 @@ class AltpData(object):
     ligands : list
         List of Ligand objects.
     """
+
     def __init__(self, Ln: str, q_Ln: int, ligands: List[Ligand]) -> None:
         self.Ln = Ln
         self.q_Ln = q_Ln
         self.ligands = ligands
         self.nL = len(ligands)
+
     def eval_params(self):
         """
         Evaluate the Altp parameters and return them.  After running this
@@ -305,9 +315,7 @@ class AltpData(object):
             for t in [lam - 1, lam + 1]:
                 for p in range(0, t + 1):
                     # Static portion
-                    A_statchg, A_statpol = A_SC(
-                        lam, t, p, self.Ln, self.q_Ln, self.ligands
-                    )
+                    A_statchg, A_statpol = A_SC(lam, t, p, self.Ln, self.q_Ln, self.ligands)
                     # Dynamic portion
                     A_dyniso = A_DC(lam, t, p, self.Ln, self.ligands)
                     A_total = A_statchg + A_statpol + A_dyniso
@@ -326,6 +334,7 @@ class AltpData(object):
                         ]
         self.A_list = list(A_list)
         return A_list
+
     def gen_summary(self):
         s = ""
         heading = "Param   A_statchg    A_statpol     A_dyniso  A_statchg+A_dyniso      A_total\n"

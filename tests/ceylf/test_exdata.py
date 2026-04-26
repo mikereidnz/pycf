@@ -9,6 +9,8 @@ import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"
+
+
 # For running as part of a test suite from repo root:
 #  python -m pytest tests
 @pytest.mark.parametrize("data_sel", ["abs", "abs_diff", "sl_diff"])
@@ -36,9 +38,7 @@ def test_exdata(data_sel) -> None:
     print("\nRunning an exdata test:\n")
     if data_sel == "abs":
         print("data_sel is abs")
-        ex = np.array(
-            [[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]]
-        )
+        ex = np.array([[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]])
         weights = np.ones(len(ex))
         exdata = cfl.ExData(ex, "A", weights=weights)
     elif data_sel == "abs_diff":
@@ -68,9 +68,7 @@ def test_exdata(data_sel) -> None:
         )
         # The first eight elements are state label values for the initial and final
         # states, and the last entry is the energy level difference.
-        ex_dsl = np.array(
-            [[2, 3, 7, 3, 2, 3, 7, 1, 116.0], [2, 3, 7, 1, 2, 3, 7, 5, 729.0]]
-        )
+        ex_dsl = np.array([[2, 3, 7, 3, 2, 3, 7, 1, 116.0], [2, 3, 7, 1, 2, 3, 7, 5, 729.0]])
         exdata = cfl.ExData((ex_asl, ex_dsl), ("AS", "DS"), label_key="SLJM")
     else:
         raise ValueError("Invalid data_sel selection")
@@ -92,28 +90,36 @@ def test_exdata(data_sel) -> None:
     for label, value in fit_coeff.items():
         print(label, value, " should be equal to ", expected_coeff[label])
         assert value == pytest.approx(expected_coeff[label], rel=tolerance)
+
+
 def test_exdata_missing_files() -> None:
     """Test that ImportSLJM raises error when files are missing."""
-    nonexistent_path = (
-        Path(__file__).resolve().parent / "nonexistent_matel" / "fake_data"
-    )
+    nonexistent_path = Path(__file__).resolve().parent / "nonexistent_matel" / "fake_data"
     with pytest.raises(FileNotFoundError):
         ImportSLJM(str(nonexistent_path))
+
+
 def test_exdata_invalid_mode() -> None:
     """Test that state label mode without label_key raises TypeError."""
     ex = np.array([[1, 2, 3, 4, 100], [2, 3, 5, 1, 200]])
     with pytest.raises(TypeError):
         cfl.ExData(ex, "AS")
+
+
 def test_exdata_empty_abs_valid() -> None:
     """Test that empty absolute energy data is accepted (no-op case)."""
     ex = np.array([]).reshape(0, 2)
     exdata = cfl.ExData(ex, "A")
     assert exdata is not None
+
+
 def test_exdata_invalid_weights() -> None:
     """Test that mismatched weights raise ValueError."""
     ex = np.array([[1, 100], [2, 200]])
     with pytest.raises(ValueError):
         cfl.ExData(ex, "A", weights=np.array([1]))  # Only 1 weight for 2 data points
+
+
 if __name__ == "__main__":
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()

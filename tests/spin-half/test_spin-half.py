@@ -16,6 +16,8 @@ def print_calc():
     print("==========")
     print(h.coeff_dict, "\n")
     print(h.gen_summary())
+
+
 def eig(H):
     """Calculate eigenvalues and eigenvectors of a Hamiltonian matrix H,
     and sort them in ascending order of energy."""
@@ -25,6 +27,8 @@ def eig(H):
     w = w[idx]
     z = z[:, idx]
     return w, z
+
+
 def norm_eig(z):
     """Make largest component positive and real"""
     z_n = np.zeros_like(z)
@@ -33,6 +37,8 @@ def norm_eig(z):
         y = col[np.argmax(abs(col))]
         z_n[:, j] = np.conj(y) * z[:, j] / abs(y)
     return z_n
+
+
 def norm_eig_top(z):
     """make first component positive and real"""
     z_n = np.zeros_like(z)
@@ -43,10 +49,14 @@ def norm_eig_top(z):
         y = col[0]
         z_n[:, j] = np.conj(y) * z[:, j] / abs(y)
     return z_n
+
+
 #### 1S example spin-half state
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "s1cf"
 t = ImportSLJM(str(MATEL_BASE))
 h = cfl.Hamiltonian([t.EAVG, t.MAGX, t.MAGY, t.MAGZ])
+
+
 # For running as part of a test suite from repo root:
 #  python -m pytest tests
 @pytest.mark.parametrize("data_sel", ["real", "imag", "complex"])
@@ -125,6 +135,8 @@ def test_spin_half(data_sel) -> None:
         abs_diff < tolerance
     ), f"Max absolute difference between numpy and pycf eigenvectors is {abs_diff}, \
     #which is greater than the tolerance of {tolerance}"
+
+
 if __name__ == "__main__":
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()

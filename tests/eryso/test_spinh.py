@@ -61,18 +61,14 @@ def test_spinh() -> None:
     g_c = np.reshape(sh_inv.inv_term("bgs"), (3, 3))
     print("Calculated g:\n{}".format(np.reshape(g_c, (3, 3))))
     print("Original g:\n{}".format(g))
-    expected_g = np.array(
-        [[2.92, -3.08, -3.68], [-3.08, 8.19, 5.96], [-3.68, 5.96, 5.52]]
-    )
+    expected_g = np.array([[2.92, -3.08, -3.68], [-3.08, 8.19, 5.96], [-3.68, 5.96, 5.52]])
     tolerance = 1e-3
     for i in range(3):
         for j in range(3):
-            print(
-                "g[{}, {}] = {}, should be equal to {}".format(
-                    i, j, g_c[i, j], expected_g[i, j]
-                )
-            )
+            print("g[{}, {}] = {}, should be equal to {}".format(i, j, g_c[i, j], expected_g[i, j]))
             assert g_c[i, j] == pytest.approx(expected_g[i, j], rel=tolerance)
+
+
 if __name__ == "__main__":
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()

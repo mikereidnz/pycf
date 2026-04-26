@@ -20,6 +20,7 @@ Key features:
 Used throughout pycf for building tensor operators in the crystal field
 Hamiltonian and for intensity calculations.
 """
+
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -68,6 +69,7 @@ def t_q(
     element : complex
        The matrix element `\langle j_1 m_1 | T_q^{(1)} | j_2 m_2 \rangle`.
     """
+
     def delta(a, ap):
         """
         A delta function, returns 1 iff a == ap, else returns 0.
@@ -76,6 +78,7 @@ def t_q(
             return 1
         else:
             return 0
+
     element = (
         complex(-1) ** (j1 - m1)
         * nj.wigner_3j(j1, 1, j2, -m1, q, m2)
@@ -83,6 +86,8 @@ def t_q(
         * delta(j1, j2)
     )
     return element
+
+
 def matel(c: str, j: float | int) -> np.ndarray:
     r"""
     Calculate the matrix elements for `\langle j m_1 | J_a | j m_2 \rangle`,
@@ -101,22 +106,20 @@ def matel(c: str, j: float | int) -> np.ndarray:
         and `m_2` respectively.
     """
     if c == "jx":
+
         def f(m1, m2):
-            return (
-                -1
-                / np.sqrt(2)
-                * (t_q(j, j, m1, m2, 1) - t_q(j, j, m1, m2, -1))
-            )
+            return -1 / np.sqrt(2) * (t_q(j, j, m1, m2, 1) - t_q(j, j, m1, m2, -1))
+
     elif c == "jy":
+
         def f(m1, m2):
-            return (
-                complex(0, 1)
-                / np.sqrt(2)
-                * (t_q(j, j, m1, m2, 1) + t_q(j, j, m1, m2, -1))
-            )
+            return complex(0, 1) / np.sqrt(2) * (t_q(j, j, m1, m2, 1) + t_q(j, j, m1, m2, -1))
+
     elif c == "jz":
+
         def f(m1, m2):
             return t_q(j, j, m1, m2, 0)
+
     else:
         raise ValueError(
             "Invalid component argument '{}'.  Permitted values "

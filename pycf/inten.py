@@ -3,13 +3,20 @@
 """
 A rewrite of the intensity calculation to follow the old Pascal code more closely,
 """
+
 from operator import itemgetter
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from pycf.constants import (BOLTZMANN_CM_INVERSE, ELECTRON_MASS, ELEMENTARY_CHARGE, EPSILON_0, HBAR,
-                            SPEED_OF_LIGHT)
+from pycf.constants import (
+    BOLTZMANN_CM_INVERSE,
+    ELECTRON_MASS,
+    ELEMENTARY_CHARGE,
+    EPSILON_0,
+    HBAR,
+    SPEED_OF_LIGHT,
+)
 from pycf.njsymbols import wigner_3j
 
 
@@ -96,6 +103,8 @@ def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
                 matel *= -1
             tensor_dict["%s-%i" % (t.name[:2], q)] = matel
     return tensor_dict
+
+
 def dipole_str(
     lrange: List[List[int]],
     tensor_dict: Dict[str, Any],
@@ -151,8 +160,7 @@ def dipole_str(
     if not isinstance(z, np.ndarray) or z.ndim != 2:
         shape = getattr(z, "shape", None)
         raise ValueError(
-            "Eigenvector V must be 2-dimensional (nstates x nstates), got shape %s"
-            % (shape,)
+            "Eigenvector V must be 2-dimensional (nstates x nstates), got shape %s" % (shape,)
         )
     # find principal components
     pc = np.argmax(np.abs(z), axis=0)
@@ -324,9 +332,9 @@ def dipole_str(
             # print(trs)
     trs.sort(key=itemgetter("e"))
     return trs
-def group_transitions(
-    items: List[Dict[str, Any]], tol: float = 1e-4
-) -> List[Dict[str, Any]]:
+
+
+def group_transitions(items: List[Dict[str, Any]], tol: float = 1e-4) -> List[Dict[str, Any]]:
     """
     Group transition dictionaries by (ei, ef) level-pair and annotate each group
     with initial/final degeneracies.
@@ -346,6 +354,7 @@ def group_transitions(
     """
     if not items:
         return []
+
     def _level_degeneracies(entries, energy_key, state_key):
         """Build a list of (anchor_energy, degeneracy_count)."""
         pairs = sorted(set((d[energy_key], d[state_key]) for d in entries))
@@ -356,11 +365,13 @@ def group_transitions(
             else:
                 clusters.append([energy, set([state])])
         return [(anchor, len(states)) for anchor, states in clusters]
+
     def _lookup_degeneracy(anchors, energy):
         for anchor, count in anchors:
             if abs(energy - anchor) <= tol:
                 return count
         return 1
+
     ei_deg = _level_degeneracies(items, "ei", "i")
     ef_deg = _level_degeneracies(items, "ef", "f")
     # Sort by transition energy first, then by level pair so equivalent pairs are
@@ -400,6 +411,8 @@ def group_transitions(
         }
     )
     return groups
+
+
 def A_and_f_calc(
     S_ED: float, S_MD: float, energy: float, g_i: float, nrefractive: float = 1.0
 ) -> Tuple[float, float]:
@@ -458,6 +471,8 @@ def A_and_f_calc(
         / g_i
     )
     return abs(A), abs(f)
+
+
 def add_oscillator_strengths_and_A_coefficients(
     groups: List[Dict[str, Any]], refractive_index: float = 1.0
 ) -> None:
@@ -487,6 +502,8 @@ def add_oscillator_strengths_and_A_coefficients(
         group["A"] = A
         group["f"] = f
     # no return value since we are modifying the input list in place.
+
+
 def boltzmann_factor(e: float, t: float) -> float:
     """
     Calculate the Boltzmann factor for a given energy and temperature.
@@ -512,6 +529,8 @@ def boltzmann_factor(e: float, t: float) -> float:
     else:
         ans = np.exp(-e / (t * BOLTZMANN_CM_INVERSE))
     return ans
+
+
 def lorentzian(x: float | np.ndarray, x0: float, fwhm: float) -> float | np.ndarray:
     """
     Calculate Lorentzian line shape.
@@ -536,6 +555,8 @@ def lorentzian(x: float | np.ndarray, x0: float, fwhm: float) -> float | np.ndar
         raise ValueError(f"fwhm must be positive (got {fwhm})")
     gamma_sq = (fwhm / 2) ** 2
     return gamma_sq / ((x - x0) ** 2 + gamma_sq)
+
+
 def inten(
     trs: List[Dict[str, Any]],
     polarization: str,
@@ -603,7 +624,5 @@ def inten(
         # Calculate the individual line intensities.
         line_inten[i] = boltzmann_factor(tr["ei"] - min_energy, T) * tr[polarization]
         # Calculate the cumulative curve intensity.
-        curve_inten += line_inten[i] * lorentzian(
-            curve_energies, line_energies[i], linewidth
-        )
+        curve_inten += line_inten[i] * lorentzian(curve_energies, line_energies[i], linewidth)
     return (line_energies, line_inten, curve_energies, curve_inten)

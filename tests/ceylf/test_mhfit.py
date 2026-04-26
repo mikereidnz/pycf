@@ -9,6 +9,8 @@ import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"
+
+
 def test_mhfit() -> None:
     t = ImportSLJM(str(MATEL_BASE))
     coeff = {
@@ -22,9 +24,7 @@ def test_mhfit() -> None:
     }
     h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C44, t.C60, t.C64])
     h.set_coeff(coeff)
-    exdata = np.array(
-        [[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]]
-    )
+    exdata = np.array([[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]])
     cfl_min = cfl.CFLMin("gsl_nls", niter=1)
     param = ["EAVG", "C20", "C40", "C44"]
     # Specify the list of Hamiltonians, and associated information, for the fitting.
@@ -42,6 +42,8 @@ def test_mhfit() -> None:
     for label, value in fit_coeff.items():
         print(label, value, " should be equal to ", expected_coeff[label])
         assert value == pytest.approx(expected_coeff[label], rel=tolerance)
+
+
 if __name__ == "__main__":
     # for running from spyder or as a stand-alone file
     pycf.pycf_info()
