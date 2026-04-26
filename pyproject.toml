@@ -12,7 +12,7 @@ name = "pycf"
 dynamic = ["version"]
 description = "Python crystal field theory modules"
 readme = "README.rst"
-license = "GPL-3.0-or-later"
+license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "Mike Reid", email = "mike.reid@canterbury.ac.nz"},
 ]
