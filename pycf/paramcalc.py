@@ -43,6 +43,7 @@ import numpy as np
 from scipy.special import sph_harm_y
 from pycf.njsymbols import wigner_3j
 from pycf.constants import BOHR_RADIUS
+from pycf.cfl_util import uline_char
 
 def Xi_val(t: int, l: int, Ln: str) -> float:
     """
