@@ -45,8 +45,11 @@ jobs:
         CIBW_SKIP: "*-win32 *-i686"
         CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
         CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
-        CIBW_BEFORE_BUILD_LINUX: "yum install -y gsl-devel nlopt-devel blas-devel lapack-devel openblas-devel && python -m pip install build setuptools wheel cython"
-        CIBW_ENVIRONMENT_LINUX: "CFL_CFLAGS='-I/usr/include -I/usr/include/lapacke' CFL_LDLIBS='-lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas'"
+        CIBW_BEFORE_BUILD_LINUX: |
+          yum install -y gsl-devel nlopt-devel blas-devel lapack-devel openblas-devel
+          find /usr -name gsl_multifit_nlinear.h 2>/dev/null || echo "GSL header not found"
+          python -m pip install build setuptools wheel cython
+        CIBW_ENVIRONMENT_LINUX: "CFL_CFLAGS='-I/usr/include -I/usr/include/lapacke -I/opt/rh/gcc-toolset-12/root/usr/include' CFL_LDLIBS='-lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas'"
         CIBW_BEFORE_BUILD_MACOS: "brew install gsl nlopt openblas lapack && python -m pip install build setuptools wheel cython"
         CIBW_ENVIRONMENT_MACOS: "CFL_CFLAGS='-I/opt/homebrew/opt/gsl/include -I/opt/homebrew/opt/nlopt/include -I/opt/homebrew/opt/openblas/include -I/opt/homebrew/opt/lapack/include' CFL_LDLIBS='-L/opt/homebrew/opt/gsl/lib -L/opt/homebrew/opt/nlopt/lib -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas'"
         CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""

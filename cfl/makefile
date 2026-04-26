@@ -23,8 +23,8 @@ ifdef CFL_CFLAGS
   CFLAGS+=$(CFL_CFLAGS)
 else
   # Fallback when CFL_CFLAGS is not provided (e.g., manual make invocation)
-  # Support both /usr/include/lapacke.h and /usr/include/lapacke/lapacke.h
-  CFLAGS+=-I/usr/include -I/usr/include/lapacke
+  # Support various paths where headers might be installed
+  CFLAGS+=-I/usr/include -I/usr/include/lapacke -I/usr/local/include
 endif
 ifdef CFL_LDLIBS
   LDLIBS+=$(CFL_LDLIBS) 
