@@ -2,16 +2,8 @@ CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
 MARCH ?= 
-LAPACKE_INCLUDE ?= /usr/include
-# Check if lapacke.h is in a subdirectory (e.g., /usr/include/lapacke/lapacke.h)
-LAPACKE_SUBDIR := $(shell if [ -f $(LAPACKE_INCLUDE)/lapacke/lapacke.h ]; then echo "/lapacke"; fi)
-
-# Only use default LAPACKE_INCLUDE when CFL_CFLAGS is not provided
-ifdef CFL_CFLAGS
-  CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range $(MARCH)
-else
-  CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range $(MARCH) -I$(LAPACKE_INCLUDE)$(LAPACKE_SUBDIR)
-endif
+CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range $(MARCH)
+#CFLAGS=-g -O -fPIC -I$(LAPACKE_INCLUDE)
 #CFLAGS=-g -O -fPIC -I$(LAPACKE_INCLUDE) 
 LDLIBS=-llapacke -llapack -lblas -lgfortran -lgslcblas -lgsl -lm -lnlopt
 LDFLAGS=
@@ -29,6 +21,10 @@ endif
 
 ifdef CFL_CFLAGS
   CFLAGS+=$(CFL_CFLAGS)
+else
+  # Fallback when CFL_CFLAGS is not provided (e.g., manual make invocation)
+  # Support both /usr/include/lapacke.h and /usr/include/lapacke/lapacke.h
+  CFLAGS+=-I/usr/include -I/usr/include/lapacke
 endif
 ifdef CFL_LDLIBS
   LDLIBS+=$(CFL_LDLIBS) 

@@ -95,10 +95,13 @@ def run_make(target: Optional[str] = None, env: Optional[dict] = None) -> str:
 
 
 def build_cfl() -> None:
-    # The makefile has a sensible default for LAPACKE_INCLUDE (/usr/include)
-    # which works on most systems. Users can override with environment variable
-    # if needed.
-    output = run_make()
+    # Set up environment with CFL_CFLAGS defaults if not already provided
+    make_env = {}
+    if "CFL_CFLAGS" not in os.environ:
+        # Add default include paths for lapacke - support both standard and subdirectory locations
+        make_env["CFL_CFLAGS"] = "-I/usr/include -I/usr/include/lapacke"
+    
+    output = run_make(env=make_env)
 
     # Preserve the current behavior: if the C archive changed, force Cython
     # to consider the extension stale.
