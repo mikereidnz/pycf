@@ -9,13 +9,22 @@ including:
 - Parameter rotation and Wigner-R symbols
 - Timestamp formatting and metadata generation
 """
+
 import pytest
 import numpy as np
 from datetime import datetime
 from pycf.cfl_util import (
-    L2term, term2L, MHz2cm1, cm12MHz, WignerR, uline_char,
-    fmt_timestamp, gen_pycf_details, gen_completed_str,
-    rotate_cf_params, rJmmp
+    L2term,
+    term2L,
+    MHz2cm1,
+    cm12MHz,
+    WignerR,
+    uline_char,
+    fmt_timestamp,
+    gen_pycf_details,
+    gen_completed_str,
+    rotate_cf_params,
+    rJmmp,
 )
 
 
@@ -24,12 +33,12 @@ class TestQuantumNumberConversions:
 
     def test_L2term_valid_values(self) -> None:
         """Test L2term with valid L quantum numbers."""
-        assert L2term(0) == 'S'
-        assert L2term(1) == 'P'
-        assert L2term(2) == 'D'
-        assert L2term(3) == 'F'
-        assert L2term(4) == 'G'
-        assert L2term(5) == 'H'
+        assert L2term(0) == "S"
+        assert L2term(1) == "P"
+        assert L2term(2) == "D"
+        assert L2term(3) == "F"
+        assert L2term(4) == "G"
+        assert L2term(5) == "H"
 
     def test_L2term_negative_raises_error(self) -> None:
         """Test that negative L values raise ValueError."""
@@ -43,17 +52,17 @@ class TestQuantumNumberConversions:
 
     def test_term2L_valid_symbols(self) -> None:
         """Test term2L with valid term symbols."""
-        assert term2L('S') == 0
-        assert term2L('P') == 1
-        assert term2L('D') == 2
-        assert term2L('F') == 3
-        assert term2L('G') == 4
-        assert term2L('H') == 5
+        assert term2L("S") == 0
+        assert term2L("P") == 1
+        assert term2L("D") == 2
+        assert term2L("F") == 3
+        assert term2L("G") == 4
+        assert term2L("H") == 5
 
     def test_term2L_invalid_symbol_raises_error(self) -> None:
         """Test that invalid term symbols raise ValueError."""
         with pytest.raises(ValueError):
-            term2L('Z')
+            term2L("Z")
 
     def test_L2term_and_term2L_roundtrip(self) -> None:
         """Test that conversions are reversible."""
@@ -63,7 +72,7 @@ class TestQuantumNumberConversions:
 
     def test_term2L_and_L2term_roundtrip(self) -> None:
         """Test that conversions are reversible."""
-        symbols = ['S', 'P', 'D', 'F', 'G', 'H', 'I', 'K', 'L', 'M']
+        symbols = ["S", "P", "D", "F", "G", "H", "I", "K", "L", "M"]
         for symbol in symbols:
             try:
                 L = term2L(symbol)
@@ -154,7 +163,7 @@ class TestWignerR:
 
     def test_WignerR_finite_result(self) -> None:
         """Test that Wigner-R returns finite values."""
-        result = WignerR(2, 1, 0, np.pi/4, np.pi/2, np.pi/3)
+        result = WignerR(2, 1, 0, np.pi / 4, np.pi / 2, np.pi / 3)
         assert np.isfinite(result)
 
     def test_WignerR_j_half_integer(self) -> None:
@@ -301,33 +310,33 @@ class TestRotateCFParams:
 
     def test_rotate_cf_params_zero_angles(self) -> None:
         """Test rotation with zero angles (identity)."""
-        coeff = {'C20': 1.0, 'C40': 2.0}
+        coeff = {"C20": 1.0, "C40": 2.0}
         result = rotate_cf_params(coeff, 0.0, 0.0, 0.0)
-        
+
         assert isinstance(result, dict)
         # With zero rotation, values should be approximately unchanged
-        assert 'C20' in result
-        assert abs(result.get('C20', 0) - 1.0) < 1e-10
+        assert "C20" in result
+        assert abs(result.get("C20", 0) - 1.0) < 1e-10
 
     def test_rotate_cf_params_returns_dict(self) -> None:
         """Test that rotate_cf_params returns dictionary."""
-        coeff = {'C20': 1.0}
+        coeff = {"C20": 1.0}
         result = rotate_cf_params(coeff, 0.1, 0.1, 0.1)
         assert isinstance(result, dict)
 
     def test_rotate_cf_params_preserves_keys(self) -> None:
         """Test that rotation preserves parameter keys."""
-        coeff = {'C20': 1.0, 'C40': 2.0, 'C60': 3.0}
-        result = rotate_cf_params(coeff, np.pi/4, np.pi/4, np.pi/4)
-        
+        coeff = {"C20": 1.0, "C40": 2.0, "C60": 3.0}
+        result = rotate_cf_params(coeff, np.pi / 4, np.pi / 4, np.pi / 4)
+
         # Result should have Ckq parameters
-        assert any('C' in key for key in result.keys())
+        assert any("C" in key for key in result.keys())
 
     def test_rotate_cf_params_various_angles(self) -> None:
         """Test rotation with various angle combinations."""
-        coeff = {'C20': 1.0}
-        angles = [0.0, np.pi/4, np.pi/2, np.pi]
-        
+        coeff = {"C20": 1.0}
+        angles = [0.0, np.pi / 4, np.pi / 2, np.pi]
+
         for alpha in angles:
             for beta in angles:
                 for gamma in angles:
@@ -336,17 +345,17 @@ class TestRotateCFParams:
 
     def test_rotate_cf_params_small_angles(self) -> None:
         """Test rotation with very small angles (should be near-identity)."""
-        coeff = {'C20': 1.0, 'C40': 2.0}
+        coeff = {"C20": 1.0, "C40": 2.0}
         result = rotate_cf_params(coeff, 1e-10, 1e-10, 1e-10)
-        
+
         # Near-identity rotation should preserve values approximately
         assert isinstance(result, dict)
 
     def test_rotate_cf_params_large_angles(self) -> None:
         """Test rotation with large angles."""
-        coeff = {'C20': 1.0}
+        coeff = {"C20": 1.0}
         result = rotate_cf_params(coeff, 100.0, 200.0, 300.0)
-        
+
         assert isinstance(result, dict)
 
     def test_rotate_cf_params_empty_dict(self) -> None:
@@ -414,14 +423,14 @@ class TestIntegration:
     def test_metadata_generation_consistency(self) -> None:
         """Test consistency of metadata generation."""
         dt = datetime(2024, 1, 15, 10, 30, 45)
-        
+
         details = gen_pycf_details(dt)
         completed = gen_completed_str(dt)
-        
+
         # Both should be strings
         assert isinstance(details, str)
         assert isinstance(completed, str)
-        
+
         # Both should contain the timestamp
         assert "2024-01-15" in details or "10:30:45" in details or len(details) > 0
         assert "2024-01-15" in completed or "10:30:45" in completed
