@@ -139,7 +139,11 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
     compile_args = split_flags(os.environ.get("CFL_CFLAGS"))
     link_args = split_flags(os.environ.get("CFL_LDLIBS"))
 
-    link_args += ["cfl/libcfl.a", "-lgsl", "-lnlopt", "-lm", "-lgomp"]
+    link_args += ["cfl/libcfl.a", "-lgsl", "-lnlopt", "-lm"]
+    
+    # Only add GNU OpenMP on Linux
+    if sys.platform.startswith("linux"):
+        link_args.append("-lgomp")
 
     if os.environ.get("CFL_CC") == "icc":
         intel_path = os.environ.get("INTEL_PATH")
@@ -169,7 +173,10 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
             f"-Wl,-rpath,{intel_path}/mkl/lib/intel64/",
         ]
     else:
-        link_args += ["-llapacke", "-llapack", "-lblas", "-lgfortran", "-lgslcblas"]
+        link_args += ["-llapacke", "-llapack", "-lblas", "-lgslcblas"]
+        # Only add GNU Fortran runtime on Linux
+        if sys.platform.startswith("linux"):
+            link_args.append("-lgfortran")
 
     return compile_args, link_args
 
