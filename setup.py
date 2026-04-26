@@ -243,7 +243,6 @@ setup(
     author="Mike Reid",
     author_email="mike.reid@canterbury.ac.nz",
     url="https://github.com/mikereidnz/pycf",
-    license="GPL-3.0",
     packages=["pycf"],
     ext_modules=ext_modules,
     cmdclass={
