@@ -3530,7 +3530,8 @@ cdef class CFLMin:
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         if 'dry_run' in self.kwargs:
             if self.kwargs['dry_run']:
-                fmin = 0
+                fmin = obj_f_ptr(cnx, &cx0[0], NULL, data_ptr)
+                retval = 0
             else:
                 with nogil:
                     retval = cfl.cfl_min(&cx0[0], &fmin, min_obj)
