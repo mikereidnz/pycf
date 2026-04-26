@@ -34,15 +34,15 @@ def test_inten_c3() -> None:
         "C20": 500,
         "C40": 0,
         "C43": 200 + 100j,  # what goes into CFIT
-        #'C43'   :     200-100j, # complex conjugate of what went into CFIT
+        # 'C43'   :     200-100j, # complex conjugate of what went into CFIT
         "C60": 0,
         "C63": 0,
         "C66": 0,
         "MX": 0,
-        #'MX'    :     1e-10,
+        # 'MX'    :     1e-10,
         "MY": 0,
         "MZ": 0,
-        #'MZ'    :     1,
+        # 'MZ'    :     1,
     }
     # Bohr magnetion in cm-1/T.
     mu_b = 0.466860
@@ -320,7 +320,7 @@ def test_inten_c3() -> None:
         for line in group["t_list"]:
             print("\t", line["i"], line["f"], line["e"], line["isotropic"])
         print("\tA:", group["A"], "f:", group["f"])
-        #'Compare to Pascal f:', pascal_f[i])
+        # 'Compare to Pascal f:', pascal_f[i])
         # assert group['f'] == pytest.approx(pascal_f[i], rel=tolerance), f'Group {i} oscillator strength \
         # {group["f"]} differs from Pascal calculation {pascal_f[i]} by more than the tolerance of {tolerance}'
     A_total = sum(group["A"] for group in groups_em)

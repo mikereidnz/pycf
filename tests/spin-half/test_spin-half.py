@@ -51,7 +51,7 @@ def norm_eig_top(z):
     return z_n
 
 
-#### 1S example spin-half state
+# 1S example spin-half state
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "s1cf"
 t = ImportSLJM(str(MATEL_BASE))
 h = cfl.Hamiltonian([t.EAVG, t.MAGX, t.MAGY, t.MAGZ])
@@ -61,7 +61,7 @@ h = cfl.Hamiltonian([t.EAVG, t.MAGX, t.MAGY, t.MAGZ])
 #  python -m pytest tests
 @pytest.mark.parametrize("data_sel", ["real", "imag", "complex"])
 def test_spin_half(data_sel) -> None:
-    #### Testing a spin-half system, so that we can compare pycf eigenvectors to numpy.linalg.eig() eigenvectors, which are complex.  This is a test of the handling of complex numbers in pycf.
+    # Testing a spin-half system, so that we can compare pycf eigenvectors to numpy.linalg.eig() eigenvectors, which are complex.  This is a test of the handling of complex numbers in pycf.
     print("\nRunning a spin-half test:\n")
     # Define coeff locally so parametrized variants don't share mutable state.
     coeff = {
@@ -134,7 +134,7 @@ def test_spin_half(data_sel) -> None:
     assert (
         abs_diff < tolerance
     ), f"Max absolute difference between numpy and pycf eigenvectors is {abs_diff}, \
-    #which is greater than the tolerance of {tolerance}"
+    # which is greater than the tolerance of {tolerance}"
 
 
 if __name__ == "__main__":

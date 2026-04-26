@@ -89,8 +89,8 @@ class TestWignerSymbols:
         from pycf.njsymbols import tricon_ck, wigner_3j
 
         # Triangular condition should be satisfied
-        assert tricon_ck(2, 3, 4) == True
-        assert tricon_ck(1, 1, 3) == False  # Invalid triangle
+        assert tricon_ck(2, 3, 4)
+        assert not tricon_ck(1, 1, 3)  # Invalid triangle
         # Wigner 3j should calculate
         w3j = wigner_3j(1, 1, 1, 0, 0, 0)
         assert isinstance(w3j, (float, int))

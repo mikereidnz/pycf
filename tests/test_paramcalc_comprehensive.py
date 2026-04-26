@@ -303,7 +303,6 @@ class TestASC:
     def test_a_sc_charge_scaling(self) -> None:
         """Test that A_SC scales linearly with ligand charge."""
         R = 2.5
-        coords = np.array([R, np.pi / 2, 0])
 
         # Create octahedral geometry
         coords_list = [

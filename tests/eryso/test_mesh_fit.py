@@ -141,7 +141,7 @@ def test_mesh_fit() -> None:
         "F6": 53053.60,
         "ZETA": 2363.15,
         "C20": -396.17,
-        #'C21'        :    491.79+320.38j,
+        # 'C21'        :    491.79+320.38j,
         "C21": 500 + 300j,  # small difference from expected value to test the fitting process
         "C22": 178.82 - 185.77j,
         "C40": 603.03,

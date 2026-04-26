@@ -35,7 +35,7 @@ def test_inten_c1() -> None:
         "C20": 500,
         "C40": 0,
         "C43": 200 + 100j,  # what goes into CFIT
-        #'C43'   :     200-100j, # complex conjugate of what went into CFIT
+        # 'C43'   :     200-100j, # complex conjugate of what went into CFIT
         "C60": 0,
         "C63": 0,
         "C66": 0,
