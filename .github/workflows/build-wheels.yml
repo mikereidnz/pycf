@@ -48,9 +48,9 @@ jobs:
         CIBW_BEFORE_BUILD_LINUX: |
           yum install -y epel-release
           yum install -y gsl-devel nlopt-devel blas-devel lapack-devel openblas-devel
-          echo "=== GSL version ===" && rpm -q gsl-devel
+          echo "=== Looking for lapacke.h ===" && find /usr -name "lapacke.h" 2>/dev/null
           python -m pip install build setuptools wheel cython
-        CIBW_ENVIRONMENT_LINUX: "CFL_CFLAGS='-I/usr/include -I/usr/include/gsl -I/usr/include/lapacke' CFL_LDLIBS='-lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas'"
+        CIBW_ENVIRONMENT_LINUX: "CFL_CFLAGS='-I/usr/include -I/usr/include/gsl -I/usr/include/lapacke -I/usr/local/include' CFL_LDLIBS='-lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas'"
         CIBW_BEFORE_BUILD_MACOS: "brew install gsl nlopt openblas lapack && python -m pip install build setuptools wheel cython"
         CIBW_ENVIRONMENT_MACOS: "CFL_CFLAGS='-I/opt/homebrew/opt/gsl/include -I/opt/homebrew/opt/nlopt/include -I/opt/homebrew/opt/openblas/include -I/opt/homebrew/opt/lapack/include' CFL_LDLIBS='-L/opt/homebrew/opt/gsl/lib -L/opt/homebrew/opt/nlopt/lib -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas'"
         CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
