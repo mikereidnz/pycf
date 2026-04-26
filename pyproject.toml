@@ -8,11 +8,11 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pycf"
+name = "pycf-crystalfield"
 dynamic = ["version"]
 description = "Python crystal field theory modules"
 readme = "README.rst"
-license = {text = "GPL-3.0-or-later"}
+license = "GPL-3.0-or-later"
 authors = [
     {name = "Mike Reid", email = "mike.reid@canterbury.ac.nz"},
 ]
