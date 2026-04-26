@@ -126,9 +126,9 @@ class TestGroupTransitionsEdgeCases:
 class TestBoltzmannFactor:
     """Test boltzmann_factor function with known solutions."""
     def test_boltzmann_factor_negative_temperature(self):
-        """Test that negative temperature returns 0."""
-        result = boltzmann_factor(100, -5)
-        assert result == 0
+        """Test that negative temperature raises ValueError."""
+        with pytest.raises(ValueError, match="Temperature must be non-negative"):
+            boltzmann_factor(100, -5)
     def test_boltzmann_factor_zero_temperature(self):
         """Test that zero temperature returns 1."""
         result = boltzmann_factor(50, 0)

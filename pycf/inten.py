@@ -491,14 +491,18 @@ def boltzmann_factor(e: float, t: float) -> float:
     e : float
         Energy difference (cm^-1).
     t : float
-        Temperature (K).
+        Temperature (K). Must be >= 0.
     Returns
     -------
     float
         Boltzmann factor (dimensionless).
+    Raises
+    ------
+    ValueError
+        If temperature is negative.
     """
     if t < 0:
-        ans = 0
+        raise ValueError(f"Temperature must be non-negative (got {t} K)")
     elif t == 0:
         ans = 1
     else:
