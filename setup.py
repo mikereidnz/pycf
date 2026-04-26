@@ -114,11 +114,12 @@ def find_lapacke_include() -> str:
     """Find LAPACKE include directory with fallbacks for different systems."""
     # Check environment variable first
     if lapacke_env := os.environ.get("LAPACKE_INCLUDE_DIR"):
-        if Path(lapacke_env).is_dir():
+        header_path = Path(lapacke_env) / "lapacke.h"
+        if header_path.exists():
             return lapacke_env
-        print(f"Warning: LAPACKE_INCLUDE_DIR={lapacke_env} does not exist", file=sys.stderr)
+        print(f"Warning: LAPACKE_INCLUDE_DIR={lapacke_env} does not contain lapacke.h", file=sys.stderr)
     
-    # Try common system paths
+    # Try common system paths - check for actual lapacke.h file
     candidates = [
         "/usr/include",                       # Linux (most common - directly in /usr/include)
         "/usr/include/lapacke",               # Linux (alternative - separate lapacke dir)
@@ -129,7 +130,8 @@ def find_lapacke_include() -> str:
     ]
     
     for path in candidates:
-        if Path(path).is_dir():
+        header_path = Path(path) / "lapacke.h"
+        if header_path.exists():
             return path
     
     # No LAPACKE headers found - raise error
