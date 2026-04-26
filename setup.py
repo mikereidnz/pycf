@@ -5,6 +5,7 @@ from shutil import which, rmtree
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 from setuptools import Command
+from typing import Optional
 
 import os
 import shlex
@@ -61,7 +62,7 @@ __build_comment__ = "{build_comment}"
     return version_str
 
 
-def run_make(target: str | None = None, env: dict | None = None) -> str:
+def run_make(target: Optional[str] = None, env: Optional[dict] = None) -> str:
     cmd = ["make"]
     if target:
         cmd.append(target)
