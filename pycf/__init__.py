@@ -8,6 +8,14 @@ except ImportError:
     __version__ = "unknown"
     __build_timestamp__ = "unknown"
     __build_comment__ = ""
+
+# Import the compiled cfl extension module
+try:
+    from pycf import cfl
+except ImportError as e:
+    # cfl extension might not be available if not built/installed
+    sys.stderr.write(f"Warning: cfl extension not available: {e}\n")
+    cfl = None
 """
 PyCF: Python Crystal Field package for rare-earth ion modeling.
 A comprehensive Python package for crystal field calculations on rare-earth ions,
@@ -92,4 +100,4 @@ def pycf_info(current_time=None, stream=None):
     return info
 
 
-__all__ = ["__version__", "__build_timestamp__", "__build_comment__", "pycf_info"]
+__all__ = ["__version__", "__build_timestamp__", "__build_comment__", "pycf_info", "cfl"]
