@@ -61,10 +61,15 @@ __build_comment__ = "{build_comment}"
     return version_str
 
 
-def run_make(target: str | None = None) -> str:
+def run_make(target: str | None = None, env: dict | None = None) -> str:
     cmd = ["make"]
     if target:
         cmd.append(target)
+
+    # Prepare environment with LAPACKE_INCLUDE if not already set
+    make_env = os.environ.copy()
+    if env:
+        make_env.update(env)
 
     proc = subprocess.Popen(
         cmd,
@@ -72,6 +77,7 @@ def run_make(target: str | None = None) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         universal_newlines=True,
+        env=make_env,
     )
 
     output = []
@@ -88,7 +94,9 @@ def run_make(target: str | None = None) -> str:
 
 
 def build_cfl() -> None:
-    output = run_make()
+    # Find LAPACKE headers and pass path to make
+    lapacke_include = find_lapacke_include()
+    output = run_make(env={"LAPACKE_INCLUDE": lapacke_include})
 
     # Preserve the current behavior: if the C archive changed, force Cython
     # to consider the extension stale.

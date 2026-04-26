@@ -2,8 +2,9 @@ CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
 MARCH ?= 
-CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range $(MARCH) -I/usr/include/lapacke
-#CFLAGS=-g -O -fPIC -I/usr/include/lapacke 
+LAPACKE_INCLUDE ?= /usr/include/lapacke
+CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range $(MARCH) -I$(LAPACKE_INCLUDE)
+#CFLAGS=-g -O -fPIC -I$(LAPACKE_INCLUDE) 
 LDLIBS=-llapacke -llapack -lblas -lgfortran -lgslcblas -lgsl -lm -lnlopt
 LDFLAGS=
 MKL_CFLAGS=-mkl -O3 -fPIC -std=c99 -ansi-alias -march=x86-64 -mtune=generic -lpthread -openmp
