@@ -1,5 +1,4 @@
 import sys
-import importlib
 from datetime import datetime
 
 try:
@@ -9,13 +8,6 @@ except ImportError:
     __version__ = "unknown"
     __build_timestamp__ = "unknown"
     __build_comment__ = ""
-
-# Import the compiled cfl extension module
-try:
-    from pycf import cfl
-except ImportError as e:
-    cfl = None
-    sys.stderr.write(f"Warning: cfl extension not available: {e}\n")
 """
 PyCF: Python Crystal Field package for rare-earth ion modeling.
 A comprehensive Python package for crystal field calculations on rare-earth ions,
@@ -101,3 +93,13 @@ def pycf_info(current_time=None, stream=None):
 
 
 __all__ = ["__version__", "__build_timestamp__", "__build_comment__", "pycf_info", "cfl"]
+
+
+def __getattr__(name: str):
+    """Lazily import cfl extension to avoid circular imports with import_sljm."""
+    if name == "cfl":
+        # import_sljm.py imports pycf.cfl at module level, so we need to
+        # defer this import until explicitly requested to avoid circular imports
+        import importlib
+        return importlib.import_module("pycf.cfl")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
