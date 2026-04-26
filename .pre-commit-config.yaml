@@ -34,6 +34,22 @@ repos:
         additional_dependencies: ['types-all']
         args: ['--ignore-missing-imports', '--no-error-summary']
 
+  # Security scanning - bandit (Python security)
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: ['-c', '.bandit', '-r', 'pycf/', 'tests/']
+        exclude: ^tests/test_
+
+  # Security scanning - semgrep (static analysis)
+  - repo: https://github.com/returntocorp/semgrep
+    rev: v1.45.0
+    hooks:
+      - id: semgrep
+        args: ['--config=.semgrep.yml', '--error']
+        exclude: ^tests/
+
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0

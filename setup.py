@@ -248,5 +248,36 @@ setup(
         "build_ext": BuildExtCommand,
         "clean": CleanCommand,
     },
+    extras_require={
+        "test": [
+            "pytest>=7.0",
+            "pytest-cov>=4.0",
+            "pytest-benchmark>=4.0",
+            "hypothesis>=6.0",
+            "coverage>=7.0",
+        ],
+        "examples": [
+            "pymatgen>=2022.0",
+            "matplotlib>=3.5",
+            "scipy>=1.10",
+        ],
+        "docs": [
+            "sphinx>=5.0",
+            "sphinx-rtd-theme>=1.0",
+            "sphinx-autodoc-typehints>=1.20",
+            "sphinx-copy-button>=0.5",
+            "sphinxcontrib-napoleon>=0.7",
+            "myst-parser>=0.18",
+        ],
+        "dev": [
+            "black>=23.0",
+            "isort>=5.13",
+            "flake8>=6.0",
+            "mypy>=1.7",
+            "bandit>=1.7",
+            "semgrep>=1.45",
+            "pre-commit>=3.0",
+        ],
+    },
     zip_safe=False,
 )
