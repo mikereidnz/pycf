@@ -1,0 +1,47 @@
+Outstanding Issues Found in pycf Repository
+==========================================
+
+1. FIXME in pycf/import_sljm.py (around line 131)
+   -----------------------------------------------
+   Issue: Label key handling for seniority parameter
+   
+   Context:
+   - The parameter T was intended as 'seniority' but is labeled as X in 
+     Nielson and Koster notation
+   - This is a naming/convention issue that affects how state labels are 
+     constructed in SLJM data imports
+   
+   Location: pycf/import_sljm.py, label_key construction logic
+   
+   Impact: Could affect correctness of state label parsing if using 
+           label formats based on Nielson-Koster notation
+   
+   Status: Not fixed (requires careful refactoring to avoid breaking 
+           dependent code)
+
+
+2. TODO in pycf/pyemp.py (after line 70)
+   -----------------------------------------------
+   Issue: Missing EMP subclasses for additional execution types
+   
+   Context:
+   - jmcalc and sljcalc GenericErun subclasses should be added
+   - These should integrate with the BaseEmp execution order checking
+   - This is a feature enhancement task
+   
+   Location: pycf/pyemp.py, module-level comment
+   
+   Impact: Limited - only affects advanced EMP execution workflows that 
+           depend on these specific calculation types
+   
+   Status: Not completed (feature enhancement, lower priority)
+
+
+Summary
+-------
+- 1 FIXME: Potential correctness issue (label notation convention)
+- 1 TODO: Feature enhancement (missing EMP subclasses)
+
+Both are documented but not critical for current functionality.
+The FIXME should be addressed in a future refactoring to ensure 
+state label handling is consistent with expected notation conventions.
