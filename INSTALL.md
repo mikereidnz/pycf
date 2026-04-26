@@ -436,6 +436,51 @@ For most users, the default `-march=x86-64` is recommended because **OpenMP para
 
 ---
 
+### Understanding OpenMP Parallelization
+
+pycf uses OpenMP for multi-threaded parallelization of matrix operations and Hamiltonian diagonalization. Here's what to expect:
+
+**Thread Count is Problem-Dependent:**
+
+The number of threads actually used is limited by:
+1. **Number of independent blocks in each Hamiltonian** (J-blocks for crystal-field systems)
+2. **Number of Hamiltonians being evaluated in parallel** (e.g., during mesh fitting)
+3. **Available CPU cores or `OMP_NUM_THREADS` environment variable**
+
+For example:
+
+- **Small system, single Hamiltonian** (e.g., Er³⁺ in YSO with 2 J-blocks): uses **2 threads**
+- **Small system, mesh fit** (e.g., 50+ Hamiltonians with 2 J-blocks each): uses **2 threads** per Hamiltonian (evaluated sequentially)
+- **Larger system** (e.g., Gd³⁺ with 8+ J-blocks): can use **8+ threads** per Hamiltonian
+- **Maximum**: limited by available CPU cores or `OMP_NUM_THREADS` environment variable
+
+**This is optimal behavior** — OpenMP automatically detects and uses only as many threads as there are independent blocks to process within each Hamiltonian evaluation.
+
+**Checking Thread Usage:**
+
+While running a fit or calculation:
+```bash
+# Terminal 1: Run calculation
+python mesh_fit.py
+
+# Terminal 2: Check thread usage (replace PID with python process)
+ps -eLf | grep python  # Shows number of threads
+htop                    # Shows thread count visually
+top                     # Shows CPU % (100% × threads used)
+```
+
+**Environment Variable (Optional):**
+
+If you want to explicitly limit OpenMP threads (e.g., to avoid overloading your system):
+```bash
+export OMP_NUM_THREADS=4    # Restrict to 4 threads
+python mesh_fit.py
+```
+
+If `OMP_NUM_THREADS` is not set, OpenMP automatically uses all available cores (up to the number of blocks in each Hamiltonian).
+
+---
+
 ### Option D: Intel/MKL Build (HPC Environments)
 
 If your system has Intel Compiler and MKL installed, use this for optimized performance.
