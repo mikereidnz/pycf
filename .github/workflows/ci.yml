@@ -33,7 +33,7 @@ jobs:
     
     - name: Build and install pycf
       run: |
-        python setup.py install
+        pip install -e .
     
     - name: Check imports
       run: |
@@ -87,7 +87,7 @@ jobs:
         CFL_CFLAGS: "-I/opt/homebrew/opt/gsl/include -I/opt/homebrew/opt/nlopt/include -I/opt/homebrew/opt/openblas/include -I/opt/homebrew/opt/lapack/include"
         CFL_LDLIBS: "-L/opt/homebrew/opt/gsl/lib -L/opt/homebrew/opt/nlopt/lib -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas"
       run: |
-        python setup.py install
+        pip install -e .
     
     - name: Check imports
       run: |
