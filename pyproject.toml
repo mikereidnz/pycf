@@ -1,9 +1,9 @@
 [build-system]
 requires = [
-  "setuptools>=77",
+  "setuptools>=68",
   "wheel>=0.40,<1.0",
   "Cython>=3,<4",
-  "numpy>=1.26",
+  "numpy>=1.24",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -22,12 +22,14 @@ maintainers = [
 keywords = ["crystal field", "rare earth", "magnetism"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.12",
