@@ -51,10 +51,14 @@ import re
 from datetime import datetime
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.projections import register_projection
+
 from pycf.constants import BOLTZMANN_CM_INVERSE
+
+
 # TODO:
 #   - Add jmcalc and sljcalc GenericErun subclasses.  This should work well
 #     with the BaseEmp execution order checking.

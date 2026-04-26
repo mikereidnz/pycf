@@ -38,11 +38,15 @@ Key workflow:
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from typing import List
+
 import numpy as np
 from numpy.linalg import lstsq
-from scipy.linalg import block_diag, diagsvd, svd
+from scipy.linalg import block_diag, svd
 from scipy.optimize import basinhopping
+
 from pycf.matel import matel
+
+
 def bmj(v: np.ndarray, m: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BgS` or `BMI` term, an array of size `(2 \times j + 1)` by `(2 \times j

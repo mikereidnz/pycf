@@ -11,9 +11,10 @@ Tests cover:
 - AltpData class functionality
 """
 
-import pytest
 import numpy as np
-from pycf.paramcalc import Ligand, Xi_val, RInt4f, Ckq, A_SC, A_DC, AltpData
+import pytest
+
+from pycf.paramcalc import A_DC, A_SC, AltpData, Ckq, Ligand, RInt4f, Xi_val
 
 
 class TestLigand:
@@ -188,8 +189,8 @@ class TestRInt4f:
         """Test RInt4f for all valid lambda values."""
         valid_lambda = [2, 4, 6]
 
-        for l in valid_lambda:
-            rint = RInt4f(l, "Er")
+        for lam in valid_lambda:
+            rint = RInt4f(lam, "Er")
             assert isinstance(rint, (float, np.floating))
             assert rint > 0
 
@@ -406,9 +407,9 @@ class TestADC:
 
         ligands = [Ligand(np.array(c), -2.0, 0.5) for c in coords_list]
 
-        # Test all valid (l, t=l+1) combinations
-        for l in [2, 4, 6]:
-            A = A_DC(l, l + 1, 0, "Pr", ligands)
+        # Test all valid (lam, t=lam+1) combinations
+        for lam in [2, 4, 6]:
+            A = A_DC(lam, lam + 1, 0, "Pr", ligands)
             # Result should be a finite number (may be zero for specific geometry)
             assert isinstance(A, (float, np.floating))
             assert np.isfinite(A)

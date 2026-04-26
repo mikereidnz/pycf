@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 from pathlib import Path
+
 import numpy as np
 import pytest
+
 import pycf
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
+
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"
 # For running as part of a test suite from repo root:
 #  python -m pytest tests

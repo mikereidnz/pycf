@@ -9,10 +9,11 @@ Tests cover core spin Hamiltonian functionality including:
 - Basic matrix operations
 """
 
-import pytest
 import numpy as np
-from pycf.spinh import su2_rotation, su2_rz, param_ten_svd
+import pytest
+
 from pycf.matel import matel
+from pycf.spinh import param_ten_svd, su2_rotation, su2_rz
 
 
 class TestSU2Operations:

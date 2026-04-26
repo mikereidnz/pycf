@@ -31,17 +31,21 @@ import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
+
 try:
-    from pycf.__version__ import (__build_comment__, __build_timestamp__,
-                                  __version__)
+    from pycf.__version__ import __build_comment__, __build_timestamp__, __version__
 except ImportError as e:
     logging.warning("Could not import build metadata from pycf.__version__: %s", e)
     __version__ = "unknown"
     __build_timestamp__ = "unknown"
     __build_comment__ = ""
 from math import fsum
+
 from scipy.special import factorial
+
+
 def uline_char(s: str) -> str:
     """Underline all non-whitespace characters in a string, except for single
     spaces between non-whitespace characters."""

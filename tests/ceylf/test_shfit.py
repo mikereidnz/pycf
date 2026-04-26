@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 from pathlib import Path
+
 import numpy as np
 import pytest
+
 import pycf
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
+
 #### Example of Spin Hamiltonian calculations for Ce:YLF, w/ data from
 # 10.1016/j.optmat.2015.06.046
 MATEL_BASE = Path(__file__).resolve().parent / "matel" / "f1cf"

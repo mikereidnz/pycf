@@ -17,10 +17,14 @@
 import os
 import re
 from typing import Any, Generator, List, Optional
+
 import numpy as np
 from scipy.sparse import csr_matrix
+
 import pycf.cfl as cfl
 from pycf.cfl_util import term2L
+
+
 def get_tensor_dim(source: Any) -> Generator[List[tuple], None, None]:
     "Generator for extracting tensor dimensions from ``*.mi_`` files."
     parse = False
@@ -103,37 +107,37 @@ class ImportSLJM(object):
         # Index of regex group for each label type.
         gi = {"S": 1, "L": 2, "J": 4, "M": 5, "I": 6, "T": 3, "F": 0}
         label_key = ["L", "J", "M"]
-        for l in state_labels:
-            label_key += [k for k in gi if (l[gi[k]] and k not in label_key)]
+        for state_label in state_labels:
+            label_key += [k for k in gi if (state_label[gi[k]] and k not in label_key)]
         # FIXME: T, which was intended as 'seniority', is labeled as X in
         # Nielson and Koster; should adopt this, but make sure if I change it
         # here nothing else get's messed up.
         # Rearrange label key to cannonical order.
         sort_key = ["T", "F", "S", "L", "J", "M", "I"]
-        label_key.sort(key=lambda l: sort_key.index(l))
+        label_key.sort(key=lambda k: sort_key.index(k))
         sl = []
-        for l in state_labels:
+        for state_label in state_labels:
             lk = []
             for k in label_key:
                 # Convert total orbital angular momentum label to numerical
                 # label.
                 if k == "L":
-                    label = term2L(l[gi[k]])
+                    label = term2L(state_label[gi[k]])
                 elif k == "T":
                     # Set T labels to zero for states that don't specify it.
-                    if not l[gi[k]]:
+                    if not state_label[gi[k]]:
                         label = 0
                     else:
-                        label = int(l[gi[k]])
+                        label = int(state_label[gi[k]])
                 # Only 2 F states seem to be labeled for F->D, so we set those F
                 # labels to 1, all others to 0.
                 elif k == "F":
-                    if l[gi[k]]:
+                    if state_label[gi[k]]:
                         label = 1
                     else:
                         label = 0
                 else:
-                    label = int(l[gi[k]])
+                    label = int(state_label[gi[k]])
                 lk += [label]
             sl += [lk]
         label_key = "".join(label_key)

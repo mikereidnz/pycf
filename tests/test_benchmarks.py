@@ -8,6 +8,7 @@ Install: pip install pytest-benchmark (optional - tests will skip if not install
 """
 import numpy as np
 import pytest
+
 try:
     import pytest_benchmark
     HAS_BENCHMARK = True

@@ -8,18 +8,20 @@ These tests cover:
 4. Integration with C matrix functions
 """
 from pathlib import Path
-import pytest
-import numpy as np
 from unittest.mock import Mock
+
+import numpy as np
+import pytest
+
 import pycf
 import pycf.cfl as cfl
-from pycf.import_sljm import ImportSLJM
-from pycf.inten import (
-    vtrans, dipole_str, group_transitions, A_and_f_calc,
-    add_oscillator_strengths_and_A_coefficients, boltzmann_factor, lorentzian
-)
-from pycf.njsymbols import wigner_3j
 from pycf.constants import BOLTZMANN_CM_INVERSE
+from pycf.import_sljm import ImportSLJM
+from pycf.inten import (A_and_f_calc, add_oscillator_strengths_and_A_coefficients, boltzmann_factor,
+                        dipole_str, group_transitions, lorentzian, vtrans)
+from pycf.njsymbols import wigner_3j
+
+
 class TestVtransEdgeCases:
     """Test edge cases and error conditions in vtrans function."""
     def test_vtrans_empty_tensor_list(self):

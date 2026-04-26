@@ -4,13 +4,17 @@
 # It calculates transition intensities between the split levels without
 # applying a symmetry-lowering magnetic field.
 from pathlib import Path
+
 import numpy as np
 import pytest
+
 import pycf
 import pycf.cfl as cfl
 from pycf.cfl_util import *
 from pycf.import_sljm import ImportSLJM
 from pycf.inten import *
+
+
 # @pytest.mark.slow  # mark this test as slow, so it can be skipped by default
 def test_inten_c3() -> None:
     """Test the intensity calculation for Ce3+ in C3 symmetry.

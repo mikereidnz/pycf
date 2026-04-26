@@ -3,8 +3,11 @@ import numpy as np
 import pytest
 from matplotlib import pyplot as plt
 from numpy import linalg as LA
+
 import pycf
 from pycf.spinh import *
+
+
 # This file shows some of the functionallity of the auxiliary python scipts for
 # spin Hamiltonian calculations.
 def test_spinh() -> None:

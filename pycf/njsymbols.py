@@ -45,8 +45,11 @@ matrix elements in crystal field Hamiltonians.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from math import fsum
+
 import numpy as np
 from scipy.special import factorial
+
+
 def tricon_ck(a: float | int, b: float | int, c: float | int) -> bool:
     r"""
     Triangular condition check; returns True if the triangular condition on the

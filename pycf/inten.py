@@ -5,10 +5,14 @@ A rewrite of the intensity calculation to follow the old Pascal code more closel
 """
 from operator import itemgetter
 from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from pycf.constants import (BOLTZMANN_CM_INVERSE, ELECTRON_MASS,
-                            ELEMENTARY_CHARGE, EPSILON_0, HBAR, SPEED_OF_LIGHT)
+
+from pycf.constants import (BOLTZMANN_CM_INVERSE, ELECTRON_MASS, ELEMENTARY_CHARGE, EPSILON_0, HBAR,
+                            SPEED_OF_LIGHT)
 from pycf.njsymbols import wigner_3j
+
+
 def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
     """
     Transform tensor matrix elements into eigenbasis previously calculated by
@@ -167,18 +171,18 @@ def dipole_str(
         if Altp is None:
             raise ValueError("ed is True but no Altp parameters were provided")
         for A in Altp:
-            l = int(A[0][1])
+            lam = int(A[0][1])
             t = int(A[0][2])
             pp = int(A[0][3])
             # Evaluate the Clebsch-Gordon coefficient of Eq. (9), Reid and Richardson J.
             # Chem. Phys. 79, 5735 (1983). Note: sign factor includes additional (-1)^q
             for q in [-1, 0, 1]:
                 for p in np.unique([-pp, pp]):
-                    CG_coeff = np.sqrt(2 * t + 1) * wigner_3j(l, 1, t, p + q, -q, -p)
-                    if (l - 1 + p + q) % 2 != 0:
+                    CG_coeff = np.sqrt(2 * t + 1) * wigner_3j(lam, 1, t, p + q, -q, -p)
+                    if (lam - 1 + p + q) % 2 != 0:
                         CG_coeff *= -1
-                    # print('% i % i % i % i % i  %f' % (l, t, p+ q, p, q, factor))
-                    D_factor["%i%i%i%i" % (l, t, p, q)] = CG_coeff
+                    # print('% i % i % i % i % i  %f' % (lam, t, p+ q, p, q, factor))
+                    D_factor["%i%i%i%i" % (lam, t, p, q)] = CG_coeff
         # print('D_factor')
         # for Df in D_factor:
         #    print(Df, D_factor[Df])
@@ -203,7 +207,7 @@ def dipole_str(
             if ed:
                 for A in Altp:
                     # print('\n###', A)
-                    l = int(A[0][1])
+                    lam = int(A[0][1])
                     t = int(A[0][2])
                     pp = int(A[0][3])
                     for q in [-1, 0, 1]:
@@ -216,24 +220,24 @@ def dipole_str(
                                 if (1 + t + p) % 2 != 0:  # if 1+t+p is odd
                                     A_val = -A_val
                             # print(A_val)
-                            # print('Altp', l, t, p, q, A_val)
-                            if -l <= (p + q) <= l:
-                                k = "U%i%i" % (l, p + q)
+                            # print('Altp', lam, t, p, q, A_val)
+                            if -lam <= (p + q) <= lam:
+                                k = "U%i%i" % (lam, p + q)
                                 if k not in tensor_dict:
                                     msg = (
                                         "Missing electric dipole tensor '{}' "
                                         "required by Altp.".format(k)
                                     )
                                     raise ValueError(msg)
-                                # print('Altp', l, t, p, A_val, 'q', q, 'k', k)
-                                # print('D_factor', '%i%i%i%i' % (l, t, p, q),
-                                #       D_factor['%i%i%i%i' % (l, t, p, q)])
+                                # print('Altp', lam, t, p, A_val, 'q', q, 'k', k)
+                                # print('D_factor', '%i%i%i%i' % (lam, t, p, q),
+                                #       D_factor['%i%i%i%i' % (lam, t, p, q)])
                                 # print('tensor_dict', k, i, f,
                                 #       tensor_dict[k][i, f])
                                 D = (
                                     -e
                                     * A_val
-                                    * D_factor["%i%i%i%i" % (l, t, p, q)]
+                                    * D_factor["%i%i%i%i" % (lam, t, p, q)]
                                     * tensor_dict[k][i, f]
                                 )
                                 # print('D', D)

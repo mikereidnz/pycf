@@ -6,6 +6,7 @@ Install: pip install hypothesis (optional - tests will skip if not installed)
 """
 import numpy as np
 import pytest
+
 try:
     from hypothesis import given, settings
     from hypothesis import strategies as st

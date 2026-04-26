@@ -10,22 +10,13 @@ including:
 - Timestamp formatting and metadata generation
 """
 
-import pytest
-import numpy as np
 from datetime import datetime
-from pycf.cfl_util import (
-    L2term,
-    term2L,
-    MHz2cm1,
-    cm12MHz,
-    WignerR,
-    uline_char,
-    fmt_timestamp,
-    gen_pycf_details,
-    gen_completed_str,
-    rotate_cf_params,
-    rJmmp,
-)
+
+import numpy as np
+import pytest
+
+from pycf.cfl_util import (L2term, MHz2cm1, WignerR, cm12MHz, fmt_timestamp, gen_completed_str,
+                           gen_pycf_details, rJmmp, rotate_cf_params, term2L, uline_char)
 
 
 class TestQuantumNumberConversions:

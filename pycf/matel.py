@@ -41,7 +41,10 @@ Hamiltonian and for intensity calculations.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import numpy as np
+
 import pycf.njsymbols as nj
+
+
 def t_q(
     j1: float | int, j2: float | int, m1: float | int, m2: float | int, q: float | int
 ) -> complex:

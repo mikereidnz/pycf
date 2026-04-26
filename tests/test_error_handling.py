@@ -5,7 +5,10 @@ Verifies that custom error handlers work correctly and that
 errors are properly routed through the logging system.
 """
 import pytest
+
 import pycf.cfl as cfl
+
+
 class TestErrorHandler:
     """Test custom error handler registration."""
     def test_set_error_handler_accepts_callable(self):

@@ -8,7 +8,10 @@ Tests verify end-to-end scenarios:
 """
 import numpy as np
 import pytest
+
 from pycf import cfl
+
+
 class TestHamiltonianIntegration:
     """Integration tests for Hamiltonian workflow."""
     def test_hamiltonian_diagonalization_complete(self, ceylf_diagonalized):
@@ -26,6 +29,7 @@ class TestParameterValidation:
     def test_crystal_field_parameter_bounds(self):
         """Verify CF parameter bounds are enforced."""
         from pycf.paramcalc import Ckq, RInt4f, Xi_val
+
         # Valid parameters work
         xi = Xi_val(1, 2, "Er")
         assert xi != 0
@@ -40,6 +44,7 @@ class TestParameterValidation:
     def test_spherical_harmonic_bounds(self):
         """Verify spherical harmonic bounds are enforced."""
         from pycf.paramcalc import Ckq
+
         # Valid parameters
         c_valid = Ckq(2, 1, 0.5, 1.0)
         assert isinstance(c_valid, (complex, np.complexfloating))
@@ -69,6 +74,7 @@ class TestWignerSymbols:
     def test_wigner_3j_calculation(self):
         """Verify Wigner 3j calculations work correctly."""
         from pycf.njsymbols import tricon_ck, wigner_3j
+
         # Triangular condition should be satisfied
         assert tricon_ck(2, 3, 4) == True
         assert tricon_ck(1, 1, 3) == False  # Invalid triangle
@@ -78,6 +84,7 @@ class TestWignerSymbols:
     def test_wigner_6j_9j_calculation(self):
         """Verify Wigner 6j and 9j calculations work."""
         from pycf.njsymbols import wigner_6j, wigner_9j
+
         # Should calculate without error
         w6j = wigner_6j(2, 2, 3, 2, 3, 2)
         assert isinstance(w6j, (float, int))
@@ -89,6 +96,7 @@ class TestMatrixElementCalculations:
     def test_angular_momentum_matrix_elements(self):
         """Verify angular momentum matrix element calculations."""
         from pycf.matel import matel
+
         # For j=1
         j = 1
         jx = matel("jx", j)
@@ -99,6 +107,7 @@ class TestMatrixElementCalculations:
     def test_tensor_matrix_elements(self):
         """Verify tensor matrix element calculations."""
         from pycf.matel import t_q
+
         # Rank-1 tensor between j1=1 and j2=1
         for q in [-1, 0, 1]:
             for m1 in [-1, 0, 1]:
@@ -110,9 +119,9 @@ class TestConstantDefinitions:
     """Integration tests for physical constants."""
     def test_physical_constants_defined(self):
         """Verify physical constants are properly defined."""
-        from pycf.constants import (BOHR_RADIUS, BOLTZMANN_CM_INVERSE,
-                                    ELECTRON_MASS, ELEMENTARY_CHARGE,
-                                    EPSILON_0, HBAR, SPEED_OF_LIGHT)
+        from pycf.constants import (BOHR_RADIUS, BOLTZMANN_CM_INVERSE, ELECTRON_MASS,
+                                    ELEMENTARY_CHARGE, EPSILON_0, HBAR, SPEED_OF_LIGHT)
+
         # All should be positive
         assert ELECTRON_MASS > 0
         assert ELEMENTARY_CHARGE > 0
@@ -124,6 +133,7 @@ class TestConstantDefinitions:
     def test_boltzmann_factor_calculation(self):
         """Verify Boltzmann factor uses correct constants."""
         from pycf.inten import boltzmann_factor
+
         # Valid calculations
         bf_100_300 = boltzmann_factor(100, 300)
         bf_200_300 = boltzmann_factor(200, 300)

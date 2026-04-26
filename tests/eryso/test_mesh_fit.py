@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 from __future__ import division
+
 from pathlib import Path
+
 import numpy as np
 import pytest
+
 import pycf
 import pycf.cfl as cfl
 from pycf.cfl_util import *
 from pycf.import_sljm import ImportSLJM
+
 # example of mesh fitting for Er3+ in YSO, with data from
 # Sun et al. PRB 77, 085124 (2008) and Longdell and Chen PRB 74, 195101 (2006).
 # The mesh fitting is performed on both the crystal-field parameters

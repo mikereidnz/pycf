@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 from pathlib import Path
+
 import numpy as np
 import pytest
+
 import pycf
 import pycf.cfl as cfl
 from pycf.cfl_util import *
 from pycf.import_sljm import ImportSLJM
+
+
 def print_calc():
     """Print the parameters and summary"""
     print("\nParameters")

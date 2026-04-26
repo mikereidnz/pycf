@@ -29,11 +29,15 @@ Key workflow for complete CF model:
   4. Fit to experimental data and refine
 """
 from typing import List, Tuple
+
 import numpy as np
 from scipy.special import sph_harm_y
+
 from pycf.cfl_util import uline_char
 from pycf.constants import BOHR_RADIUS
 from pycf.njsymbols import wigner_3j
+
+
 def Xi_val(t: int, l: int, Ln: str) -> float:
     """
     Xi(t, l) parameters in Angstrom^(t+1) erg^-1 from Krupke Phys Rev 145, 1
@@ -297,20 +301,20 @@ class AltpData(object):
         """
         A_list = []
         l_list = [2, 4, 6]
-        for l in l_list:
-            for t in [l - 1, l + 1]:
+        for lam in l_list:
+            for t in [lam - 1, lam + 1]:
                 for p in range(0, t + 1):
                     # Static portion
                     A_statchg, A_statpol = A_SC(
-                        l, t, p, self.Ln, self.q_Ln, self.ligands
+                        lam, t, p, self.Ln, self.q_Ln, self.ligands
                     )
                     # Dynamic portion
-                    A_dyniso = A_DC(l, t, p, self.Ln, self.ligands)
+                    A_dyniso = A_DC(lam, t, p, self.Ln, self.ligands)
                     A_total = A_statchg + A_statpol + A_dyniso
                     if (np.abs(A_total)) > 1e-15:
                         A_list += [
                             [
-                                "A%i%i%i" % (l, t, p),
+                                "A%i%i%i" % (lam, t, p),
                                 [
                                     A_statchg,
                                     A_statpol,

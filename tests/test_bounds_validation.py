@@ -6,8 +6,11 @@ for physical plausibility (e.g., positive temperatures, positive linewidths).
 """
 import numpy as np
 import pytest
+
 from pycf.inten import boltzmann_factor, inten, lorentzian
 from pycf.paramcalc import Ckq, RInt4f, Xi_val
+
+
 class TestLorentzianBounds:
     """Test Lorentzian line shape parameter validation."""
     def test_lorentzian_positive_fwhm(self):

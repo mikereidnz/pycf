@@ -5,13 +5,17 @@
 # and then calculate the intensities of the transitions between the split levels.
 # A small magnetic field is applied along X to achieve C1 symmetry.
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
+
 import pycf
 import pycf.cfl as cfl
 from pycf.cfl_util import *
 from pycf.import_sljm import ImportSLJM
 from pycf.inten import *
+
+
 def test_inten_c1() -> None:
     """Test the intensity calculation for Ce3+ in C1 symmetry.
     We apply a magnetic field along Z to split the Kramers doublets,
