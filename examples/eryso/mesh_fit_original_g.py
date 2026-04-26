@@ -1,14 +1,29 @@
 #!/usr/bin/env python
+"""
+Mesh fit with original g-tensor parameterization for Er:YSO.
 
-from __future__ import division
+Variant of mesh_fit.py using alternative tensor parameter definitions.
+
+This example demonstrates:
+1. Loading Er:YSO matrix elements with different tensor basis
+2. Using original g-tensor parameterization
+3. Comparing different tensor representations
+4. Fitting Er^3+ parameters with alternative basis choices
+
+Prerequisites:
+- Er:YSO matrix element data
+- numpy, pycf
+"""
+
+from pathlib import Path
 import numpy as np
 
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 
-t = ImportSLJM("matel/f11cf")
-thfs = ImportSLJM("matel/erhfs")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f11cf"))
+thfs = ImportSLJM(str(Path(__file__).parent / "matel" / "erhfs"))
 #t.print_names()
 
 MTOT = t.M0 + 0.56*t.M2 + 0.31*t.M4

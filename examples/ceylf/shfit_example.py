@@ -1,6 +1,24 @@
 #!/usr/bin/env python3
+"""
+Spin Hamiltonian extraction and fitting from crystal field Hamiltonian.
 
-from __future__ import division
+This example demonstrates:
+1. Extracting spin Hamiltonian parameters from full crystal field Hamiltonian
+2. Calculating effective g-tensors and zero-field splitting parameters
+3. Fitting spin Hamiltonian parameters to match CF energy levels
+4. Comparing CF predictions with spin Hamiltonian effective models
+
+The example shows Ce:YLF Kramers doublet modeling using spin S=1/2 with
+Zeeman interaction projections (MAGX, MAGY, MAGZ tensors).
+
+Data source: 10.1016/j.optmat.2015.06.046
+
+Prerequisites:
+- Ce:YLF matrix element data (crystal field and magnetic) in matel/f1cf/
+- numpy, pycf
+"""
+
+from pathlib import Path
 import numpy as np
 
 
@@ -11,7 +29,7 @@ from pycf.cfl_util import *
 #### Example of Spin Hamiltonian calculations for Ce:YLF, w/ data from
 # 10.1016/j.optmat.2015.06.046
 
-t = ImportSLJM("matel/f1cf")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f1cf"))
 coeff = {
 'EAVG'  :    1035.1277,                
 'ZETA'  :     625.6990,                

@@ -1,17 +1,18 @@
 [build-system]
 requires = [
   "setuptools>=68",
-  "wheel",
-  "Cython>=3",
-  "numpy>=1.26",
+  "wheel>=0.40,<1.0",
+  "Cython>=3,<4",
+  "numpy>=1.24",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycf"
-version = "0+git"
+dynamic = ["version"]
 description = "Python crystal field theory modules"
 readme = "README.rst"
+license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "Mike Reid", email = "mike.reid@canterbury.ac.nz"},
 ]
@@ -20,28 +21,51 @@ maintainers = [
 ]
 keywords = ["crystal field", "rare earth", "magnetism"]
 classifiers = [
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 dependencies = [
-    "numpy>=1.26",
-    "scipy>=1.12",
+    "numpy>=1.24",
+    "scipy>=1.10",
 ]
 
 [project.optional-dependencies]
-dev = [
+test = [
     "pytest>=7.0",
+    "pytest-cov>=7.0",
+    "pytest-benchmark>=5.0",
+    "hypothesis>=6.0",
 ]
 examples = [
     "matplotlib>=3.8",
+    "pymatgen>=2024.3",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=7.0",
+    "pytest-benchmark>=5.0",
+    "hypothesis>=6.0",
+    "matplotlib>=3.8",
+    "pymatgen>=2024.3",
+    "setuptools>=68",
+    "wheel>=0.40,<1.0",
+    "Cython>=3,<4",
+    "black>=23.0",
+    "isort>=5.0",
+    "flake8>=6.0",
+    "mypy>=1.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/mikereidnz/pycf"
 Repository = "https://github.com/mikereidnz/pycf"
 "Legacy Repository" = "https://bitbucket.org/sebastianhorvath/pycf/"
+
+[tool.setuptools.dynamic]
+version = {attr = "pycf.__version__"}

@@ -1,6 +1,25 @@
 #!/usr/bin/env python
+"""
+Crystal field analysis for Sm:NaCaF2 system.
 
-from __future__ import division
+This example demonstrates:
+1. Loading Sm^3+ matrix elements in NaCaF2 host
+2. Constructing tensor combinations for optical and magnetic properties
+3. Using truncated basis for efficient calculations
+4. Building Hamiltonian with Slater-Condon and crystal field parameters
+5. Analyzing energy levels and comparing with experimental data
+
+The example uses Sm:NaCaF2 fitted parameters to demonstrate
+complete rare-earth ion fitting with hyperfine and magnetic interactions.
+
+Data source: PRB 61 13593
+
+Prerequisites:
+- Sm:NaCaF2 matrix element data in matel/smcf_trunc/
+- numpy, pycf
+"""
+
+from pathlib import Path
 import numpy as np
 from numpy import linalg as LA
 
@@ -8,7 +27,7 @@ import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 
-t = ImportSLJM("matel/smcf_trunc")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "smcf_trunc"))
 
 MTOT = t.M0 + 0.56*t.M2 + 0.31*t.M4
 MTOT.name = 'MTOT'

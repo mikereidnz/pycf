@@ -19,20 +19,91 @@
 
 
 from __future__ import division
-from pycf cimport cfl
+
 cimport cython
 cimport numpy as np
+
+from pycf cimport cfl
+
+import copy
+import sys
+from numbers import Number
+
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
-import sys
-import copy
-from numbers import Number
+
+from cpython cimport Py_DECREF, Py_INCREF
 from cpython.pycapsule cimport *
-from cpython cimport Py_INCREF, Py_DECREF
-from libc.stdlib cimport malloc, free
+from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
-from pycf.matel import matel
+
 from pycf.cfl_util import *
+from pycf.matel import matel
+
+# Global storage for Python error handler callback
+_python_error_handler = None
+
+
+# C callback wrapper for Python error handlers
+cdef void _c_error_handler_wrapper(const char *func, const char *file,
+    int line, const char *message) noexcept nogil:
+    """
+    C callback that bridges to Python error handler.
+    Must acquire GIL before calling Python code.
+    """
+    global _python_error_handler
+    with gil:
+        if _python_error_handler is not None:
+            _python_error_handler(
+                func.decode('utf-8') if func else "",
+                file.decode('utf-8') if file else "",
+                line,
+                message.decode('utf-8') if message else ""
+            )
+
+
+def set_error_handler(handler):
+    """
+    Register custom error handler for CFL library errors.
+    
+    The error handler receives:
+    - func: C function name where error occurred
+    - file: Source file name
+    - line: Line number
+    - message: Error message
+    
+    Parameters
+    ----------
+    handler : callable or None
+        Error handler function with signature:
+            handler(func: str, file: str, line: int, message: str) -> None
+        
+        If None, restores default printf() error reporting.
+    
+    Examples
+    --------
+    >>> def log_error(func, file, line, msg):
+    ...     print(f"ERROR in {func} ({file}:{line}): {msg}")
+    >>> pycf.cfl.set_error_handler(log_error)
+    
+    >>> # Restore default behavior
+    >>> pycf.cfl.set_error_handler(None)
+    
+    Notes
+    -----
+    The handler function should be fast and non-blocking, as it may be called
+    from performance-critical code paths. Avoid heavy computation or I/O.
+    
+    The handler will be called even for non-fatal warnings and informational
+    messages, depending on the error type.
+    """
+    global _python_error_handler
+    _python_error_handler = handler
+    
+    if handler is not None:
+        cfl.cfl_set_error_handler(_c_error_handler_wrapper)
+    else:
+        cfl.cfl_set_error_handler(NULL)
 
 
 cdef inline void* _capsule_get_pointer(object cap, const char* name):
@@ -178,8 +249,7 @@ cdef class Tensor:
             try:
                 if PyCapsule_IsValid(self.t_cap, "pycfl.Tensor"):
                     cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
-            except TypeError:
-                # Capsule was already invalidated or deleted; skip cleanup
+            except (TypeError, ValueError):
                 pass
     
     def __add__(t1, t2):
@@ -3461,7 +3531,8 @@ cdef class CFLMin:
         cx0 = <np.ndarray[double, ndim=1, mode="c"]> x0
         if 'dry_run' in self.kwargs:
             if self.kwargs['dry_run']:
-                fmin = 0
+                fmin = obj_f_ptr(cnx, &cx0[0], NULL, data_ptr)
+                retval = 0
             else:
                 with nogil:
                     retval = cfl.cfl_min(&cx0[0], &fmin, min_obj)

@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
+"""
+Demonstrate experimental data fitting with crystal field Hamiltonian.
 
-from __future__ import division
+This example shows how to:
+1. Load Ce:YLF crystal field matrix elements
+2. Construct a Hamiltonian with fitted parameters from literature
+3. Compare calculated energy levels with experimental data
+4. Use ExData for different experimental data formats (absolute, differences, state labels)
+
+Data source: 10.1016/j.optmat.2015.06.046
+
+Prerequisites:
+- Ce:YLF matrix element data in matel/f1cf/ directory
+- numpy, pycf
+"""
+
+from pathlib import Path
 import numpy as np
 
 
@@ -16,7 +31,7 @@ from pycf.cfl_util import *
 #           sl_diff - state label energy level data incl. level differences
 data_sel = 'abs'
 
-t = ImportSLJM("matel/f1cf")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f1cf"))
 coeff = {
 'EAVG'  :    1035.1277,                
 'ZETA'  :     625.6990,                

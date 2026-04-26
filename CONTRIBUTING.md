@@ -1,0 +1,313 @@
+# Contributing to PyCF
+
+Thank you for your interest in contributing to PyCF! This document provides guidelines and instructions for contributing code, documentation, and bug reports.
+
+## Code of Conduct
+
+We are committed to providing a welcoming and inspiring community for all. Please read and adhere to our Code of Conduct.
+
+## Ways to Contribute
+
+- **Report bugs**: File issues on GitHub for any problems you find
+- **Suggest features**: Open a GitHub issue to discuss new functionality
+- **Fix bugs**: Submit pull requests to fix known issues
+- **Improve documentation**: Fix typos, improve clarity, add examples
+- **Add tests**: Increase test coverage for existing code
+- **Optimize performance**: Profile and improve slow code paths
+
+## Getting Started
+
+### Development Environment Setup
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/mikereidnz/pycf.git
+   cd pycf
+   ```
+
+2. **Create a virtual environment**:
+   ```bash
+   python -m venv env
+   source env/bin/activate  # On Windows: env\Scripts\activate
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install -e .  # Editable install for development
+   pip install pytest numpy scipy cython
+   ```
+
+4. **Build the C extension** (if modifying C code):
+   ```bash
+   python setup.py build_ext --inplace
+   ```
+
+5. **Run tests to verify setup**:
+   ```bash
+   python -m pytest tests/ -v
+   make -C cfl test  # For C tests
+   ```
+
+## Development Workflow
+
+### Before Starting
+
+1. Check if an issue exists on GitHub for what you want to work on
+2. If not, create one to discuss your proposed changes
+3. Wait for feedback before starting significant work
+
+### Making Changes
+
+1. **Create a feature branch** from `devel`:
+   ```bash
+   git checkout devel
+   git pull origin devel
+   git checkout -b feature/my-feature-name
+   ```
+
+2. **Follow the code style**:
+   - Python: Follow PEP 8
+   - Use type hints for all new functions (see existing code for examples)
+   - Add docstrings to all public functions and classes
+   - Use Google-style docstrings with proper formatting
+
+3. **Add tests for your changes**:
+   - For Python: Add tests to `tests/test_*.py` files
+   - For C: Add tests to `cfl/tests/*_test.c`
+   - Aim for high coverage of new code
+   - Test both happy path and error cases
+
+4. **Update documentation**:
+   - Update `docs/*.rst` files if adding new features
+   - Update module docstrings
+   - Add examples if appropriate
+
+5. **Commit with clear messages**:
+   ```bash
+   git commit -m "Brief description (50 chars max)
+   
+   Longer explanation if needed. Reference issues with #123.
+   Co-authored-by: Your Name <your.email@example.com>"
+   ```
+
+### Testing
+
+Before submitting a PR, verify:
+
+```bash
+# Python tests (should pass)
+python -m pytest tests/ -q
+
+# C tests (should pass)
+make -C cfl clean
+make -C cfl test
+
+# Type checking (non-blocking but good to fix warnings)
+mypy pycf/ --ignore-missing-imports
+
+# Build documentation
+cd docs && sphinx-build -b html . _build/html
+
+# Verify no deprecation warnings
+python -m pytest tests/ -v 2>&1 | grep -i deprecat
+```
+
+## Code Quality Standards
+
+### Type Hints
+
+All new functions must have type hints:
+
+```python
+from typing import Optional, List, Dict, Tuple, Any
+import numpy as np
+
+def my_function(param1: int, param2: Optional[str] = None) -> Tuple[float, np.ndarray]:
+    """Description of function."""
+    pass
+```
+
+### Docstrings
+
+Use Google-style docstrings:
+
+```python
+def complex_function(a: np.ndarray, b: float) -> Dict[str, Any]:
+    """Brief one-line description.
+    
+    Longer description explaining the function, its purpose,
+    and any important notes about usage.
+    
+    Parameters
+    ----------
+    a : np.ndarray
+        Description of parameter a.
+    b : float
+        Description of parameter b.
+    
+    Returns
+    -------
+    dict
+        Dictionary with keys 'result' and 'status'.
+        
+    Raises
+    ------
+    ValueError
+        If a is empty or has incompatible shape.
+    """
+    pass
+```
+
+### Error Handling
+
+- Use specific exception types (not bare `except:`)
+- Provide helpful error messages
+- Validate input parameters early
+- Check array dimensions and types
+
+Example:
+
+```python
+def process_tensor(tensor, scale: float) -> Tensor:
+    if not isinstance(scale, (int, float)):
+        raise TypeError(f"scale must be numeric, got {type(scale)}")
+    if tensor is None:
+        raise ValueError("tensor cannot be None")
+    if tensor.size == 0:
+        raise ValueError("tensor cannot be empty")
+    
+    # ... process tensor ...
+    return result
+```
+
+## Submitting a Pull Request
+
+1. **Push your changes** to your fork:
+   ```bash
+   git push origin feature/my-feature-name
+   ```
+
+2. **Create a pull request** on GitHub:
+   - Title: Brief description (50 chars max)
+   - Description: Explain what, why, and how
+   - Reference related issues with `Fixes #123`
+   - Link to any discussion issues
+
+3. **PR checklist**:
+   - [ ] Tests pass locally
+   - [ ] Type checking passes
+   - [ ] Documentation updated
+   - [ ] Commit messages are clear
+   - [ ] No breaking changes to public API
+
+4. **Respond to feedback**:
+   - All feedback is constructive and in good faith
+   - Push changes to the same branch
+   - Maintain conversation in the PR
+
+## C Code Contributions
+
+For C code changes:
+
+1. **Follow C99 standard** (not C11)
+2. **Memory management**:
+   - Always check malloc/realloc return values
+   - Free allocated memory in reverse order of allocation
+   - Use consistent error handling patterns
+3. **Testing**:
+   - Add tests to `cfl/tests/*_test.c`
+   - Verify with `make -C cfl test`
+   - Run with AddressSanitizer: `-fsanitize=address`
+
+Example C test:
+
+```c
+void test_function_name() {
+    // Arrange
+    int expected = 42;
+    
+    // Act
+    int result = my_function();
+    
+    // Assert
+    if (result != expected) {
+        printf("fail: expected %d, got %d\n", expected, result);
+        return;
+    }
+    printf("pass\n");
+}
+```
+
+## Documentation Contributions
+
+- Update `.rst` files in `docs/` directory
+- Build with `sphinx-build -b html docs/ docs/_build/html`
+- Check HTML output at `docs/_build/html/index.html`
+- For API docs, docstrings are auto-extracted via Sphinx autodoc
+
+## Reporting Bugs
+
+When filing a bug report, include:
+
+1. **Description**: What did you expect vs what happened?
+2. **Reproduction steps**: Minimal example to reproduce the issue
+3. **Environment**: Python version, OS, pycf version
+4. **Traceback**: Full error message and stack trace
+5. **Additional context**: Any relevant environment variables, build flags, etc.
+
+Example issue:
+
+```
+## Bug: Crystal field calculation gives wrong eigenvalues
+
+### Description
+When fitting Ce³⁺ in YLF, eigenvalues are incorrect.
+
+### Steps to Reproduce
+1. Load ceylf/matel files
+2. Create Hamiltonian with CF term scaled to 1.5
+3. Call h.diag()
+4. Print eigenvalues - they don't match experiment
+
+### Expected
+Eigenvalues should be close to experimental values.
+
+### Actual
+Values differ by > 100 cm⁻¹.
+
+### Environment
+- Python 3.11
+- numpy 1.24
+- scipy 1.10
+- pycf dev (commit abc123)
+- Linux 5.14.0
+
+### Traceback
+(if applicable)
+```
+
+## Seeking Help
+
+- **Questions**: Open a GitHub discussion or issue
+- **Architecture**: Check `docs/overview.rst` for high-level design
+- **Examples**: See `examples/` directory for working code
+- **API reference**: See `docs/api/` or generated HTML docs
+
+## License
+
+By contributing to PyCF, you agree that your contributions will be licensed
+under the same license as the project (GNU GPL v3 for most code, MIT for
+specific modules as noted in file headers).
+
+## Additional Resources
+
+- [GitHub Issues](https://github.com/mikereidnz/pycf/issues)
+- [GitHub Discussions](https://github.com/mikereidnz/pycf/discussions)
+- [Documentation](https://github.com/mikereidnz/pycf/blob/devel/docs/index.rst)
+- [Installation Guide](https://github.com/mikereidnz/pycf/blob/devel/docs/installation.rst)
+- [API Reference](https://github.com/mikereidnz/pycf/blob/devel/docs/api/index.rst)
+
+## Thank You!
+
+Thank you for contributing to PyCF! Your efforts help make crystal field
+calculations more accessible and robust for the research community.

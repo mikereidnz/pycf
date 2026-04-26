@@ -7,7 +7,7 @@
 - Clean C build artifacts and compiled test binaries: `make -C cfl clean`
 - Rebuild the Python extension from the repo root: `python setup.py build_ext --inplace`
   - `setup.py` runs `make` in `cfl/` first, regenerates `pycf/__version__.py` from `git rev-parse --short HEAD`, and then builds the Cython extension.
-- Install the package using the workflow documented in `README.rst` / `doc/install.rst`: `python setup.py install --prefix=/path/to/prefix`
+- Install the package using the workflow documented in `INSTALL.md`: `pip install .` or `pip install -e .`
 - Run the full C test suite: `make -C cfl test`
 - Run a single C test: `make -C cfl h_test && ./cfl/h_test`
   - Replace `h_test` with any target from `cfl/tests/*test.c` such as `csr_test`, `sh_test`, `opt_test`, or `zefoz_test`. The full suite just builds those `*_test` binaries and executes them via `cfl/cfl_testing.sh`.
@@ -30,5 +30,5 @@
 - `Tensor` objects should usually be created from `ImportSLJM` or from tensor arithmetic, not by manually assembling low-level buffers. The Cython layer expects contiguous NumPy arrays and Hermitian CSR-style sparse data.
 - Tensor names are semantically important. Arithmetic-created tensors can have only an `arith_name` until a real name is assigned; that name is used in summaries and coefficient sharing logic, so explicitly set `tensor.name` when reusing derived tensors across fits.
 - The importer synthesizes convenience tensors such as `MAGX`, `MAGY`, `MAGZ`, and `HYP` from raw SLJM tensors. If you change tensor naming or available inputs, check these derived aliases too.
-- Build configuration is controlled partly through environment variables, not only code changes. `CFL_CFLAGS` and `CFL_LDLIBS` inject nonstandard include/library paths, while `CFL_CC=icc` and `INTEL_PATH=...` switch the C build to the Intel/MKL path described in `doc/install.rst`.
+- Build configuration is controlled partly through environment variables, not only code changes. `CFL_CFLAGS` and `CFL_LDLIBS` inject nonstandard include/library paths, while `CFL_CC=icc` and `INTEL_PATH=...` switch the C build to the Intel/MKL path described in `INSTALL.md`.
 - This repository still contains Python 2/early Python 3 transition idioms (`from __future__ import division`, `np.complex`, `iteritems` in Cython/Python glue). When modernizing code, inspect neighboring modules for compatibility assumptions instead of normalizing one file in isolation.

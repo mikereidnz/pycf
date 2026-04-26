@@ -1,0 +1,1350 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pycf.cfl_util &mdash; PyCF 179b2ce Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=c2aaae26"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PyCF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#what-is-pycf">What is PyCF?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#crystal-field-theory-basics">Crystal Field Theory Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#core-concepts">Core Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../overview.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../overview.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../overview.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#module-organization">Module Organization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#performance-characteristics">Performance Characteristics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#supported-platforms">Supported Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#language-support">Language Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../overview.html#history-and-references">History and References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#quick-install">Quick Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#detailed-installation-steps">Detailed Installation Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#platform-specific-notes">Platform-Specific Notes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../installation.html#linux-debian-ubuntu">Linux (Debian/Ubuntu)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../installation.html#macos">macOS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../installation.html#windows-wsl2">Windows (WSL2)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#intel-mkl-support">Intel MKL Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#verification">Verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#running-examples">Running Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#uninstallation">Uninstallation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#development-installation">Development Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../installation.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#basic-example-ceylf">Basic Example: CeYLF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#key-concepts">Key Concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart.html#hamiltonian">Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart.html#tensors">Tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart.html#experimental-data">Experimental Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#parameters-and-fitting">Parameters and Fitting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#common-patterns">Common Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#next-steps">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/index.html#core-modules">Core Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl.html">cfl</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.CFLMin"><code class="docutils literal notranslate"><span class="pre">CFLMin</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.EFit"><code class="docutils literal notranslate"><span class="pre">EFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.ESHFit"><code class="docutils literal notranslate"><span class="pre">ESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.MESHFit"><code class="docutils literal notranslate"><span class="pre">MESHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.MHFit"><code class="docutils literal notranslate"><span class="pre">MHFit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.SpinHamiltonian"><code class="docutils literal notranslate"><span class="pre">SpinHamiltonian</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.StateLabels"><code class="docutils literal notranslate"><span class="pre">StateLabels</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.ZEFOZSearch"><code class="docutils literal notranslate"><span class="pre">ZEFOZSearch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.__reduce_cython__"><code class="docutils literal notranslate"><span class="pre">__reduce_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.__setstate_cython__"><code class="docutils literal notranslate"><span class="pre">__setstate_cython__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.e_fit"><code class="docutils literal notranslate"><span class="pre">e_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.esh_fit"><code class="docutils literal notranslate"><span class="pre">esh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.hyperfine_sh_coeff"><code class="docutils literal notranslate"><span class="pre">hyperfine_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.mesh_fit"><code class="docutils literal notranslate"><span class="pre">mesh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.mh_fit"><code class="docutils literal notranslate"><span class="pre">mh_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.quadrupole_sh_coeff"><code class="docutils literal notranslate"><span class="pre">quadrupole_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.set_error_handler"><code class="docutils literal notranslate"><span class="pre">set_error_handler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.sh_svd"><code class="docutils literal notranslate"><span class="pre">sh_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.zeeman_sh_coeff"><code class="docutils literal notranslate"><span class="pre">zeeman_sh_coeff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/cfl.html#pycf.cfl.zefoz"><code class="docutils literal notranslate"><span class="pre">zefoz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/import_sljm.html"><code class="docutils literal notranslate"><span class="pre">get_tensor_dim()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/import_sljm.html#pycf.import_sljm.get_state_number"><code class="docutils literal notranslate"><span class="pre">get_state_number()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/import_sljm.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/import_sljm.html#pycf.import_sljm.ImportSLJM.__init__"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/import_sljm.html#pycf.import_sljm.ImportSLJM.print_names"><code class="docutils literal notranslate"><span class="pre">ImportSLJM.print_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/inten.html">INTEN</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.vtrans"><code class="docutils literal notranslate"><span class="pre">vtrans()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.dipole_str"><code class="docutils literal notranslate"><span class="pre">dipole_str()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.group_transitions"><code class="docutils literal notranslate"><span class="pre">group_transitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.A_and_f_calc"><code class="docutils literal notranslate"><span class="pre">A_and_f_calc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.add_oscillator_strengths_and_A_coefficients"><code class="docutils literal notranslate"><span class="pre">add_oscillator_strengths_and_A_coefficients()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.boltzmann_factor"><code class="docutils literal notranslate"><span class="pre">boltzmann_factor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.lorentzian"><code class="docutils literal notranslate"><span class="pre">lorentzian()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/inten.html#pycf.inten.inten"><code class="docutils literal notranslate"><span class="pre">inten()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/paramcalc.html">PARAMCALC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/paramcalc.html#pycf.paramcalc.Xi_val"><code class="docutils literal notranslate"><span class="pre">Xi_val()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/paramcalc.html#pycf.paramcalc.RInt4f"><code class="docutils literal notranslate"><span class="pre">RInt4f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/paramcalc.html#pycf.paramcalc.Ligand"><code class="docutils literal notranslate"><span class="pre">Ligand</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/paramcalc.html#pycf.paramcalc.Ckq"><code class="docutils literal notranslate"><span class="pre">Ckq()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/paramcalc.html#pycf.paramcalc.A_SC"><code class="docutils literal notranslate"><span class="pre">A_SC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/paramcalc.html#pycf.paramcalc.A_DC"><code class="docutils literal notranslate"><span class="pre">A_DC()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/paramcalc.html#pycf.paramcalc.AltpData"><code class="docutils literal notranslate"><span class="pre">AltpData</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/index.html#utility-modules">Utility Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/spinh.html">SPINH</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.bmj"><code class="docutils literal notranslate"><span class="pre">bmj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.ias"><code class="docutils literal notranslate"><span class="pre">ias()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.iqi"><code class="docutils literal notranslate"><span class="pre">iqi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.bi"><code class="docutils literal notranslate"><span class="pre">bi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.bmj_coeff_array"><code class="docutils literal notranslate"><span class="pre">bmj_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.ias_coeff_array"><code class="docutils literal notranslate"><span class="pre">ias_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.iqi_coeff_array"><code class="docutils literal notranslate"><span class="pre">iqi_coeff_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.invert_term"><code class="docutils literal notranslate"><span class="pre">invert_term()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.su2_rz"><code class="docutils literal notranslate"><span class="pre">su2_rz()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.su2_rz_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rz_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.su2_rotation"><code class="docutils literal notranslate"><span class="pre">su2_rotation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.su2_rotation_lsq_f"><code class="docutils literal notranslate"><span class="pre">su2_rotation_lsq_f()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.param_ten_svd"><code class="docutils literal notranslate"><span class="pre">param_ten_svd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spinh.html#pycf.spinh.SpinH"><code class="docutils literal notranslate"><span class="pre">SpinH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/pyemp.html">PYEMP</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.Spectrum"><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.BaseEmp"><code class="docutils literal notranslate"><span class="pre">BaseEmp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.GenericErun"><code class="docutils literal notranslate"><span class="pre">GenericErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.Cfit"><code class="docutils literal notranslate"><span class="pre">Cfit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.Vtrans"><code class="docutils literal notranslate"><span class="pre">Vtrans</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.Inten"><code class="docutils literal notranslate"><span class="pre">Inten</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.SpectrumData"><code class="docutils literal notranslate"><span class="pre">SpectrumData</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.SpectrumErun"><code class="docutils literal notranslate"><span class="pre">SpectrumErun</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/pyemp.html#pycf.pyemp.SpectrumAxes"><code class="docutils literal notranslate"><span class="pre">SpectrumAxes</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html"><code class="docutils literal notranslate"><span class="pre">uline_char()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.term2L"><code class="docutils literal notranslate"><span class="pre">term2L()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.L2term"><code class="docutils literal notranslate"><span class="pre">L2term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.fmt_timestamp"><code class="docutils literal notranslate"><span class="pre">fmt_timestamp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.gen_pycf_details"><code class="docutils literal notranslate"><span class="pre">gen_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.gen_pycf_summary"><code class="docutils literal notranslate"><span class="pre">gen_pycf_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.print_pycf_details"><code class="docutils literal notranslate"><span class="pre">print_pycf_details()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.gen_completed_str"><code class="docutils literal notranslate"><span class="pre">gen_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.print_completed_str"><code class="docutils literal notranslate"><span class="pre">print_completed_str()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.ex_parse_abs"><code class="docutils literal notranslate"><span class="pre">ex_parse_abs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.ex_parse_diff"><code class="docutils literal notranslate"><span class="pre">ex_parse_diff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.gen_e_summary"><code class="docutils literal notranslate"><span class="pre">gen_e_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.gen_e_summary_trunc"><code class="docutils literal notranslate"><span class="pre">gen_e_summary_trunc()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.gen_sh_summary"><code class="docutils literal notranslate"><span class="pre">gen_sh_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.gen_fit_summary"><code class="docutils literal notranslate"><span class="pre">gen_fit_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.print_as_fortran_array"><code class="docutils literal notranslate"><span class="pre">print_as_fortran_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.print_as_c_array"><code class="docutils literal notranslate"><span class="pre">print_as_c_array()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.MHz2cm1"><code class="docutils literal notranslate"><span class="pre">MHz2cm1()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.cm12MHz"><code class="docutils literal notranslate"><span class="pre">cm12MHz()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.bal_bounds"><code class="docutils literal notranslate"><span class="pre">bal_bounds()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.rJmmp"><code class="docutils literal notranslate"><span class="pre">rJmmp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.WignerR"><code class="docutils literal notranslate"><span class="pre">WignerR()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/cfl_util.html#pycf.cfl_util.rotate_cf_params"><code class="docutils literal notranslate"><span class="pre">rotate_cf_params()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/njsymbols.html">NJSYMBOLS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/njsymbols.html#pycf.njsymbols.tricon_ck"><code class="docutils literal notranslate"><span class="pre">tricon_ck()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/njsymbols.html#pycf.njsymbols.wigner_3j"><code class="docutils literal notranslate"><span class="pre">wigner_3j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/njsymbols.html#pycf.njsymbols.wigner_6j"><code class="docutils literal notranslate"><span class="pre">wigner_6j()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/njsymbols.html#pycf.njsymbols.wigner_9j"><code class="docutils literal notranslate"><span class="pre">wigner_9j()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/matel.html">MATEL</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/matel.html#pycf.matel.t_q"><code class="docutils literal notranslate"><span class="pre">t_q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/matel.html#pycf.matel.matel"><code class="docutils literal notranslate"><span class="pre">matel()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/index.html#quick-reference">Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/index.html#classes">Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/index.html#hamiltonian">Hamiltonian</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/index.html#pycf.cfl.Hamiltonian"><code class="docutils literal notranslate"><span class="pre">Hamiltonian</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/index.html#tensor">Tensor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/index.html#pycf.cfl.Tensor"><code class="docutils literal notranslate"><span class="pre">Tensor</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/index.html#exdata">ExData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/index.html#pycf.cfl.ExData"><code class="docutils literal notranslate"><span class="pre">ExData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/index.html#importsljm">ImportSLJM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/index.html#pycf.import_sljm.ImportSLJM"><code class="docutils literal notranslate"><span class="pre">ImportSLJM</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/index.html#key-functions">Key Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../guides/fitting_example.html">Fitting Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/fitting_example.html#basic-fitting-workflow">Basic Fitting Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/fitting_example.html#example-ceylf">Example: CeYLF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/fitting_example.html#multiple-parameter-fitting">Multiple Parameter Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/fitting_example.html#temperature-dependent-fitting">Temperature-Dependent Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/fitting_example.html#advanced-constrained-fitting">Advanced: Constrained Fitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/fitting_example.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/fitting_example.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../guides/spin_hamiltonian.html">Spin Hamiltonian</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#what-is-a-spin-hamiltonian">What is a Spin Hamiltonian?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#basic-extraction">Basic Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#g-tensor">G-Tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#anisotropy">Anisotropy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#temperature-dependent-g-factor">Temperature-Dependent G-Factor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#hyperfine-coupling">Hyperfine Coupling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#validation">Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#advanced-kramers-doublet-projection">Advanced: Kramers Doublet Projection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../guides/spin_hamiltonian.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../guides/index.html#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guides/index.html#common-tasks">Common Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guides/index.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guides/index.html#resources">Resources</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PyCF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">pycf.cfl_util</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pycf.cfl_util</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># Filename = cfl_util.py</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Utility functions for crystal field calculations and data presentation.</span>
+
+<span class="sd">This module provides formatting, summary, and analysis helpers for crystal field</span>
+<span class="sd">Hamiltonians and experimental data. Key functions include:</span>
+
+<span class="sd">- Energy level summaries and formatting</span>
+<span class="sd">- State label parsing and manipulation</span>
+<span class="sd">- Experimental data handling and normalization</span>
+<span class="sd">- Transition grouping and analysis</span>
+<span class="sd">- Result printing and visualization</span>
+
+<span class="sd">Used throughout pycf for formatting output and presenting crystal field</span>
+<span class="sd">calculation results to users.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1">#   Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)</span>
+<span class="c1">#</span>
+<span class="c1">#   This program is free software: you can redistribute it and/or modify</span>
+<span class="c1">#   it under the terms of the GNU General Public License as published by</span>
+<span class="c1">#   the Free Software Foundation, either version 3 of the License, or</span>
+<span class="c1">#   (at your option) any later version.</span>
+<span class="c1">#</span>
+<span class="c1">#   This program is distributed in the hope that it will be useful,</span>
+<span class="c1">#   but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="c1">#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="c1">#   GNU General Public License for more details.</span>
+<span class="c1">#</span>
+<span class="c1">#   You should have received a copy of the GNU General Public License</span>
+<span class="c1">#   along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pycf.__version__</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span><span class="p">,</span> <span class="n">__build_timestamp__</span><span class="p">,</span> <span class="n">__build_comment__</span>
+<span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not import build metadata from pycf.__version__: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+    <span class="n">__version__</span> <span class="o">=</span> <span class="s1">&#39;unknown&#39;</span>
+    <span class="n">__build_timestamp__</span> <span class="o">=</span> <span class="s1">&#39;unknown&#39;</span>
+    <span class="n">__build_comment__</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">factorial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">fsum</span>
+
+<div class="viewcode-block" id="uline_char">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.uline_char">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">uline_char</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Underline all non-whitespace characters in a string, except for single</span>
+<span class="sd">    spaces between non-whitespace characters.&quot;&quot;&quot;</span>
+    <span class="n">ul</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">end</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">isspace</span><span class="p">():</span>
+            <span class="c1"># A space gets an underline dash if it sits between two non-space chars</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">end</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isspace</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isspace</span><span class="p">():</span>
+                <span class="n">ul</span> <span class="o">+=</span> <span class="s2">&quot;-&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ul</span> <span class="o">+=</span> <span class="s2">&quot; &quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ul</span> <span class="o">+=</span> <span class="s2">&quot;-&quot;</span>
+    <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">s</span> <span class="o">+</span> <span class="n">ul</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">s</span> <span class="o">+</span> <span class="n">ul</span></div>
+
+
+<div class="viewcode-block" id="term2L">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.term2L">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">term2L</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+    <span class="s2">&quot;Convert an L quantum number term character to its numerical value.&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;SPDFGHIKLMNOQRTUV&#39;</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+       <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported L quantum number: </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">c</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="L2term">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.L2term">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">L2term</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+    <span class="s2">&quot;Convert an L quantum number numerical value to its term character.&quot;</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span> 
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported L quantum number: </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;SPDFGHIKLMNOQRTUV&#39;</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported L quantum number: </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="fmt_timestamp">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.fmt_timestamp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fmt_timestamp</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">timestamp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">timestamp</span>
+    <span class="k">return</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="gen_pycf_details">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.gen_pycf_details">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_pycf_details</span><span class="p">(</span><span class="n">started_at</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate the pycf metadata block for summaries and stdout.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;pycf details</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;============</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;pycf revision: </span><span class="si">{}</span><span class="s2">  built at </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">__version__</span><span class="p">,</span> <span class="n">__build_timestamp__</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Build comment: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">__build_comment__</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Calculation started at: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fmt_timestamp</span><span class="p">(</span><span class="n">started_at</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="gen_pycf_summary">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.gen_pycf_summary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_pycf_summary</span><span class="p">(</span><span class="n">started_at</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read input file and add to long string. Further, print the pycf version and</span>
+<span class="sd">    date/time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Input file</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="n">s</span>  <span class="o">+=</span> <span class="s2">&quot;==========</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;File: </span><span class="si">{}</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">stack</span><span class="p">()[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">stack</span><span class="p">()[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+
+    <span class="n">s</span> <span class="o">+=</span> <span class="n">gen_pycf_details</span><span class="p">(</span><span class="n">started_at</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">s</span></div>
+
+ 
+<div class="viewcode-block" id="print_pycf_details">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.print_pycf_details">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_pycf_details</span><span class="p">(</span><span class="n">started_at</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">gen_pycf_details</span><span class="p">(</span><span class="n">started_at</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="gen_completed_str">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.gen_completed_str">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_completed_str</span><span class="p">(</span><span class="n">completed_at</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return string of fit completion time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Calculation completed at: </span><span class="si">{}</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fmt_timestamp</span><span class="p">(</span><span class="n">completed_at</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="print_completed_str">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.print_completed_str">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_completed_str</span><span class="p">(</span><span class="n">completed_at</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">gen_completed_str</span><span class="p">(</span><span class="n">completed_at</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ex_parse_abs">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.ex_parse_abs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ex_parse_abs</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function for extracting and formatting experimental energy level data</span>
+<span class="sd">    from an ExData object for absolute energy level data.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ex : ExData</span>
+<span class="sd">        The object to be parsed.</span>
+<span class="sd">    z : np.ndarray</span>
+<span class="sd">        Eigenvector array the principal components of which are used to sort</span>
+<span class="sd">        state labels.</span>
+<span class="sd">    labels : list </span>
+<span class="sd">        A list of state labels.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    parsed_ex : np.ndarray</span>
+<span class="sd">        Two column array containing level indices starting at 1 in the zeroeth</span>
+<span class="sd">        column and corresponding experimental energy levels in the first column.</span>
+<span class="sd">        If the ExData object contains no absolute energy levels an empty array</span>
+<span class="sd">        is returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_a</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+    <span class="k">elif</span> <span class="n">ex</span><span class="o">.</span><span class="n">sl_index</span><span class="p">:</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ex</span><span class="o">.</span><span class="n">n_a</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">e</span><span class="p">[:</span><span class="n">ex</span><span class="o">.</span><span class="n">n_a</span><span class="p">]</span>
+        <span class="c1"># Determine the index of the principal component of each</span>
+        <span class="c1"># eigenvector. </span>
+        <span class="n">pc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># Validate that pc indices are within bounds of labels</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">pc</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Principal component index exceeds bounds of labels array&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">a_states</span><span class="p">):</span>
+            <span class="c1"># Find the index of the principal component of each state label.</span>
+            <span class="c1"># Guard against a missing match: np.where returns an empty array</span>
+            <span class="c1"># when no eigenvector has the requested label as its principal</span>
+            <span class="c1"># component, which would produce a bare IndexError without context.</span>
+            <span class="n">idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">labels</span><span class="p">)[</span><span class="n">pc</span><span class="p">]</span> <span class="o">==</span> <span class="n">r</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idxs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Experimental state label </span><span class="si">{}</span><span class="s2"> not found in computed &quot;</span>
+                    <span class="s2">&quot;eigenvectors; check that the label is correct and that &quot;</span>
+                    <span class="s2">&quot;the basis is large enough.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+            <span class="n">parsed_ex</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ex</span><span class="o">.</span><span class="n">n_a</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="c1"># Abs. energy values are ordered to preceed diff. values.</span>
+        <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">e</span><span class="p">[:</span><span class="n">ex</span><span class="o">.</span><span class="n">n_a</span><span class="p">]</span>
+        <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">la</span> 
+        <span class="c1"># Sort ex according to index column.</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">parsed_ex</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]),</span> <span class="p">:]</span>
+
+    <span class="k">return</span> <span class="n">parsed_ex</span></div>
+
+
+<div class="viewcode-block" id="ex_parse_diff">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.ex_parse_diff">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ex_parse_diff</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function for extracting and formatting experimental energy level data</span>
+<span class="sd">    from an ExData object for energy level differences.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ex : ExData</span>
+<span class="sd">        The object to be parsed.</span>
+<span class="sd">    z : np.ndarray</span>
+<span class="sd">        Eigenvector array the principal components of which are used to sort</span>
+<span class="sd">        state labels.</span>
+<span class="sd">    labels : list </span>
+<span class="sd">        A list of state labels.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    parsed_ex : np.ndarray</span>
+<span class="sd">        Three coloumn array containing initial level indices starting at 1 in</span>
+<span class="sd">        the zeroeth column, final level indices starting at 1 in the first</span>
+<span class="sd">        column, and corresponding experimental energy levels differences in the</span>
+<span class="sd">        second column.  If the ExData object contains no difference energy</span>
+<span class="sd">        levels an empty array is returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_d</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+    <span class="k">elif</span> <span class="n">ex</span><span class="o">.</span><span class="n">sl_index</span><span class="p">:</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ex</span><span class="o">.</span><span class="n">n_d</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">e</span><span class="p">[</span><span class="n">ex</span><span class="o">.</span><span class="n">n_a</span><span class="p">:]</span>
+        <span class="c1"># Determine the index of the principal component of each</span>
+        <span class="c1"># eigenvector. </span>
+        <span class="n">pc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># Find the index of the principal component of each state label.</span>
+        <span class="c1"># Both loops guard against missing matches for the same reason as</span>
+        <span class="c1"># ex_parse_abs: a bare IndexError gives no hint about which label</span>
+        <span class="c1"># failed or why.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">id_states</span><span class="p">):</span>
+            <span class="n">idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">labels</span><span class="p">)[</span><span class="n">pc</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idxs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Initial-state label </span><span class="si">{}</span><span class="s2"> not found in computed &quot;</span>
+                    <span class="s2">&quot;eigenvectors; check that the label is correct and that &quot;</span>
+                    <span class="s2">&quot;the basis is large enough.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+            <span class="n">parsed_ex</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">fd_states</span><span class="p">):</span>
+            <span class="n">idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">labels</span><span class="p">)[</span><span class="n">pc</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">idxs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Final-state label </span><span class="si">{}</span><span class="s2"> not found in computed &quot;</span>
+                    <span class="s2">&quot;eigenvectors; check that the label is correct and that &quot;</span>
+                    <span class="s2">&quot;the basis is large enough.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+            <span class="n">parsed_ex</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ex</span><span class="o">.</span><span class="n">n_d</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="c1"># Diff. energy values are ordered to come after abs. values.</span>
+        <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">e</span><span class="p">[</span><span class="n">ex</span><span class="o">.</span><span class="n">n_a</span><span class="p">:]</span>
+        <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">ild</span>
+        <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="o">.</span><span class="n">fld</span>
+        <span class="c1"># Sort ex according to initial level (col 0), then final level (col 1).</span>
+        <span class="c1"># np.lexsort sorts primarily by the *last* key in its tuple, so col 0</span>
+        <span class="c1"># (initial level) must come last to be the primary sort key.  The</span>
+        <span class="c1"># previous order had the keys reversed, making final level primary.</span>
+        <span class="n">parsed_ex</span> <span class="o">=</span> <span class="n">parsed_ex</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">lexsort</span><span class="p">((</span><span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">parsed_ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])),</span> <span class="p">:]</span>
+    
+    <span class="k">return</span> <span class="n">parsed_ex</span></div>
+
+
+<div class="viewcode-block" id="gen_e_summary">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.gen_e_summary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_e_summary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">label_key</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate energy level summary given eigenvalues and eigenvectors. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    w : np.ndarray</span>
+<span class="sd">        The eigenvalue vector, of length n.</span>
+<span class="sd">    z : np.ndarray</span>
+<span class="sd">        The eigenvectors in an n by n matrix.</span>
+<span class="sd">    labels : list</span>
+<span class="sd">        A list of state labels.</span>
+<span class="sd">    label_key : str</span>
+<span class="sd">       String identifying the type of label.  Valid characters are S, L, J, M,</span>
+<span class="sd">       I, T, and F and their position in label_key specifies the location in</span>
+<span class="sd">       each label.  </span>
+<span class="sd">    ex : np.ndarray or ExData, optional</span>
+<span class="sd">        Either a 2 by n dimensional array or an ExData object. The two</span>
+<span class="sd">        column case is used to specify only absolute energy levels.  In this</span>
+<span class="sd">        instance, the first column contains energy level indices starting at 1,</span>
+<span class="sd">        and the second column contains the absolute experimental energy of the</span>
+<span class="sd">        corresponding level.  Other types of energy level data must be passed as</span>
+<span class="sd">        an ExData object.  </span>
+<span class="sd">    nstates : int, optional</span>
+<span class="sd">        The number of constituent states to display for mixed states.</span>
+<span class="sd">    chi2 : float, optional </span>
+<span class="sd">        The final chi2 value of the fit. </span>
+<span class="sd">    ndof : int, optional</span>
+<span class="sd">        The number of degrees of freedom of the fit; that is, the number of</span>
+<span class="sd">        observables minus the number of parameters.  If this is provided, along</span>
+<span class="sd">        with chi2, then the standard deviation -- assuming a model fit -- will</span>
+<span class="sd">        be shown.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.</span>
+<span class="sd">    weighting : float, optional</span>
+<span class="sd">        The weighting applied during the chi2 fit.  This should be set if ndof is set.</span>
+<span class="sd">    e_shift : bool, optional</span>
+<span class="sd">        Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">fmt_label</span><span class="p">(</span><span class="n">li</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">labels</span><span class="p">[</span><span class="n">li</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;T&#39;</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{:d}</span><span class="s2">,&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;F&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">l</span><span class="p">:</span>
+                    <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;(2F)&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;    &quot;</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;S&#39;</span><span class="p">:</span>
+                    <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{:d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;L&#39;</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="n">L2term</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;J&#39;</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{: &gt;2d}</span><span class="s2">,&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_key</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{: &gt;3d}</span><span class="s2">,&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{: &gt;3d}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">label</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;nstates&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">nstates</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">nstates</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;nstates&#39;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="s1">&#39;ex&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">ex</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ex&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="c1"># Sort ex according to index column.</span>
+            <span class="n">ex</span> <span class="o">=</span> <span class="n">ex</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]),</span> <span class="p">:]</span>
+            <span class="c1"># Change to zero based indexing</span>
+            <span class="n">ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ex</span> <span class="o">=</span> <span class="n">ex_parse_abs</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ex</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;e_summary: ex input data contains duplicate entries in the index column.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+
+    <span class="k">if</span> <span class="s1">&#39;e_shift&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;e_shift&#39;</span><span class="p">]:</span>
+            <span class="n">e_shift</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="n">w</span> <span class="o">+</span> <span class="n">e_shift</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Energy level summary</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="n">s</span><span class="o">+=</span> <span class="s2">&quot;====================</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+    <span class="n">sort_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)):</span>
+        <span class="n">sort_list</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[:,</span><span class="n">i</span><span class="p">]))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+    <span class="n">heading</span> <span class="o">=</span> <span class="s2">&quot;Lev.  &quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;Percentage                 &quot;</span> <span class="o">+</span> <span class="s2">&quot;State&quot;</span> <span class="o">+</span> \
+            <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fmt_label</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span><span class="o">-</span><span class="mi">4</span><span class="p">))</span> <span class="o">*</span> <span class="n">nstates</span> <span class="o">+</span> <span class="s2">&quot;       Theory&quot;</span>
+    <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot;     Experiment    Difference</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot; </span><span class="se">\n</span><span class="s2">&quot;</span>
+    
+    <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="n">heading</span><span class="p">)</span>
+    <span class="n">ii</span><span class="o">=</span><span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)):</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;6}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nstates</span><span class="p">):</span>
+            <span class="n">si</span> <span class="o">=</span> <span class="n">sort_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
+            
+            <span class="n">line</span> <span class="o">+=</span> <span class="s2">&quot;(</span><span class="si">{0: .2f}</span><span class="s2">) </span><span class="si">{1:6.1%}</span><span class="s2"> </span><span class="si">{2:&gt;5}</span><span class="s2"> </span><span class="si">{3}</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="n">N</span><span class="p">,</span> 
+                    <span class="n">si</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">fmt_label</span><span class="p">(</span><span class="n">si</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">line</span> <span class="o">+</span> <span class="s2">&quot; </span><span class="si">{: &gt;12.4f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ex</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;   </span><span class="si">{: &gt;12.4f}</span><span class="s2">  </span><span class="si">{: &gt;12.4f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ex</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="n">ex</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="k">if</span> <span class="n">ii</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="n">ii</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;         --            --</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Label key: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">label_key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;chi2&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;weighted chi2 = </span><span class="si">{:.4f}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;chi2&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s1">&#39;ndof&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;weighting&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The weight argument needs to be provided if you provide ndof.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">weighting</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;weighting&#39;</span><span class="p">]</span>
+            <span class="c1"># Fix: sigma is an RMS quantity, so ndof belongs inside the square root.</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ndof&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;sigma = N/A (ndof=0)</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;sigma = </span><span class="si">{:.4f}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;chi2&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="n">weighting</span><span class="o">*</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ndof&#39;</span><span class="p">])))</span>
+            <span class="k">if</span> <span class="n">weighting</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;weighting factor = </span><span class="si">{:.2e}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">weighting</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+
+    <span class="k">if</span> <span class="s1">&#39;e_shift&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;e_shift&#39;</span><span class="p">]:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Energy level shift: </span><span class="si">{:.4f}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e_shift</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+
+<div class="viewcode-block" id="gen_e_summary_trunc">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.gen_e_summary_trunc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_e_summary_trunc</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">label_key</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a truncated energy level summary displaying only levels for which</span>
+<span class="sd">    experimental energy level data is provided.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    w : np.ndarray</span>
+<span class="sd">        The eigenvalue vector, of length n.</span>
+<span class="sd">    z : np.ndarray</span>
+<span class="sd">        The eigenvectors in an n by n matrix.</span>
+<span class="sd">    labels : list</span>
+<span class="sd">        A list of state labels.</span>
+<span class="sd">    label_key : str</span>
+<span class="sd">       String identifying the type of label.  Valid characters are S, L, J, M,</span>
+<span class="sd">       I, T, and F and their position in label_key specifies the location in</span>
+<span class="sd">       each label.  </span>
+<span class="sd">    ex : ExData</span>
+<span class="sd">        The ExData object for which to generate the truncated energy level summary. </span>
+<span class="sd">    name : str</span>
+<span class="sd">        Name used in heading for this truncated summary.</span>
+<span class="sd">    nstates : int, optional</span>
+<span class="sd">        The number of constituent states to display for mixed states.</span>
+<span class="sd">    chi2 : float, optional </span>
+<span class="sd">        The final chi2 value of the fit. </span>
+<span class="sd">    ndof : int, optional</span>
+<span class="sd">        The number of degrees of freedom of the fit; that is, the number of</span>
+<span class="sd">        observables minus the number of parameters.  If this is provided, along</span>
+<span class="sd">        with chi2, then the standard deviation -- assuming a model fit -- will</span>
+<span class="sd">        be shown.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.</span>
+<span class="sd">    weighting : float, optional</span>
+<span class="sd">        The weighting applied during the chi2 fit.  This should be set if ndof is set.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fmt_label</span><span class="p">(</span><span class="n">li</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">labels</span><span class="p">[</span><span class="n">li</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;T&#39;</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{:d}</span><span class="s2">,&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;F&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">l</span><span class="p">:</span>
+                    <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;(2F)&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;    &quot;</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;S&#39;</span><span class="p">:</span>
+                    <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{:d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;L&#39;</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="n">L2term</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">label_key</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;J&#39;</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{: &gt;2d}</span><span class="s2">,&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_key</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{: &gt;3d}</span><span class="s2">,&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">label</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{: &gt;3d}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">label</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;nstates&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">nstates</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">nstates</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;nstates&#39;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_a</span> <span class="o">+</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_d</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+    
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> summary</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">+=</span> <span class="s2">&quot;=&quot;</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;========</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+    <span class="n">sort_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)):</span>
+        <span class="n">sort_list</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[:,</span><span class="n">i</span><span class="p">]))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+    
+    <span class="c1"># Absolute energy level summary.</span>
+    <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_a</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_d</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="s2">&quot;Absolute energy levels:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">exa</span> <span class="o">=</span> <span class="n">ex_parse_abs</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+        <span class="n">heading</span> <span class="o">=</span> <span class="s2">&quot;Lev.  &quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;Percentage                 &quot;</span> <span class="o">+</span> <span class="s2">&quot;State&quot;</span> <span class="o">+</span> \
+                <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fmt_label</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span><span class="o">-</span><span class="mi">4</span><span class="p">))</span> <span class="o">*</span> <span class="n">nstates</span> <span class="o">+</span> <span class="s2">&quot;       Theory&quot;</span>
+        <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot;     Experiment    Difference</span><span class="se">\n</span><span class="s2">&quot;</span>
+        
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="n">heading</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">n_a</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">exa</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;6}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nstates</span><span class="p">):</span>
+                <span class="n">si</span> <span class="o">=</span> <span class="n">sort_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">line</span> <span class="o">+=</span> <span class="s2">&quot;(</span><span class="si">{0: .2f}</span><span class="s2">) </span><span class="si">{1:6.1%}</span><span class="s2"> </span><span class="si">{2:&gt;5}</span><span class="s2"> </span><span class="si">{3}</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="n">N</span><span class="p">,</span> 
+                        <span class="n">si</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">fmt_label</span><span class="p">(</span><span class="n">si</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">line</span> <span class="o">+</span> <span class="s2">&quot; </span><span class="si">{: &gt;12.4f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;   </span><span class="si">{: &gt;12.4f}</span><span class="s2">  </span><span class="si">{: &gt;12.4f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exa</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="n">exa</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    
+    <span class="c1"># Difference energy level summary. </span>
+    <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_d</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">n_a</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="s2">&quot;Energy level differences:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">exd</span> <span class="o">=</span> <span class="n">ex_parse_diff</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+        <span class="n">heading</span> <span class="o">=</span> <span class="s2">&quot;Lev.  &quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;Percentage                 &quot;</span> <span class="o">+</span> <span class="s2">&quot;State&quot;</span> <span class="o">+</span> \
+                <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fmt_label</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span><span class="o">-</span><span class="mi">4</span><span class="p">))</span> <span class="o">*</span> <span class="n">nstates</span> <span class="o">+</span> <span class="s2">&quot;    Th. diff.&quot;</span>
+        <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot;     Exp. diff.    Diff. diff.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="n">heading</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">n_d</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">exd</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;6}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nstates</span><span class="p">):</span>
+                <span class="n">si</span> <span class="o">=</span> <span class="n">sort_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">line</span> <span class="o">+=</span> <span class="s2">&quot;(</span><span class="si">{0: .2f}</span><span class="s2">) </span><span class="si">{1:6.1%}</span><span class="s2"> </span><span class="si">{2:&gt;5}</span><span class="s2"> </span><span class="si">{3}</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="n">N</span><span class="p">,</span> 
+                        <span class="n">si</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">fmt_label</span><span class="p">(</span><span class="n">si</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">line</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">tmp_w</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">exd</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;6}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nstates</span><span class="p">):</span>
+                <span class="n">si</span> <span class="o">=</span> <span class="n">sort_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">line</span> <span class="o">+=</span> <span class="s2">&quot;(</span><span class="si">{0: .2f}</span><span class="s2">) </span><span class="si">{1:6.1%}</span><span class="s2"> </span><span class="si">{2:&gt;5}</span><span class="s2"> </span><span class="si">{3}</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="n">si</span><span class="p">,</span><span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="n">N</span><span class="p">,</span> 
+                        <span class="n">si</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">fmt_label</span><span class="p">(</span><span class="n">si</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+            <span class="n">tmp_w</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-</span><span class="n">tmp_w</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">line</span> <span class="o">+</span> <span class="s2">&quot; </span><span class="si">{: &gt;12.4g}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tmp_w</span><span class="p">)</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;   </span><span class="si">{: &gt;12.4g}</span><span class="s2">  </span><span class="si">{: &gt;12.4g}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exd</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="mi">2</span><span class="p">],</span> <span class="n">exd</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">tmp_w</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Label key: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">label_key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;chi2&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;weighted chi2 = </span><span class="si">{:.4f}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;chi2&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s1">&#39;ndof&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;weighting&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The weight argument needs to be provided if you provide ndof.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">weighting</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;weighting&#39;</span><span class="p">]</span>
+            <span class="c1"># Fix: sigma is an RMS quantity, so ndof belongs inside the square root.</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ndof&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;sigma = N/A (ndof=0)</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;sigma = </span><span class="si">{:.4f}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;chi2&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="n">weighting</span><span class="o">*</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ndof&#39;</span><span class="p">])))</span>
+            <span class="k">if</span> <span class="n">weighting</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;weighting factor = </span><span class="si">{:.2e}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">weighting</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+
+<div class="viewcode-block" id="gen_sh_summary">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.gen_sh_summary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_sh_summary</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">sh</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a spin Hamiltonian summary displaying calculated and experimental</span>
+<span class="sd">    spin Hamiltonian data. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    param : list</span>
+<span class="sd">        Elements must be `3 \times 3` np.ndarrays corresponding to the spin</span>
+<span class="sd">        Hamiltonian parameters.  Output from</span>
+<span class="sd">        :func:`cfl.SpinHamiltonian.calc_param` is appropriately formated to be</span>
+<span class="sd">        passed as param.</span>
+<span class="sd">    sh : SpinHamiltonian</span>
+<span class="sd">        Generally the spin Hamiltonian object used to generate the param list. </span>
+<span class="sd">    shx : dict, optional</span>
+<span class="sd">        Specifies the experimental spin Hamiltonian data for comparison.  Valid</span>
+<span class="sd">        keys are &#39;zeeman&#39;, &#39;hyperfine&#39;, and &#39;quadrupole&#39;.  Values should be `3</span>
+<span class="sd">        \times 3` np.ndarrays corresponding to the experimental spin Hamiltonian</span>
+<span class="sd">        tensor.</span>
+<span class="sd">    name : str, optional</span>
+<span class="sd">        If provided, the summary heading uses the provided string instead of</span>
+<span class="sd">        &quot;Spin Hamiltonian&quot;.</span>
+<span class="sd">    chi2 : np.ndarray, optional </span>
+<span class="sd">        The final chi2 value of the fit for each spin Hamiltonian term. </span>
+<span class="sd">    ndof : int, optional</span>
+<span class="sd">        The number of degrees of freedom of the fit; that is, the number of</span>
+<span class="sd">        observables minus the number of parameters.  If this is provided, along</span>
+<span class="sd">        with chi2, then the standard deviation -- assuming a model fit -- will</span>
+<span class="sd">        be shown.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.</span>
+<span class="sd">    weighting : dict, optional</span>
+<span class="sd">        The weighting applied during the chi2 fit; one entry for each spin</span>
+<span class="sd">        Hamiltonian term.  This should be set if ndof is set.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">formatter</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;float&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{:8.5f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)})</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;name&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> summary</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">])</span>
+        <span class="n">s</span><span class="o">+=</span> <span class="s2">&quot;=&quot;</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="s2">&quot;========</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Spin Hamiltonian summary</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span><span class="o">+=</span> <span class="s2">&quot;========================</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+    
+    <span class="n">tmp_sigma</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">inter</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sh</span><span class="o">.</span><span class="n">interactions</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> interaction</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">inter</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;shx&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="s2">&quot;Theory (abs. value)           Experiment (abs. value)       Difference</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="s2">&quot;Theory (abs. value)</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)[</span><span class="n">j</span><span class="p">,:])</span>
+            <span class="k">if</span> <span class="s1">&#39;shx&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="n">shx</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;shx&#39;</span><span class="p">]</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;  &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">shx</span><span class="p">[</span><span class="n">inter</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)[</span><span class="n">j</span><span class="p">,:])</span> <span class="o">+</span> <span class="s2">&quot;  &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">shx</span><span class="p">[</span><span class="n">inter</span><span class="p">])</span> 
+                    <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="n">i</span><span class="p">])))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)[</span><span class="n">j</span><span class="p">,:])</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;chi2&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;weighted chi2 = </span><span class="si">{:.4f}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;chi2&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">if</span> <span class="s1">&#39;weighting&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;weighting factor = </span><span class="si">{:.2e}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;weighting&#39;</span><span class="p">][</span><span class="n">inter</span><span class="p">])</span>
+                <span class="n">tmp_sigma</span> <span class="o">+=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;chi2&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="o">/</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;weighting&#39;</span><span class="p">][</span><span class="n">inter</span><span class="p">]</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;chi2&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="s1">&#39;ndof&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s1">&#39;weighting&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The weight argument needs to be provided if you provide ndof.&quot;</span><span class="p">)</span>
+        <span class="c1"># Fix: the total chi-squared-like sum must be normalized by ndof</span>
+        <span class="c1"># before taking the RMS square root.</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ndof&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;sigma = N/A (ndof=0)</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;sigma = </span><span class="si">{:.4f}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">tmp_sigma</span><span class="o">/</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;ndof&#39;</span><span class="p">]))</span>
+
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="gen_fit_summary">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.gen_fit_summary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_fit_summary</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">fit_obj</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">fmin</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a string summarizing a crystal-field Hamiltonian fitting run.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    coeff : dict</span>
+<span class="sd">        Contains the fitted interaction coefficients.</span>
+<span class="sd">    fit_obj : EFitRunner, MHFitRunner, ESHFitRunner, or MESHFitRunner</span>
+<span class="sd">        Must have __iter__ method that iterates over names of tensors.</span>
+<span class="sd">    method : str</span>
+<span class="sd">        The optimization algorithm used for the fit.</span>
+<span class="sd">    kwargs: dict</span>
+<span class="sd">        Additional, optimization algorithm specific, settings to print.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Formatting definitions.  There are three parameter classes with different</span>
+    <span class="c1"># formatting options: free-ion, crystal-field and hyperfine. Any param not</span>
+    <span class="c1"># in CF or HYP is assumed to be in FI. </span>
+    <span class="n">cf_l</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;C20&#39;</span><span class="p">,</span> <span class="s1">&#39;C21&#39;</span><span class="p">,</span> <span class="s1">&#39;C22&#39;</span><span class="p">,</span> <span class="s1">&#39;C40&#39;</span><span class="p">,</span> <span class="s1">&#39;C41&#39;</span><span class="p">,</span> <span class="s1">&#39;C42&#39;</span><span class="p">,</span> <span class="s1">&#39;C43&#39;</span><span class="p">,</span> <span class="s1">&#39;C44&#39;</span><span class="p">,</span> <span class="s1">&#39;C60&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;C61&#39;</span><span class="p">,</span> <span class="s1">&#39;C62&#39;</span><span class="p">,</span> <span class="s1">&#39;C63&#39;</span><span class="p">,</span> <span class="s1">&#39;C64&#39;</span><span class="p">,</span> <span class="s1">&#39;C65&#39;</span><span class="p">,</span> <span class="s1">&#39;C66&#39;</span><span class="p">,</span> <span class="s1">&#39;c2&#39;</span><span class="p">,</span> <span class="s1">&#39;c4&#39;</span><span class="p">,</span> <span class="s1">&#39;c6&#39;</span><span class="p">,</span><span class="s1">&#39;C2&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;C4&#39;</span><span class="p">,</span> <span class="s1">&#39;C6&#39;</span><span class="p">]</span>
+    <span class="n">hyp_l</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;HYP&#39;</span><span class="p">,</span> <span class="s1">&#39;EQHYP&#39;</span><span class="p">,</span> <span class="s1">&#39;NUCQUAD20&#39;</span><span class="p">,</span> <span class="s1">&#39;NUCQUAD21&#39;</span><span class="p">,</span> <span class="s1">&#39;NUCQUAD22&#39;</span><span class="p">]</span>   
+
+    <span class="c1"># Param class specific print formats. </span>
+    <span class="n">fmt_coeff</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;FI&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;19.2f}</span><span class="s1"> </span><span class="si">{1: &gt;19.2f}</span><span class="s1"> </span><span class="si">{2: &gt;19.2f}</span><span class="s1">&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;CF&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;19.2f}</span><span class="s1"> </span><span class="si">{1: &gt;19.2f}</span><span class="s1"> </span><span class="si">{2: &gt;19.2f}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;HYP&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;19.2g}</span><span class="s1"> </span><span class="si">{1: &gt;19.2g}</span><span class="s1"> </span><span class="si">{2: &gt;19.2g}</span><span class="s1">&#39;</span><span class="p">}</span>
+    <span class="n">fmt_bounds</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;FI&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;15.0f}</span><span class="s1"> </span><span class="si">{1: &gt;15.0f}</span><span class="s1">&#39;</span><span class="p">,</span>
+                  <span class="s1">&#39;CF&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;15.0f}</span><span class="s1"> </span><span class="si">{1: &gt;15.0f}</span><span class="s1">&#39;</span><span class="p">,</span> 
+                  <span class="s1">&#39;HYP&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;15.2g}</span><span class="s1"> </span><span class="si">{1: &gt;15.2g}</span><span class="s1">&#39;</span><span class="p">}</span>
+    <span class="n">fmt_stepsize</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;FI&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;15.0f}</span><span class="s1">&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;CF&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;15.0f}</span><span class="s1">&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;HYP&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;15.0f}</span><span class="s1">&#39;</span><span class="p">}</span>
+    <span class="n">fmt_scov</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;FI&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;17.2g}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;CF&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;17.2g}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;HYP&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{0: &gt;17.2g}</span><span class="s1">&#39;</span><span class="p">}</span>
+
+
+    <span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">formatter</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;float&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{:.3f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)})</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Fitting summary</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="n">s</span><span class="o">+=</span> <span class="s2">&quot;===============</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+    
+    <span class="n">heading</span> <span class="o">=</span> <span class="s2">&quot;Tensor name           Fitted coeff       Initial coeff          Difference&quot;</span>
+    <span class="k">if</span> <span class="s1">&#39;covar&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="c1"># Fix: ndof is the number of observables minus fitted real parameters.</span>
+        <span class="n">ndof</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">fit_obj</span><span class="o">.</span><span class="n">n_obs</span> <span class="o">-</span> <span class="n">fit_obj</span><span class="o">.</span><span class="n">n_p_real</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;covar&#39;</span><span class="p">]</span>
+        <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot;      Uncertainty&quot;</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">if</span> <span class="s1">&#39;bounds&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot;   Lower bounds    Upper bounds&quot;</span>
+    <span class="k">if</span> <span class="s1">&#39;stepsize&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot;       Stepsize&quot;</span>
+    <span class="n">heading</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+    <span class="n">s</span> <span class="o">+=</span> <span class="n">uline_char</span><span class="p">(</span><span class="n">heading</span><span class="p">)</span>
+    <span class="n">ii</span> <span class="o">=</span> <span class="mi">0</span>      <span class="c1"># Index for covariance matrix; increments two for imaginary params. </span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fit_obj</span><span class="p">):</span>
+        <span class="n">co</span> <span class="o">=</span> <span class="n">fit_obj</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">cf_l</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;CF&#39;</span>
+        <span class="k">elif</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">hyp_l</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;HYP&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="s1">&#39;FI&#39;</span>
+
+        <span class="k">if</span> <span class="n">co</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">co</span> <span class="o">=</span> <span class="n">co</span><span class="o">.</span><span class="n">real</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]:</span>
+                <span class="n">scov</span> <span class="o">=</span> <span class="n">fmt_scov</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">cov</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="n">ii</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">scov</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">ii</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]:</span>
+                <span class="n">scov</span> <span class="o">=</span> <span class="n">fmt_scov</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">complex</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">cov</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="n">ii</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">cov</span><span class="p">[</span><span class="n">ii</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">ii</span><span class="o">+</span><span class="mi">1</span><span class="p">])))</span>
+            <span class="k">else</span><span class="p">:</span> 
+                <span class="n">scov</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">ii</span> <span class="o">+=</span> <span class="mi">2</span>
+
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;&#39;</span><span class="si">{0:&lt;12}</span><span class="s2">: &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">p</span><span class="o">+</span><span class="s2">&quot;&#39;&quot;</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">fmt_coeff</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">co</span><span class="p">,</span> <span class="n">coeff</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">-</span><span class="n">co</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="n">scov</span>
+        <span class="k">if</span> <span class="s1">&#39;bounds&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">fmt_bounds</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;bounds&#39;</span><span class="p">][</span><span class="n">p</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;bounds&#39;</span><span class="p">][</span><span class="n">p</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s1">&#39;stepsize&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="n">fmt_stepsize</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;stepsize&#39;</span><span class="p">][</span><span class="n">p</span><span class="p">])</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+    <span class="k">if</span> <span class="s1">&#39;bounds&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;bounds&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s1">&#39;stepsize&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;stepsize&#39;</span><span class="p">]</span>
+
+    <span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">formatter</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;float&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{:11.2f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)},</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]:</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">uline_char</span><span class="p">(</span><span class="s2">&quot;Covariance matrix:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        
+        <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;covar&#39;</span><span class="p">]</span>
+    <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]</span>
+
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Number of observables: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_obs&#39;</span><span class="p">])</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Number of real-valued parameters: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_param&#39;</span><span class="p">])</span>
+    <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_obs&#39;</span><span class="p">]</span>
+    <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;n_param&#39;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;basinhopping&#39;</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;naccept&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;retval&#39;</span><span class="p">]</span>
+        <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;retval&#39;</span><span class="p">]</span>
+
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">uline_char</span><span class="p">(</span><span class="s2">&quot;Optimization routine details:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;20}</span><span class="s2"> </span><span class="si">{1: &lt;}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;fmin:&quot;</span><span class="p">,</span> <span class="n">fmin</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;20}</span><span class="s2"> </span><span class="si">{1: &lt;}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;method:&quot;</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;chi2accept&#39;</span><span class="p">,</span> <span class="s1">&#39;xaccept&#39;</span><span class="p">]:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;20}</span><span class="s2"> </span><span class="si">{1: &lt;}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+
+<div class="viewcode-block" id="print_as_fortran_array">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.print_as_fortran_array">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_as_fortran_array</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Print a two dimensional numpy array in a form that makes it easy to include</span>
+<span class="sd">    in a c program, using column major ordering.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;{&quot;</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">a_real</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span> 
+                <span class="n">a_real</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">+</span><span class="si">{1}</span><span class="s2">*I&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">a_real</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]))</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0}{1}</span><span class="s2">*I&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">a_real</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">a_real</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">((</span><span class="n">i</span><span class="o">*</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">j</span><span class="p">)</span><span class="o">&lt;</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;};&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="print_as_c_array">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.print_as_c_array">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_as_c_array</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Print a two dimensional numpy array in a form that makes it easy to include</span>
+<span class="sd">    in a c program, using row major ordering.  </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;{&quot;</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;{&quot;</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">a_real</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span> 
+                <span class="n">a_real</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">+</span><span class="si">{1}</span><span class="s2">*I&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">a_real</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]))</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0}{1}</span><span class="s2">*I&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">a_real</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">a_real</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;,&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;}&quot;</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;};&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MHz2cm1">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.MHz2cm1">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">MHz2cm1</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+    <span class="sa">r</span><span class="s2">&quot;Convert MHz to cm$^{-1}$.&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">29979.2458</span><span class="p">)</span><span class="o">*</span><span class="n">val</span></div>
+
+
+<div class="viewcode-block" id="cm12MHz">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.cm12MHz">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cm12MHz</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+    <span class="sa">r</span><span class="s2">&quot;Convert cm$^{-1}$ to MHz.&quot;</span>
+    <span class="k">return</span> <span class="mf">29979.2458</span><span class="o">*</span><span class="n">val</span></div>
+
+
+<div class="viewcode-block" id="bal_bounds">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.bal_bounds">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bal_bounds</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function for creating balanced bounds dictionary.  That is, the</span>
+<span class="sd">    bounds are are some constant, symmetric, $\pm$ offset from the starting</span>
+<span class="sd">    coefficient values.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    coeff : dict</span>
+<span class="sd">        Coefficient initial value dictionary. </span>
+<span class="sd">    bounds : dict</span>
+<span class="sd">        Dictionary of single bounds values for each parameter to be fit, which</span>
+<span class="sd">        will be added/subtracted from the initial coeff value.</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bal_bounds : dict</span>
+<span class="sd">        The balanced bounds dictionary. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bal_b</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">bal_b</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">-</span><span class="n">bounds</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">coeff</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">+</span><span class="n">bounds</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="k">return</span> <span class="n">bal_b</span></div>
+
+
+
+<div class="viewcode-block" id="rJmmp">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.rJmmp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rJmmp</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">mp</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Equation (C.72) of Messiah. </span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    j : half int or int</span>
+<span class="sd">    m : half int or int </span>
+<span class="sd">    mp : half int or int</span>
+<span class="sd">    beta : float</span>
+<span class="sd">        Angle in radians</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="k">if</span> <span class="n">j</span> <span class="o">&gt;=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&gt;=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">mp</span><span class="p">):</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">beta</span><span class="p">)</span>
+        <span class="n">eta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">beta</span><span class="p">)</span>
+        <span class="n">tmin</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="n">m</span> <span class="o">-</span> <span class="n">mp</span><span class="p">])</span>
+        <span class="n">tmax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">j</span> <span class="o">+</span> <span class="n">m</span><span class="p">,</span> <span class="n">j</span><span class="o">-</span> <span class="n">mp</span><span class="p">])</span>
+        
+        <span class="n">prefact</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="o">-</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">mp</span><span class="p">)</span> <span class="o">*</span>
+                <span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="o">-</span><span class="n">mp</span><span class="p">))</span>
+        <span class="n">tlist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">tmin</span><span class="p">,</span> <span class="n">tmax</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">fsum</span><span class="p">((((</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="n">t</span> <span class="o">*</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">m</span><span class="o">-</span><span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="o">-</span><span class="n">mp</span><span class="o">-</span><span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">factorial</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">factorial</span><span class="p">(</span><span class="n">t</span><span class="o">-</span><span class="n">m</span><span class="o">+</span><span class="n">mp</span><span class="p">))</span> <span class="o">*</span> <span class="n">xi</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">j</span><span class="o">+</span><span class="n">m</span><span class="o">-</span><span class="n">mp</span><span class="o">-</span><span class="mi">2</span><span class="o">*</span><span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">eta</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">t</span><span class="o">-</span><span class="n">m</span><span class="o">+</span><span class="n">mp</span><span class="p">))</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span>
+            <span class="n">tlist</span><span class="p">))</span>
+        <span class="n">r</span> <span class="o">*=</span> <span class="n">prefact</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">return</span> <span class="n">r</span></div>
+
+
+<div class="viewcode-block" id="WignerR">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.WignerR">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">WignerR</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">mp</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">gamma</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Implement Wigner rotation of state vector; Eq. (C56) of Messiah.</span>
+
+<span class="sd">    Angles in radians, no factors of 2 in angular momentum quantum numbers (that</span>
+<span class="sd">    is, j, m, and mp are either integer or half integer). </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">r1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">alpha</span><span class="o">*</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">r2</span> <span class="o">=</span> <span class="n">rJmmp</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">mp</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+    <span class="n">r3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">gamma</span><span class="o">*</span><span class="n">mp</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">r1</span><span class="o">*</span><span class="n">r2</span><span class="o">*</span><span class="n">r3</span></div>
+
+
+
+<div class="viewcode-block" id="rotate_cf_params">
+<a class="viewcode-back" href="../../api/cfl_util.html#pycf.cfl_util.rotate_cf_params">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rotate_cf_params</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">gamma</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Rotate crystal-field parameters by angles alpha, beta, and gamma, using the</span>
+<span class="sd">    Euler angle convention of Messiah (zyz&#39;). </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    coeff : dict</span>
+<span class="sd">        Coefficient dictionary in the usual format. Only parametrs with names</span>
+<span class="sd">        Ckq, where k and q are zero or positive integers, are touched. These</span>
+<span class="sd">        will be rotated by the specified Euler angles.</span>
+<span class="sd">    alpha : float</span>
+<span class="sd">        First Euler angle using zyz&#39; convention (in radians).</span>
+<span class="sd">    beta : float</span>
+<span class="sd">        Second Euler angle using zyz&#39; convention (in radians).</span>
+<span class="sd">    gamma : float</span>
+<span class="sd">        Third Euler angle using zyz&#39; convention (in radians).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    rcoeff : dict</span>
+<span class="sd">        A copy of coeff with all parameters of for Ckq transformed by the</span>
+<span class="sd">        specified Euler rotation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">k_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span>
+    <span class="n">p_list</span> <span class="o">=</span> <span class="p">[]</span>     <span class="c1"># List of parameter lists (sublists indexed by k)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">k_list</span><span class="p">):</span>
+        <span class="n">p_list</span> <span class="o">+=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">p_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="o">+</span><span class="n">q</span><span class="p">]</span> <span class="o">=</span> <span class="n">coeff</span><span class="p">[</span><span class="s1">&#39;C</span><span class="si">%i%i</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">q</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="n">q</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># (Bkq)* = (-1)^q Bk-q</span>
+                    <span class="n">p_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="o">-</span><span class="n">q</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="n">q</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">p_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="o">+</span><span class="n">q</span><span class="p">])</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="c1"># Implement Eq. (C76) of Quantum Mechanics - Messiah.</span>
+    <span class="n">rp_list</span> <span class="o">=</span> <span class="p">[]</span>    <span class="c1"># Rotated list of parameter lists</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p_list</span><span class="p">):</span>
+        <span class="c1"># Fix: np.sum(p) can be zero even when individual elements are nonzero</span>
+        <span class="c1"># (e.g. cancelling terms), so check that at least one element is nonzero.</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="n">rp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">k_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">mi</span><span class="p">,</span><span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">)):</span>
+                <span class="k">for</span> <span class="n">mpi</span><span class="p">,</span><span class="n">mp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">)):</span>
+                    <span class="n">rp</span><span class="p">[</span><span class="n">mi</span><span class="p">]</span> <span class="o">+=</span> <span class="n">WignerR</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">mp</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">gamma</span><span class="p">)</span><span class="o">*</span><span class="n">p</span><span class="p">[</span><span class="n">mpi</span><span class="p">]</span>
+            <span class="n">rp_list</span> <span class="o">+=</span> <span class="p">[</span><span class="n">rp</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rp_list</span> <span class="o">+=</span> <span class="p">[</span><span class="n">p</span><span class="p">]</span>
+    
+    <span class="n">rcoeff</span> <span class="o">=</span> <span class="n">coeff</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">k_list</span><span class="p">):</span>
+        <span class="c1"># Only want complex q &gt;=0 parameters (negative q is implict for complex</span>
+        <span class="c1"># valued Bkq given (Bkq)* = (-1)^q Bk-q). </span>
+        <span class="k">for</span> <span class="n">ii</span><span class="p">,</span><span class="n">q</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">)):</span>
+            <span class="n">ii</span> <span class="o">+=</span> <span class="n">k</span>  
+            <span class="k">if</span> <span class="n">rp_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">ii</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">rcoeff</span><span class="p">[</span><span class="s1">&#39;C</span><span class="si">%i%i</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">q</span><span class="p">)]</span> <span class="o">=</span> <span class="n">rp_list</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">ii</span><span class="p">]</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+    
+    <span class="k">return</span> <span class="n">rcoeff</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Sebastian Horvath.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

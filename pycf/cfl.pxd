@@ -17,6 +17,13 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+cdef extern from "../../cfl/include/cfl_error.h":
+    ctypedef void (*cfl_error_handler_t)(const char *func, const char *file,
+        int line, const char *message)
+    
+    void cfl_set_error_handler(cfl_error_handler_t handler)
+
+
 cdef extern from "complex.h":
     double complexconj(double complexz)
     double complexcexp(double complexz)

@@ -1,0 +1,251 @@
+============
+Installation
+============
+
+This guide covers installation of PyCF on various platforms. For detailed
+system-specific requirements, see see `ENVIRONMENT.md <../ENVIRONMENT.md>`__.
+
+Quick Install
+=============
+
+For Linux systems with standard development tools installed::
+
+    git clone https://github.com/mikereidnz/pycf.git
+    cd pycf
+    python setup.py install --prefix=$HOME/.local
+
+This will:
+
+1. Build the C library (cfl/)
+2. Generate Cython extension module
+3. Install Python packages and modules
+
+Requirements
+============
+
+**Python**
+
+- Python 3.8 or later
+- pip or conda
+
+**System Libraries**
+
+The build requires BLAS and LAPACK libraries. Installation varies by platform:
+
+**Linux (Debian/Ubuntu)**::
+
+    sudo apt-get install build-essential libblas-dev liblapack-dev libopenblas-dev
+
+**Linux (RHEL/Fedora)**::
+
+    sudo yum install gcc gcc-c++ blas-devel lapack-devel openblas-devel
+
+**macOS (Homebrew)**::
+
+    brew install llvm openblas lapack
+
+**WSL2**::
+
+    # Use Linux (Debian/Ubuntu) instructions for your WSL distribution
+
+**Python Dependencies**
+
+- numpy (>=1.19.0)
+- scipy (>=1.5.0)
+- cython (>=3.0.0) - for building from source
+
+Install with::
+
+    pip install numpy scipy cython
+
+Detailed Installation Steps
+============================
+
+1. **Clone the Repository**::
+
+    git clone https://github.com/mikereidnz/pycf.git
+    cd pycf
+
+2. **Create a Virtual Environment** (recommended)::
+
+    python -m venv env
+    source env/bin/activate  # On Windows: env\Scripts\activate
+
+3. **Install Python Dependencies**::
+
+    pip install numpy scipy cython
+
+4. **Build and Install**::
+
+    python setup.py install --prefix=$HOME/.local
+
+   Or for development (editable install)::
+
+    python setup.py develop
+
+5. **Verify Installation**::
+
+    python -c "import pycf; print(pycf.__version__)"
+
+Platform-Specific Notes
+=======================
+
+Linux (Debian/Ubuntu)
+---------------------
+
+Standard build::
+
+    sudo apt-get install build-essential libblas-dev liblapack-dev
+    python setup.py install --prefix=$HOME/.local
+
+With OpenBLAS (faster)::
+
+    sudo apt-get install libopenblas-dev
+    export CFL_LDLIBS="-lopenblas"
+    python setup.py install --prefix=$HOME/.local
+
+With MKL::
+
+    export INTEL_PATH=/opt/intel/mkl
+    export CFL_CC=icc
+    python setup.py install --prefix=$HOME/.local
+
+macOS
+-----
+
+Using Homebrew::
+
+    brew install openblas lapack
+    python setup.py install --prefix=$HOME/.local
+
+Using Apple's Accelerate framework::
+
+    export CFL_LDLIBS="-framework Accelerate"
+    python setup.py install --prefix=$HOME/.local
+
+With Intel MKL::
+
+    export INTEL_PATH=/opt/intel/mkl
+    export CFL_CC=icc
+    python setup.py install --prefix=$HOME/.local
+
+Windows (WSL2)
+--------------
+
+Use the Linux (Debian/Ubuntu) instructions within your WSL2 environment.
+
+Intel MKL Support
+==================
+
+For optimal performance, use Intel MKL::
+
+    # Set environment variables
+    export INTEL_PATH=/opt/intel/mkl  # or /usr/local/intel on macOS
+    export CFL_CC=icc
+
+    # Build
+    python setup.py install --prefix=$HOME/.local
+
+See see `ENVIRONMENT.md <../ENVIRONMENT.md>`__ for complete MKL configuration.
+
+Verification
+============
+
+After installation, verify the build::
+
+    # Check version
+    python -c "import pycf; print(pycf.__version__)"
+
+    # Run quick test
+    python -c "from pycf import cfl; h = cfl.Hamiltonian(); print('OK')"
+
+    # Run full test suite (requires pytest)
+    pip install pytest
+    python -m pytest tests/ -q
+
+Expected output::
+
+    83 passed, 1 skipped
+
+Running Examples
+================
+
+After installation, try an example::
+
+    cd examples/ceylf
+    python mhfit_example.py
+
+This demonstrates:
+
+- Loading SLJM tensors
+- Building Hamiltonian
+- Fitting parameters
+- Visualizing results
+
+Troubleshooting
+===============
+
+**ImportError: No module named 'pycf'**
+
+Ensure the installation prefix is in your PYTHONPATH::
+
+    export PYTHONPATH=$HOME/.local/lib/python3.x/site-packages:$PYTHONPATH
+
+**Cannot find BLAS/LAPACK**
+
+Install system libraries and set CFL_LDLIBS::
+
+    export CFL_LDLIBS="-lopenblas"  # or "-llapack -lblas"
+    python setup.py install --prefix=$HOME/.local
+
+**Cython compilation errors**
+
+Ensure you have a C compiler and Cython installed::
+
+    sudo apt-get install build-essential
+    pip install cython>=3.0.0
+
+**Test failures**
+
+Check that all dependencies are installed::
+
+    pip install numpy scipy pytest
+
+See see `ENVIRONMENT.md <../ENVIRONMENT.md>`__ for environment variable configuration.
+
+Uninstallation
+==============
+
+Remove installation::
+
+    pip uninstall pycf
+
+Or delete the installation directory::
+
+    rm -rf $HOME/.local/lib/python3.x/site-packages/pycf*
+
+Development Installation
+=========================
+
+For development work, use editable install::
+
+    python setup.py develop
+
+This installs PyCF in development mode, allowing code changes
+without reinstalling::
+
+    # Edit code in pycf/*.py
+    # Changes take effect immediately
+
+    # Rebuild C extensions after changes to cfl.pyx or cfl/*.c:
+    python setup.py build_ext --inplace
+
+Next Steps
+==========
+
+After successful installation:
+
+- Read the :doc:`quickstart` guide
+- Explore :doc:`../api/index`
+- Try the examples in the ``examples/`` directory
+- Check see `ENVIRONMENT.md <../ENVIRONMENT.md>`__ for optimization options

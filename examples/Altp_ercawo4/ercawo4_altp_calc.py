@@ -1,4 +1,22 @@
 #!/usr/bin/env python3
+"""
+Calculate Altp (coordination) parameters for Er:CaWO4 from crystal structure.
+
+This example demonstrates:
+1. Loading crystal structure from CIF file (Materials Project)
+2. Extracting atomic coordinates from pymatgen
+3. Calculating spherical polar coordinates of ligands
+4. Computing Altp coordination parameters for crystal field calculations
+5. Interfacing crystal structure data with pycf calculations
+
+The example calculates Er^3+ coordination geometry in CaWO4 host,
+extracting parameters needed for crystal field Hamiltonian construction.
+
+Prerequisites:
+- pymatgen (for CIF parsing)
+- Crystal structure CIF file (e.g., from Materials Project)
+- numpy, pycf.paramcalc
+"""
 
 import numpy as np
 import numpy.linalg as LA
@@ -24,7 +42,7 @@ def nn_coords(struct, site, r):
 
 # cif file from https://materialsproject.org/materials/mp-19426/
 parser = CifParser("CaWO4_mp-19426_conventional_standard.cif")
-cawo4_struct = parser.get_structures()[0]
+cawo4_struct = parser.parse_structures(primitive=False)[0]
 
 # Add nearest neighbors in 3 Angstrom radius to summary string, which is all the
 # oxygens.

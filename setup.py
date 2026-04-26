@@ -5,6 +5,7 @@ from shutil import which, rmtree
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 from setuptools import Command
+from typing import Optional, List, Tuple
 
 import os
 import shlex
@@ -42,20 +43,34 @@ def write_version_file() -> str:
     build_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     build_comment = os.environ.get('PYCF_BUILD_COMMENT', "Build via setup.py")
     
+    # Use a valid PEP 440 version format
+    # Base version + dev suffix with git hash for development builds
+    base_version = "0.1.0"
+    if git_revision != "unknown":
+        # Use PEP 440 local version identifier
+        version_str = f"{base_version}.dev0+{git_revision}"
+    else:
+        version_str = base_version
+    
     version_text = f'''
-__version__ = "{git_revision}"
+__version__ = "{version_str}"
 __build_timestamp__ = "{build_timestamp}"
 __build_comment__ = "{build_comment}"
 
 '''
     VERSION_FILE.write_text(version_text, encoding="utf-8")
-    return git_revision
+    return version_str
 
 
-def run_make(target: str | None = None) -> str:
+def run_make(target: Optional[str] = None, env: Optional[dict] = None) -> str:
     cmd = ["make"]
     if target:
         cmd.append(target)
+
+    # Prepare environment with LAPACKE_INCLUDE if not already set
+    make_env = os.environ.copy()
+    if env:
+        make_env.update(env)
 
     proc = subprocess.Popen(
         cmd,
@@ -63,6 +78,7 @@ def run_make(target: str | None = None) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         universal_newlines=True,
+        env=make_env,
     )
 
     output = []
@@ -79,7 +95,15 @@ def run_make(target: str | None = None) -> str:
 
 
 def build_cfl() -> None:
-    output = run_make()
+    # Set up environment with CFL_CFLAGS defaults if not already provided
+    make_env = {}
+    if "CFL_CFLAGS" not in os.environ:
+        # Add default include paths for lapacke only on Linux
+        # On macOS, /usr/include doesn't exist; the makefile fallback will handle it
+        if sys.platform.startswith("linux"):
+            make_env["CFL_CFLAGS"] = "-I/usr/include -I/usr/include/lapacke"
+    
+    output = run_make(env=make_env)
 
     # Preserve the current behavior: if the C archive changed, force Cython
     # to consider the extension stale.
@@ -95,17 +119,36 @@ def clean_cfl() -> None:
         pass
 
 
-def split_flags(value: str | None) -> list[str]:
+def split_flags(value: Optional[str]) -> List[str]:
     if not value:
         return []
     return shlex.split(value)
 
 
-def compute_build_flags() -> tuple[list[str], list[str]]:
+def find_lapacke_include() -> str:
+    """Find LAPACKE include directory.
+    
+    Returns the directory containing lapacke.h. Users can override via
+    LAPACKE_INCLUDE_DIR environment variable.
+    """
+    # Check environment variable first
+    if lapacke_env := os.environ.get("LAPACKE_INCLUDE_DIR"):
+        return lapacke_env
+    
+    # Use sensible defaults - the compiler will report an error if the
+    # header is not found
+    return "/usr/include"
+
+
+def compute_build_flags() -> Tuple[List[str], List[str]]:
     compile_args = split_flags(os.environ.get("CFL_CFLAGS"))
     link_args = split_flags(os.environ.get("CFL_LDLIBS"))
 
     link_args += ["cfl/libcfl.a", "-lgsl", "-lnlopt", "-lm"]
+    
+    # Only add GNU OpenMP on Linux
+    if sys.platform.startswith("linux"):
+        link_args.append("-lgomp")
 
     if os.environ.get("CFL_CC") == "icc":
         intel_path = os.environ.get("INTEL_PATH")
@@ -116,7 +159,14 @@ def compute_build_flags() -> tuple[list[str], list[str]]:
                     "CFL_CC=icc was requested but icc could not be found and "
                     "INTEL_PATH was not provided."
                 )
-            intel_path = icc[: -len("/bin/icc")]
+            # Use Path to safely extract parent directory
+            intel_path = str(Path(icc).parent.parent)
+        
+        # Validate the path exists
+        if not Path(intel_path).is_dir():
+            raise RuntimeError(
+                f"INTEL_PATH={intel_path} does not exist or is not a directory"
+            )
 
         compile_args += [f"-I{intel_path}/include", "-openmp"]
         link_args += [
@@ -128,7 +178,10 @@ def compute_build_flags() -> tuple[list[str], list[str]]:
             f"-Wl,-rpath,{intel_path}/mkl/lib/intel64/",
         ]
     else:
-        link_args += ["-llapacke", "-llapack", "-lblas", "-lgfortran", "-lgslcblas"]
+        link_args += ["-llapacke", "-llapack", "-lblas", "-lgslcblas"]
+        # Only add GNU Fortran runtime on Linux
+        if sys.platform.startswith("linux"):
+            link_args.append("-lgfortran")
 
     return compile_args, link_args
 
@@ -141,7 +194,7 @@ class BuildExtCommand(build_ext):
 
 class CleanCommand(Command):
     description = "Clean Python and cfl build artifacts"
-    user_options: list[tuple[str, str | None, str]] = []
+    user_options: List[Tuple[str, Optional[str], str]] = []
 
     def initialize_options(self) -> None:
         pass
@@ -169,9 +222,9 @@ class CleanCommand(Command):
 
 
 git_revision = write_version_file()
-version = f"0+{git_revision}"
 
 compile_args, link_args = compute_build_flags()
+lapacke_include = find_lapacke_include()
 
 ext_modules = cythonize(
     [
@@ -181,7 +234,7 @@ ext_modules = cythonize(
             include_dirs=[
                 "cfl/include",
                 np.get_include(),
-                "/usr/include/lapacke",
+                lapacke_include,
             ],
             extra_compile_args=compile_args,
             extra_link_args=link_args,
@@ -191,17 +244,66 @@ ext_modules = cythonize(
 
 setup(
     name="pycf",
-    version=version,
     description="Python crystal field theory modules",
     long_description=(ROOT / "README.rst").read_text(encoding="utf-8"),
-    author="Sebastian Horvath",
-    author_email="sebastian.horvath@gmail.com",
+    long_description_content_type="text/x-rst",
+    author="Mike Reid",
+    author_email="mike.reid@canterbury.ac.nz",
     url="https://github.com/mikereidnz/pycf",
     packages=["pycf"],
     ext_modules=ext_modules,
     cmdclass={
         "build_ext": BuildExtCommand,
         "clean": CleanCommand,
+    },
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
+        "Programming Language :: C",
+        "Programming Language :: Cython",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Topic :: Scientific/Engineering :: Chemistry",
+        "Topic :: Scientific/Engineering :: Physics",
+    ],
+    extras_require={
+        "test": [
+            "pytest>=7.0",
+            "pytest-cov>=4.0",
+            "pytest-benchmark>=4.0",
+            "hypothesis>=6.0",
+            "coverage>=7.0",
+        ],
+        "examples": [
+            "pymatgen>=2022.0",
+            "matplotlib>=3.5",
+            "scipy>=1.10",
+        ],
+        "docs": [
+            "sphinx>=5.0",
+            "sphinx-rtd-theme>=1.0",
+            "sphinx-autodoc-typehints>=1.20",
+            "sphinx-copy-button>=0.5",
+            "sphinxcontrib-napoleon>=0.7",
+            "myst-parser>=0.18",
+        ],
+        "dev": [
+            "black>=23.0",
+            "isort>=5.13",
+            "flake8>=6.0",
+            "mypy>=1.7",
+            "bandit>=1.7",
+            "semgrep>=1.45",
+            "pre-commit>=3.0",
+        ],
     },
     zip_safe=False,
 )

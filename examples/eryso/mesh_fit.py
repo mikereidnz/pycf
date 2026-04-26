@@ -1,14 +1,32 @@
 #!/usr/bin/env python
+"""
+Grid search (mesh fit) for Er:YSO crystal field parameters.
 
-from __future__ import division
+This example demonstrates:
+1. Loading Er:YSO matrix elements and hyperfine structure (HFS) data
+2. Constructing tensor combinations (MTOT, PTOT for magnetism)
+3. Scaling magnetic field components (MX, MY, MZ) by Bohr magneton
+4. Setting up a mesh-based optimization to search parameter space
+5. Fitting to experimental energy levels with HFS corrections
+
+The example fits Er^3+ in YSO using magnetic field geometry to identify
+crystal field parameters across multiple datasets.
+
+Prerequisites:
+- Er:YSO matrix element data in matel/f11cf/
+- HFS matrix elements in matel/erhfs/
+- numpy, pycf
+"""
+
+from pathlib import Path
 import numpy as np
 
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 
-t = ImportSLJM("matel/f11cf")
-thfs = ImportSLJM("matel/erhfs")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f11cf"))
+thfs = ImportSLJM(str(Path(__file__).parent / "matel" / "erhfs"))
 #t.print_names()
 
 MTOT = t.M0 + 0.56*t.M2 + 0.31*t.M4

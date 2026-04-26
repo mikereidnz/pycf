@@ -1,6 +1,28 @@
 #!/usr/bin/env python
+"""
+MCMC (Simulated Annealing) fitting for Er:YSO crystal field parameters.
 
-from __future__ import division
+This example demonstrates:
+1. Loading Er:YSO matrix elements and hyperfine structure data
+2. Using Simulated Annealing (SIMAN) for global optimization
+3. Multi-Hamiltonian fitting with magnetic field configurations
+4. MCMC parameter space exploration
+5. Saving optimization results (chi2, parameters) for post-processing
+
+The example fits Er^3+ in YSO using multiple magnetic field geometries
+and stores parameter samples and chi-squared values for MCMC analysis.
+
+Output files:
+- 2018-08-08_eryso_site1_chi2accept.npy: chi-squared values
+- 2018-08-08_eryso_site1_xaccept.npy: parameter samples
+
+Prerequisites:
+- Er:YSO matrix element data in matel/f11cf/
+- HFS matrix elements in matel/erhfs/
+- numpy, pycf with SIMAN/MCMC support
+"""
+
+from pathlib import Path
 import numpy as np
 
 import pycf.cfl as cfl
@@ -11,8 +33,8 @@ from numpy import linalg as LA
 
 I = complex(0, 1)
 # Import the matrix elements.
-t = ImportSLJM("matel/f11cf")
-thfs = ImportSLJM("matel/erhfs")
+t = ImportSLJM(str(Path(__file__).parent / "matel" / "f11cf"))
+thfs = ImportSLJM(str(Path(__file__).parent / "erhfs"))
 
 #t.print_names()
 

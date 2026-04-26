@@ -31,6 +31,7 @@
 #include <string.h>
 #include <math.h>
 #include <complex.h>
+#include <limits.h>
 
 #include "cfl_config.h"
 #include "cfl_error.h"
@@ -104,7 +105,8 @@ sl *sl_alloc(int n, char *key, int **labels) {
     free(l);
     CFL_ERROR_NULL("malloc failed for l.key");
   }
-  strcpy(l->key, key);
+  strncpy(l->key, key, nl);
+  l->key[nl] = '\0';
 
   l->labels = (int **) malloc(n*sizeof(int *));
   if (l->labels == 0) {
@@ -139,10 +141,20 @@ sl *sl_alloc(int n, char *key, int **labels) {
   }
 
   for (i = 0; i < n; i++) {
-    l->lh[i] = fnv_hash(l->labels[i], (int)((size_t)nl*sizeof(int)));
+    size_t hash_size = (size_t)nl * sizeof(int);
+    if (hash_size > INT_MAX) {
+      CFL_ERROR_NULL("label array too large for hashing");
+    }
+    l->lh[i] = fnv_hash(l->labels[i], (int)hash_size);
   }
 
-  l->th = fnv_hash(l->lh, (int)((size_t)n*sizeof(uint32_t)));
+  {
+    size_t hash_size = (size_t)n * sizeof(uint32_t);
+    if (hash_size > INT_MAX) {
+      CFL_ERROR_NULL("label hash array too large for hashing");
+    }
+    l->th = fnv_hash(l->lh, (int)hash_size);
+  }
   l->n = n;
 
   return l;

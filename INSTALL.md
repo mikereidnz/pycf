@@ -57,6 +57,8 @@ sudo dnf install -y \
     gcc-gfortran
 ```
 
+**Note on RedHat Systems:** If `nlopt-devel` is not available in your repository, or if you encounter linking errors mentioning C++ symbols, see the **"Building Libraries From Source"** section below. RedHat systems sometimes provide a C++ version of nlopt that requires special handling for Python C extensions.
+
 #### macOS
 
 Using Homebrew:
@@ -86,6 +88,126 @@ python3 --version
 ```
 
 **Alternative**: MinGW/MSYS2 (experimental, not officially supported)
+
+---
+
+## Building Libraries From Source
+
+If system packages are not available (particularly on RedHat/Fedora systems), or if package manager versions have issues, you can build libraries from source.
+
+### When to Build From Source
+
+**You need to build from source if:**
+- The library isn't available via your package manager (common on RedHat/Fedora)
+- Package manager provides a C++ version requiring g++ linker (nlopt on RedHat)
+- You get undefined symbol errors even though `ldd` reports libraries as linked
+
+### Key Requirement: Position-Independent Code (-fPIC)
+
+**Critical:** Since pycf uses Cython (Python C extensions compiled as shared objects), all linked static libraries **must** be compiled with the `-fPIC` flag. If you skip this step, you'll get cryptic "undefined symbol" errors at runtime.
+
+### Building Individual Libraries
+
+#### NLOpt (NonLinear OPTimization)
+
+**RedHat/Fedora Issue:** The package manager provides a C++ version that requires g++ linking, which fails for Python C extensions. Building from source is the solution.
+
+```bash
+# Create installation directory
+mkdir -p $HOME/opt
+cd /tmp
+
+# Download and extract
+wget https://github.com/stevengj/nlopt/archive/v2.7.1.tar.gz
+tar xzf v2.7.1.tar.gz
+cd nlopt-2.7.1
+
+# Configure with -fPIC (CRITICAL)
+./configure --prefix=$HOME/opt --enable-shared CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"
+
+# Build and install
+make
+make install
+```
+
+#### GSL (GNU Scientific Library)
+
+```bash
+mkdir -p $HOME/opt
+cd /tmp
+
+wget https://mirror.ibm.com/pub/gnu/gsl/gsl-2.7.1.tar.gz
+tar xzf gsl-2.7.1.tar.gz
+cd gsl-2.7.1
+
+./configure --prefix=$HOME/opt CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"
+make
+make install
+```
+
+#### LAPACK/BLAS
+
+For RedHat systems without lapacke-devel:
+
+```bash
+mkdir -p $HOME/opt
+cd /tmp
+
+# Download from netlib
+wget http://www.netlib.org/lapack/lapack-3.12.0.tar.gz
+tar xzf lapack-3.12.0.tar.gz
+cd lapack-3.12.0
+
+# Create cmake build
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_C_FLAGS="-O2 -fPIC" -DCMAKE_Fortran_FLAGS="-O2 -fPIC" \
+         -DBUILD_SHARED_LIBS=ON
+
+make
+make install
+```
+
+### Using Locally-Built Libraries
+
+After building libraries from source, tell pycf where to find them:
+
+```bash
+export CFL_CFLAGS="-I$HOME/opt/include"
+export CFL_LDLIBS="-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib"
+
+# Now install pycf
+pip install .
+```
+
+**Explanation of flags:**
+- `-I$HOME/opt/include`: Add include directory for headers
+- `-L$HOME/opt/lib`: Add library directory at link time
+- `-Wl,-rpath,$HOME/opt/lib`: Embed runtime library path (so the binary finds libraries even if not in system LD_LIBRARY_PATH)
+
+### Troubleshooting Library Build Issues
+
+**Problem: "undefined symbol" errors at runtime despite ldd showing libraries linked**
+
+**Cause:** Libraries were not compiled with `-fPIC`
+
+**Solution:** Rebuild the library with `CFLAGS="-O2 -fPIC" CXXFLAGS="-O2 -fPIC"`
+
+**Problem: "error while loading shared libraries: cannot open shared object"**
+
+**Cause:** Runtime library path not set during pycf build
+
+**Solution:** Ensure `-Wl,-rpath,$HOME/opt/lib` is included in CFL_LDLIBS (note the comma separating -rpath and the path)
+
+**Problem: Multiple library versions installed**
+
+**Solution:** Use full rpath to prefer your installed version:
+
+```bash
+export CFL_LDLIBS="-L$HOME/opt/lib -Wl,-rpath,$HOME/opt/lib -L/usr/lib64 -Wl,-rpath,/usr/lib64"
+```
+
+Libraries in $HOME/opt/lib are preferred first, system libraries as fallback.
 
 ---
 
@@ -145,26 +267,40 @@ source env/bin/activate
 
 Add these functions to your `~/.bashrc` for quick access:
 
+Replace `/path/to/pycf` below with the absolute path to your checkout.
+
 ```bash
-# Activate venv in current directory
+# Activate venv in current directory (no directory change)
 pycf_activate() {
+    local old_ps1="${PS1:-}"
+    export VIRTUAL_ENV_DISABLE_PROMPT=1
     source /path/to/pycf/env/bin/activate
-    export VIRTUAL_ENV_PROMPT="pycf"
+    unset VIRTUAL_ENV_DISABLE_PROMPT
+    export _OLD_VIRTUAL_PS1="$old_ps1"
+    PS1="(pycf) ${old_ps1}"
+    export PS1
 }
 
 # Activate venv and change to pycf repo directory
 pycf_dev() {
+    local old_ps1="${PS1:-}"
+    export VIRTUAL_ENV_DISABLE_PROMPT=1
     cd /path/to/pycf
     source env/bin/activate
-    export VIRTUAL_ENV_PROMPT="pycf"
+    unset VIRTUAL_ENV_DISABLE_PROMPT
+    export _OLD_VIRTUAL_PS1="$old_ps1"
+    PS1="(pycf) ${old_ps1}"
+    export PS1
 }
 ```
 
 Then use:
-- `pycf_activate` — Activates environment in current directory (prompt shows `(pycf)`)
-- `pycf_dev` — Changes to repo directory AND activates environment
+- `pycf_activate` — Activates environment in the current directory without changing directory (prompt shows `(pycf)`)
+- `pycf_dev` — Changes to the repo directory and activates the environment (prompt shows `(pycf)`)
 
-Both commands set the prompt to `(pycf)` for clarity.
+Both commands disable the built-in venv prompt and replace it with `(pycf)`. If you are already in conda base, the prompt will still also show `(base)`, which is expected.
+
+`pycf/__version__.py` is generated automatically during builds and installs. Do not edit it by hand.
 
 #### Step 3: Install in Editable Mode
 
@@ -175,23 +311,38 @@ pip install -e .
 
 This installs pycf in "development mode": changes to Python files take effect immediately, and Cython/C changes require rebuilding.
 
-**Optional:** If you want to run tests or examples, install with optional dependencies:
+#### Step 4: Choose Your Installation
+
+pycf offers optional dependency bundles for different use cases:
 
 ```bash
-# For development/testing:
-pip install -e ".[dev]"
+# Just use pycf (minimal)
+pip install -e .
 
-# For running examples (requires matplotlib):
+# Verify installation works (RECOMMENDED for first-time users)
+pip install -e ".[test]"
+python -m pytest tests/ -q
+
+# Run examples and tutorials
 pip install -e ".[examples]"
+cd examples/ceylf
+python exdata_example.py
 
-# For both dev and examples:
-pip install -e ".[dev,examples]"
+# Both testing and examples (most common)
+pip install -e ".[test,examples]"
+
+# Full development (testing, examples, build tools, linting)
+pip install -e ".[dev]"
 ```
 
-pycf requires `numpy` and `scipy` at runtime (automatically installed with `pip install -e .`).
-Examples require `matplotlib`. Development/testing requires `pytest`.
+**Bundle Contents:**
+- **`[test]`** - pytest and hypothesis for running tests
+- **`[examples]`** - matplotlib for running example scripts
+- **`[dev]`** - everything: testing, examples, build tools (setuptools, Cython), and code quality tools (black, flake8, mypy)
 
-#### Step 4: Rebuild After Code Changes
+pycf requires `numpy` and `scipy` at runtime (automatically installed with `pip install -e .`).
+
+#### Step 5: Rebuild After Code Changes
 
 **For Python-only changes** (e.g., modifications to `pycf/*.py`):
 - No rebuild needed; changes are visible immediately.
@@ -203,7 +354,7 @@ Examples require `matplotlib`. Development/testing requires `pytest`.
 python setup.py build_ext --inplace
 
 # Or using the modern approach:
-pip install --no-build-isolation -e .
+pip install -e .
 ```
 
 #### Step 5: Run Tests
@@ -219,11 +370,114 @@ make -C cfl test
 make -C cfl test && python -m pytest tests/ -q
 ```
 
-#### Step 4: Clean Build Artifacts
+#### Step 6: Clean Build Artifacts
 
 ```bash
 python setup.py clean
 ```
+
+---
+
+### Option C: Performance Optimization (Advanced)
+
+By default, pycf is built with portable compiler flags (`-march=x86-64 -mtune=generic`) to ensure compatibility across different machines. If you want maximum performance on your specific hardware, you can enable CPU-specific optimizations.
+
+#### CPU-Native Optimization
+
+This option builds pycf optimized specifically for your CPU's instruction set, which can provide **2-5% additional performance** over the default portable build.
+
+**⚠️ Important Limitations:**
+- The resulting binary will **only run on CPUs with the same or newer instruction sets**
+- **Do not use this if you plan to:**
+  - Share the binary with others
+  - Use CI/CD pipelines or GitHub Actions
+  - Deploy to cloud environments (AWS, Azure, GCP)
+  - Run in containers (Docker, Singularity)
+  - Deploy to HPC clusters with heterogeneous hardware
+- **Safe to use only if you:**
+  - Build and run on the same specific machine
+  - Never distribute the binary
+
+#### How to Use CPU-Native Optimization
+
+```bash
+# Option 1: Environment variable (recommended for temporary builds)
+export CFL_CFLAGS="-march=native"
+pip install -e .
+
+# Option 2: One-line build
+CFL_CFLAGS="-march=native" pip install -e .
+
+# Option 3: Edit the makefile directly (for permanent use)
+# Edit cfl/makefile line 4:
+# CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range -march=native -fopenmp -I/usr/include/lapacke
+```
+
+#### Verify Your CPU's Capabilities
+
+To see what instruction sets your CPU supports and what will be optimized:
+
+```bash
+# Show instruction sets detected by GCC for your CPU
+gcc -march=native -dM -E - < /dev/null | grep -E "AVX|SSE|BMI|FMA"
+
+# Show all CPU flags (longer list)
+cat /proc/cpuinfo | grep flags | head -1
+```
+
+#### Performance vs. Portability Trade-off
+
+| Configuration | Portability | Performance | Use Case |
+|---------------|-------------|-------------|----------|
+| `-march=x86-64` (default) | ✅ High (any x86-64 CPU since 2013) | 100% | Distribution, CI/CD, sharing |
+| `-march=native` | ❌ Low (only your CPU or newer) | 102-105% | Single-machine, personal use |
+
+For most users, the default `-march=x86-64` is recommended because **OpenMP parallelization provides 2-8x speedup**, which far outweighs the 2-5% optimization from native tuning.
+
+---
+
+### Understanding OpenMP Parallelization
+
+pycf uses OpenMP for multi-threaded parallelization of matrix operations and Hamiltonian diagonalization. Here's what to expect:
+
+**Thread Count is Problem-Dependent:**
+
+The number of threads actually used is limited by:
+1. **Number of independent blocks in each Hamiltonian** (J-blocks for crystal-field systems)
+2. **Number of Hamiltonians being evaluated in parallel** (e.g., during mesh fitting)
+3. **Available CPU cores or `OMP_NUM_THREADS` environment variable**
+
+For example:
+
+- **Small system, single Hamiltonian** (e.g., Er³⁺ in YSO with 2 J-blocks): uses **2 threads**
+- **Small system, mesh fit** (e.g., 50+ Hamiltonians with 2 J-blocks each): uses **2 threads** per Hamiltonian (evaluated sequentially)
+- **Larger system** (e.g., Gd³⁺ with 8+ J-blocks): can use **8+ threads** per Hamiltonian
+- **Maximum**: limited by available CPU cores or `OMP_NUM_THREADS` environment variable
+
+**This is optimal behavior** — OpenMP automatically detects and uses only as many threads as there are independent blocks to process within each Hamiltonian evaluation.
+
+**Checking Thread Usage:**
+
+While running a fit or calculation:
+```bash
+# Terminal 1: Run calculation
+python mesh_fit.py
+
+# Terminal 2: Check thread usage (replace PID with python process)
+ps -eLf | grep python  # Shows number of threads
+htop                    # Shows thread count visually
+top                     # Shows CPU % (100% × threads used)
+```
+
+**Environment Variable (Optional):**
+
+If you want to explicitly limit OpenMP threads (e.g., to avoid overloading your system):
+```bash
+export OMP_NUM_THREADS=4    # Restrict to 4 threads
+python mesh_fit.py
+```
+
+If `OMP_NUM_THREADS` is not set, OpenMP automatically uses all available cores (up to the number of blocks in each Hamiltonian).
 
 ---
 
@@ -249,7 +503,7 @@ export CFL_CFLAGS="-O3 -march=native"
 ```bash
 git clone https://github.com/mikereidnz/pycf.git ~/pycf_source
 cd ~/pycf_source
-pip install --no-build-isolation .
+pip install .
 ```
 
 #### Step 3: Verify MKL is Used
@@ -344,7 +598,7 @@ print(eigenvalues[:10])  # First 10 energy levels
    ```bash
    unset CFL_CC
    unset INTEL_PATH
-   pip install pycf
+   pip install .
    ```
 
 2. Or locate Intel:
@@ -395,7 +649,7 @@ pip install --force-reinstall --no-cache-dir -e .
 
 2. Reinstall with verbose output:
    ```bash
-   pip install --verbose --no-cache-dir pycf
+   pip install --verbose --no-cache-dir .
    ```
 
 3. Check for compilation errors in output and address any missing dependencies.
@@ -407,8 +661,8 @@ pip install --force-reinstall --no-cache-dir -e .
 **Solution:**
 
 ```bash
-pip install pytest matplotlib scipy
 cd ~/pycf_repo
+pip install -e ".[test]"
 python -m pytest tests/ -q
 ```
 
@@ -421,7 +675,7 @@ If using development mode (`pip install -e .`), pull the latest code and rebuild
 ```bash
 cd ~/pycf_repo
 git pull
-pip install --no-build-isolation -e .
+pip install -e .
 ```
 
 ---
@@ -435,10 +689,9 @@ If you plan to contribute or modify pycf:
 ```bash
 git clone https://github.com/mikereidnz/pycf.git ~/pycf_dev
 cd ~/pycf_dev
-python3 -m venv venv
-source venv/bin/activate
-pip install -e .
-pip install pytest matplotlib scipy
+python3 -m venv env
+source env/bin/activate
+pip install -e ".[dev,examples]"
 ```
 
 ### Development Workflow
@@ -450,7 +703,7 @@ pip install pytest matplotlib scipy
    python setup.py build_ext --inplace
    
    # Or using modern approach
-   pip install --no-build-isolation -e .
+   pip install -e .
    ```
 3. **Run tests**:
    ```bash
@@ -473,7 +726,7 @@ python -m build
 
 ## Getting Help
 
-- **Documentation**: See `README.rst` for overview and `doc/` directory for detailed guides
+- **Documentation**: See `README.rst` for overview, `INSTALL.md` for current setup instructions, and `docs/legacy/` for older reference material
 - **Examples**: Study `examples/` directory for usage patterns
 - **Tests**: Run `python -m pytest tests/ -v` to see what pycf can do
 - **Issues**: Report bugs at https://github.com/mikereidnz/pycf/issues
@@ -514,7 +767,7 @@ source ~/pycf_hpc/bin/activate
 export INTEL_PATH=/path/to/intel
 export CFL_CC=icc
 cd ~/pycf_source
-pip install --no-build-isolation .
+pip install .
 ```
 
 ---

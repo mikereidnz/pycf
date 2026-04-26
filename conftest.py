@@ -8,8 +8,13 @@ To mark a test as slow, simply decorate it with @pytest.mark.slow.
 Example usage:
     python -m pytest            # to skip slow tests 
     python -m pytest --runslow  # to run slow tests  
+
+It also handles optional test dependencies gracefully:
+- If hypothesis is not installed, property-based tests are skipped
+- If pytest-benchmark is not installed, benchmark tests are skipped
 """
 
+import sys
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -17,8 +22,21 @@ def pytest_addoption(parser):
     )
 
 def pytest_collection_modifyitems(config, items):
+    """Handle optional dependencies and slow tests."""
+    skip_hypothesis = pytest.mark.skip(reason="hypothesis not installed - run: pip install hypothesis")
+    skip_benchmark = pytest.mark.skip(reason="pytest-benchmark not installed - run: pip install pytest-benchmark")
+    
+    has_hypothesis = 'hypothesis' in sys.modules
+    has_benchmark = 'pytest_benchmark' in sys.modules
+    
+    for item in items:
+        if not has_hypothesis and 'test_properties' in str(item.fspath):
+            item.add_marker(skip_hypothesis)
+        elif not has_benchmark and 'test_benchmarks' in str(item.fspath):
+            item.add_marker(skip_benchmark)
+    
+    # Handle slow tests
     if config.getoption("--runslow"):
-        # --runslow given in cli: do not skip slow tests
         return
     
     skip_slow = pytest.mark.skip(reason="need --runslow option to run")
