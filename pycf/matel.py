@@ -125,9 +125,9 @@ def matel(c: str, j: float | int) -> np.ndarray:
             "Invalid component argument '{}'.  Permitted values "
             "are 'jx', 'jy', or 'jz'.".format(c)
         )
-    l = int(2 * j + 1)
-    matel = np.zeros([l, l], dtype=complex)
-    for row in range(l):
-        for col in range(l):
+    size = int(2 * j + 1)
+    matel = np.zeros([size, size], dtype=complex)
+    for row in range(size):
+        for col in range(size):
             matel[row, col] = f(j - row, j - col)
     return matel

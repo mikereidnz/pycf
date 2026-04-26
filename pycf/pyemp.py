@@ -521,7 +521,7 @@ class Cfit(GenericErun):
             n_sh = len(spectrum["spinh"])
             self.sh_terms = [None] * n_sh
             u = [None] * n_sh
-            l = [None] * n_sh
+            u_list = [None] * n_sh
             d_sh = [None] * n_sh
             for sh_i, sh_args in enumerate(spectrum["spinh"]):
                 # Get spin Hamiltonian parameters and generate cfit input
@@ -556,18 +556,18 @@ class Cfit(GenericErun):
                     iqi = ""
                 # Get lower and upper levels.
                 try:
-                    l[sh_i], u[sh_i] = sh_args["levels"]
+                    u_list[sh_i], u[sh_i] = sh_args["levels"]
                 except KeyError:
                     raise ValueError(
                         "The spinh dictionary of {} is missing the"
                         " levels tupple".format(self.name)
                     )
                 # Spin Hamiltonian dimension.
-                d_sh[sh_i] = u[sh_i] - l[sh_i] + 1
+                d_sh[sh_i] = u[sh_i] - u_list[sh_i] + 1
                 spinh_input += """*% Spin Hamiltonian input
                                spinh {0}_spinh-{1}.out {2} {3} {4} {5} {6}
                                Spin Hamiltonian for {0} \n
-                               """.format(spectrum.name, sh_i, l[sh_i], u[sh_i], bgs, ias, iqi)
+                               """.format(spectrum.name, sh_i, u_list[sh_i], u[sh_i], bgs, ias, iqi)
         else:
             spinh_input = ""
         # Execute cfit.
@@ -607,10 +607,10 @@ class Cfit(GenericErun):
                 # from largest to smallest I_z.
                 # Fix: Iz may be a numpy array; use np.all to avoid ValueError.
                 if not np.all(Iz == 0):
-                    Iz_sort = np.argsort(Iz[l[sh_i] - 1 : u[sh_i]])[::-1]
+                    Iz_sort = np.argsort(Iz[u_list[sh_i] - 1 : u[sh_i]])[::-1]
                 else:
                     # No I_z label, so create identity sorting list.
-                    Iz_sort = np.arange(u[sh_i] - l[sh_i] + 1)
+                    Iz_sort = np.arange(u[sh_i] - u_list[sh_i] + 1)
                 # Data is split into even and odd columns (real and imag), and
                 # assigned to complex valued parsed_data.  parsed_data is then
                 # split into the different spin Hamiltonian terms and sorted by
@@ -629,7 +629,7 @@ class Cfit(GenericErun):
                 # largest to smallest.  We step through magz data in 2*Sz+1 by
                 # 2*Sz+1 blocks and sort by diagonal values.
                 d_Iz = np.max(Iz) + 1
-                d_Sz = (u[sh_i] - l[sh_i] + 1) // d_Iz
+                d_Sz = (u[sh_i] - u_list[sh_i] + 1) // d_Iz
                 Sz_sort = np.array([], dtype=int)
                 for n in np.arange(0, d_Sz * d_Iz, d_Sz):
                     Sz_sort = np.append(

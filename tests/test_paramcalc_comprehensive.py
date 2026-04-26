@@ -340,10 +340,10 @@ class TestASC:
         coords_list = [[2.5, i * np.pi / 3, 0] for i in range(6)]
         ligands = [Ligand(np.array(c), -2.0, 0.5) for c in coords_list]
 
-        # Test valid (l, t) combinations
+        # Test valid (lam, t) combinations
         test_cases = [(2, 1), (2, 3), (4, 3), (4, 5), (6, 5), (6, 7)]
-        for l, t in test_cases:
-            A_chg, A_pol = A_SC(l, t, 0, "Pr", -3, ligands)
+        for lam, t in test_cases:
+            A_chg, A_pol = A_SC(lam, t, 0, "Pr", -3, ligands)
             assert isinstance(A_chg, (float, np.floating))
             assert isinstance(A_pol, (float, np.floating))
 
