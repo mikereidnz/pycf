@@ -98,8 +98,10 @@ def build_cfl() -> None:
     # Set up environment with CFL_CFLAGS defaults if not already provided
     make_env = {}
     if "CFL_CFLAGS" not in os.environ:
-        # Add default include paths for lapacke - support both standard and subdirectory locations
-        make_env["CFL_CFLAGS"] = "-I/usr/include -I/usr/include/lapacke"
+        # Add default include paths for lapacke only on Linux
+        # On macOS, /usr/include doesn't exist; the makefile fallback will handle it
+        if sys.platform.startswith("linux"):
+            make_env["CFL_CFLAGS"] = "-I/usr/include -I/usr/include/lapacke"
     
     output = run_make(env=make_env)
 
