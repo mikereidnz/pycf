@@ -39,9 +39,9 @@ from pycf.constants import BOHR_RADIUS
 from pycf.njsymbols import wigner_3j
 
 
-def Xi_val(t: int, l: int, Ln: str) -> float:
+def Xi_val(t: int, lam: int, Ln: str) -> float:
     """
-    Xi(t, l) parameters in Angstrom^(t+1) erg^-1 from Krupke Phys Rev 145, 1
+    Xi(t, lam) parameters in Angstrom^(t+1) erg^-1 from Krupke Phys Rev 145, 1
     (1966).
     Available ions are Pr, Nd, Eu, Tb, Er, Tm, Yb.
     Yb values are linearly interpolated from values for Er and Tm.
@@ -49,7 +49,7 @@ def Xi_val(t: int, l: int, Ln: str) -> float:
     ----------
     t : int
         Degree of the parameter. Must be in {1, 3, 5, 7}.
-    l: int
+    lam: int
         Transition intensity lambda parameter, with values of {2, 4, 6}.
     Ln : string
         The chemical symbol of the Lanthanide dopant.
@@ -60,7 +60,7 @@ def Xi_val(t: int, l: int, Ln: str) -> float:
     Raises
     ------
     ValueError
-        If t, l, or Ln are not in the valid set.
+        If t, lam, or Ln are not in the valid set.
     """
     xi_tl = {
         "12": [-1.78, -1.58, -1.08, -0.83, -0.57, -0.40, -0.23],
@@ -74,27 +74,27 @@ def Xi_val(t: int, l: int, Ln: str) -> float:
     # Validate inputs
     if t not in {1, 3, 5, 7}:
         raise ValueError(f"t must be in {{1, 3, 5, 7}} (got {t})")
-    if l not in {2, 4, 6}:
-        raise ValueError(f"l must be in {{2, 4, 6}} (got {l})")
+    if lam not in {2, 4, 6}:
+        raise ValueError(f"lam must be in {{2, 4, 6}} (got {lam})")
     try:
         i = Ln_list.index(Ln)
     except ValueError:
         raise ValueError(f"Invalid lanthanide: Ln={Ln} (valid: {', '.join(Ln_list)})")
     try:
-        v = xi_tl["%i%i" % (t, l)][i]
+        v = xi_tl["%i%i" % (t, lam)][i]
     except (ValueError, KeyError):
-        raise ValueError("Invalid parameters: t=%i, l=%i" % (t, l))
+        raise ValueError("Invalid parameters: t=%i, lam=%i" % (t, lam))
     v *= 1e10  # Scale units to Angstrom^(t+1) erg^-1
     return v
 
 
-def RInt4f(l: int, Ln: str) -> float:
+def RInt4f(lam: int, Ln: str) -> float:
     r"""
     Radial integrals of the form <4f|r^\lambda|4f> for the RE3+ ions, from
     Freeman and Watson, 10.1103/PhysRev.127.2058.
     Parameters
     ----------
-    l : int
+    lam : int
         The power lambda, with available values of {2, 4, 6}.
     Ln : string
         The chemical symbol of the Lanthanide dopant.
@@ -106,7 +106,7 @@ def RInt4f(l: int, Ln: str) -> float:
     Raises
     ------
     ValueError
-        If l or Ln are not in the valid set.
+        If lam or Ln are not in the valid set.
     """
     # Bohr radius in Angstrom
     # (https://physics.nist.gov/cgi-bin/cuu/Value?bohrrada0)
@@ -126,15 +126,15 @@ def RInt4f(l: int, Ln: str) -> float:
         [0.613, 0.960, 3.104],
     ]
     Ln_list = ["Ce", "Pr", "Nd", "Sm", "Eu", "Dy", "Er", "Yb"]
-    l_list = [2, 4, 6]
-    if l not in l_list:
-        raise ValueError(f"l must be in {l_list} (got {l})")
+    lam_list = [2, 4, 6]
+    if lam not in lam_list:
+        raise ValueError(f"lam must be in {lam_list} (got {lam})")
     try:
         i = Ln_list.index(Ln)
     except ValueError:
         raise ValueError(f"Invalid lanthanide: Ln={Ln} (valid: {', '.join(Ln_list)})")
-    li = l_list.index(l)
-    val = rint[i][li] * a0**l
+    li = lam_list.index(lam)
+    val = rint[i][li] * a0**lam
     return val
 
 
@@ -190,7 +190,7 @@ def Ckq(k: int, q: int, theta: float, phi: float) -> np.complexfloating:
 
 
 def A_SC(
-    l: int, t: int, p: int, Ln: str, q_Ln: float, ligands: List[Ligand]
+    lam: int, t: int, p: int, Ln: str, q_Ln: float, ligands: List[Ligand]
 ) -> Tuple[float, float]:
     r"""
     Calculate the A^lambda_tp parameters for static coupling using a
@@ -198,7 +198,7 @@ def A_SC(
     1983, pg 5739.
     Parameters
     ----------
-    l: int
+    lam: int
         Transition intensity lambda parameter (2, 4, 6).
     t : int
         Degree of the parameter.
@@ -215,13 +215,13 @@ def A_SC(
     A : float
         The transition intensity parameter A^{\lambda}_{tp} in cm^(-1).
     """
-    Xi = Xi_val(t, l, Ln)
+    Xi = Xi_val(t, lam, Ln)
     # To avoid overflowing our 64bit double, we'll rescale Xi by a factor
     # 10^(-10) and e2 by 10^(10).  These variables are always multiplied later,
     # so this avoids tiny numbers.
     Xi = Xi * 10 ** (-10)
     e2 = (4.80320425**2) * 10 ** (-10)  # proton charge squared in esu
-    prefac = -((-1) ** p) * e2 * Xi * (2 * l + 1) / (np.sqrt(2 * t + 1))
+    prefac = -((-1) ** p) * e2 * Xi * (2 * lam + 1) / (np.sqrt(2 * t + 1))
     A_chg = 0
     A_pol = 0
     for L in ligands:
@@ -236,13 +236,13 @@ def A_SC(
     return (A_chg, A_pol)
 
 
-def A_DC(l: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
+def A_DC(lam: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
     r"""
     Calculate the A^lambda_tp parameters for dynamic coupling assuming isotropic
     ligands, following Reid and Richardson, J. Chem. Phys. 79(12) 1983, pg 5739.
     Parameters
     ----------
-    l: int
+    lam: int
         Transition intensity lambda parameter (2, 4, 6).
     t : int
         Degree of the parameter.
@@ -258,12 +258,12 @@ def A_DC(l: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
         The transition intensity parameter A^{\lambda}_{tp} in cm^(-1).
     """
     A = 0
-    if t == l + 1:
-        rint = RInt4f(l, Ln)
-        prefac = 7 * wigner_3j(3, l, 3, 0, 0, 0) * np.sqrt((l + 1) * (2 * l + 1)) * rint * (-1) ** p
+    if t == lam + 1:
+        rint = RInt4f(lam, Ln)
+        prefac = 7 * wigner_3j(3, lam, 3, 0, 0, 0) * np.sqrt((lam + 1) * (2 * lam + 1)) * rint * (-1) ** p
         for L in ligands:
             c = L.coords
-            A += Ckq(l + 1, -p, c[1], c[2]) * c[0] ** (-(l + 2)) * L.alpha_bar
+            A += Ckq(lam + 1, -p, c[1], c[2]) * c[0] ** (-(lam + 2)) * L.alpha_bar
         # Convert to cm from A
         A *= prefac * 10 ** (-8)
         A = np.real(A)

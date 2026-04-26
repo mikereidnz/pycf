@@ -134,11 +134,11 @@ class TestXiVal:
             Xi_val(0, 2, "Er")
 
     def test_xi_val_invalid_l(self) -> None:
-        """Test that invalid l values raise ValueError."""
-        with pytest.raises(ValueError, match="l must be in"):
+        """Test that invalid lam values raise ValueError."""
+        with pytest.raises(ValueError, match="lam must be in"):
             Xi_val(1, 3, "Er")
 
-        with pytest.raises(ValueError, match="l must be in"):
+        with pytest.raises(ValueError, match="lam must be in"):
             Xi_val(1, 5, "Er")
 
     def test_xi_val_invalid_lanthanide(self) -> None:
@@ -205,10 +205,10 @@ class TestRInt4f:
 
     def test_rint4f_invalid_lambda(self) -> None:
         """Test that invalid lambda values raise ValueError."""
-        with pytest.raises(ValueError, match="l must be in"):
+        with pytest.raises(ValueError, match="lam must be in"):
             RInt4f(3, "Er")
 
-        with pytest.raises(ValueError, match="l must be in"):
+        with pytest.raises(ValueError, match="lam must be in"):
             RInt4f(5, "Er")
 
     def test_rint4f_invalid_lanthanide(self) -> None:

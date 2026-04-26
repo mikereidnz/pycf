@@ -96,9 +96,9 @@ class TestXiValBounds:
             Xi_val(2, 2, "Pr")  # t must be in {1, 3, 5, 7}
 
     def test_xi_val_invalid_l_raises(self):
-        """Xi_val should reject invalid l parameter."""
-        with pytest.raises(ValueError, match="l must be in"):
-            Xi_val(1, 3, "Pr")  # l must be in {2, 4, 6}
+        """Xi_val should reject invalid lam parameter."""
+        with pytest.raises(ValueError, match="lam must be in"):
+            Xi_val(1, 3, "Pr")  # lam must be in {2, 4, 6}
 
     def test_xi_val_invalid_lanthanide_raises(self):
         """Xi_val should reject invalid lanthanide."""
@@ -116,9 +116,9 @@ class TestRInt4fBounds:
         assert result > 0
 
     def test_rint4f_invalid_l_raises(self):
-        """RInt4f should reject invalid l parameter."""
-        with pytest.raises(ValueError, match="l must be in"):
-            RInt4f(3, "Ce")  # l must be in {2, 4, 6}
+        """RInt4f should reject invalid lam parameter."""
+        with pytest.raises(ValueError, match="lam must be in"):
+            RInt4f(3, "Ce")  # lam must be in {2, 4, 6}
 
     def test_rint4f_invalid_lanthanide_raises(self):
         """RInt4f should reject invalid lanthanide."""
