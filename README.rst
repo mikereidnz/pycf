@@ -10,7 +10,7 @@ pycf is a collection of Python modules for crystal field theory and spin Hamilto
    :target: https://github.com/mikereidnz/pycf/actions
    :alt: CI Status
 
-.. image:: https://img.shields.io/badge/python-3.8+-blue.svg
+.. image:: https://img.shields.io/badge/python-3.10+-blue.svg
    :alt: Python Version
 
 .. image:: https://img.shields.io/badge/test%20status-106%20passing-brightgreen
@@ -26,7 +26,7 @@ pycf is a collection of Python modules for crystal field theory and spin Hamilto
   cd pycf
   python3 -m venv env
   source env/bin/activate
-  pip install -e ".[dev,examples]"
+  pip install -e ".[test,examples]"
   python -m pytest tests/ -q
 
 **Project Structure**
