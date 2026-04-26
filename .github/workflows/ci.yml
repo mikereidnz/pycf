@@ -84,8 +84,8 @@ jobs:
     
     - name: Build and install pycf
       env:
-        LDFLAGS: "-L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib"
-        CPPFLAGS: "-I/usr/local/opt/openblas/include -I/usr/local/opt/lapack/include"
+        CFL_CFLAGS: "-I/opt/homebrew/opt/gsl/include -I/opt/homebrew/opt/nlopt/include -I/opt/homebrew/opt/openblas/include -I/opt/homebrew/opt/lapack/include"
+        CFL_LDLIBS: "-L/opt/homebrew/opt/gsl/lib -L/opt/homebrew/opt/nlopt/lib -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas"
       run: |
         python setup.py install
     
