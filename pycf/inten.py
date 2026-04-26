@@ -9,14 +9,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from pycf.constants import (
-    BOLTZMANN_CM_INVERSE,
-    ELECTRON_MASS,
-    ELEMENTARY_CHARGE,
-    EPSILON_0,
-    HBAR,
-    SPEED_OF_LIGHT,
-)
+from pycf.constants import (BOLTZMANN_CM_INVERSE, ELECTRON_MASS,
+                            ELEMENTARY_CHARGE, EPSILON_0, HBAR, SPEED_OF_LIGHT)
 from pycf.njsymbols import wigner_3j
 
 

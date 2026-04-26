@@ -140,15 +140,9 @@ class TestConstantDefinitions:
 
     def test_physical_constants_defined(self):
         """Verify physical constants are properly defined."""
-        from pycf.constants import (
-            BOHR_RADIUS,
-            BOLTZMANN_CM_INVERSE,
-            ELECTRON_MASS,
-            ELEMENTARY_CHARGE,
-            EPSILON_0,
-            HBAR,
-            SPEED_OF_LIGHT,
-        )
+        from pycf.constants import (BOHR_RADIUS, BOLTZMANN_CM_INVERSE,
+                                    ELECTRON_MASS, ELEMENTARY_CHARGE,
+                                    EPSILON_0, HBAR, SPEED_OF_LIGHT)
 
         # All should be positive
         assert ELECTRON_MASS > 0
