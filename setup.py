@@ -94,9 +94,10 @@ def run_make(target: str | None = None, env: dict | None = None) -> str:
 
 
 def build_cfl() -> None:
-    # Find LAPACKE headers and pass path to make
-    lapacke_include = find_lapacke_include()
-    output = run_make(env={"LAPACKE_INCLUDE": lapacke_include})
+    # The makefile has a sensible default for LAPACKE_INCLUDE (/usr/include)
+    # which works on most systems. Users can override with environment variable
+    # if needed.
+    output = run_make()
 
     # Preserve the current behavior: if the C archive changed, force Cython
     # to consider the extension stale.
@@ -119,36 +120,18 @@ def split_flags(value: str | None) -> list[str]:
 
 
 def find_lapacke_include() -> str:
-    """Find LAPACKE include directory with fallbacks for different systems."""
+    """Find LAPACKE include directory.
+    
+    Returns the directory containing lapacke.h. Users can override via
+    LAPACKE_INCLUDE_DIR environment variable.
+    """
     # Check environment variable first
     if lapacke_env := os.environ.get("LAPACKE_INCLUDE_DIR"):
-        header_path = Path(lapacke_env) / "lapacke.h"
-        if header_path.exists():
-            return lapacke_env
-        print(f"Warning: LAPACKE_INCLUDE_DIR={lapacke_env} does not contain lapacke.h", file=sys.stderr)
+        return lapacke_env
     
-    # Try common system paths - check for actual lapacke.h file
-    candidates = [
-        "/usr/include",                       # Linux (most common - directly in /usr/include)
-        "/usr/include/lapacke",               # Linux (alternative - separate lapacke dir)
-        "/usr/local/opt/lapack/include",      # macOS Homebrew (Intel)
-        "/opt/homebrew/opt/lapack/include",   # macOS Homebrew (Apple Silicon)
-        "/opt/local/include",                 # MacPorts
-        "/usr/local/include",                 # Generic custom installs
-    ]
-    
-    for path in candidates:
-        header_path = Path(path) / "lapacke.h"
-        if header_path.exists():
-            return path
-    
-    # No LAPACKE headers found - raise error
-    raise RuntimeError(
-        "LAPACKE headers not found. Please either:\n"
-        "1. Install LAPACK development files (e.g., liblapacke-dev on Debian/Ubuntu)\n"
-        "2. Set LAPACKE_INCLUDE_DIR environment variable to the directory containing lapacke.h\n"
-        "3. Install via Homebrew: brew install lapack"
-    )
+    # Use sensible defaults - the compiler will report an error if the
+    # header is not found
+    return "/usr/include"
 
 
 def compute_build_flags() -> tuple[list[str], list[str]]:
