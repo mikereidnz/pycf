@@ -46,9 +46,9 @@ jobs:
         CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
         CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
         CIBW_BEFORE_BUILD_LINUX: "yum install -y gsl-devel nlopt-devel blas-devel lapack-devel openblas-devel"
-        CIBW_ENVIRONMENT_LINUX: "CFL_LDLIBS='-llapacke -llapack -lblas -lopenblas'"
+        CIBW_ENVIRONMENT_LINUX: "CFL_LDLIBS='-lgsl -lgslcblas -llapacke -llapack -lblas -lopenblas'"
         CIBW_BEFORE_BUILD_MACOS: "brew install gsl nlopt openblas lapack"
-        CIBW_ENVIRONMENT_MACOS: "CFL_CFLAGS='-I/opt/homebrew/opt/openblas/include -I/opt/homebrew/opt/lapack/include -I/usr/local/opt/openblas/include -I/usr/local/opt/lapack/include' CFL_LDLIBS='-L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib -llapacke -llapack -lblas -lopenblas'"
+        CIBW_ENVIRONMENT_MACOS: "CFL_CFLAGS='-I/opt/homebrew/opt/gsl/include -I/opt/homebrew/opt/openblas/include -I/opt/homebrew/opt/lapack/include -I/usr/local/opt/gsl/include -I/usr/local/opt/openblas/include -I/usr/local/opt/lapack/include' CFL_LDLIBS='-L/opt/homebrew/opt/gsl/lib -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -L/usr/local/opt/gsl/lib -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib -lgsl -lgslcblas -llapacke -llapack -lblas -lopenblas'"
         CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
     
     - name: Upload wheels to artifact
