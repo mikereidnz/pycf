@@ -35,6 +35,13 @@ jobs:
       run: |
         python setup.py install
     
+    - name: Check imports
+      run: |
+        python -c "import pycf; print('Import OK')"
+        python -c "from pycf import cfl; print('cfl import OK')"
+        python -c "from pycf.import_sljm import ImportSLJM; print('import_sljm OK')"
+        python -c "from pycf import inten; print('inten import OK')"
+
     - name: Run Python tests with coverage
       run: |
         python -m pytest tests/ -v --cov=pycf --cov-report=xml --cov-report=term
@@ -82,6 +89,13 @@ jobs:
       run: |
         python setup.py install
     
+    - name: Check imports
+      run: |
+        python -c "import pycf; print('Import OK')"
+        python -c "from pycf import cfl; print('cfl import OK')"
+        python -c "from pycf.import_sljm import ImportSLJM; print('import_sljm OK')"
+        python -c "from pycf import inten; print('inten import OK')"
+
     - name: Run Python tests
       run: |
         python -m pytest tests/ -v --tb=short 2>&1 | head -200 || true
@@ -180,13 +194,6 @@ jobs:
       run: |
         # Check for obvious issues (non-critical)
         python -m pylint pycf/*.py --disable=all --enable=E,F 2>&1 | head -50 || true
-    
-    - name: Check imports
-      run: |
-        python -c "import pycf; print('Import OK')"
-        python -c "from pycf import cfl; print('cfl import OK')"
-        python -c "from pycf.import_sljm import ImportSLJM; print('import_sljm OK')"
-        python -c "from pycf import inten; print('inten import OK')"
 
   pre-commit:
     runs-on: ubuntu-latest
