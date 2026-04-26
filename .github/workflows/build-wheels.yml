@@ -46,10 +46,9 @@ jobs:
         CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
         CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
         CIBW_BEFORE_BUILD_LINUX: |
+          yum install -y epel-release
           yum install -y gsl-devel nlopt-devel blas-devel lapack-devel openblas-devel
-          echo "=== Searching for GSL headers ===" && find /usr -name "gsl_multifit_nlinear.h" 2>/dev/null | head -5
-          echo "=== GSL include directories ===" && find /usr -type d -name "gsl" 2>/dev/null | head -5
-          echo "=== rpm -ql gsl-devel ===" && rpm -ql gsl-devel 2>/dev/null | grep "\.h$" | head -10
+          echo "=== GSL version ===" && rpm -q gsl-devel
           python -m pip install build setuptools wheel cython
         CIBW_ENVIRONMENT_LINUX: "CFL_CFLAGS='-I/usr/include -I/usr/include/gsl -I/usr/include/lapacke' CFL_LDLIBS='-lgsl -lgslcblas -lnlopt -llapacke -llapack -lblas -lopenblas'"
         CIBW_BEFORE_BUILD_MACOS: "brew install gsl nlopt openblas lapack && python -m pip install build setuptools wheel cython"
