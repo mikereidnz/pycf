@@ -5,7 +5,7 @@ from shutil import which, rmtree
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 from setuptools import Command
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import os
 import shlex
@@ -114,7 +114,7 @@ def clean_cfl() -> None:
         pass
 
 
-def split_flags(value: Optional[str]) -> list[str]:
+def split_flags(value: Optional[str]) -> List[str]:
     if not value:
         return []
     return shlex.split(value)
@@ -135,7 +135,7 @@ def find_lapacke_include() -> str:
     return "/usr/include"
 
 
-def compute_build_flags() -> tuple[list[str], list[str]]:
+def compute_build_flags() -> Tuple[List[str], List[str]]:
     compile_args = split_flags(os.environ.get("CFL_CFLAGS"))
     link_args = split_flags(os.environ.get("CFL_LDLIBS"))
 
@@ -182,7 +182,7 @@ class BuildExtCommand(build_ext):
 
 class CleanCommand(Command):
     description = "Clean Python and cfl build artifacts"
-    user_options: list[tuple[str, Optional[str], str]] = []
+    user_options: List[Tuple[str, Optional[str], str]] = []
 
     def initialize_options(self) -> None:
         pass
