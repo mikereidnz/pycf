@@ -19,21 +19,26 @@
 
 
 from __future__ import division
-from pycf cimport cfl
+
 cimport cython
 cimport numpy as np
+
+from pycf cimport cfl
+
+import copy
+import sys
+from numbers import Number
+
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
-import sys
-import copy
-from numbers import Number
-from cpython.pycapsule cimport *
-from cpython cimport Py_INCREF, Py_DECREF
-from libc.stdlib cimport malloc, free
-from libc.string cimport memcpy
-from pycf.matel import matel
-from pycf.cfl_util import *
 
+from cpython cimport Py_DECREF, Py_INCREF
+from cpython.pycapsule cimport *
+from libc.stdlib cimport free, malloc
+from libc.string cimport memcpy
+
+from pycf.cfl_util import *
+from pycf.matel import matel
 
 # Global storage for Python error handler callback
 _python_error_handler = None
