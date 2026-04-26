@@ -26,6 +26,10 @@ Example workflow:
   2. Use cfit wrapper to optimize CF parameters
   3. Use inten wrapper to calculate intensities
   4. Analyze results with intensity summary functions
+
+NOTE: This module is a thin wrapper around external EMP executables and does not
+require unit test coverage. Testing is implicit in the integration examples and
+requires the external EMP tools to be installed, making unit test coverage impractical.
 """
 
 # pyemp is a python module to facilitate scripting of Michael F. Reid's F-shell
