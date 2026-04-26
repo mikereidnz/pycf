@@ -34,6 +34,7 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
 ]
+include-package-data = true
 
 [project.optional-dependencies]
 test = [
@@ -66,6 +67,9 @@ dev = [
 Homepage = "https://github.com/mikereidnz/pycf"
 Repository = "https://github.com/mikereidnz/pycf"
 "Legacy Repository" = "https://bitbucket.org/sebastianhorvath/pycf/"
+
+[tool.setuptools]
+package-data = {"pycf" = ["*.pyx", "*.pxd"]}
 
 [tool.setuptools.dynamic]
 version = {attr = "pycf.__version__"}
