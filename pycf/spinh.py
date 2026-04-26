@@ -65,7 +65,7 @@ def bmj(v: np.ndarray, m: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     result : array
     """
     tl = len(t[0])
-    l = len(t)
+    matrix_len = len(t)
     result = np.zeros([tl, tl], dtype=complex)
     # All states of t are iterated through by the outer two loops.  The
     # contribution due to each term in v cdot m cdot t is computed by
@@ -75,8 +75,8 @@ def bmj(v: np.ndarray, m: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     for tr in range(tl):
         for tc in range(tl):
             elem = 0
-            for i in range(l):
-                for j in range(l):
+            for i in range(matrix_len):
+                for j in range(matrix_len):
                     elem += v[i] * m[i, j] * t[j][tr, tc]
             result[tr, tc] = elem
     return result
@@ -101,7 +101,7 @@ def ias(t1: List[np.ndarray], m: np.ndarray, t2: List[np.ndarray]) -> np.ndarray
     """
     t1l = len(t1[0])
     t2l = len(t2[0])
-    l = len(t1)
+    matrix_len = len(t1)
     result = np.zeros([t1l * t2l, t1l * t2l], dtype=complex)
     # All states of t1 and t2 are iterated through by the outer four loops.
     # The contribution of each term in the t1 cdot m cdot t2 construct is
@@ -114,8 +114,8 @@ def ias(t1: List[np.ndarray], m: np.ndarray, t2: List[np.ndarray]) -> np.ndarray
             for t1c in range(t1l):
                 for t2c in range(t2l):
                     elem = 0
-                    for i in range(l):
-                        for j in range(l):
+                    for i in range(matrix_len):
+                        for j in range(matrix_len):
                             elem += t1[i][t1r, t1c] * m[i, j] * t2[j][t2r, t2c]
                     result[t1r + t1l * t2r, t1c + t1l * t2c] = elem
     return result
@@ -136,7 +136,7 @@ def iqi(t: List[np.ndarray], m: np.ndarray) -> np.ndarray:
     result : array
     """
     tl = len(t[0])
-    l = len(t)
+    matrix_len = len(t)
     result = np.zeros([tl, tl], dtype=complex)
     # All states of t are iterated through by the outer two loops.  The
     # contribution due to each term in t cdot m cdot t is computed by
@@ -146,8 +146,8 @@ def iqi(t: List[np.ndarray], m: np.ndarray) -> np.ndarray:
     for tr in range(tl):
         for tc in range(tl):
             elem = 0
-            for i in range(l):
-                for j in range(l):
+            for i in range(matrix_len):
+                for j in range(matrix_len):
                     components = 0
                     for ci in range(tl):
                         components += t[i][tr, ci] * t[j][ci, tc]
@@ -171,7 +171,7 @@ def bi(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     result : array
     """
     tl = len(t[0])
-    l = len(t)
+    matrix_len = len(t)
     result = np.zeros([tl, tl], dtype=complex)
     # All states of t are iterated through by the outer two loops.  The
     # contribution due to each term in v cdot t is computed by the inner loop.
@@ -182,7 +182,7 @@ def bi(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     for tr in range(tl):
         for tc in range(tl):
             elem = 0
-            for i in range(l):
+            for i in range(matrix_len):
                 elem += v[i] * t[i][tr, tc]
             result[tr, tc] = elem
     return result
@@ -210,14 +210,14 @@ def bmj_coeff_array(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
         A `2j+1 \times 2j+1` by `3 \times 3` array.
     """
     tl = len(t[0])
-    l = len(t)
-    bmj_a = np.zeros([tl, tl, l, l], dtype=complex)
+    matrix_len = len(t)
+    bmj_a = np.zeros([tl, tl, matrix_len, matrix_len], dtype=complex)
     for tr in range(tl):
         for tc in range(tl):
-            for i in range(l):
-                for j in range(l):
+            for i in range(matrix_len):
+                for j in range(matrix_len):
                     bmj_a[tr, tc, i, j] = v[i] * t[j][tr, tc]
-    return np.reshape(bmj_a, (tl * tl, l * l))
+    return np.reshape(bmj_a, (tl * tl, matrix_len * matrix_len))
 
 
 def ias_coeff_array(t1: List[np.ndarray], t2: List[np.ndarray]) -> np.ndarray:
@@ -243,18 +243,18 @@ def ias_coeff_array(t1: List[np.ndarray], t2: List[np.ndarray]) -> np.ndarray:
     """
     t1l = len(t1[0])
     t2l = len(t2[0])
-    l = len(t1)
-    ias_a = np.zeros([t1l * t2l, t1l * t2l, l, l], dtype=complex)
+    matrix_len = len(t1)
+    ias_a = np.zeros([t1l * t2l, t1l * t2l, matrix_len, matrix_len], dtype=complex)
     for t1r in range(t1l):
         for t2r in range(t2l):
             for t1c in range(t1l):
                 for t2c in range(t2l):
-                    for i in range(l):
-                        for j in range(l):
+                    for i in range(matrix_len):
+                        for j in range(matrix_len):
                             ias_a[t1r + t1l * t2r, t1c + t1l * t2c, i, j] = (
                                 t1[i][t1r, t1c] * t2[j][t2r, t2c]
                             )
-    return np.reshape(ias_a, (t1l * t2l * t1l * t2l, l * l))
+    return np.reshape(ias_a, (t1l * t2l * t1l * t2l, matrix_len * matrix_len))
 
 
 def iqi_coeff_array(t: List[np.ndarray]) -> np.ndarray:
@@ -277,17 +277,17 @@ def iqi_coeff_array(t: List[np.ndarray]) -> np.ndarray:
         A `2j+1 \times 2j+1` by `3 \times 3` array.
     """
     tl = len(t[0])
-    l = len(t)
-    iqi_a = np.zeros([tl, tl, l, l], dtype=complex)
+    matrix_len = len(t)
+    iqi_a = np.zeros([tl, tl, matrix_len, matrix_len], dtype=complex)
     for tr in range(tl):
         for tc in range(tl):
-            for i in range(l):
-                for j in range(l):
+            for i in range(matrix_len):
+                for j in range(matrix_len):
                     components = 0
                     for ci in range(tl):
                         components += t[i][tr, ci] * t[j][ci, tc]
                     iqi_a[tr, tc, i, j] = components
-    return np.reshape(iqi_a, (tl * tl, l * l))
+    return np.reshape(iqi_a, (tl * tl, matrix_len * matrix_len))
 
 
 def invert_term(coeff_a: np.ndarray, b: np.ndarray) -> np.ndarray:
