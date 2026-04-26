@@ -49,9 +49,10 @@ from math import fsum
 
 import numpy as np
 from scipy.special import factorial
+from typing import Union
 
 
-def tricon_ck(a: float | int, b: float | int, c: float | int) -> bool:
+def tricon_ck(a: Union[float, int], b: Union[float, int], c: Union[float, int]) -> bool:
     r"""
     Triangular condition check; returns True if the triangular condition on the
     three integers or half-integers a, b and c is satisfied.
@@ -60,12 +61,12 @@ def tricon_ck(a: float | int, b: float | int, c: float | int) -> bool:
 
 
 def wigner_3j(
-    j1: float | int,
-    j2: float | int,
-    j3: float | int,
-    m1: float | int,
-    m2: float | int,
-    m3: float | int,
+    j1: Union[float, int],
+    j2: Union[float, int],
+    j3: Union[float, int],
+    m1: Union[float, int],
+    m2: Union[float, int],
+    m3: Union[float, int],
 ) -> float:
     r"""
     Calculate the Wigner 3j symbol, given in terms of the Clebsch-Gordon
@@ -158,12 +159,12 @@ def wigner_3j(
 
 
 def wigner_6j(
-    a: float | int,
-    b: float | int,
-    c: float | int,
-    d: float | int,
-    e: float | int,
-    f: float | int,
+    a: Union[float, int],
+    b: Union[float, int],
+    c: Union[float, int],
+    d: Union[float, int],
+    e: Union[float, int],
+    f: Union[float, int],
 ) -> float:
     r"""
     Calculate the Wigner 6j symbol
@@ -237,15 +238,15 @@ def wigner_6j(
 
 
 def wigner_9j(
-    a: float | int,
-    b: float | int,
-    c: float | int,
-    d: float | int,
-    e: float | int,
-    f: float | int,
-    g: float | int,
-    h: float | int,
-    i: float | int,
+    a: Union[float, int],
+    b: Union[float, int],
+    c: Union[float, int],
+    d: Union[float, int],
+    e: Union[float, int],
+    f: Union[float, int],
+    g: Union[float, int],
+    h: Union[float, int],
+    i: Union[float, int],
 ) -> float:
     r"""
     Calculate the Wigner 9j symbol
