@@ -114,7 +114,7 @@ def clean_cfl() -> None:
         pass
 
 
-def split_flags(value: str | None) -> list[str]:
+def split_flags(value: Optional[str]) -> list[str]:
     if not value:
         return []
     return shlex.split(value)
@@ -182,7 +182,7 @@ class BuildExtCommand(build_ext):
 
 class CleanCommand(Command):
     description = "Clean Python and cfl build artifacts"
-    user_options: list[tuple[str, str | None, str]] = []
+    user_options: list[tuple[str, Optional[str], str]] = []
 
     def initialize_options(self) -> None:
         pass
