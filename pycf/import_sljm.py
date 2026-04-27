@@ -16,13 +16,250 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import os
 import re
-from typing import Any, Generator, List, Optional
+from collections.abc import Mapping as MappingABC
+from typing import Any, Generator, List, Mapping, Optional, Union
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, issparse, triu
 
 import pycf.cfl as cfl
 from pycf.cfl_util import term2L
+
+# Attribute names on ImportTensors / ImportSLJM that must not be shadowed by
+# user-supplied tensor names when ``expose_attrs=True``.
+_RESERVED_TENSOR_NAMES = frozenset(
+    {
+        "tensors",
+        "states",
+        "label_key",
+        "print_names",
+        "_wrapped",
+    }
+)
+
+
+class ImportTensors(object):
+    r"""
+    Wrap pre-parsed states and matrix elements as :class:`cfl.Tensor` objects.
+
+    This class decouples matrix-element ingestion from any particular file
+    format. It accepts a state-label matrix and a dictionary of tensors as
+    NumPy arrays or SciPy sparse matrices, and returns the same in-memory
+    collection of :class:`cfl.Tensor` objects that :class:`ImportSLJM`
+    produces from the legacy jmcalc text outputs.
+
+    Parameters
+    ----------
+    label_key : str
+        Canonical-order label key (one character per label column, e.g.
+        ``"LJM"`` or ``"SLJMI"``). Half-integer quantum numbers are encoded
+        as doubled integers in ``states``.
+    states : array-like, shape (N, len(label_key))
+        Integer state-label matrix. Rows are states, columns correspond to
+        characters of ``label_key``. A 1-D input is allowed only when
+        ``len(label_key) == 1``.
+    tensors : Mapping[str, numpy.ndarray | scipy.sparse.spmatrix]
+        Mapping from tensor name to an N x N matrix. Dense ndarrays and any
+        SciPy sparse format are accepted; all are converted to
+        upper-triangle Hermitian CSR with ``complex128`` data before being
+        handed to :class:`cfl.Tensor`.
+    storage : {"full", "upper"}, optional
+        Declares the storage convention of the input matrices.
+
+        - ``"full"`` (default): inputs are full Hermitian; the upper triangle
+          is taken via :func:`scipy.sparse.triu`. Dense input is also
+          validated for Hermiticity (subject to ``check_hermitian``).
+        - ``"upper"``: caller promises the matrices already store only the
+          upper triangle in Hermitian compressed-row form. The legacy
+          :class:`ImportSLJM` path uses this because the ``*.txt`` files
+          contain upper-triangle elements only.
+
+        Crystal-field and spin-Hamiltonian operators are Hermitian, so the
+        underlying C layer (``cfl.Tensor``) requires upper-triangle
+        Hermitian compressed-row storage. The ``storage`` parameter exists
+        to protect new callers who would otherwise pass a full sparse
+        Hermitian matrix and silently double-count off-diagonal elements.
+    add_aliases : bool, optional
+        Default ``False``. When ``True`` and the corresponding source
+        tensors are present, synthesise the rare-earth-specific convenience
+        aliases ``MAGX``, ``MAGY``, ``MAGZ`` (from ``MAG10``/``MAG11``) and
+        ``HYP`` (from ``AHYP``/``BHYP``). Raises :class:`ValueError` if any
+        alias name collides with a user-supplied tensor.
+        :class:`ImportSLJM` passes ``True``.
+    expose_attrs : bool, optional
+        Default ``True``. Mirror tensors as attributes on ``self`` (the
+        legacy :class:`ImportSLJM` behaviour). Tensor names that collide
+        with reserved attribute names raise :class:`ValueError` when this
+        is enabled.
+    check_hermitian : bool, optional
+        Default ``True``. Validate dense input matrices are Hermitian using
+        :func:`numpy.allclose`. Has no effect for sparse input.
+    warn_zero : bool, optional
+        Default ``True``. Print a warning if a supplied tensor has no
+        non-zero elements (matches the legacy :class:`ImportSLJM`
+        behaviour).
+    """
+
+    def __init__(
+        self,
+        label_key: str,
+        states: Any,
+        tensors: Mapping[str, Any],
+        storage: str = "full",
+        add_aliases: bool = False,
+        expose_attrs: bool = True,
+        check_hermitian: bool = True,
+        warn_zero: bool = True,
+    ) -> None:
+        if not isinstance(label_key, str) or not label_key:
+            raise ValueError("label_key must be a non-empty string")
+        if storage not in ("full", "upper"):
+            raise ValueError("storage must be 'full' or 'upper'")
+
+        states_arr = np.asarray(states, dtype=np.int32)
+        nkey = len(label_key)
+        if states_arr.ndim == 1 and nkey == 1:
+            states_arr = states_arr.reshape(-1, 1)
+        if states_arr.ndim != 2:
+            raise ValueError(
+                "states must be 2-D with shape (N, len(label_key))"
+            )
+        if states_arr.shape[1] != nkey:
+            raise ValueError(
+                "states has %d columns but label_key has %d characters"
+                % (states_arr.shape[1], nkey)
+            )
+        dim = states_arr.shape[0]
+        if dim == 0:
+            raise ValueError("states must contain at least one row")
+
+        if not isinstance(tensors, MappingABC):
+            raise TypeError("tensors must be a mapping of name -> matrix")
+
+        # Reserved-name check is independent of expose_attrs because the
+        # alias-collision check below would also be ambiguous if a user
+        # supplied a tensor literally named "tensors".
+        if expose_attrs:
+            collisions = set(tensors).intersection(_RESERVED_TENSOR_NAMES)
+            if collisions:
+                raise ValueError(
+                    "Tensor names collide with reserved attributes: %s"
+                    % sorted(collisions)
+                )
+
+        # Convert each matrix to upper-triangle CSR complex128.
+        tensor_matrices = {}
+        for name, mat in tensors.items():
+            if not isinstance(name, str) or not name:
+                raise ValueError("tensor names must be non-empty strings")
+            tensor_matrices[name] = self._normalise_matrix(
+                name, mat, dim, storage, check_hermitian
+            )
+
+        # Build StateLabels.
+        sl_list = [list(row) for row in states_arr.tolist()]
+        sl_obj = cfl.StateLabels(label_key, sl_list)
+
+        # Build cfl.Tensor objects.
+        cfl_tensors = {}
+        for name, m in tensor_matrices.items():
+            if warn_zero and m.nnz == 0:
+                print("Warning: all matrix elements of %s are zero." % name)
+            cfl_tensors[name] = cfl.Tensor(
+                name,
+                np.ascontiguousarray(m.indptr, dtype=np.intc),
+                np.ascontiguousarray(m.indices, dtype=np.intc),
+                np.ascontiguousarray(m.data),
+                sl_obj,
+            )
+
+        if add_aliases:
+            self._apply_aliases(cfl_tensors)
+
+        self.label_key = label_key
+        self.states = sl_obj
+        self.tensors = cfl_tensors
+        if expose_attrs:
+            self.__dict__.update(cfl_tensors)
+
+    @staticmethod
+    def _normalise_matrix(
+        name: str,
+        mat: Any,
+        dim: int,
+        storage: str,
+        check_hermitian: bool,
+    ) -> "csr_matrix":
+        """Validate, cast, and (if storage='full') upper-triangle a matrix."""
+        if issparse(mat):
+            sp = mat.tocsr().astype(np.complex128)
+            if sp.shape != (dim, dim):
+                raise ValueError(
+                    "tensor %r has shape %s, expected (%d, %d)"
+                    % (name, sp.shape, dim, dim)
+                )
+            if storage == "full":
+                sp = triu(sp, format="csr")
+            return sp.tocsr()
+
+        arr = np.asarray(mat)
+        if arr.ndim != 2 or arr.shape[0] != arr.shape[1]:
+            raise ValueError("tensor %r must be a square 2-D matrix" % name)
+        if arr.shape != (dim, dim):
+            raise ValueError(
+                "tensor %r has shape %s, expected (%d, %d)"
+                % (name, arr.shape, dim, dim)
+            )
+        arr = arr.astype(np.complex128, copy=False)
+        if check_hermitian and not np.allclose(arr, arr.conj().T):
+            raise ValueError(
+                "tensor %r is not Hermitian; pass check_hermitian=False to "
+                "bypass, or set storage='upper' if it already stores only "
+                "the upper triangle" % name
+            )
+        if storage == "full":
+            sp = triu(csr_matrix(arr), format="csr")
+        else:
+            sp = csr_matrix(arr)
+        return sp
+
+    @staticmethod
+    def _apply_aliases(tensors_dict: dict) -> None:
+        """Synthesise MAGX/Y/Z and HYP convenience aliases in-place."""
+        if "MAG11" in tensors_dict and "MAG10" in tensors_dict:
+            collisions = {"MAGX", "MAGY", "MAGZ"} & set(tensors_dict)
+            if collisions:
+                raise ValueError(
+                    "alias synthesis would overwrite supplied tensors: %s"
+                    % sorted(collisions)
+                )
+            # MFR: signs match the standard spherical tensor component
+            # definitions; affects eigenvector phases (and therefore
+            # transition intensities) but not eigenvalues.
+            tensors_dict["MAGX"] = -1.0 / np.sqrt(2) * tensors_dict["MAG11"]
+            tensors_dict["MAGX"].name = "MAGX"
+            tensors_dict["MAGY"] = complex(0, 1) / np.sqrt(2) * tensors_dict["MAG11"]
+            tensors_dict["MAGY"].name = "MAGY"
+            tensors_dict["MAGZ"] = tensors_dict["MAG10"]
+            tensors_dict["MAGZ"].name = "MAGZ"
+        if "AHYP" in tensors_dict and "BHYP" in tensors_dict:
+            if "HYP" in tensors_dict:
+                raise ValueError(
+                    "alias synthesis would overwrite supplied tensor: HYP"
+                )
+            tensors_dict["HYP"] = (
+                tensors_dict["AHYP"] - np.sqrt(10) * tensors_dict["BHYP"]
+            )
+            tensors_dict["HYP"].name = "HYP"
+
+    def __iter__(self) -> Generator[Any, None, None]:
+        for t in self.tensors:
+            yield self.tensors[t]
+
+    def print_names(self) -> None:
+        r"""Print the names of all the tensors that have been loaded."""
+        for t in self.tensors:
+            print(t)
 
 
 def get_tensor_dim(source: Any) -> Generator[List[tuple], None, None]:

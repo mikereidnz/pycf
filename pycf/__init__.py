@@ -91,7 +91,15 @@ def pycf_info(current_time=None, stream=None):
     return info
 
 
-__all__ = ["__version__", "__build_timestamp__", "__build_comment__", "pycf_info", "cfl"]
+__all__ = [
+    "__version__",
+    "__build_timestamp__",
+    "__build_comment__",
+    "pycf_info",
+    "cfl",
+    "ImportSLJM",
+    "ImportTensors",
+]
 
 
 def __getattr__(name: str):
@@ -102,4 +110,9 @@ def __getattr__(name: str):
         import importlib
 
         return importlib.import_module("pycf.cfl")
+    if name in ("ImportSLJM", "ImportTensors"):
+        import importlib
+
+        mod = importlib.import_module("pycf.import_sljm")
+        return getattr(mod, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
