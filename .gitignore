@@ -21,6 +21,8 @@ pycf/__pycache__/
 env/
 venv/
 docs/legacy/_build
+docs/_build/
+.coverage
 pycf/cfl.c
 pycf/__version__.py
 pycf/cfl*.so
