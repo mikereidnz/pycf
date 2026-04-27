@@ -753,10 +753,10 @@ class SpinH(object):
                 print("Symmeterization minimum %.4f accepted %d" % (f, int(accepted)))
 
             if sym_phase is None:
+
                 def fmin(p):
-                    return su2_rotation_lsq_f(
-                        p, self.coeff_a[term], self.H_terms[term]
-                    )
+                    return su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
+
                 r = basinhopping(
                     fmin,
                     [0, 0, 0],

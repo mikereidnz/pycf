@@ -5,18 +5,18 @@ Basic installation
 ------------------
 First, grab a copy of the source using::
 
-  git clone https://bitbucket.org/sebastianhorvath/pycf/ 
+  git clone https://bitbucket.org/sebastianhorvath/pycf/
 
 This clones the master branch into a local directory called pycf.  I tend to
 merge updates into master somewhat sporadically, but generally will only include
 well tested commits.  Specific versions of pycf (printed in log files)
 correspond to the git revisions, so it should always be possible to figure out
 what source was used to produce a specific output file.  For a branch other than
-master, for example devel, use the ``-b branchname`` argument of git. 
+master, for example devel, use the ``-b branchname`` argument of git.
 
 Before building, there's a number of dependencies that have to be satisfied. See
 the subsection below for details, but if you're on Debian or a derivative
-system, the following packages should take care of it:: 
+system, the following packages should take care of it::
 
   sudo apt-get install build-essential gfortran liblapacke-dev liblapack-dev \
   libgsl0-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
@@ -31,7 +31,7 @@ idea to specify ``prefix`` to something other than the default (``/usr/local``).
 For a non-default ``prefix`` you need to tell the python interpreter where the
 modules are installed.  This is achieved using the ``PYTHONPATH`` environment
 variable, which has to be set to include the path to the ``site-packages``
-directory into which the module was installed. 
+directory into which the module was installed.
 
 Here is a quick example which installs pycf to ``opt`` in the ``$HOME``
 directory.  Assuming you're in the pycf root directory::
@@ -40,7 +40,7 @@ directory.  Assuming you're in the pycf root directory::
 
 which (for python 2.7) will install all the modules into::
 
-  $HOME/opt/lib/python2.7/site-packages 
+  $HOME/opt/lib/python2.7/site-packages
 
 To add this directory to the ``PYTHONPATH`` environment variable, run::
 
@@ -48,8 +48,8 @@ To add this directory to the ``PYTHONPATH`` environment variable, run::
 
 This environment variable change can be made persistent for future terminal
 sessions by adding the above line to the ``~/.bashrc`` file::
-  
-  echo 'export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages' >> ~/.bashrc 
+
+  echo 'export PYTHONPATH=$PYTHONPATH:$HOME/opt/lib/python2.7/site-packages' >> ~/.bashrc
 
 Note that Debian (and derivative distributions) install to a directory called
 ``dist-packages`` for system wide installations.  Consequently, if python can't
@@ -63,7 +63,7 @@ Dependencies
 ------------
 
 Before building you will need to satisfy the following dependencies:
- 
+
   * GCC and gfortran
   * build-essential package or your distributions equivalent
   * `LAPACKE <http://www.netlib.org/lapack/lapacke.html>`_ - C interface to
@@ -73,8 +73,8 @@ Before building you will need to satisfy the following dependencies:
     optimization library
   * python (tested with version 2.7)
   * `cython <http://cython.org/>`_ (version >=0.20.1) - C extensions for Python
-  * numpy (version >= 1.7) 
-  * scipy 
+  * numpy (version >= 1.7)
+  * scipy
   * matplotlib (pyemp plotting only; can be omitted for pycfl)
 
 GCC, gfortran, and LAPACK can be substituded for their Intel MKL equivalent; see
@@ -106,7 +106,7 @@ Build cfl withe GNU make
 The cfl library uses GNU make and can be built independently from the python
 modules.  Running ``make`` in the ``cfl`` directory should suffice provided the
 dependencies are satisfied.  There is also a ``debug`` target which builds with
-``-O1``. 
+``-O1``.
 
 
 Redhat based systems
@@ -114,7 +114,7 @@ Redhat based systems
 
 Redhat based systems provide the c++ version of ``nlopt`` via the package
 manager.  This means the application has to be linked with the g++ linker, which
-unfortunately fails for the cython extension.  
+unfortunately fails for the cython extension.
 
 The easiest solution to this on a Redhat based system is to compile the library
 from source.  The nlopt installation page has detailed `instructions
@@ -139,7 +139,7 @@ mkl_lapacke and standard lapacke headers seem to be interchangable, and the
 linker will use the mkl library even if ``USE_MKL`` is false. Then, provided the
 bin directory containing icc is part of your system ``$PATH``, building with icc
 and linking against mkl is done by::
-  
+
   python setup.py build_ext --compiler=intel
 
 The module can then be installed the usual way::
@@ -151,7 +151,7 @@ support.  To adjust these settings, modify the ``MKL_CFLAGS`` variable in
 ``pycf/cfl/makefile``.  Furthermore, it is assumed that core libraries are in
 ``intel/lib/intel64`` and mkl libraries are in ``intel/mkl/lib/intel64/``, where
 the location of the ``intel`` directory is inferred from the location of icc.
-  
+
 To build only cfl with icc set the following environment variables prior to
 running make::
 
@@ -159,4 +159,4 @@ running make::
   export INTEL_PATH=/path/to/inteldir
 
 where ``inteldir`` is again assumed to follow the standard intel installation
-directory layout. 
+directory layout.

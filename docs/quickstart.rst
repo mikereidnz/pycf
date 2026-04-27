@@ -34,7 +34,7 @@ Let's calculate the crystal field states for Ce³⁺ in YLF (YLiF₄).
 
     # Load SLJM/EMP output files
     importer = ImportSLJM('path/to/matel/directory')
-    
+
     # Access loaded tensors
     print(importer.print_names())  # List available tensors
 
@@ -44,7 +44,7 @@ Let's calculate the crystal field states for Ce³⁺ in YLF (YLiF₄).
 
     # Create a Hamiltonian for Ce³⁺
     h = cfl.Hamiltonian()
-    
+
     # Add crystal field term (typical: ~1 cm⁻¹ per 10 Oe)
     # Ce³⁺ ⁴f¹: J=5/2 (6-dimensional space)
     h.add_term(importer.CF, 1.0)  # CF parameters already in cm⁻¹
@@ -55,14 +55,14 @@ Let's calculate the crystal field states for Ce³⁺ in YLF (YLiF₄).
 
     # Compute eigenvalues and eigenvectors
     h.diag()
-    
+
     # Get results
     eigenvalues = h.eigenvalues()
     eigenvectors = h.eigenvectors()
-    
+
     print("Eigenvalues (cm⁻¹):")
     print(eigenvalues)
-    
+
     # Results show energy levels relative to ground state
     # Output: [0.0, E1, E2, E3, E4, E5]
 
@@ -71,14 +71,14 @@ Let's calculate the crystal field states for Ce³⁺ in YLF (YLiF₄).
 .. code-block:: python
 
     from pycf import inten
-    
+
     # Transform dipole tensor to eigenbasis
     dipole = h.apply_unitary(importer.MAG)
-    
+
     # Calculate transition strengths between levels 0 and 1
     # For magnetic dipole transitions (electronic)
     strengths = inten.dipole_str(dipole)
-    
+
     # Calculate full spectrum
     spec = inten.inten(
         h,
@@ -128,7 +128,7 @@ Load and compare with experimental spectra::
     exdata = cfl.ExData(mode='A')  # Absorption mode
     exdata.add_peak(energy=100.5, intensity=0.8, label='1')
     exdata.add_peak(energy=250.3, intensity=1.0, label='2')
-    
+
     # Compare with calculated spectrum
     calc_spec = inten.inten(h, importer.MAG, hwhm=50, temp=300)
 
@@ -150,7 +150,7 @@ Modify them by scaling tensor contributions::
 Use scipy optimization to fit parameters::
 
     from scipy.optimize import minimize
-    
+
     def residual(params):
         h = cfl.Hamiltonian()
         h.add_term(importer.CF, params[0])
@@ -158,7 +158,7 @@ Use scipy optimization to fit parameters::
         # Calculate spectrum and compare with experiment
         calc = inten.inten(h, importer.MAG, hwhm=50, temp=300)
         return np.sum((calc - experimental_spectrum)**2)
-    
+
     result = minimize(residual, x0=[1.0])
     print(f"Best CF parameter: {result.x[0]:.4f}")
 

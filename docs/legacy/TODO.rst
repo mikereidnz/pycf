@@ -1,11 +1,11 @@
 TODO
 ====
   * Check that gsl_rng_get in bh_takestep is actually what we want to use (int
-    vs float return). 
+    vs float return).
   * Current F->D transition labels are very limited... should store the complete
-    label somehow... Only works for (2F) labels presently. 
+    label somehow... Only works for (2F) labels presently.
   * Try adaptive chi^2 weighting using annealing.
-  * Consolidate unit testing. 
+  * Consolidate unit testing.
   * Make sure there is no duplicate information in spin Hamiltonian type given
     the new state labeling data structure.
   * Change all small MAGZ values to a macro def.
@@ -13,7 +13,7 @@ TODO
     more consistent, and easier to call from a loop?
   * make sure that the spin hamiltonian level, l, passed by cython starts at 0.
   * cov_inv in CFLMin is currently a 2 dimensional c type array. Make sure this
-    is correct, rather than a fortran style array. 
+    is correct, rather than a fortran style array.
 
 
 Notes on col vs row major arrays
@@ -48,7 +48,7 @@ Turning your code into a pretzel
     For a multi Hamiltonian fit with different matrix elements, one still has to
     explicitly set the name for any tensors created by arithmetic that are to
     share the same coefficient, since they will obviously have a different name
-    in the global namespace.  
+    in the global namespace.
   * The obvious danger of looking up the variable name in this form is that
     multiple variable names can point to the same Tensor object, and since the
     lookup is from a dictionary, it is not possible to predict which name is
@@ -75,7 +75,7 @@ Distributed memory parallelization
     copy them and fill in non-zero entries (or some other fast means of creating
     the matrices)
   * Use methods pzgels and pzheevd from ScalaPACK and pzgemm and pzhemm from
-    PBLAS.  Link to ScalaPACK doc about matrix size per core guideline 
+    PBLAS.  Link to ScalaPACK doc about matrix size per core guideline
     n_core = ~ (m by n)/10^6
 
 Debian/Ubuntu dependencies
@@ -84,4 +84,3 @@ Mention dependencies explicitly in install docs before showing how to perform
 install, i.e, before python setupy.py install.
 
 libgsl0-dev build-essential gfortran liblapacke-dev liblapack-dev libnlopt-dev python-numpy python-scipy python-matplotlib cython
-

@@ -28,7 +28,7 @@ int main (void) {
   double fmin;
   /* Testing hamiltonian and spin hamiltonian fitting for Ce:LiYF4. Tensor
    * matrix elements and solutions externally calculated using pyemp. */
-  
+
   complex double ce_C20_a[196] = {-0.333333308417, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, -0.285714264357, 0.116642359985, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0.116642359985, -0.0476190440595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -43,7 +43,7 @@ int main (void) {
     -0.285714264357, -0.116642359985, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.116642359985, -0.0476190440595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.333333308417};
-  
+
   complex double ce_C40_a[196] = {0.0909089176865, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0.0476189568834, -0.106038314953, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, -0.106038314953, -0.168830847132, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -58,7 +58,7 @@ int main (void) {
     0.0476189568834, 0.106038314953, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.106038314953, -0.168830847132, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.0909089176865};
-  
+
   complex double ce_C44_a[196] = {0, 0, 0, 0, 0, 0, 0, 0.148453640934,
     0.128564624333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
     -0.102442744767, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15870361777,
@@ -72,7 +72,7 @@ int main (void) {
     0, 0, 0.178173821773, 0.102442744767, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.15870361777, 0.188199339398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.148453640934, 0.128564624333, 0, 0, 0, 0, 0, 0, 0};
-  
+
   complex double ce_C60_a[196] = {-0.0116550046289, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0.0285488142907, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.0285488142907, 0.0582750231447, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -86,9 +86,9 @@ int main (void) {
     -0.0285488142907, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.0285488142907,
     0.0582750231447, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.0116550046289};
-  
+
   double ce_ex[6] = {0, 216, 2216.10, 2312.80, 2428.80, 3157.80};
-  
+
   complex double celiyf4_coeff[7] = {1535.12773615, 625.699030356,
     297.890587979, -1328.15222293, -1282.47659014, -191.510006575,
     -1743.14238515+692.866175947*I};
@@ -121,9 +121,9 @@ int main (void) {
   C40 = (zt *) zt_alloc("C40", ce_C40_a, 14, states);
   C44 = (zt *) zt_alloc("C44", ce_C44_a, 14, states);
   C60 = (zt *) zt_alloc("C60", ce_C60_a, 14, states);
- 
+
   zt *tensors[4] = {C20, C40, C44, C60};
-  
+
   /* Manually prepare array of parameter structs. */
   param_type efit_p0;
   efit_p0.type = 'r';
@@ -156,7 +156,7 @@ int main (void) {
   p[3] = &efit_p3;
   p[4] = &efit_p4;
   p[5] = &efit_p5;
-  
+
   /* Set up the experimental data struct. */
   double ce_x0[4] = {2000, 900, 200, -1000};
   zh *h;
@@ -165,7 +165,7 @@ int main (void) {
 
   ex_data ce_ex_data;
   int ex_index[6] = {1, 2, 7, 8, 11, 13};
-  double weights[6] = {1, 1, 1, 1, 1, 1}; 
+  double weights[6] = {1, 1, 1, 1, 1, 1};
   ce_ex_data.n_obs = 4;
   ce_ex_data.n_a = 4;
   ce_ex_data.n_d = 0;
@@ -175,12 +175,12 @@ int main (void) {
   ce_ex_data.fld = NULL;
   /* Fix: ex_data.w must be set; uninitialized w pointer caused segfault in nls_echisq. */
   ce_ex_data.w = weights;
-  
+
   double *covar = (double *) calloc(16,sizeof(double));
   /* Run energy level fit. */
   efit_data *efit_d;
   cfl_min_obj *efit_min_obj;
- 
+
   double xtol = 1e-8;
   double gtol = 1e-8;
   double ftol = 0.0;
@@ -208,6 +208,6 @@ int main (void) {
 
   sl_free(states);
   free(l);
-  
+
   return 0;
-}  
+}

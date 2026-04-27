@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2018 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -16,7 +16,7 @@
 
 */
 
-#ifndef _CFL_MIN_H_ 
+#ifndef _CFL_MIN_H_
 #define _CFL_MIN_H_
 
 #include <gsl/gsl_vector.h>
@@ -35,8 +35,8 @@ typedef enum {
 
 typedef enum {
   nlopt_cobyla = 1,
-  nlopt_bobyqa = 2, 
-  nlopt_sbplx = 3, 
+  nlopt_bobyqa = 2,
+  nlopt_sbplx = 3,
   nlopt_crs2_lm = 4,
   nlopt_esch = 5
 } nlopt_min_alg;
@@ -72,7 +72,7 @@ typedef struct {
  * data to the wrapper function that numerically estimates derivatives. */
 typedef struct {
   /* Pointer to the objective function. */
-  double (*f)(size_t n, double *x, double *grad, void *data); 
+  double (*f)(size_t n, double *x, double *grad, void *data);
   /* Number of parameters. */
   size_t n;
   /* Pointer to parameter list. */
@@ -122,7 +122,7 @@ typedef struct {
 /* Storage for GSL nonlinear least-squares fitting. */
 typedef struct {
   /* Pointer to the objective function. */
-  void (*f)(double *x, void *data, double *y); 
+  void (*f)(double *x, void *data, double *y);
   //int (*f)(const gsl_vector *xv, void *data, gsl_vector *f);
   /* Data to be passed to the objective function. */
   void *data;
@@ -164,13 +164,13 @@ typedef struct {
   /* Pointer to the objective function. */
   double (*f)(size_t n, double *x, double *grad, void *data);
   /* Data for objective function f. */
-  void *data; 
+  void *data;
   /* Storage used for currently accepted parameter set. */
-  double *xnew; 
+  double *xnew;
   /* Number of observables. */
-  int n; 
+  int n;
   /* The total number of iterations. */
-  int niter; 
+  int niter;
   /* Pointer to parameter bounds. */
   cfl_min_bounds *bounds;
   /* Array of length n.  Multiplicative factor for stepsize of magnitude
@@ -184,7 +184,7 @@ typedef struct {
   /* The temperature to start for the simulated annealing cycle. */
   double Tstart;
   /* The minimum temperature. */
-  double Tmin; 
+  double Tmin;
   /* The damping factor for the cooling schedule. */
   double muT;
   /* Boltzmann constant. */
@@ -192,16 +192,16 @@ typedef struct {
   /* Maximum running time for optimization in seconds. */
   double maxtime;
   /* Random number generator. */
-  gsl_rng *rng; 
-} siman_data; 
+  gsl_rng *rng;
+} siman_data;
 
 /* Function prototypes. */
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif /* __cplusplus */
 gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
       double *grad, void *data), size_t n, void *data, const
-    gsl_multimin_fminimizer_type *T); 
+    gsl_multimin_fminimizer_type *T);
 gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
       double *grad, void *data), size_t n, void *data, const
     gsl_multimin_fdfminimizer_type *T);
@@ -228,6 +228,3 @@ int cfl_min(double *x0, double *fmin, cfl_min_obj *obj);
 #endif /* __cplusplus */
 
 #endif /* _CFL_MIN_H_ */
-
-
-

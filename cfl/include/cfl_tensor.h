@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -42,7 +42,7 @@ typedef struct {
   /* The hash of all state labels in the tensor. */
   uint32_t th;
 } sl;
- 
+
 /* The tensor structure for complex valued matrix elements. */
 typedef struct {
   /* Pointer to tensor name character array. */
@@ -53,20 +53,20 @@ typedef struct {
   sl *slabels;
   /* Pointer to the matrix elements stored in CRS form. */
   zhcsr *matel;
-} zt; 
+} zt;
 
 /* Function prototypes. */
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif /* __cplusplus */
 
 sl *sl_alloc(int n, char *key, int **labels);
 void sl_free(sl *l);
 zt *zt_alloc(char *name, complex double *a, int n, sl *slabels);
-zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in, 
+zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in,
     complex double *val, sl *slabels);
 void zt_free(zt *t);
-void zt_get_matel(zt *t, complex double *a); 
+void zt_get_matel(zt *t, complex double *a);
 zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2);
 zt *zt_s(char *name, zt *t, complex double s);
 uint32_t fnv_hash(void *buf, int len);
@@ -76,4 +76,3 @@ uint32_t fnv_hash(void *buf, int len);
 #endif /* __cplusplus */
 
 #endif /* _CFL_TENSOR_H_ */
-

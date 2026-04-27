@@ -22,7 +22,7 @@ This will build 32-bit versions of ``librefblas.a`` and ``liblapack.a``.  These
 can then be moved or linked to a directory of your choice.  If you link to a
 non-standard location for libraries, ensure that the relevant directory is added
 to the ``LIBRARY_PATH`` environment variable or specified explicitly when gpc is
-called. 
+called.
 
 Compiling LAPACK linked emp routines
 ====================================

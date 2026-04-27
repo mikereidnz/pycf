@@ -21,6 +21,8 @@ Used throughout pycf for building tensor operators in the crystal field
 Hamiltonian and for intensity calculations.
 """
 
+from typing import Union
+
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -42,7 +44,6 @@ Hamiltonian and for intensity calculations.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import numpy as np
-from typing import Union
 
 import pycf.njsymbols as nj
 

@@ -1,7 +1,7 @@
-#ifndef _CFL_CONFIG_H_ 
+#ifndef _CFL_CONFIG_H_
 #define _CFL_CONFIG_H_
 
-#define TRUE 1 
+#define TRUE 1
 #define FALSE 0
 
 #if !defined(USE_MKL)

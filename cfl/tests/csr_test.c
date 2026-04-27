@@ -93,8 +93,8 @@ int main (void) {
   printf("zhcsr_alloc (depends on zcsr2zha and zhcsr2zcsr):\n");
   equ_chk(a, aa, 16);
   zhcsr_free(maa);
-  zcsr_free(maac); 
-  
+  zcsr_free(maac);
+
   /* zhcsr2zhpa test. */
   complex double bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
   complex double *bbp;
@@ -180,7 +180,7 @@ int main (void) {
 
   ce_res_a = (complex double *) calloc(196,sizeof(complex double));
   zhcsr2zha(ce_res, ce_res_a);
-  
+
   printf("ce zhsam:\n");
   equ_chk(ce_res_a, ce_zhsam_res, 196);
 
@@ -188,14 +188,14 @@ int main (void) {
   zhcsrsama_data *zhcsrsama_d;
   zhcsr *csr_ma[2] = {ce_eavg, ce_c44};
   complex double ce_ca[2] = {ce_alpha, ce_beta};
-  
+
   zhcsrsama_d = zhcsrsama_alloc(2, csr_ma);
-  zhcsrsama(csr_ma, ce_ca, zhcsrsama_d); 
+  zhcsrsama(csr_ma, ce_ca, zhcsrsama_d);
 
   printf("ce zhcsrsama:\n");
   zhcsr2zha(zhcsrsama_d->hcsr_m, ce_res_a);
   equ_chk(ce_res_a, ce_zhsam_res, 196);
-  
+
   zhcsrsama_free(zhcsrsama_d);
   zhcsr_free(ce_eavg);
   zhcsr_free(ce_c44);
@@ -317,7 +317,7 @@ int main (void) {
 
   complex double pma[16] = {1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 1, 4, 0, 0, 4, 1};
   complex double pmaa[16] = {1, 2, 0, 0, 2, 1, 0, 4, 0, 0, 1, 0, 0, 4, 0, 1};
-  int pm_p[4] = {0, 2, 1, 3}; 
+  int pm_p[4] = {0, 2, 1, 3};
   zhcsr *pmh;
   zcsr *cpm, *rpm;
   int *pmj;
@@ -375,4 +375,4 @@ int main (void) {
   //free(c20_a);
 
   return 0;
-}  
+}

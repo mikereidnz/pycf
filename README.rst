@@ -31,7 +31,7 @@ pycf is a collection of Python modules for crystal field theory and spin Hamilto
 
 **Project Structure**
 
-- ``cfl/`` — C99 core library for setting up and fitting Hamiltonians. 
+- ``cfl/`` — C99 core library for setting up and fitting Hamiltonians.
 - ``pycf/`` — Python/Cython wrappers
 - ``examples/`` — End-to-end workflows for real materials
 - ``tests/`` — Python and C unit tests

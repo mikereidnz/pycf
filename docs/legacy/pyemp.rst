@@ -1,4 +1,4 @@
-pyemp tutorial 
+pyemp tutorial
 ==============
 
 .. currentmodule:: pyemp
@@ -6,14 +6,14 @@ pyemp tutorial
 pyemp is a python wrapper for Michael F. Reid's emperical crystal field theory
 routines, henceforth abbreviated as emp.  It is primarily intended to ease
 automated calling of emp processes in python scripts.  It can also be useful for
-interactive plotting sessions using IPython. 
+interactive plotting sessions using IPython.
 
 The examples provided for pyemp are all an adaptation of crystal field
 calculations of |Ho3KY3F10|.  Initially, we will fit the crystal field levels,
 calculate the transition intensities, and plot the resulting spectrum.  The
 example is then adapted to vary the magnetic dipole interaction parameter to
 produce a 3D plot showing transition intensities with respect to energy and the
-magnetic dipole parameter. 
+magnetic dipole parameter.
 
 Energy level fitting for Ho3+:KY3F10
 ------------------------------------
@@ -35,7 +35,7 @@ vary one of these parameters one can simply add the parameter as an argument to
 this function and automate the creation of :class:`Spectrum` instances.  For the
 example of |Ho3KY3F10| (see the ``ho_ky3f10.py`` example file) we use the
 following function::
-  
+
   def spec_params(levels, x, al):
       spectrum_data = {
               'emproot': '/home/sph/local/linuxemp',
@@ -44,7 +44,7 @@ following function::
               'matel': 'hoc4vint_i',
               'addtensors':
               """addten MTOT M0 1 M2 0.56 M4 0.31
-                 addten PTOT P2 1 P4 0.5 P6 0.1 
+                 addten PTOT P2 1 P4 0.5 P6 0.1
                  addten m111 mag10 0.2695 mag11 -0.190595+i0.190595
                  addten m001 mag10 0.466860
                  addten m100 mag11 0.330120
@@ -55,13 +55,13 @@ following function::
               'addassign':
               """assign F2 80063 F4 66361 F6 51637
                  assign ALPHA 17.15 BETA -607.9 GAMMA 1800
-                 assign t2 400 t3 37 t4 105 t6 -264 t7 316 t8 336 
+                 assign t2 400 t3 37 t4 105 t6 -264 t7 316 t8 336
                  assign ZETA 2142
-                 assign MTOT 2.54 PTOT 605 
+                 assign MTOT 2.54 PTOT 605
                  assign c20  -669
                  assign c40 -1269
-                 assign c44   344 
-                 assign c60   525 
+                 assign c44   344
+                 assign c60   525
                  assign c64     9
                  assign al {0}
                  assign eqhyp 0.06""".format(al),
@@ -75,30 +75,30 @@ following function::
               'edconstruct':
               """EDCONSTRUCT 9
                  Ho ky3f10 hyperfine transitions
-                 A210  2 1 0 
-                 A230  2 3 0 
-                 A430  4 3 0 
-                 A450  4 5 0 
-                 A454  4 5 4 
-                 A650  6 5 0 
-                 A654  6 5 4 
+                 A210  2 1 0
+                 A230  2 3 0
+                 A430  4 3 0
+                 A450  4 5 0
+                 A454  4 5 4
+                 A650  6 5 0
+                 A654  6 5 4
                  A670  6 7 0
                  A674  6 7 4""",
               'edipoletensor':
-              """A210 2.978914463e-10 % 
-                 A230 6.624105316e-11 % 
-                 A430 -5.492288570e-11 % 
-                 A450 -2.252749050e-11 % 
-                 A454 4.052097980e-12 % 
-                 A650 2.529080178e-10 % 
-                 A654 -4.549144380e-11 % 
-                 A670 4.912922087e-15 % 
+              """A210 2.978914463e-10 %
+                 A230 6.624105316e-11 %
+                 A430 -5.492288570e-11 %
+                 A450 -2.252749050e-11 %
+                 A454 4.052097980e-12 %
+                 A650 2.529080178e-10 %
+                 A654 -4.549144380e-11 %
+                 A670 4.912922087e-15 %
                  A674 1.750735430e-13 \n""",
               'edipole': '1',
               'mdipole': '1',
               'plotargs': {'polarization': 'isotropic', 'lines': 'lines', 'linewidth':
                       '0.12', 'temp': 10, 'xrange': x}}
-  
+
       return spectrum_data
 
 When called, ``spec_params`` will return a dictionary that can be directly
@@ -113,13 +113,13 @@ that we have chosen to explicitly pass to ``spec_params``::
   # Specifying transition energy and level range for 5F5 -> 5I8.
   x = [15472.6, 15473.3]
   levels = ['1', '16', '537', '552', '5F5', '5I8']
-  
+
   # Nuclear magnetic dipole parameter.
   al = 0.038
 
 
 We can now create a :class:`Spectrum` object::
-  
+
   ho = Spectrum(name = 'ho', **spec_params(levels, x, al))
 
 The double asterisk unpacks the dictionary and passes the values as keyword
@@ -129,11 +129,11 @@ To execute the emp programs we run the methods :func:`Spectrum.cfit`,
 :func:`Spectrum.vtrans`, :func:`Spectrum.inten` and
 :func:`Spectrum.spectrum_data`.  These must be called in this order, just like
 their corresponding erun programs, but if parameters are varied for ``ho`` which
-only affect later calculations, one does not have to re-run earlier programs.   
+only affect later calculations, one does not have to re-run earlier programs.
 
 Calling the four methods::
 
-  cfit_obj = ho.cfit() 
+  cfit_obj = ho.cfit()
   vtrans_obj = ho.vtrans()
   inten_obj = ho.inten()
   spectrum_data_obj = ho.spectrum_data()
@@ -142,11 +142,11 @@ To plot the resulting spectrum data ``pyemp`` provides a new matplotlib
 projection which automatically parses data from a :class:`Spectrum` object.  To
 use this functionality we have to specify the keyword argument ``projection =
 'spectrum'`` when instantiating the axis object::
-  
+
   fig = plt.figure()
   ax = fig.add_subplot(111, projection='spectrum')
   ax.spectrumplot(ho)
-  ax.set_xlabel('Wavenumbers (cm${}^{-1}$)') 
+  ax.set_xlabel('Wavenumbers (cm${}^{-1}$)')
   ax.grid(True)
 
   plt.show()
@@ -167,19 +167,19 @@ object using the ``curve_energies`` and ``curve_inten`` attributes::
 
   for i in range(10):
       ho = Spectrum(name = 'ho', **spec_params(levels, x, 0.025 + i/500.0))
-  
-      cfit_obj = ho.cfit() 
+
+      cfit_obj = ho.cfit()
       vtrans_obj = ho.vtrans()
       inten_obj = ho.inten()
       spectrum_data_obj = ho.spectrum_data()
       al = 0.025 + i/500.0 * np.ones(len(ho.curve_energies))
       ax.plot(ho.curve_energies, al, ho.curve_inten)
-  
+
   ax.set_xlabel('Energy')
   ax.set_ylabel('Magnetic dipole moment')
   ax.set_zlabel('Isotropic')
-  
-  plt.show() 
+
+  plt.show()
 
 For a complete version of this example, see the ``ho_ky3f10_al.py`` file.
 
@@ -190,11 +190,11 @@ One useful feature made possible by the reading of the inten program log file is
 the labeling of transitions by their initial and final states.  To enable this,
 the plotting section from the `Energy level fitting for Ho3+:KY3F10`_ example
 should be adapted to read::
-  
+
   fig = plt.figure()
   ax = fig.add_subplot(111, projection='spectrum')
   ax.spectrumplot(ho, transitionlabels='true')
-  ax.set_xlabel('Wavenumbers (cm${}^{-1}$)') 
+  ax.set_xlabel('Wavenumbers (cm${}^{-1}$)')
   ax.grid(True)
   plt.show()
 
@@ -203,7 +203,7 @@ This yields a plot such as:
 .. image:: figures/transition_labels.pdf
 
 For further details and options, see the :func:`SpectrumAxes.spectrumplot`
-method reference. 
+method reference.
 
 SpectrumData vs SpectrumErun
 ----------------------------
@@ -240,11 +240,8 @@ which have the same name specified as a keyword argument when the
 Ho3+:KY3F10`_, one would use::
 
   inten_obj = ho.inten(tvals='ho', trans='ho')
-  spectrum_data_obj = ho.spectrum_data() 
+  spectrum_data_obj = ho.spectrum_data()
 
 
 .. |Ho3KY3F10| replace:: Ho\ :sup:`3+`\:KY\ :sub:`3`\F\ :sub:`10`
 .. _Unpacking Argument Lists: http://docs.python.org/2/tutorial/controlflow.html#tut-unpacking-arguments
-
-
-

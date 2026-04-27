@@ -20,13 +20,13 @@
  *  * spin hamiltonian allocation and projection
  *
  * Tests in this file depend on a functional csr implementation, so run csr_test
- * as a prerequisite. 
+ * as a prerequisite.
  */
 
 /*
  * @brief   Check the equality of two complex valued arrays.
  *
- * @param[a]  Pointer to first array. 
+ * @param[a]  Pointer to first array.
  * @param[b]  Pointer to second array.
  * @param[n]  Length of arrays a and b.
  *
@@ -51,7 +51,7 @@ void zequ_chk(complex double *a, complex double *b, size_t n) {
 /*
  * @brief   Check the equality of two double valued arrays.
  *
- * @param[a]  Pointer to first array. 
+ * @param[a]  Pointer to first array.
  * @param[b]  Pointer to second array.
  * @param[n]  Length of arrays a and b.
  *
@@ -77,7 +77,7 @@ void dequ_chk(double *a, double *b, size_t n) {
  * @brief   Print an n by n complex valued matrix a, stored as a one dim array.
  *
  * @param[a]  Pointer to a.
- * @param[n]  Dimension of the matrix a. 
+ * @param[n]  Dimension of the matrix a.
  */
 void mprint(complex double *a, size_t n) {
   int i,j;
@@ -106,9 +106,9 @@ int main (void)
   int *l[4];
   for (i=0; i<4; i++) {
     l[i] = malloc(4*sizeof(int));
-    if (l[i] == 0) 
+    if (l[i] == 0)
       printf("Error; label array s malloc failed\n");
-    
+
     for (j=0; j<4; j++) {
       l[i][j] = j;
     }
@@ -124,10 +124,10 @@ int main (void)
   /*=========================================================================*/
   /* Tensor tests.                                                           */
   /*=========================================================================*/
-  
+
   /* zt_sa test. */
   complex double *c;
-   
+
   complex double ztsa_res[16] = {0, 6*I, 4*I, 6*I, -6*I, 2, 6+12*I, 2+6*I, -4*I,
     6-12*I, 4, 12+18*I, -6*I, 2-6*I, 12-18*I, 6};
 
@@ -179,10 +179,10 @@ int main (void)
   h = zh_alloc(4, 2, tens);
   zh_set_coeff(h, coeff);
   hd_w = zhd_w_alloc('V', h);
- 
+
   zhd('V', w, z, h, hd_w);
   zhd_w_free(hd_w);
- 
+
   printf("hdiag multiple tensors:\n");
   dequ_chk(hdiag_res, w, 4);
 
@@ -195,7 +195,7 @@ int main (void)
   coeff2[0] = alpha;
   zh *h2;
   zhd_w *hd_w2;
-  
+
   h2 = zh_alloc(4, 1, tens2);
   zh_set_coeff(h2, coeff2);
   hd_w2 = zhd_w_alloc('V', h2);
@@ -213,7 +213,7 @@ int main (void)
   zh_free(h2);
 #endif
   free(c);
-  
+
   zh_free(h);
   free(w);
   free(z);
@@ -224,7 +224,7 @@ int main (void)
   for (i=0; i<4; i++) {
     free(l[i]);
   }
-#if 1  
+#if 1
   /*=========================================================================*/
   /* Spin Hamiltonian projection test.                                       */
   /*=========================================================================*/
@@ -274,13 +274,13 @@ int main (void)
     -2.14202857143, 0.350738936998, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.350738936998, -2.85797142857, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -4.00116};
-    
+
   w = (double *) calloc(14,sizeof(double));
   z = (complex double *) calloc(196,sizeof(complex double));
-  int *ce_l[14]; 
+  int *ce_l[14];
   for (i=0; i<14; i++) {
     ce_l[i] = malloc(5*sizeof(int));
-    if (ce_l[i] == 0) 
+    if (ce_l[i] == 0)
       printf("Error; label array ce_s malloc failed\n");
 
     for (j=0; j<4; j++) {
@@ -293,7 +293,7 @@ int main (void)
   zeta = (zt *) zt_alloc("zeta", zeta_matel, 14, states);
   c20 = (zt *) zt_alloc("c20", c20_matel, 14, states);
   magz = (zt *) zt_alloc("magz", magz_matel, 14, states);
-  
+
   tens[0] = zeta;
   tens[1] = c20;
   coeff[0] = 10;
@@ -501,7 +501,7 @@ int main (void)
    * Guillot_Noel et al, Journal of Alloys and Compounds, 451, (2008) 62. */
   zsh *euyso_sh;
   zshi_w *euyso_w;
-  
+
   complex double *euyso_a[] = {euyso_inv};
   char *inter[] = {"hyperfine"};
 
@@ -510,15 +510,15 @@ int main (void)
 
   complex double hyp_inv_result[9] = {69.35, -580.73, -248.83, -580.73, 696.30,
     682.49, -248.83, 682.49, 495.54};
-  
+
   euyso_w = zshi_w_alloc(euyso_sh->inv_data[0]);
   zshi(euyso_hyp_term, euyso_w);
 
   printf("Hyperfine inversion test for Eu:YSO:\n");
   zequ_chk(hyp_inv_result, euyso_hyp_term, 9);
-  
+
   zshi_w_free(euyso_w);
   zsh_free(euyso_sh);
 #endif
   return 0;
-}  
+}

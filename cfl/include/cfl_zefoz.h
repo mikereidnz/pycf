@@ -16,7 +16,7 @@
 
 */
 
-#ifndef _CFL_ZEFOZ_H_ 
+#ifndef _CFL_ZEFOZ_H_
 #define _CFL_ZEFOZ_H_
 
 #include "cfl_h.h"
@@ -72,7 +72,7 @@ typedef struct {
 
 /* Function prototypes. */
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif /* __cplusplus */
 zefoz_d *zefoz_d_alloc(zh *h, int *zi);
 void zefoz_d_free(zefoz_d *data);

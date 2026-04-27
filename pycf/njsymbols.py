@@ -46,10 +46,10 @@ matrix elements in crystal field Hamiltonians.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from math import fsum
+from typing import Union
 
 import numpy as np
 from scipy.special import factorial
-from typing import Union
 
 
 def tricon_ck(a: Union[float, int], b: Union[float, int], c: Union[float, int]) -> bool:

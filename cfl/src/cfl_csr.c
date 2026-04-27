@@ -17,11 +17,11 @@
 */
 
 /* Compressed sparse row (CSR) storage routines (also referred to as compressed
- * row storage, or CRS). For a description of CSR, see [1]. 
+ * row storage, or CRS). For a description of CSR, see [1].
  *
  * The row and column permutation algorithms, and the associated ivperm and
  * zvperm, were adapted from SPARSKIT2/FORMATS/unary.f, originally written by Y.
- * Saad.  See [2] for the original implementations. 
+ * Saad.  See [2] for the original implementations.
  *
  * [1] http://netlib.org/linalg/html_templates/node91.html
  * [2] https://people.sc.fsu.edu/~jburkardt/f77_src/sparsekit2/sparsekit2.html
@@ -37,12 +37,12 @@
 /*
  * Allocate storage, generate the sparsity pattern, and fill in the values of a
  * Hermitian sparse matrix in upper-triangular compressed sparse row format.
- * Only the upper diagonal of the array a is inspected. 
+ * Only the upper diagonal of the array a is inspected.
  *
  * Parameters
  * ----------
  * a    An n by n dense matrix stored as a one dimensional array.
- * n    The number of columns and rows of a. 
+ * n    The number of columns and rows of a.
  */
 zhcsr *zhcsr_gen(complex double *a, int n) {
   int i,j, vi, nnz;
@@ -113,13 +113,13 @@ zhcsr *zhcsr_gen(complex double *a, int n) {
 
 
 /* Allocate storage and generate Hermitian CSR matrix from non-Hermitian CSR
- * matrix.  Only upper diagonal values are added.  
+ * matrix.  Only upper diagonal values are added.
  *
  * Parameters
  * ----------
- *  n         The matrix dimension. 
+ *  n         The matrix dimension.
  *  row_ptr   The row pointer array.
- *  col_in    The column index array. 
+ *  col_in    The column index array.
  *  val       Array containing the values of the non-zero elements.
  */
 zhcsr *zhcsr_alloc(int n, int *row_ptr, int *col_in, complex double *val) {
@@ -195,7 +195,7 @@ void zhcsr_free(zhcsr *m) {
  *
  * Parameters
  * ----------
- * hcsr_m   Pointer to the sparse matrix in Hermitian CSR form.  
+ * hcsr_m   Pointer to the sparse matrix in Hermitian CSR form.
  */
 zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
   int i,j,k;
@@ -230,7 +230,7 @@ zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m) {
 
   vi = 0;
   for (i = 0; i < n; i++) {
-    row_ptr[i] = vi; 
+    row_ptr[i] = vi;
     /* The lower-triangular part; we need to seek through the column index of
      * hcsr_m that corresponds to the current row. */
     for (j = 0; j < i; j++) {
@@ -289,11 +289,11 @@ void zcsr_free(zcsr *m) {
 /*
  * Convert a matrix in Hermitian CSR form to plain CSR form.  This function
  * performs the conversion for a zcsr matrix previously created with
- * zhcsr2zcsr_alloc.  
+ * zhcsr2zcsr_alloc.
  *
  * Parameters
  * ----------
- * hcsr_m   Pointer to the sparse matrix in Hermitian CSR form. 
+ * hcsr_m   Pointer to the sparse matrix in Hermitian CSR form.
  * csr_m    Pointer to the CSR matrix with correct sparsity pattern.
  */
 void zhcsr2zcsr(zhcsr *hcsr_m, zcsr *csr_m) {
@@ -306,7 +306,7 @@ void zhcsr2zcsr(zhcsr *hcsr_m, zcsr *csr_m) {
     if (csr_m->col_in[i] < row) {
       /* The lower-triangular part; we need to seek through the column index of
        * hcsr_m that corresponds to the current row. */
-      for(j = hcsr_m->row_ptr[csr_m->col_in[i]]; 
+      for(j = hcsr_m->row_ptr[csr_m->col_in[i]];
           j < hcsr_m->row_ptr[csr_m->col_in[i]+1]; j++) {
         if (hcsr_m->col_in[j] == row) {
           csr_m->val[i] = conj(hcsr_m->val[j]);
@@ -331,12 +331,12 @@ void zhcsr2zcsr(zhcsr *hcsr_m, zcsr *csr_m) {
  * storage form.  Provided the input array for the CSR matrix creation was in
  * column-major form then AP will correspond to the lower-triangular portion of
  * A, packed column wise with index such that AP(i + j*(2*n-(j+1))/2) = A(i,j)
- * for 0<=i<=j.  
- *       
+ * for 0<=i<=j.
+ *
  * Parameters
  * ----------
  * hcsr_m   Pointer to the sparse matrix in Hermitian CSR form of dimension n.
- * a        Pointer to complex double valued array of length n*(n+1)/2. 
+ * a        Pointer to complex double valued array of length n*(n+1)/2.
  */
 void zhcsr2zhpa(zhcsr *hcsr_m, complex double *ap) {
   int i, j;
@@ -367,11 +367,11 @@ void zhcsr2zhpa(zhcsr *hcsr_m, complex double *ap) {
 }
 
 /*
- * Convert a Hermitian CSR matrix to a dense matrix A. 
+ * Convert a Hermitian CSR matrix to a dense matrix A.
  *
  * Parameters
  * ----------
- * hcsr_m   Pointer to the sparse matrix in Hermitian CSR form.  
+ * hcsr_m   Pointer to the sparse matrix in Hermitian CSR form.
  * a        Pointer to allocated block of sufficient size to store n*n complex
  *          double values.
  */
@@ -402,11 +402,11 @@ void zhcsr2zha(zhcsr *hcsr_m, complex double *a) {
 }
 
 /*
- * Convert a CSR matrix to a dense matrix A. 
+ * Convert a CSR matrix to a dense matrix A.
  *
  * Parameters
  * ----------
- * csr_m    Pointer to the sparse matrix in CSR form.  
+ * csr_m    Pointer to the sparse matrix in CSR form.
  * a        Pointer to allocated block of sufficient size to store n*n complex
  *          double values.
  */
@@ -436,14 +436,14 @@ void zcsr2zha(zcsr *csr_m, complex double *a) {
  * Given three sparse matrices of the same shape in Hermitian CSR form, A, B,
  * and C as well as scalars alpha and beta, then, for C = alpha * A + beta * B,
  * this function calculates the number of non-zero elements of C, the row_ptr of
- * C, and allocates storage for a zhcsr object. 
+ * C, and allocates storage for a zhcsr object.
  *
  * Parameters
  * ----------
  * a    Pointer to the sparse Hermitian matrix A, in CSR form.
  * b    Pointer to the sparse Hermitian matrix B, in CSR form.
  * m    The number of columns of A, B, and C.
- * n    The number of rows of A, B, and C. 
+ * n    The number of rows of A, B, and C.
  */
 zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
   int i, j, k, ai, bi;
@@ -466,7 +466,7 @@ zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
   }
 
   /* Match always calculates the i+1 number of matching col_in entries of a and
-   * b, which is subtracted from the c row_ptr during the next iteration.*/ 
+   * b, which is subtracted from the c row_ptr during the next iteration.*/
   match=0;
   row_ptr[0] = 0;
   for (i = 0; i < n; i++) {
@@ -497,7 +497,7 @@ zhcsr *zhcsrsam_alloc(zhcsr *a, zhcsr *b) {
    * index and hence comes first.  Finally, the only option that remains is that
    * the column indices of both a and b match for the current row, hence we have
    * a matching entry. */
-  ai = 0; 
+  ai = 0;
   bi = 0;
   for (i = 0; i < n; i++) {
     for (j = row_ptr[i]; j < row_ptr[i+1]; j++) {
@@ -568,7 +568,7 @@ void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
 
   /* The first two cases correspond to no further elements for either b or a on
    * the current row, respectively.  The next two cases correspond to further
-   * elements for a and b on the current row, respectively.  
+   * elements for a and b on the current row, respectively.
    */
   ai = 0;
   bi = 0;
@@ -597,7 +597,7 @@ void zhcsrsam(zhcsr *a, zhcsr *b, zhcsr *c, complex double alpha, double
 }
 
 /* Allocate storage and determine intermediate sparsity patterns for scaling
- * and adding an array of zhcsr matrices. 
+ * and adding an array of zhcsr matrices.
  *
  * Parameters
  * ----------
@@ -650,7 +650,7 @@ zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
     }
     /* Subtract the total number of previous matching elements, since we only
      * want the number of unique entries up to this row for the resultant
-     * matrix.*/ 
+     * matrix.*/
     row_ptr[i] -= match;
     for (j=0; j<csr_ma[0]->n; j++) {
       for (k=0; k<n; k++) {
@@ -671,7 +671,7 @@ zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
       col_found = 0;
     }
   }
-  
+
   nnz = 0;
   for (i=0; i<n; i++) {
     nnz += csr_ma[i]->nnz;
@@ -688,7 +688,7 @@ zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
   }
   nnz_sz = (size_t) nnz;
   row_ptr[csr_ma[0]->n] = nnz;
-  
+
   col_in = (int *) calloc(nnz_sz, sizeof(int));
   if (col_in == 0) {
     for (i=0; i<n; i++) {
@@ -744,7 +744,7 @@ zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
       col_found = 0;
     }
   }
-  
+
   hcsr_m->n = csr_ma[0]->n;
   hcsr_m->nnz = nnz;
   hcsr_m->val = val;
@@ -762,7 +762,7 @@ void zhcsrsama_free(zhcsrsama_data *data) {
   if (data == 0) {
     return;
   }
-  
+
   zhcsr_free(data->hcsr_m);
   for (i=0; i<data->n; i++) {
     free(data->map[i]);
@@ -774,7 +774,7 @@ void zhcsrsama_free(zhcsrsama_data *data) {
 
 /* Scale and add array of hermitian csr matrices.  This function requires an
  * hcsr_m matrix, and associated val index mapping, allocated with the
- * zhcsrsama_alloc function. 
+ * zhcsrsama_alloc function.
  *
  * Parameters
  * ----------
@@ -787,7 +787,7 @@ void zhcsrsama_free(zhcsrsama_data *data) {
  */
 void zhcsrsama(zhcsr **csr_ma, complex double *ca, zhcsrsama_data *data) {
   int i, j;
-  
+
   memset(data->hcsr_m->val, 0, data->hcsr_m->nnz*sizeof(complex double));
   for (i=0; i<data->n; i++) {
 #pragma omp parallel for private(j) schedule(dynamic)
@@ -804,7 +804,7 @@ void zhcsrsama(zhcsr **csr_ma, complex double *ca, zhcsrsama_data *data) {
  *
  * Parameters
  * ----------
- * hcsr_m    Pointer to CSR matrix to be scaled. 
+ * hcsr_m    Pointer to CSR matrix to be scaled.
  */
 zhcsr *zhcsrsm_alloc(zhcsr *hcsr_m) {
   int i;
@@ -837,7 +837,7 @@ zhcsr *zhcsrsm_alloc(zhcsr *hcsr_m) {
   }
 
   /* Identical row and column pointers. */
-  for (i = 0; i < hcsr_m->nnz; i++) 
+  for (i = 0; i < hcsr_m->nnz; i++)
     col_in[i] = hcsr_m->col_in[i];
   for (i = 0; i < hcsr_m->n+1; i++)
     row_ptr[i] = hcsr_m->row_ptr[i];
@@ -852,13 +852,13 @@ zhcsr *zhcsrsm_alloc(zhcsr *hcsr_m) {
 }
 
 /*
- * Multiply a matrix in Hermitian CSR form by a complex double scalar. 
+ * Multiply a matrix in Hermitian CSR form by a complex double scalar.
  *
  * Parameters
  * ----------
  * hcsr_m     Pointer to a CSR matrix of dimension n by n.
  * hcsr_sm    Pointer to a CSR matrix to which the result will be written; must
- *            have the same n, nnz, col_in, and row_ptr values as hcsr_m. 
+ *            have the same n, nnz, col_in, and row_ptr values as hcsr_m.
  * s          Double complex valued scalar whereby to multiply hcsr_m.
  */
 void zhcsrsm(zhcsr *hcsr_m, zhcsr *hcsr_sm, complex double s) {
@@ -870,13 +870,13 @@ void zhcsrsm(zhcsr *hcsr_m, zhcsr *hcsr_sm, complex double s) {
 }
 
 
-/* Perform an inline permutation of an integer valued array ix, according to 
+/* Perform an inline permutation of an integer valued array ix, according to
  * ix(perm(j)) :=  ix(j), j=1,2,.., n. */
 void ivperm(int n, int *ix, int *perm) {
-  int ii, j, k, init, next; 
+  int ii, j, k, init, next;
   int tmp, tmp1;
 
-  k=-1; 
+  k=-1;
   init=-1;
 
   while (k < n) {
@@ -916,7 +916,7 @@ void ivperm(int n, int *ix, int *perm) {
 }
 
 
-/* 
+/*
  * Allocate CSR matrix with row permuted sparsity pattern. Call prior to
  * zcsr_row_perm, which copies the permuted values.
  *
@@ -983,10 +983,10 @@ zcsr *zcsr_row_perm_alloc(zcsr *m, int *p) {
 }
 
 
-/* 
+/*
  * CSR matrix row permutation.  Requires an input CSR matrix and an output CSR
  * matrix, where the latter is assumed to have an appropriately permuted
- * sparsity pattern.  This can be generated with zcsr_row_perm_alloc. 
+ * sparsity pattern.  This can be generated with zcsr_row_perm_alloc.
  *
  * Parameters
  * ----------
@@ -996,7 +996,7 @@ zcsr *zcsr_row_perm_alloc(zcsr *m, int *p) {
  *  p       The permutation array. Row i is swapped with row p(i).
  */
 void zcsr_row_perm(zcsr *m, zcsr *pm, int *p) {
-  int i, k, pk; 
+  int i, k, pk;
 
 #pragma omp parallel for private(i,pk,k) schedule(dynamic)
   for (i = 0; i < m->n; i++) {
@@ -1009,18 +1009,18 @@ void zcsr_row_perm(zcsr *m, zcsr *pm, int *p) {
 }
 
 
-/* 
+/*
  * Allocate CSR matrix with column permuted sparsity pattern. Call prior to
  * zcsr_col_perm, which copies the permuted values.
  *
  * Parameters
  * ----------
- *  m       The matrix to permute. 
+ *  m       The matrix to permute.
  *  p       Array of length n, with n the number of rows of m, with entries
  *          specifying the permuted column indices.
  *  pj      Array of length (n + 1), will be overwritten with the permutation
  *          that should be applied to the value array to achieve the specified
- *          column permutation.  This is achieved with a call to zcsr_col_perm. 
+ *          column permutation.  This is achieved with a call to zcsr_col_perm.
  */
 zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
   int i, j, k, pk, nnz, next, irow;
@@ -1107,7 +1107,7 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
       next = pj[j];
       /* iwork = the sorted index of the next element. */
       iwork[next] = k;
-      pj[j] += 1; 
+      pj[j] += 1;
     }
   }
 
@@ -1139,7 +1139,7 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
 
   free(iwork);
   /* Permute col_in of the new matrix. */
-  ivperm(nnz, pm->col_in, pj); 
+  ivperm(nnz, pm->col_in, pj);
 
   pm->n = m->n;
   pm->nnz = nnz;
@@ -1148,10 +1148,10 @@ zcsr *zcsr_col_perm_alloc(zcsr *m, int *p, int *pj) {
   return pm;
 }
 
-/* 
+/*
  * CSR matrix column permutation.  Requires an input CSR matrix and an output CSR
  * matrix, where the latter is assumed to have an appropriately permuted
- * sparsity pattern.  This can be generated with zcsr_col_perm_alloc. 
+ * sparsity pattern.  This can be generated with zcsr_col_perm_alloc.
  *
  * Parameters
  * ----------
@@ -1170,7 +1170,7 @@ void zcsr_col_perm(zcsr *m, zcsr *pm, int *p, int *pj) {
   }
 }
 
-/* 
+/*
  * Find the connected components of a symmetric csr matrix.  Algorithm follows
  * Scipy _connected_components_undirected implementation.
  *
@@ -1178,7 +1178,7 @@ void zcsr_col_perm(zcsr *m, zcsr *pm, int *p, int *pj) {
  * ----------
  *  m       The matrix for which to find the connected components.
  *  labels  Array of length n which will be overwritten with the connected
- *          component index of each row. 
+ *          component index of each row.
  */
 int zcsr_cc(zcsr *m, int *labels) {
   int i, ii, j, k, label, s_top, *s;

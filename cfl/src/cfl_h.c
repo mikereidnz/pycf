@@ -68,7 +68,7 @@ int dptr_cmp(const void *a, const void *b) {
  * Parameters
  * ----------
  *  n     The dimension of the Hamiltonian.
- *  nt    The number of tensors. 
+ *  nt    The number of tensors.
  *  t     Pointer to array of zts.
  */
 zh *zh_alloc(int n, int nt, zt **t) {
@@ -121,11 +121,11 @@ void zh_free(zh *h) {
 }
 
 /*
- * Set the coefficient array pointer; a wrapper for Cython. 
+ * Set the coefficient array pointer; a wrapper for Cython.
  *
  * Parameters
  * ----------
- *  coeff     Pointer to the coefficient array.  
+ *  coeff     Pointer to the coefficient array.
  */
 void zh_set_coeff(zh *h, complex double *coeff) {
   h->coeff = coeff;
@@ -133,12 +133,12 @@ void zh_set_coeff(zh *h, complex double *coeff) {
 
 /*
  * Wrapper around LAPACKE_zheevr_work for Hermitian block solves and workspace
- * queries. 
+ * queries.
  * For actual solves the block is conjugated in place before calling LAPACK.
- * Without that conjugation, LAPACKE_zheevr_work returns the eigenvalues of the conjugate  
- * of the input block and the phases of complex eigenvalues are incorrect.  
- * For workspace queries, the block pointer is passed as NULL, so no conjugation occurs and the query proceeds as normal. 
- * 
+ * Without that conjugation, LAPACKE_zheevr_work returns the eigenvalues of the conjugate
+ * of the input block and the phases of complex eigenvalues are incorrect.
+ * For workspace queries, the block pointer is passed as NULL, so no conjugation occurs and the query proceeds as normal.
+ *
  */
 static int solve_hermitian_block(char job, int n, double abstol,
     complex double *a, int *m, double *w, complex double *z, int *isuppz,
@@ -166,7 +166,7 @@ static int solve_hermitian_block(char job, int n, double abstol,
       iwork, liwork);
 }
 
-/* Allocate workspace for a LAPACKE_zheevr diagonalization. 
+/* Allocate workspace for a LAPACKE_zheevr diagonalization.
  *
  * Parameters
  * ----------
@@ -251,9 +251,9 @@ void zheevr_w_free(zheevr_w *heevr_w) {
   free(heevr_w);
 }
 
-/* 
+/*
  * Read block-diag ordered CSR matrix into pre-allocated blocks and diagonalize
- * them. 
+ * them.
  *
  * Parameters
  * ----------
@@ -261,9 +261,9 @@ void zheevr_w_free(zheevr_w *heevr_w) {
  *          referenced.  If 'V' then both eigenvalues and eigenvectors are
  *          computed.
  *  w       Pointer to double valued array of length n to which eigenvalues
- *          will be written upon exit.  
- *  csr_m   The block diagonalized CSR matrix. 
- *  hd_w    Hamiltonian diagonalization workspace. 
+ *          will be written upon exit.
+ *  csr_m   The block diagonalized CSR matrix.
+ *  hd_w    Hamiltonian diagonalization workspace.
  */
 static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w) {
   int i, ii, j, jj, vi, bi, bd, tn;
@@ -304,7 +304,7 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
 #pragma omp parallel for private(bi, tn, bd, block_info) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
       tn = omp_get_thread_num();
-      bd = hd_w->blocks[bi]->dim;            
+      bd = hd_w->blocks[bi]->dim;
       block_info = solve_hermitian_block(job, bd, hd_w->abstol, hd_w->blocks[bi]->a,
           &(diag_w[tn]->m), &w[bri[bi]], hd_w->zb[bi], diag_w[tn]->isuppz,
           diag_w[tn]->work, diag_w[tn]->lwork, diag_w[tn]->rwork,
@@ -325,7 +325,7 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
     /* Each block has a dedicated workspace, enumerated by bi. */
 #pragma omp parallel for private(bi, bd, block_info) num_threads(hd_w->ndiag_w) schedule(dynamic)
     for (bi = 0; bi < hd_w->nblocks; bi++) {
-      bd = hd_w->blocks[bi]->dim;            
+      bd = hd_w->blocks[bi]->dim;
       block_info = solve_hermitian_block(job, bd, hd_w->abstol, hd_w->blocks[bi]->a,
           &(diag_w[bi]->m), &w[bri[bi]], hd_w->zb[bi], diag_w[bi]->isuppz,
           diag_w[bi]->work, diag_w[bi]->lwork, diag_w[bi]->rwork,
@@ -345,7 +345,7 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
 #else
   /* OpenMP disabled; there is only a single diagonalization workspace. */
   for (bi = 0; bi < hd_w->nblocks; bi++) {
-    bd = hd_w->blocks[bi]->dim;            
+    bd = hd_w->blocks[bi]->dim;
     block_info = solve_hermitian_block(job, bd, hd_w->abstol, hd_w->blocks[bi]->a,
         &(diag_w[0]->m), &w[bri[bi]], hd_w->zb[bi], diag_w[0]->isuppz,
         diag_w[0]->work, diag_w[0]->lwork, diag_w[0]->rwork,
@@ -366,19 +366,19 @@ static inline void zh_diag_blocks(char job, double *w, zcsr *csr_m, zhd_w *hd_w)
 }
 
 
-/* 
+/*
  * Parse blocks of eigenvectors given a permutation to yield the full
- * dimensioned eigenvector array. 
+ * dimensioned eigenvector array.
  *
  * Parameters
  * ----------
  *  z             Pointer to complex double valued array of length n^2 to which
  *                the eigenvectors will be written.
- *  n             The dimension of the complete Hamiltonian. 
- *  hd_w          Hamiltonian diagonalization workspace. 
+ *  n             The dimension of the complete Hamiltonian.
+ *  hd_w          Hamiltonian diagonalization workspace.
  */
 static inline void zh_parse_ev(complex double *z, int n, zhd_w *hd_w) {
-  int bi, i, ii, j, jj, *bri; 
+  int bi, i, ii, j, jj, *bri;
   zblock **blocks;
 
   bri = hd_w->bri;        /* Index of first row of current block. */
@@ -390,7 +390,7 @@ static inline void zh_parse_ev(complex double *z, int n, zhd_w *hd_w) {
         for (j = 0; j < blocks[bi]->dim; j++) {
           ii = hd_w->w_perm[bri[bi]+i];
           jj = hd_w->crd_blk_perm[bri[bi]+j];
-          z[ii*n+jj] = hd_w->zb[bi][i*blocks[bi]->dim+j]; 
+          z[ii*n+jj] = hd_w->zb[bi][i*blocks[bi]->dim+j];
         }
       }
     }
@@ -401,19 +401,19 @@ static inline void zh_parse_ev(complex double *z, int n, zhd_w *hd_w) {
       for (j = 0; j < blocks[bi]->dim; j++) {
         ii = hd_w->w_perm[bri[bi]+i];
         jj = j;
-        z[ii*n+jj] = hd_w->zb[bi][i*blocks[bi]->dim+j]; 
+        z[ii*n+jj] = hd_w->zb[bi][i*blocks[bi]->dim+j];
       }
     }
   }
 }
 
-/* Perform an inplace permutation of a double valued array dx, according to 
+/* Perform an inplace permutation of a double valued array dx, according to
  * dx(perm(j)) :=  dx(j), j=1,2,.., n. */
 void dvperm(int n, double *dx, int *perm) {
-  int ii, j, k, init, next; 
+  int ii, j, k, init, next;
   double tmp, tmp1;
 
-  k=-1; 
+  k=-1;
   init=-1;
 
   while (k < n) {
@@ -507,7 +507,7 @@ zblock **zhd_w_block_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
     if (job == 'V') {
       zb[i] = (complex double *) calloc((size_t)block_dim[i]*block_dim[i],
           sizeof(complex double));
-      if (zb[i] == 0) { 
+      if (zb[i] == 0) {
         for (j = 0; j < i; j++) {
           free(blocks[j]->a);
           free(blocks[j]);
@@ -548,14 +548,14 @@ void zhd_w_block_free(zhd_w *hd_w) {
   free(hd_w->zb);
 }
 
-/* 
- * Helper function for allocating diagonalization workspace array. 
+/*
+ * Helper function for allocating diagonalization workspace array.
  *
  * Parameters
  * ----------
  *  job       If 'N', blocks only contain workspace for eigenvalue calculations.
  *            If 'V', space is alloced for both eigenvalue and eigenvector eval.
- *  nblocks   The number of blocks in the Hamiltonian. 
+ *  nblocks   The number of blocks in the Hamiltonian.
  *  block_dim Dimension of each block to be allocated.  If all blocks should be
  *            of a single size, that value is assumed to be the first element of
  *            the array.
@@ -596,8 +596,8 @@ zheevr_w **diag_w_alloc(char job, int nblocks, int *block_dim, zhd_w *hd_w) {
     free(diag_w);
     CFL_ERROR_NULL("zheevr_w_alloc failed for diag_w[i]");
   }
-#endif /* _OPENMP */ 
-  
+#endif /* _OPENMP */
+
   return diag_w;
 }
 
@@ -613,7 +613,7 @@ void diag_w_free(zhd_w *hd_w) {
 
 
 /*
- * Allocate workspace for the Hamiltonian diagonalization. 
+ * Allocate workspace for the Hamiltonian diagonalization.
  *
  * Parameters
  * ----------
@@ -705,7 +705,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
   for (i = 0; i < zcsr_h->n; i++) {
     block_dim[labels[i]] += 1;
   }
-  
+
   hd_w->blocks = zhd_w_block_alloc(job, nblocks, block_dim, hd_w);
   if (hd_w->blocks == 0) {
     free(block_dim);
@@ -750,7 +750,7 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
 #else
   hd_w->ndiag_w = 1;
 #endif /* _OPENMP */
-  
+
 
 #ifdef _OPENMP
   if (hd_w->proc_limited) {
@@ -786,8 +786,8 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     free(hd_w);
     CFL_ERROR_NULL("diag_w_alloc failed for hd_w->diag_w");
   }
-#endif /* _OPENMP */ 
-  
+#endif /* _OPENMP */
+
   /* We check the number of blocks since there's no point in permuting the
    * Hamiltonian if there's only a single connected component, that is, C1
    * symmetry. */
@@ -954,17 +954,17 @@ void zhd_w_free(zhd_w *hd_w) {
 
 
 /*
- * Calculate the eigenvalues and corresponding eigenvectors of a Hamiltonian. 
- * 
+ * Calculate the eigenvalues and corresponding eigenvectors of a Hamiltonian.
+ *
  * Parameters
  * ----------
  *  job     If 'N', only eigenvalues are computed and z is not referenced.  If
  *          'V' then both eigenvalues and eigenvectors are computed.
  *  w       Pointer to double valued array of length n to which eigenvalues
- *          will be written.  
+ *          will be written.
  *  z       Pointer to complex double valued array of length n^2 to which the
  *          eigenvectors will be written.
- *  h       The Hamiltonian. 
+ *  h       The Hamiltonian.
  *  hd_w    The work space for diagonalization; allocated using zhd_w_alloc.
  */
 void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
@@ -1014,8 +1014,8 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
       }
     }
   }
- 
-  /* Permute the eigenvalue vector. */ 
+
+  /* Permute the eigenvalue vector. */
   dvperm(h->n, w, hd_w->w_perm);
 
   /* Permute and parse eigenvectors, if requested. */

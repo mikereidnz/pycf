@@ -21,24 +21,27 @@ Prerequisites:
 import numpy as np
 import numpy.linalg as LA
 from pymatgen.io.cif import CifParser
-from pycf.paramcalc import *    # moved these functions from the old inten.py
-from pycf.cfl_util import *
 
-def nn_coords(struct, site, r): 
+from pycf.cfl_util import *
+from pycf.paramcalc import *  # moved these functions from the old inten.py
+
+
+def nn_coords(struct, site, r):
     """
     Return the spherical polar coordinates of the next nearest neighbors within radius r.
-    """          
+    """
     NN = struct.get_neighbors(site, r)
     origin = site.coords
-    
+
     spc = np.zeros([len(NN), 3])
-    for i,N in enumerate(NN):
-        xyz = N[0].coords-origin
+    for i, N in enumerate(NN):
+        xyz = N[0].coords - origin
         spc[i, 0] = LA.norm(xyz)
-        spc[i, 1] = np.arccos(xyz[2]/spc[i,0])
-        spc[i, 2] = np.arctan2(xyz[1],xyz[0])
+        spc[i, 1] = np.arccos(xyz[2] / spc[i, 0])
+        spc[i, 2] = np.arctan2(xyz[1], xyz[0])
 
     return spc
+
 
 # cif file from https://materialsproject.org/materials/mp-19426/
 parser = CifParser("CaWO4_mp-19426_conventional_standard.cif")
@@ -63,8 +66,8 @@ nn_ligands = nn_coords(cawo4_struct, Ca1, 3)
 ligands = [Ligand(c, -2, -3.2) for c in nn_ligands]
 
 # Lanthanide dopant type and charge, along with list of Ligand objects.
-Altp = AltpData('Er', 3, ligands)
-A_list= Altp.eval_params()
+Altp = AltpData("Er", 3, ligands)
+A_list = Altp.eval_params()
 
 s += Altp.gen_summary()
 print(s)

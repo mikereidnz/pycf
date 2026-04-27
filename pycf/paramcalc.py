@@ -265,8 +265,11 @@ def A_DC(lam: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
     if t == lam + 1:
         rint = RInt4f(lam, Ln)
         prefac = (
-            7 * wigner_3j(3, lam, 3, 0, 0, 0)
-            * np.sqrt((lam + 1) * (2 * lam + 1)) * rint * (-1) ** p
+            7
+            * wigner_3j(3, lam, 3, 0, 0, 0)
+            * np.sqrt((lam + 1) * (2 * lam + 1))
+            * rint
+            * (-1) ** p
         )
         for L in ligands:
             c = L.coords

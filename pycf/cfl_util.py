@@ -36,8 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 try:
-    from pycf.__version__ import (__build_comment__, __build_timestamp__,
-                                  __version__)
+    from pycf.__version__ import __build_comment__, __build_timestamp__, __version__
 except ImportError as e:
     logging.warning("Could not import build metadata from pycf.__version__: %s", e)
     __version__ = "unknown"

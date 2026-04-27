@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2018 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -60,7 +60,7 @@
  *
  * This file contains common cfl minimization functions, in addition to wrapping
  * both gsl and nlopt minimization algorithms.  See basinhopping.c for the
- * basinhopping implementation.  
+ * basinhopping implementation.
  *
  * gsl multimin
  * ------------
@@ -71,7 +71,7 @@
  * minimization, and workspace freeing.  Since gsl minimization routines require
  * custom data structures (gsl functions and vectors) there are dedicated
  * wrapper functions for objective functions following the cfl min argument
- * convention.  
+ * convention.
  *
  * nlopt
  * -----
@@ -80,13 +80,13 @@
  *
  * gsl nonlinear least squares
  * ---------------------------
- * Layout describing how this section works: 
+ * Layout describing how this section works:
  *   + cfl_nls_setup returns a generic cfl_min_obj, the common data type for all
  *   of the optimization procedures.  The setup function also allocates
- *   workspace and performs some initializations. 
+ *   workspace and performs some initializations.
  *   + cfl_min_obj contains a pointer to the optimization function which is
  *   called when the object is passed to cfl_min; in this case, the optimization
- *   function is gsl_nls_f. 
+ *   function is gsl_nls_f.
  *   + gsl_nls_f calls the multifit driver, using the preallocated workspace and
  *   settings; these settings include information about the number of
  *   parameters, number of observables, the objective function to be called gsl
@@ -99,11 +99,11 @@
  * objective functions, with any of the optimization functions.  The further
  * (perhaps unjustifiable) abstraction of the minimization routine interface was
  * choosen to enable one to pass any of the local optimization routines to
- * basinhopping.  
+ * basinhopping.
  */
- 
- 
- 
+
+
+
 
 
 /* Wrapper for gsl minimization; used to construct a function of type
@@ -176,7 +176,7 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f,
  * function using gsl numerical derivative facilities. */
 double gsl_numerical_df_wrapper(double x, void *data) {
   gsl_multimin_data *gsl_data = (gsl_multimin_data *)data;
-  
+
   gsl_data->df_work[gsl_data->dfi] = x;
   return gsl_data->f(gsl_data->n, gsl_data->df_work, NULL, gsl_data->data);
 }
@@ -186,16 +186,16 @@ double gsl_numerical_df_wrapper(double x, void *data) {
  *
  * Parameters
  * ----------
- *  f     The objective function with generic, gsl independent, arguments. 
+ *  f     The objective function with generic, gsl independent, arguments.
  *  n     The number of parameters to be varied.
- *  data  Generic data to be passed to f. 
+ *  data  Generic data to be passed to f.
  *  T     The type of optimization algorithm.  Derivative free options are:
  *          + gsl_multimin_fminimizer_nmsimplex2
  *          + gsl_multimin_fminimizer_nmsimplex2rand
  */
 gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
       double *grad, void *data), size_t n, void *data, const
-    gsl_multimin_fminimizer_type *T) { 
+    gsl_multimin_fminimizer_type *T) {
   gsl_multimin_f_work *w;
   double *x;
   gsl_multimin_data *gsl_data;
@@ -218,7 +218,7 @@ gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
     free(w);
     free(gsl_data);
     CFL_ERROR_NULL("calloc failed for x");
-  } 
+  }
 
   gsl_data->f = f;
   gsl_data->n = n;
@@ -232,7 +232,7 @@ gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
     free(x);
     CFL_ERROR_NULL("malloc failed for gsl_f");
   }
-  
+
   gsl_f->f = gsl_multimin_f_wrapper;
   gsl_f->n = n;
   gsl_f->params = gsl_data;
@@ -268,13 +268,13 @@ gsl_multimin_f_work *gsl_multimin_f_alloc(double (*f)(size_t n, double *x,
     CFL_ERROR_NULL("gsl_multimin_fminimizer_alloc failed");
   }
   gsl_vector_set_all(ssv, 1.0);
-  
+
   w->s = s;
   w->f = gsl_f;
   w->v = v;
   w->ssv = ssv;
   w->gsl_data = gsl_data;
-  
+
   return w;
 }
 
@@ -296,9 +296,9 @@ void gsl_multimin_f_free(void *work) {
  *
  * Parameters
  * ----------
- *  f     The objective function with generic, gsl independent, arguments. 
+ *  f     The objective function with generic, gsl independent, arguments.
  *  n     The number of parameters to be varied.
- *  data  Generic data to be passed to f. 
+ *  data  Generic data to be passed to f.
  *  T     The type of optimization algorithm.  Derivative based options are:
  *          + gsl_multimin_fdfminimizer_conjugate_fr
  *          + gsl_multimin_fdfminimizer_conjugate_pr
@@ -340,7 +340,7 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
     free(gsl_data);
     free(x);
     CFL_ERROR_NULL("calloc failed for grad");
-  } 
+  }
   dfa = (gsl_function *) malloc(n*sizeof(gsl_function));
   if (dfa == 0) {
     free(w);
@@ -377,7 +377,7 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
     free(df_work);
     CFL_ERROR_NULL("malloc failed for gsl_f");
   }
-  
+
   gsl_f->f = gsl_multimin_f_wrapper;
   gsl_f->df = gsl_multimin_ndf_wrapper;
   gsl_f->fdf = gsl_multimin_fndf_wrapper;
@@ -385,7 +385,7 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
   gsl_f->params = gsl_data;
 
   for(i=0; i<n; i++) {
-    dfa[i].function = &gsl_numerical_df_wrapper; 
+    dfa[i].function = &gsl_numerical_df_wrapper;
     dfa[i].params = gsl_data;
   }
 
@@ -420,7 +420,7 @@ gsl_multimin_fndf_work *gsl_multimin_fndf_alloc(double (*f)(size_t n, double *x,
   w->f = gsl_f;
   w->v = v;
   w->gsl_data = gsl_data;
-  
+
   return w;
 }
 
@@ -440,15 +440,15 @@ void gsl_multimin_fndf_free(void *work) {
 
 /*
  * Run gsl_multimin, for derivative free minimization routines.  Any value
- * written to the grad pointer by an objective function will be neglected.  
+ * written to the grad pointer by an objective function will be neglected.
  *
  * Parameters
  * ----------
  *  x     Pointer to the initial parameter estimates; if the optimization
  *        succeeds, this will be overwritten with the best-fit parameters.
  *  fmin  Poiter to a single double; if successful, this will be overwritten
- *        with the objective function value for the best-fit parameters. 
- *  work  Pointer to the workspace allocated with gsl_multimin_f_alloc. 
+ *        with the objective function value for the best-fit parameters.
+ *  work  Pointer to the workspace allocated with gsl_multimin_f_alloc.
  */
 int gsl_multimin_f(double *x, double *fmin, void *work) {
   size_t iter = 0;
@@ -466,7 +466,7 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
   if (status) {
     CFL_ERROR_VAL("gsl_multimin_fminimizer_set failed", -1);
   }
-  
+
   do {
     iter++;
     status = gsl_multimin_fminimizer_iterate(w->s);
@@ -488,9 +488,9 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
   }
   *fmin = w->s->fval;
 
-  if (status == GSL_SUCCESS) 
+  if (status == GSL_SUCCESS)
     return 0;
-  else 
+  else
     return 1;
 }
 
@@ -498,15 +498,15 @@ int gsl_multimin_f(double *x, double *fmin, void *work) {
  * Run gsl_multimin, for derivative based minimization routines. Derivatives are
  * estimated numerically using the gsl_deriv_central and, in case of failure of
  * the central derivative, the gsl_deriv_forward functions.  Any result written
- * to the grad pointer of an objective function will be ignored. 
+ * to the grad pointer of an objective function will be ignored.
  *
  * Parameters
  * ----------
  *  x     Pointer to the initial parameter estimates; if the optimization
  *        succeeds, this will be overwritten with the best-fit parameters.
  *  fmin  Poiter to a single double; if successful, this will be overwritten
- *        with the objective function value for the best-fit parameters. 
- *  work  Pointer to the workspace allocated with gsl_multimin_fndf_alloc. 
+ *        with the objective function value for the best-fit parameters.
+ *  work  Pointer to the workspace allocated with gsl_multimin_fndf_alloc.
  */
 int gsl_multimin_fndf(double *x, double *fmin, void *work) {
   size_t iter = 0;
@@ -539,15 +539,15 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
   }
   *fmin = w->s->f;
 
-  if (status == GSL_SUCCESS) 
+  if (status == GSL_SUCCESS)
     return 0;
-  else 
+  else
     return 1;
 }
 
 
 /*
- * Generate cfl_min_obj settings object for gsl based minimization routines. 
+ * Generate cfl_min_obj settings object for gsl based minimization routines.
  *
  * Parameters
  * ----------
@@ -556,8 +556,8 @@ int gsl_multimin_fndf(double *x, double *fmin, void *work) {
  *  data        Generic data to be passed to the objective function.
  *  algorithm   The minimization algorithm; implemented options are:
  *              + gsl_nmsimplex2rand
- *              + gsl_nmsimplex2 
- *              + gsl_conjugate_fr 
+ *              + gsl_nmsimplex2
+ *              + gsl_conjugate_fr
  *              + gsl_conjugate_pr
  *              + gsl_vector_bfgs2
  */
@@ -630,8 +630,8 @@ void nlopt_free(void *data) {
 
 
 /*
- * Generate cfl_min_obj settings object for nlopt based minimization routines. 
- *  
+ * Generate cfl_min_obj settings object for nlopt based minimization routines.
+ *
  * Parameters
  * ----------
  *  obj_f       Pointer to the objective function.
@@ -645,7 +645,7 @@ void nlopt_free(void *data) {
  *              Criterion is disabled if non-positive.
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
  *              be slightly exceeded depnding on optimization function
- *              evaluation time.  Criterion is disabled if non-positive. 
+ *              evaluation time.  Criterion is disabled if non-positive.
  *  bounds      Linear bounds on the parameters.
  */
 cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
@@ -706,12 +706,12 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
 int gsl_nls_f_wrapper(const gsl_vector *x, void *data, gsl_vector *y) {
   cfl_nls_data *d = (cfl_nls_data *) data;
   int i;
-  
+
   /* These GSL vectors are a pain; they are vector views with memory blocks that
    * aren't contiguous (alloced by gsl_multifit_nlinear_winit), but all of the
    * cfl_h_fit machinery requires contiguous blocks... so we need to write/read
    * them into contiguous blocks. */
-  
+
   for (i=0; i<d->p; i++) {
     d->x[i] = gsl_vector_get(x, i);
   }
@@ -744,13 +744,13 @@ int gsl_nls_f(double *x0, double *fmin, void *data) {
   J = gsl_multifit_nlinear_jac(d->w);
   gsl_matrix_view covar = gsl_matrix_view_array(d->covar, d->p, d->p);
   gsl_multifit_nlinear_covar(J, GSL_COV_EPSREL, &covar.matrix);
-  
+
   return status;
 }
 
 void gsl_nls_free(void *data) {
   cfl_nls_data *d = (cfl_nls_data *) data;
-  
+
   gsl_multifit_nlinear_free(d->w);
   free(d->x);
   free(d->y);
@@ -759,7 +759,7 @@ void gsl_nls_free(void *data) {
 
 
 /*
- * Generate cfl_min_obj settings object for gsl based non-linear least squares. 
+ * Generate cfl_min_obj settings object for gsl based non-linear least squares.
  *
  * Parameters
  * ----------
@@ -769,7 +769,7 @@ void gsl_nls_free(void *data) {
  *  data                Generic data to be passed to the objective function.
  *  wts                 Array of length n, specifying the weighting for each
  *                      observable.
- *  xtol, gtol, ftol    Tolerances; see GSL reference, section 39.8. 
+ *  xtol, gtol, ftol    Tolerances; see GSL reference, section 39.8.
  *  covar               Pointer to p*p array; will be overwritten by the
  *                      covariance matrix on exit.
  *  niter               The maximum number of iterations.
@@ -777,7 +777,7 @@ void gsl_nls_free(void *data) {
 cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
     int p, void *data, double *wts, double xtol, double gtol, double ftol,
     double *covar, int niter) {
-  cfl_min_obj *obj; 
+  cfl_min_obj *obj;
   cfl_nls_data *d;
 
   obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
@@ -846,18 +846,18 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
     free(d);
     CFL_ERROR_NULL("gsl_multifit_nlinear_alloc failed for w");
   }
-  
+
   return obj;
 }
 
 /*
- * Allocate workspace for simulated annealing. 
+ * Allocate workspace for simulated annealing.
  *
  * Parameters
  * ----------
  *  f           Pointer to the objective function
- *  data        Data to be passed to the objective function. 
- *  n           The number of parameters to be varied. 
+ *  data        Data to be passed to the objective function.
+ *  n           The number of parameters to be varied.
  *  niter       The total number of iterations to perform.
  *  bounds      Pointer to a bounds object; in case of no bounds, pass a NULL
  *              pointer.
@@ -865,14 +865,14 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
  *              magnitude (u*2-1), with u a random number in the interval
  *              (0...1], for each parameter in x.
  *  chi2accept  Accepted chi2 values, same order as xaccept.
- *  xaccept     Accepted parameter values; array should of length niter*n. 
- *  Tstart      The temperature to start for the simulated annealing cycle. 
+ *  xaccept     Accepted parameter values; array should of length niter*n.
+ *  Tstart      The temperature to start for the simulated annealing cycle.
  *  Tmin        The minimum temperature.
- *  muT         The damping factor for the cooling schedule. 
+ *  muT         The damping factor for the cooling schedule.
  *  k           Boltzmann constant.
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
  *              be slightly exceeded depending on optimization function
- *              evaluation time.  Criterion is disabled if non-positive. 
+ *              evaluation time.  Criterion is disabled if non-positive.
  */
 siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
       *data), void *data, int n, int niter, cfl_min_bounds *bounds, double
@@ -902,8 +902,8 @@ siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
     CFL_ERROR_NULL("gsl_rng_alloc failed for rng");
   }
 
-  d->f = f; 
-  d->data = data; 
+  d->f = f;
+  d->data = data;
   d->xnew = xnew;
   d->n = n;
   d->niter = niter;
@@ -919,7 +919,7 @@ siman_data *siman_data_alloc(double (*f)(size_t n, double *x, double *grad, void
     maxtime = SIMAN_MAXTIME;
   }
   d->maxtime = maxtime;
-  
+
   return d;
 }
 
@@ -940,7 +940,7 @@ int siman_f(double *x, double *fmin, void *data) {
   double u, chi2, T, Tdec, delta, tmp_x;
   siman_data *d = (siman_data *) data;
   time_t tic, toc;
-  
+
   tic = time(NULL);
 
   T = d->Tstart;
@@ -954,14 +954,14 @@ int siman_f(double *x, double *fmin, void *data) {
   *fmin = d->chi2accept[nac];
   best_i = nac;
   memcpy(&(d->xaccept[(size_t)nac*d->n]), x, sizeof(double)*d->n);
-  
+
   for (i=0; i<d->niter-1; i++) {
     toc = time(NULL);
     if (toc-tic >= d->maxtime) {
       break;
     }
     memcpy(d->xnew, x, sizeof(double)*d->n);
-    
+
     u = gsl_rng_uniform(d->rng);
     j = (int) floor(u*d->n);
 
@@ -976,8 +976,8 @@ int siman_f(double *x, double *fmin, void *data) {
         tmp_x = delta+d->xnew[j];
       }
     }
-    d->xnew[j] += delta;   
-    
+    d->xnew[j] += delta;
+
     chi2 = d->f(d->n, d->xnew, NULL, d->data);
     if (chi2 < *fmin) {
       x[j] = d->xnew[j];
@@ -986,7 +986,7 @@ int siman_f(double *x, double *fmin, void *data) {
       d->chi2accept[nac] = chi2;
       *fmin = chi2;
       best_i = nac;
-    } 
+    }
     else {
       u = gsl_rng_uniform(d->rng);
       //printf("boltzmanfact = %f, chi2_accept=%f, chi2=%f, T=%f\n", exp((d->chi2accept[nac]-chi2)/(2*T)), d->chi2accept[nac], chi2, T);
@@ -997,9 +997,9 @@ int siman_f(double *x, double *fmin, void *data) {
           d->chi2accept[nac] = chi2;
       }
     }
-    
+
     if (T > d->Tmin) {
-        T *= Tdec; 
+        T *= Tdec;
     }
   }
   memcpy(x, &(d->xaccept[(size_t)best_i*d->n]), sizeof(double)*d->n);
@@ -1009,28 +1009,28 @@ int siman_f(double *x, double *fmin, void *data) {
 
 
 /*
- * Generate cfl_min_obj settings object for simulated annealing optimization. 
- *  
+ * Generate cfl_min_obj settings object for simulated annealing optimization.
+ *
  * Parameters
  * ----------
  *  obj_f       Pointer to the objective function.
  *  n           The number of parameters to be varied.
  *  data        Generic data to be passed to the objective function.
- *  niter       The number of iterations to perform. 
+ *  niter       The number of iterations to perform.
  *  bounds      Pointer to a bounds object; in case of no bounds, pass a NULL
  *              pointer.
  *  stepsize    Array of length n.  Multiplicative factor for stepsize of
  *              magnitude (u*2-1), with u a random number in the interval
  *              (0...1], for each parameter in x.
  *  chi2accept  Accepted chi2 values, same order as xaccept.
- *  xaccept     Accepted parameter values; array should of length niter*n. 
- *  Tstart      The temperature to start for the simulated annealing schedule.  
+ *  xaccept     Accepted parameter values; array should of length niter*n.
+ *  Tstart      The temperature to start for the simulated annealing schedule.
  *  Tmin        The minimum temperature.
  *  muT         The damping factor for the cooling schedule.
  *  k           Boltzmann constant.
  *  maxtime     Stopping criteria - maximum time in seconds (not absolute, may
  *              be slightly exceeded depending on optimization function
- *              evaluation time.  Criterion is disabled if non-positive. 
+ *              evaluation time.  Criterion is disabled if non-positive.
  */
 cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
@@ -1043,7 +1043,7 @@ cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
   if (obj == 0) {
     CFL_ERROR_NULL("malloc failed for obj");
   }
-  
+
   d = siman_data_alloc(f, data, n, niter, bounds, stepsize, Tstart, Tmin, muT,
       k, chi2accept, xaccept, maxtime);
   if (d == 0) {
@@ -1056,7 +1056,7 @@ cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
   obj->min_data = d;
   obj->min_obj_free = &siman_data_free;
   obj->obj_f_data = data;
-  
+
   return obj;
 }
 
@@ -1068,20 +1068,19 @@ void cfl_min_free(cfl_min_obj *obj) {
 }
 
 /*
- * Perform minimization for a cfl_min_obj object. 
+ * Perform minimization for a cfl_min_obj object.
  *
  * Parameters
  * ----------
- *  x0      The starting values of the parameters to be fit. 
+ *  x0      The starting values of the parameters to be fit.
  *  fmin    Point to a double valued variable which will be overwritten with the
  *          objective function value upon return.
  *  obj     The cfl_min_obj for which to run the minimization.
  */
 int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) {
   int status;
-  
+
   status = obj->min_f(x0, fmin, obj->min_data);
 
   return status;
 }
-

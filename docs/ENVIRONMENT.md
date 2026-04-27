@@ -6,8 +6,8 @@ This document describes environment variables that can be used to customize the 
 
 ### CFL_CC
 
-**Type:** String (compiler command)  
-**Default:** Autodetected (usually `gcc`)  
+**Type:** String (compiler command)
+**Default:** Autodetected (usually `gcc`)
 **Example:** `CFL_CC=icc`
 
 Specify the C compiler to use for building the core CFL library. Common options:
@@ -17,8 +17,8 @@ Specify the C compiler to use for building the core CFL library. Common options:
 
 ### CFL_CFLAGS
 
-**Type:** String (compiler flags)  
-**Default:** Empty (uses setup.py defaults)  
+**Type:** String (compiler flags)
+**Default:** Empty (uses setup.py defaults)
 **Example:** `CFL_CFLAGS="-O3 -march=native -fno-strict-aliasing"`
 
 Custom compiler optimization flags. These are appended to the default flags.
@@ -30,8 +30,8 @@ Common optimization options:
 
 ### CFL_LDLIBS
 
-**Type:** String (linker libraries)  
-**Default:** Empty (uses autodetected libraries)  
+**Type:** String (linker libraries)
+**Default:** Empty (uses autodetected libraries)
 **Example:** `CFL_LDLIBS="-L/opt/intel/mkl/lib -lmkl_core"`
 
 Additional libraries to link against. Useful for:
@@ -41,8 +41,8 @@ Additional libraries to link against. Useful for:
 
 ### INTEL_PATH
 
-**Type:** String (directory path)  
-**Default:** Not set (uses system paths)  
+**Type:** String (directory path)
+**Default:** Not set (uses system paths)
 **Example:** `INTEL_PATH=/opt/intel/oneapi`
 
 Root directory for Intel compiler and MKL installation. When set:
@@ -56,8 +56,8 @@ Related: `CFL_CC`, `CFL_LDLIBS`
 
 ### PYTHONPATH
 
-**Type:** String (colon-separated directory list)  
-**Default:** Not set (standard Python search paths)  
+**Type:** String (colon-separated directory list)
+**Default:** Not set (standard Python search paths)
 **Example:** `PYTHONPATH=/home/user/pycf/pycf:/home/user/pycf/env/lib/python3.13/site-packages`
 
 Add directories to Python's module search path. Useful for:

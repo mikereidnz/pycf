@@ -23,7 +23,7 @@
  *
  * Parameters
  * ----------
- * a  Pointer to first array. 
+ * a  Pointer to first array.
  * b  Pointer to second array.
  * n  Length of arrays a and b.
  *
@@ -50,7 +50,7 @@ void zequ_chk(complex double *a, complex double *b, size_t n) {
  *
  * Parameters
  * ----------
- * a  Pointer to first array. 
+ * a  Pointer to first array.
  * b  Pointer to second array.
  * n  Length of arrays a and b.
  *
@@ -411,8 +411,8 @@ int main (void) {
     0, -0.392138052742, 0, -1.98006068835, 0, 0, 0, 0, 0, -1.51229633083, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.463984001202,
     0, -1.51229633083, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, -0.463984001202, 0, -1.51229633083, 0, 0}; 
-  
+    0, 0, 0, 0, 0, 0, 0, -0.463984001202, 0, -1.51229633083, 0, 0};
+
   complex double ce_magy_a[784] = {0, 0, 0+0.463984001202*I, 0,
     0-1.51229633083*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0+0.463984001202*I, 0, 0-1.51229633083*I, 0, 0, 0, 0,
@@ -467,7 +467,7 @@ int main (void) {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0+0.463984001202*I, 0, 0+1.51229633083*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0+0.463984001202*I, 0,
-    0+1.51229633083*I, 0, 0}; 
+    0+1.51229633083*I, 0, 0};
 
   complex double ce_magz_a[784] = {4.00116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4.00116, 0, 0, 0, 0, 0, 0,
@@ -560,7 +560,7 @@ int main (void) {
     1.60356745152, 0, 9.81980506092, 10.3923048457, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -4.24264068725, 0,
     10.3923048457, -13.7477270853, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13.7477270853}; 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13.7477270853};
 
   complex double zeeman_inv_a[108] =  {0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0-0.5*I, 0+0.5*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, -0.5, 0, 0, 0, 0,
@@ -586,19 +586,19 @@ int main (void) {
 
   /* State sorting test. */
   complex double sls_hz[64] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 1, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 1, 
-    0, 0, 0, 0, 0, 1, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 1,
+    0, 0, 0, 0, 0, 1, 0, 0,
     0, 0, 0, 0, 0, 0, 1, 0};
-  
+
   complex double sls_b[16] = {
-    2, 3, 4, 1, 
-    2, 3, 4, 1, 
-    2, 3, 4, 1, 
+    2, 3, 4, 1,
+    2, 3, 4, 1,
+    2, 3, 4, 1,
     2, 3, 4, 1};
 
   complex double sls_zero[64] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -616,7 +616,7 @@ int main (void) {
 
   nstates = 8;
   char sls_label_key[] = "SLJMI";
-  static int sls_l_array[8][5] = { 
+  static int sls_l_array[8][5] = {
     {1,1,2,2,1}, {1,1,2,2,-1}, {1,1,2,1,1}, {1,1,2,1,-1},
     {1,1,2,-1,1}, {1,1,2,-1,-1}, {1,1,2,-2,1}, {1,1,2,-2,-1}};
 
@@ -640,7 +640,7 @@ int main (void) {
   sls_sh = zsh_alloc(sls_inter, 1, 1, 1, 1, sls_inv_a);
   zsh_set_pro(sls_sh, sls_pro_tensors, 4, sls_coupling);
   sls_shp_p_w = zshp_p_w_alloc(sls_sh);
-  
+
   memcpy(sls_shp_p_w->b, sls_b, 16*sizeof(complex double));
   /* Fix: zshp_gen_sort was removed from the API; call deleted. */
 
@@ -709,7 +709,7 @@ int main (void) {
   hd_w = zhd_w_alloc('V', h);
   zhd('V', w, z, h, hd_w);
   zhd_w_free(hd_w);
-  
+
   printf("w:\n");
   for (i=0; i<28; i++) {
     printf("%f ", w[i]);
@@ -721,7 +721,7 @@ int main (void) {
   zshp_w *cehyp_shp_w;
   double *a = (double *) calloc(9,sizeof(double));
   double coupling[4] = {1.0, 1.0, 1.0, 0.05};
-  
+
   /* Fix: add kramers=1 argument; signature is zsh_alloc(inter, ninter, sz, iz, kramers, **a). */
   cehyp_sh = zsh_alloc(inter, 2, 1, 1, 1, inv_a);
   zsh_set_pro(cehyp_sh, pro_tensors, 0, coupling);
@@ -766,6 +766,6 @@ int main (void) {
   zt_free(magz);
   zt_free(hyp);
   sl_free(states);
-  free(l);  
+  free(l);
 #endif
 }

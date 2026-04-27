@@ -3,7 +3,7 @@ License
 
 The cfl and the cfl python extension are licensed under the GNU General Public
 License, while pyemp and related components are licensed under the X11/MIT
-license.  
+license.
 
 The use of GPLv3 is mandated by the linking of cfl against GSL, which by the
 FSF's interpretation of copyright law makes cfl a derivative work of GSL.  Since

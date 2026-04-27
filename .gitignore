@@ -13,7 +13,7 @@ perf.*
 
 *.directory
 work
-build 
+build
 dist
 *.egg-info/
 pycf.egg-info/

@@ -143,7 +143,8 @@ class TestLoggingBehavior:
         finally:
             cfl.set_error_handler(None)
 
-        assert any("mismatching state labels" in msg for _, _, _, msg in captured), (
-            "Custom error handler was not invoked from cfl_h.c. "
-            "Captured calls: {0!r}".format(captured)
+        assert any(
+            "mismatching state labels" in msg for _, _, _, msg in captured
+        ), "Custom error handler was not invoked from cfl_h.c. " "Captured calls: {0!r}".format(
+            captured
         )

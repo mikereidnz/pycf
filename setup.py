@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
-from shutil import which, rmtree
-from setuptools import Extension, setup
-from setuptools.command.build_ext import build_ext
-from setuptools import Command
-from typing import Optional, List, Tuple
-
 import os
 import shlex
 import subprocess
 import sys
+from pathlib import Path
+from shutil import rmtree, which
+from typing import List, Optional, Tuple
 
 import numpy as np
 from Cython.Build import cythonize
-
+from setuptools import Command, Extension, setup
+from setuptools.command.build_ext import build_ext
 
 ROOT = Path(__file__).resolve().parent
 CFL_DIR = ROOT / "cfl"
@@ -52,11 +49,11 @@ def is_release_tag() -> bool:
 
 def write_version_file() -> str:
     from datetime import datetime
-    
+
     git_revision = get_git_revision()
-    build_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    build_comment = os.environ.get('PYCF_BUILD_COMMENT', "Build via setup.py")
-    
+    build_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    build_comment = os.environ.get("PYCF_BUILD_COMMENT", "Build via setup.py")
+
     # Use a valid PEP 440 version format
     # For release tags (v0.1.0), use just the base version
     # For dev builds, add .dev0+git_hash
@@ -67,7 +64,7 @@ def write_version_file() -> str:
         version_str = f"{base_version}.dev0+{git_revision}"
     else:
         version_str = base_version
-    
+
     version_text = (
         f'__version__ = "{version_str}"\n'
         f'__build_timestamp__ = "{build_timestamp}"\n'
@@ -117,7 +114,7 @@ def build_cfl() -> None:
         # On macOS, /usr/include doesn't exist; the makefile fallback will handle it
         if sys.platform.startswith("linux"):
             make_env["CFL_CFLAGS"] = "-I/usr/include -I/usr/include/lapacke"
-    
+
     output = run_make(env=make_env)
 
     # Preserve the current behavior: if the C archive changed, force Cython
@@ -142,14 +139,14 @@ def split_flags(value: Optional[str]) -> List[str]:
 
 def find_lapacke_include() -> str:
     """Find LAPACKE include directory.
-    
+
     Returns the directory containing lapacke.h. Users can override via
     LAPACKE_INCLUDE_DIR environment variable.
     """
     # Check environment variable first
     if lapacke_env := os.environ.get("LAPACKE_INCLUDE_DIR"):
         return lapacke_env
-    
+
     # Use sensible defaults - the compiler will report an error if the
     # header is not found
     return "/usr/include"
@@ -172,9 +169,11 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
     # ABI-compatible -- but if you observe odd OMP behaviour (deadlocks,
     # missing parallelism, mismatched thread counts), it may be worth forcing
     # the system libgomp by prepending /usr/lib/x86_64-linux-gnu to LDFLAGS.
-    if (sys.platform.startswith("linux")
-            and os.environ.get("CFL_CC") != "icc"
-            and not os.environ.get("CFL_NO_OPENMP")):
+    if (
+        sys.platform.startswith("linux")
+        and os.environ.get("CFL_CC") != "icc"
+        and not os.environ.get("CFL_NO_OPENMP")
+    ):
         compile_args.append("-fopenmp")
         link_args.append("-fopenmp")
         link_args.append("-lgomp")
@@ -190,14 +189,15 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
                 )
             # Use Path to safely extract parent directory
             intel_path = str(Path(icc).parent.parent)
-        
+
         # Validate the path exists
         if not Path(intel_path).is_dir():
-            raise RuntimeError(
-                f"INTEL_PATH={intel_path} does not exist or is not a directory"
-            )
+            raise RuntimeError(f"INTEL_PATH={intel_path} does not exist or is not a directory")
 
-        compile_args += [f"-I{intel_path}/include", "-openmp"]  # NOTE: -openmp is the legacy icc flag; modern Intel oneAPI/icx requires -qopenmp.
+        compile_args += [
+            f"-I{intel_path}/include",
+            "-openmp",
+        ]  # NOTE: -openmp is the legacy icc flag; modern Intel oneAPI/icx requires -qopenmp.
         link_args += [
             "-mkl",
             "-lmkl_def",

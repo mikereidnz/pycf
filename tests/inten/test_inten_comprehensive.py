@@ -16,10 +16,15 @@ import pytest
 
 from pycf.constants import BOLTZMANN_CM_INVERSE
 from pycf.import_sljm import ImportSLJM
-from pycf.inten import (A_and_f_calc,
-                        add_oscillator_strengths_and_A_coefficients,
-                        boltzmann_factor, dipole_str, group_transitions,
-                        lorentzian, vtrans)
+from pycf.inten import (
+    A_and_f_calc,
+    add_oscillator_strengths_and_A_coefficients,
+    boltzmann_factor,
+    dipole_str,
+    group_transitions,
+    lorentzian,
+    vtrans,
+)
 
 
 class TestVtransEdgeCases:

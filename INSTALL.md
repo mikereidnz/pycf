@@ -706,7 +706,7 @@ pip install -e ".[dev,examples]"
    ```bash
    # For C/Cython changes
    python setup.py build_ext --inplace
-   
+
    # Or using modern approach
    pip install -e .
    ```

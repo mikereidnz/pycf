@@ -17,7 +17,7 @@ written in c99, located in ``pycf/cfl``.  This enables parallelization for
 shared memory machines using OpenMP, as well as optimization with
 high-performance compilers such as icc. For ease of use, the library is called
 via a python interface written in cython (``/pycf/pycf/cfl.pyx`` and associated
-``cfl.pxd`` header).  
+``cfl.pxd`` header).
 
 
 This wrapper, and supporting modules located in ``/pycf/pycf/``, take care of
@@ -26,7 +26,7 @@ spin Hamiltonian matrix element evaluations, as well as pretty-printing
 calculation results.  While direct calls to cfl without python are certainly
 possible, manually inputting data quickly becomes intractable for realistic
 problems.  In principle, it would also be possible to create bindings for cfl in
-other languages, such as Matlab. 
+other languages, such as Matlab.
 
 spinh
 ~~~~~
@@ -45,6 +45,4 @@ routines.  Facilitates automatic generation of emp input files and parsing their
 output.  Currently wrapped erun applications are 'cfit', 'inten', 'vtrans', and
 'spectrum'.  This wrapper is written in pure python and is called
 ``pycf/pycf/pyemp.py``.  While pycf works as a replacement and extension of
-'cfit', this wrapper is still very useful for automating intensity calculations. 
-
-
+'cfit', this wrapper is still very useful for automating intensity calculations.

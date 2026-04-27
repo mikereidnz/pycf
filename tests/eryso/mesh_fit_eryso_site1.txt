@@ -20,13 +20,13 @@ import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.cfl_util import *
 
-# example of mesh fitting for Er3+ in YSO, with data from 
+# example of mesh fitting for Er3+ in YSO, with data from
 # Sun et al. PRB 77, 085124 (2008) and Longdell and Chen PRB 74, 195101 (2006).
-# The mesh fitting is performed on both the crystal-field parameters 
-# and the spin Hamiltonian parameters, using both the energy levels 
+# The mesh fitting is performed on both the crystal-field parameters
+# and the spin Hamiltonian parameters, using both the energy levels
 # and the Zeeman splitting data.
-# Note that in the fitting process only the magnitude of the spin-Hamiltonian 
-# matrices are fitted. 
+# Note that in the fitting process only the magnitude of the spin-Hamiltonian
+# matrices are fitted.
 
 # Get paths to the matel files for the crystal-field and hyperfine calculations.
 # relative to the current file.
@@ -36,7 +36,7 @@ HFS_BASE = Path(__file__).resolve().parent / "matel" / "erhfs"
 EXPERIMENT_BASE = Path(__file__).resolve().parent / "eryso_site1_energy.txt"
 
 @pytest.mark.slow  # mark this test as slow, so it can be skipped by default
-def test_mesh_fit() -> None:  
+def test_mesh_fit() -> None:
 
     t = ImportSLJM(MATEL_BASE)
     thfs = ImportSLJM(HFS_BASE)
@@ -44,12 +44,12 @@ def test_mesh_fit() -> None:
 
     MTOT = t.M0 + 0.56*t.M2 + 0.31*t.M4
     MTOT.name = 'MTOT'
-    PTOT = t.P2 + 0.5*t.P4 + 0.1*t.P6  
+    PTOT = t.P2 + 0.5*t.P4 + 0.1*t.P6
     PTOT.name = 'PTOT'
 
     hfsMTOT = thfs.M0 + 0.56*thfs.M2 + 0.31*thfs.M4
     hfsMTOT.name = 'MTOT'
-    hfsPTOT =  thfs.P2 + 0.5*thfs.P4 + 0.1*thfs.P6  
+    hfsPTOT =  thfs.P2 + 0.5*thfs.P4 + 0.1*thfs.P6
     hfsPTOT.name = 'PTOT'
 
     # Z, X, and Y magnetic fields times Bohr magnetion in cm-1/T.
@@ -71,20 +71,20 @@ def test_mesh_fit() -> None:
             thfs.C43, thfs.C44, thfs.C60, thfs.C61, thfs.C62, thfs.C63, thfs.C64,
             thfs.C65, thfs.C66, hfsMTOT, hfsPTOT, thfs.HYP, thfs.EQHYP]
 
-    # Start with parameters that are very close to the expected values, 
+    # Start with parameters that are very close to the expected values,
     # so that the fitting process can be tested without taking too long.
     coeff = {
-    'ALPHA':                      17.79,    
-    'BETA' :                    -582.10,    
-    'GAMMA':                    1800.00,    
-    'T2'   :                     400.00,    
-    'T3'   :                      43.00,    
-    'T4'   :                      73.00,    
-    'T6'   :                    -271.00,    
-    'T7'   :                     308.00,    
-    'T8'   :                     299.00,    
+    'ALPHA':                      17.79,
+    'BETA' :                    -582.10,
+    'GAMMA':                    1800.00,
+    'T2'   :                     400.00,
+    'T3'   :                      43.00,
+    'T4'   :                      73.00,
+    'T6'   :                    -271.00,
+    'T7'   :                     308.00,
+    'T8'   :                     299.00,
     'ZETA' :                    2376.00,
-    'MTOT' :                       3.86,    
+    'MTOT' :                       3.86,
     'PTOT' :                     594.00,
     'MZ'   :                       0.00,
     'MX'   :                       0.00,
@@ -150,9 +150,9 @@ def test_mesh_fit() -> None:
     h_sh_list += [{'h': h2, 'sh': sh2, 'shx': shx2, 'weights': weights2, 'svd_sym': True}]
 
     bounds = bal_bounds(coeff, {
-    'EAVG' :  500.00,    
-    'F2'   :  500.00,    
-    'F4'   :  500.00,    
+    'EAVG' :  500.00,
+    'F2'   :  500.00,
+    'F4'   :  500.00,
     'F6'   :  500.00,
     'ZETA' :    5.00,
     'C20'  :  1000.00,
@@ -163,7 +163,7 @@ def test_mesh_fit() -> None:
     'C42'  :  1300.00 + 1300.00j,
     'C43'  :  1300.00 + 1300.00j,
     'C44'  :  1300.00 + 1300.00j,
-    'C60'  :  500.00, 
+    'C60'  :  500.00,
     'C61'  :  500.00 + 500.00j,
     'C62'  :  500.00 + 500.00j,
     'C63'  :  500.00 + 500.00j,
@@ -174,10 +174,10 @@ def test_mesh_fit() -> None:
     'EQHYP':  0.01,
     })
 
-    stepsize = { 
-    'EAVG' :  50.00,    
-    'F2'   :  50.00,    
-    'F4'   :  50.00,    
+    stepsize = {
+    'EAVG' :  50.00,
+    'F2'   :  50.00,
+    'F4'   :  50.00,
     'F6'   :  50.00,
     'ZETA' :  0.500,
     'C20'  :  100.00,
@@ -188,7 +188,7 @@ def test_mesh_fit() -> None:
     'C42'  :  130.00 + 130.00j,
     'C43'  :  130.00 + 130.00j,
     'C44'  :  130.00 + 130.00j,
-    'C60'  :  50.00, 
+    'C60'  :  50.00,
     'C61'  :  50.00 + 50.00j,
     'C62'  :  50.00 + 50.00j,
     'C63'  :  50.00 + 50.00j,
@@ -214,9 +214,9 @@ def test_mesh_fit() -> None:
     with open("mesh_fit_eryso_site1.txt", "w") as summary_file:
         summary_file.write(res['summary'])
 
-    fit_coeff = res['coeff']        
+    fit_coeff = res['coeff']
     print('Check fitted parameters:')
-    expected_coeff = { 
+    expected_coeff = {
     'EAVG'       :          35496.34,
     'F2'         :          95972.36,
     'F4'         :          67686.89,
@@ -256,7 +256,7 @@ pycf details
 ============
 
 pycf revision: c8f9751  built at 2026-04-25 00:38:45
-Build comment:     MFR: Updated to python 3.13. 
+Build comment:     MFR: Updated to python 3.13.
     Added conjugation before lapack call.
     Changed MAGX and MAGY to standard signs.
     C memory fixes and other minor changes may change behaviour of some calculations.
@@ -266,8 +266,8 @@ Calculation completed at: 2026-04-25 13:34:00
 Energy level summary
 ====================
 
-Lev.  Percentage                 State        Percentage                 State               Theory 
-----  ----------                 -----        ----------                 -----               ------ 
+Lev.  Percentage                 State        Percentage                 State               Theory
+----  ----------                 -----        ----------                 -----               ------
 1     ( 0.17-0.39j)  18.4%   328 |0,4I15, -9> (-0.41-0.10j)  18.0%   305 |0,4I15, -7>        5.3518
 2     ( 0.02+0.43j)  18.4%    31 |0,4I15,  9> ( 0.42+0.05j)  18.0%    53 |0,4I15,  7>        5.3519
 3     (-0.17-0.59j)  37.4%   354 |0,4I15,-13> ( 0.40+0.10j)  17.1%   305 |0,4I15, -7>       44.0915

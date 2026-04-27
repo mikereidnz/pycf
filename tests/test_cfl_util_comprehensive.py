@@ -15,9 +15,19 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from pycf.cfl_util import (L2term, MHz2cm1, WignerR, cm12MHz, fmt_timestamp,
-                           gen_completed_str, gen_pycf_details, rJmmp,
-                           rotate_cf_params, term2L, uline_char)
+from pycf.cfl_util import (
+    L2term,
+    MHz2cm1,
+    WignerR,
+    cm12MHz,
+    fmt_timestamp,
+    gen_completed_str,
+    gen_pycf_details,
+    rJmmp,
+    rotate_cf_params,
+    term2L,
+    uline_char,
+)
 
 
 class TestQuantumNumberConversions:

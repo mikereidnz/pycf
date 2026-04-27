@@ -547,7 +547,9 @@ class Cfit(GenericErun):
             spinh_input = """*% Energy levels
                           expthelp {0}_spinh.hlp
                           {0} energy levels \n
-                          """.format(spectrum.name)
+                          """.format(
+                spectrum.name
+            )
             n_sh = len(spectrum["spinh"])
             self.sh_terms = [None] * n_sh
             u = [None] * n_sh
@@ -573,7 +575,9 @@ class Cfit(GenericErun):
                                   {0}
                                   {1}
                                   {2}
-                                  diag""".format("magx 0", "magy 0", "magz 0.001")
+                                  diag""".format(
+                        "magx 0", "magy 0", "magz 0.001"
+                    )
                 if "ias" in sh_args["terms"]:
                     ias = "al"
                     self.sh_terms[sh_i] += ["ias"]
@@ -597,7 +601,9 @@ class Cfit(GenericErun):
                 spinh_input += """*% Spin Hamiltonian input
                                spinh {0}_spinh-{1}.out {2} {3} {4} {5} {6}
                                Spin Hamiltonian for {0} \n
-                               """.format(spectrum.name, sh_i, u_list[sh_i], u[sh_i], bgs, ias, iqi)
+                               """.format(
+                    spectrum.name, sh_i, u_list[sh_i], u[sh_i], bgs, ias, iqi
+                )
         else:
             spinh_input = ""
         # Execute cfit.
@@ -769,14 +775,18 @@ class Inten(GenericErun):
                      ninputsets 1
                      READTENSOR {2}
                      SETUPMOM \n
-                     """.format(spectrum["states"], spectrum["tvals"], spectrum["trans"])
+                     """.format(
+            spectrum["states"], spectrum["tvals"], spectrum["trans"]
+        )
         if spectrum["edipole"] is not None:
             dipole_input = """
                      addten edipole %
                      {0}
                      assign edipole {1}
                      assign magdipole {2} \n
-                     """.format(spectrum["edipoletensor"], spectrum["edipole"], spectrum["mdipole"])
+                     """.format(
+                spectrum["edipoletensor"], spectrum["edipole"], spectrum["mdipole"]
+            )
         else:
             dipole_input = "assign magdipole {} \n".format(spectrum["mdipole"])
         calc_input = """
@@ -786,7 +796,9 @@ class Inten(GenericErun):
                      {1} {2} {5}
                      {3} {4} {6}
                      END \n
-                     finish \n\n""".format(spectrum.name, *spectrum["levels"])
+                     finish \n\n""".format(
+            spectrum.name, *spectrum["levels"]
+        )
         GenericErun.add_input(self, base_input + dipole_input + calc_input)
         GenericErun.erun(self, spectrum, ["plt"])
 

@@ -85,7 +85,7 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
 5. **Commit with clear messages**:
    ```bash
    git commit -m "Brief description (50 chars max)
-   
+
    Longer explanation if needed. Reference issues with #123.
    Co-authored-by: Your Name <your.email@example.com>"
    ```
@@ -134,22 +134,22 @@ Use Google-style docstrings:
 ```python
 def complex_function(a: np.ndarray, b: float) -> Dict[str, Any]:
     """Brief one-line description.
-    
+
     Longer description explaining the function, its purpose,
     and any important notes about usage.
-    
+
     Parameters
     ----------
     a : np.ndarray
         Description of parameter a.
     b : float
         Description of parameter b.
-    
+
     Returns
     -------
     dict
         Dictionary with keys 'result' and 'status'.
-        
+
     Raises
     ------
     ValueError
@@ -175,7 +175,7 @@ def process_tensor(tensor, scale: float) -> Tensor:
         raise ValueError("tensor cannot be None")
     if tensor.size == 0:
         raise ValueError("tensor cannot be empty")
-    
+
     # ... process tensor ...
     return result
 ```
@@ -273,10 +273,10 @@ Example C test:
 void test_function_name() {
     // Arrange
     int expected = 42;
-    
+
     // Act
     int result = my_function();
-    
+
     // Assert
     if (result != expected) {
         printf("fail: expected %d, got %d\n", expected, result);
