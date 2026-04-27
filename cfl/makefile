@@ -41,24 +41,26 @@ test: $(TESTS)
 debug: CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke 
 debug: all
 
-libcfl.a: cfl_zefoz.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
+libcfl.a: cfl_error.o cfl_zefoz.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 	$(AR) $(ARFLAGS) $@ $^
 
-zefoz_test: cfl_zefoz.o cfl_h.o cfl_tensor.o cfl_csr.o
+zefoz_test: cfl_error.o cfl_zefoz.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-siman_test: cfl_h_fit.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
+siman_test: cfl_error.o cfl_h_fit.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-nls_test: cfl_h_fit.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
+nls_test: cfl_error.o cfl_h_fit.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-opt_test: cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o 
+opt_test: cfl_error.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o 
 
-sh_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o 
+sh_test: cfl_error.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-sh_zeeman_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
+sh_zeeman_test: cfl_error.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-h_test: cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
+h_test: cfl_error.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 
-csr_test: cfl_tensor.o cfl_h.o cfl_csr.o
+csr_test: cfl_error.o cfl_tensor.o cfl_h.o cfl_csr.o
+
+cfl_error.o: cfl_error.h
 
 cfl_zefoz.o: cfl_h.o cfl_zefoz.h cfl_error.h cfl_config.h
 

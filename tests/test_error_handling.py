@@ -99,3 +99,51 @@ class TestLoggingBehavior:
         cfl.set_error_handler(handler1)
         cfl.set_error_handler(None)
         # Should not raise
+
+    def test_handler_intercepts_real_c_error(self):
+        """Custom handler must capture errors raised from any C TU.
+
+        Regression test for finding F-008 in
+        plan/audit_2026-04-27_171732_report.md: the global handler
+        pointer was previously declared `static` in cfl_error.h, which
+        gave each translation unit its own copy.  As a result,
+        cfl_set_error_handler() only updated the TU from which it was
+        called, while CFL_ERROR_* macros expanded inside other TUs
+        (cfl_h.c, cfl_csr.c, etc.) continued to use the default printf
+        handler.  This test triggers an error path inside cfl_h.c via
+        the public Hamiltonian constructor and asserts the custom
+        Python handler was invoked.
+        """
+        import numpy as np
+
+        captured = []
+
+        def handler(func, file, line, msg):
+            captured.append((func, file, line, msg))
+
+        cfl.set_error_handler(handler)
+        try:
+            # Two StateLabels of the same length but different label
+            # contents -> different label-array hash -> mismatching
+            # state labels at the C level.
+            sl_a = cfl.StateLabels("J", [[2]])
+            sl_b = cfl.StateLabels("J", [[3]])
+            row_ptr = np.array([0, 0], dtype=np.int32)
+            col_in = np.array([], dtype=np.int32)
+            val = np.array([], dtype=np.complex128)
+            ta = cfl.Tensor(b"Ta", row_ptr, col_in, val, sl_a)
+            tb = cfl.Tensor(b"Tb", row_ptr, col_in, val, sl_b)
+            try:
+                cfl.Hamiltonian([ta, tb])
+            except Exception:
+                # The C error returns NULL which may surface as an
+                # exception in the Cython wrapper; we only care that
+                # the handler ran.
+                pass
+        finally:
+            cfl.set_error_handler(None)
+
+        assert any("mismatching state labels" in msg for _, _, _, msg in captured), (
+            "Custom error handler was not invoked from cfl_h.c. "
+            "Captured calls: {0!r}".format(captured)
+        )
