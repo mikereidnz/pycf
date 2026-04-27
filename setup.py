@@ -164,6 +164,14 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
     # GCC OpenMP: enable on Linux unless CFL_NO_OPENMP=1 is set or we are
     # building via icc (which has its own OpenMP runtime, libiomp5, wired up
     # in the icc branch below).
+    #
+    # NOTE: the linker chooses libgomp from whichever directory appears first
+    # in LIBRARY_PATH / -L paths.  In a conda/Anaconda environment that is
+    # usually $CONDA_PREFIX/lib/libgomp.so.1, not the gcc-shipped libgomp from
+    # /usr/lib/x86_64-linux-gnu.  This is normally fine -- conda's libgomp is
+    # ABI-compatible -- but if you observe odd OMP behaviour (deadlocks,
+    # missing parallelism, mismatched thread counts), it may be worth forcing
+    # the system libgomp by prepending /usr/lib/x86_64-linux-gnu to LDFLAGS.
     if (sys.platform.startswith("linux")
             and os.environ.get("CFL_CC") != "icc"
             and not os.environ.get("CFL_NO_OPENMP")):
