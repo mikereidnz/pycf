@@ -115,6 +115,12 @@ jobs:
       run: |
         make -C cfl clean
         make -C cfl
+
+    - name: Verify OpenMP is enabled in C build
+      run: |
+        # Guard against silent OMP regressions (cf. commit 716c36b which
+        # stripped -fopenmp from CFLAGS and went unnoticed for weeks).
+        nm cfl/libcfl.a | grep -q GOMP_parallel
     
     - name: Run C tests
       run: |

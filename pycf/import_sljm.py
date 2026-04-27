@@ -31,11 +31,11 @@ def get_tensor_dim(source: Any) -> Generator[List[tuple], None, None]:
     for line in source:
         if line.startswith("CREATED"):
             parse = True
-            yield ""
+            yield []
         elif parse:
             yield re.findall(r"(\w+)\s+(\d+)", line)
         else:
-            yield ""
+            yield []
 
 
 def get_state_number(source: Any) -> Generator[List[int], None, None]:
@@ -72,7 +72,7 @@ class ImportSLJM(object):
         file.  It should be specified without the extension, like name above.
     """
 
-    def __init__(self, name: str, sl_name: Optional[str] = False) -> None:
+    def __init__(self, name: str, sl_name: Optional[str] = None) -> None:
         # Create list of tuples of the form ('tensor_name', 'tensor_dim')
         tensor_dims = []
         with open("%s.mi_" % name, "r") as f:
