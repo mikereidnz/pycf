@@ -39,5 +39,33 @@ Diffstat: 6 files changed, 1055 insertions(+), 3 deletions(-).
   LAPACK call. Phase matching uses tolerance-based first-index anchor
   to remain deterministic for Pauli eigenvectors with degenerate
   component magnitudes (1/√2).
-- Phase B (delegate `ImportSLJM` to `ImportTensors`) deferred to a
-  follow-up commit.
+## eaeda72 — Phase B: delegate `ImportSLJM` tensor wrapping
+
+**Summary**: Replace the terminal ~30 lines of `ImportSLJM.__init__`
+(the `cfl.StateLabels`/`cfl.Tensor` construction loop and the
+`MAGX/MAGY/MAGZ/HYP` alias block) with a single call to
+`ImportTensors(..., storage='upper', add_aliases=True,
+expose_attrs=False, check_hermitian=False)`. Behaviour-preserving.
+
+**Files**:
+- `pycf/import_sljm.py` — `ImportSLJM.__init__` body shortened.
+- `plan/import_tensor_report.md` — Phase B section populated.
+
+Diffstat: 2 files changed, 87 insertions(+), 33 deletions(-).
+
+**Tests**: full suite **431 passed, 16 skipped** (same as Phase A; no
+regressions). The integration tests under `tests/integration/{ceylf,
+eryso, inten}` exercise `ImportSLJM` end-to-end against real
+`*.txt`/`*.mi_`/`*.st_` files and compare numerical results to
+checked-in references — they collectively serve as the equivalence
+regression test for this refactor.
+
+**Notes**:
+- `expose_attrs=False` deliberately bypasses the reserved-name guard
+  so the legacy `__dict__.update(tensors)` shadowing behaviour is
+  preserved.
+- `check_hermitian=False` because the `*.txt` files store only the
+  upper triangle; a Hermitian round-trip check would (incorrectly)
+  fail on these inputs.
+- `_apply_aliases` formulas are a verbatim port of the legacy block,
+  including the standard spherical-tensor signs for `MAGX/MAGY`.

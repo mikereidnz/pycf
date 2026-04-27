@@ -7,8 +7,8 @@ appended as each phase of the work completes.
 
 | Phase | Status |
 | --- | --- |
-| A. Add `ImportTensors`, leave `ImportSLJM` alone | Implemented locally; awaiting commit |
-| B. Refactor `ImportSLJM` to delegate | Not started |
+| A. Add `ImportTensors`, leave `ImportSLJM` alone | Done (`cd30b51`) |
+| B. Refactor `ImportSLJM` to delegate | Implemented locally; awaiting commit |
 
 ## 2. Phase A — Adding `ImportTensors`
 
@@ -96,7 +96,71 @@ None of substance. Two clarifications worth noting:
 
 ## 3. Phase B — Refactoring `ImportSLJM`
 
-_To be filled in as Phase B is implemented._
+**Status:** Implemented and tested locally; not yet committed.
+
+### 3.1 Change
+
+`ImportSLJM.__init__` no longer carries its own `cfl.StateLabels` /
+`cfl.Tensor` construction loop or alias-synthesis block. The terminal
+~30 lines of the constructor (everything from `sl = cfl.StateLabels(...)`
+onwards through the `MAGX/Y/Z` and `HYP` aliases) are replaced by a
+single delegated call:
+
+```python
+self._wrapped = ImportTensors(
+    label_key,
+    sl,
+    tensor_matrices,
+    storage="upper",        # *.txt files store upper triangle only
+    add_aliases=True,       # legacy ImportSLJM behaviour
+    expose_attrs=False,     # legacy path tolerated reserved-name shadowing
+    check_hermitian=False,  # upper-triangle inputs are not full-Hermitian
+    warn_zero=True,
+)
+self.tensors = self._wrapped.tensors
+self.__dict__.update(self._wrapped.tensors)
+```
+
+Public surface is preserved exactly:
+
+- `self.tensors` — same dict of `cfl.Tensor` objects.
+- `self.<NAME>` attribute mirroring — same `__dict__.update(...)` call.
+- `__iter__` / `print_names` — unchanged.
+- Zero-tensor warning text — unchanged (printed by `ImportTensors`).
+- Alias signs and definitions — `_apply_aliases` mirrors the legacy
+  formulas exactly (verified by visual diff and by the integration
+  suite passing without any change).
+
+### 3.2 Test results
+
+```
+$ python -m pytest tests/ -q
+431 passed, 16 skipped in 40.30s
+```
+
+The integration tests (`tests/integration/ceylf/`, `tests/integration/eryso/`,
+`tests/integration/inten/`) all rely on `ImportSLJM` reading real
+`*.txt` / `*.mi_` / `*.st_` files, building tensors, and running through
+`cfl.Hamiltonian` to compare numerical results against checked-in
+references. Their continued green status is the equivalence regression
+test for Phase B — any change in tensor wrapping or alias synthesis
+would have shifted eigenvalues, fit residuals, or transition
+intensities and broken these tests.
+
+### 3.3 Deviations from the plan
+
+- `expose_attrs=False` was used (rather than `True`) when delegating
+  from `ImportSLJM`. Reason: the legacy `ImportSLJM` code did
+  `self.__dict__.update(tensors)` without any reserved-name guard, so
+  it tolerated tensor names like `"tensors"` or `"states"` shadowing
+  attributes. Enabling the guard would have been a behaviour change
+  for the legacy path. `ImportSLJM` performs its own `__dict__.update`
+  on the wrapped dict to preserve the legacy attribute-mirroring
+  behaviour exactly.
+- No new dedicated equivalence test was added — the existing
+  integration suite already covers this path more thoroughly than a
+  bespoke fixture-comparison test would.
+
 
 ## 4. Coverage Delta
 

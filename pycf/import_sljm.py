@@ -407,36 +407,26 @@ class ImportSLJM(object):
                 shape=(dim, dim),
                 dtype=np.complex128,
             )
-        # Create tensors; since tensors use hermitian matrix compressed row
-        # storage we do not require the lower triangular half.
-        sl = cfl.StateLabels(label_key, sl)
-        tensors = {}
-        for t in tensor_matrices:
-            if tensor_matrices[t].nnz == 0:
-                print("Warning: all matrix elements of %s are zero." % t)
-            tensors[t] = cfl.Tensor(
-                t,
-                np.ascontiguousarray(tensor_matrices[t].indptr, dtype=np.intc),
-                np.ascontiguousarray(tensor_matrices[t].indices, dtype=np.intc),
-                np.ascontiguousarray(tensor_matrices[t].data),
-                sl,
-            )
-        # Create convenience aliases only when the source tensors are available.
-        if "MAG11" in tensors and "MAG10" in tensors:
-            # MFR: Changed the signs for MAGX and MAGY to the standard definitions
-            # of the spherical tensor components. This affects eigenvector phases
-            # and therefore transition intensities, but not eigenvalues.
-            tensors["MAGX"] = -1.0 / np.sqrt(2) * tensors["MAG11"]
-            tensors["MAGX"].name = "MAGX"
-            tensors["MAGY"] = complex(0, 1) / np.sqrt(2) * tensors["MAG11"]
-            tensors["MAGY"].name = "MAGY"
-            tensors["MAGZ"] = tensors["MAG10"]
-            tensors["MAGZ"].name = "MAGZ"
-        if "AHYP" in tensors and "BHYP" in tensors:
-            tensors["HYP"] = tensors["AHYP"] - np.sqrt(10) * tensors["BHYP"]
-            tensors["HYP"].name = "HYP"
-        self.tensors = tensors
-        self.__dict__.update(tensors)
+        # Delegate state-label construction, Tensor wrapping, and alias
+        # synthesis to ImportTensors. The *.txt files contain only the
+        # upper triangle of each (Hermitian) tensor, so storage="upper".
+        # check_hermitian=False because the input is already upper-triangle
+        # only and would fail a Hermitian check on a dense round-trip.
+        # expose_attrs=False so that the reserved-name guard does not fire
+        # on legacy file inputs (the legacy path tolerated tensor names
+        # that shadow attributes; we preserve that behaviour here).
+        self._wrapped = ImportTensors(
+            label_key,
+            sl,
+            tensor_matrices,
+            storage="upper",
+            add_aliases=True,
+            expose_attrs=False,
+            check_hermitian=False,
+            warn_zero=True,
+        )
+        self.tensors = self._wrapped.tensors
+        self.__dict__.update(self._wrapped.tensors)
 
     def __iter__(self) -> Generator[Any, None, None]:
         for t in self.tensors:
