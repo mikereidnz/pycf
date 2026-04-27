@@ -40,6 +40,7 @@ test = [
     "pytest-benchmark>=5.0",
     "hypothesis>=6.0",
     "matplotlib>=3.8",
+    "sympy>=1.10",
 ]
 examples = [
     "matplotlib>=3.8",
@@ -52,6 +53,7 @@ dev = [
     "hypothesis>=6.0",
     "matplotlib>=3.8",
     "pymatgen>=2024.3",
+    "sympy>=1.10",
     "setuptools>=68",
     "wheel>=0.40,<1.0",
     "Cython>=3,<4",
