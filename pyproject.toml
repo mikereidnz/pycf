@@ -105,3 +105,14 @@ version = {attr = "pycf.__version__"}
 [[tool.mypy.overrides]]
 module = "pycf.pyemp"
 ignore_errors = true
+
+[tool.coverage.run]
+# Legacy module — see "Legacy-module exemptions" note above.
+omit = ["pycf/pyemp.py"]
+
+[tool.coverage.report]
+# Coverage floor for the non-legacy code. Raise this as coverage improves.
+# Current measured coverage (pyemp omitted) is ~83%.
+fail_under = 80
+show_missing = true
+skip_covered = false

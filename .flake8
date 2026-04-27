@@ -1,0 +1,29 @@
+[flake8]
+max-line-length = 100
+extend-ignore =
+    # Whitespace before ':' / line break before binary operator: black-compatible.
+    E203,
+    W503,
+    # Docstring-style checks (D*) from flake8-docstrings: the codebase does not
+    # currently follow PEP 257 strictly. Re-enable once a docstring-cleanup pass
+    # is done — see the audit follow-up list.
+    D
+per-file-ignores =
+    # Tests use looser conventions:
+    # - E741: physics symbols like l, I, m match the public API
+    # - E501: long lines are common in test data tables and assertions
+    # - F403/F405: tests routinely use `from pycf.x import *` to exercise
+    #   the full public surface
+    tests/*:E741,E501,F403,F405
+    # Build infrastructure: exempt from line-length / whitespace nitpicks.
+    setup.py:E501,W293
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    docs/_build,
+    pycf/cfl.c,
+    pycf/cfl.cpp,
+    pycf/__version__.py,
+    plan

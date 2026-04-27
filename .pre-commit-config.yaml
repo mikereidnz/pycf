@@ -2,6 +2,23 @@
 # Install with: pip install pre-commit && pre-commit install
 # Run manually: pre-commit run --all-files
 
+# External fixture data files (JMCALC/SLJM outputs under */matel/, including
+# .mi_, .st_, and the .txt matrix-element files) are excluded globally so
+# whitespace-style fixers cannot silently mangle them. They are meant to be
+# byte-faithful to the producing tools.
+#
+# Also excluded: backup files (*.backup, *.YYYYMMDD), plan/ planning notes,
+# outstanding_issues.txt, and the .coverage runtime artefact.
+exclude: |
+  (?x)^(
+    (tests|examples)/[^/]+/matel/
+    |.*\.backup$
+    |.*\.\d{8}$
+    |plan/
+    |outstanding_issues\.txt$
+    |\.coverage$
+  )
+
 repos:
   # Code formatting
   - repo: https://github.com/psf/black
@@ -23,8 +40,12 @@ repos:
     rev: 6.1.0
     hooks:
       - id: flake8
-        args: ['--max-line-length=100', '--extend-ignore=E203,W503']
+        # Configuration is in .flake8 at the repo root.
         additional_dependencies: ['flake8-docstrings']
+        # Examples are not currently linted; they are illustrative scripts and
+        # will be expanded with new examples from published papers in the
+        # future. Tracked separately from library/test cleanup.
+        exclude: ^(examples/|docs/legacy/|pycf/cfl\.c$|pycf/__version__\.py$)
 
   # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -42,6 +63,10 @@ repos:
       - id: bandit
         args: ['-c', '.bandit', '-r', 'pycf/', 'tests/']
         exclude: ^tests/test_
+        # The args above already restrict bandit to pycf/ and tests/; without
+        # pass_filenames=false pre-commit appends every staged file to the
+        # command line, defeating the scoping.
+        pass_filenames: false
         additional_dependencies: ['pbr']
 
   # General file checks
