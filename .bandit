@@ -1,20 +1,21 @@
 # Bandit security scanning configuration
 # See: https://bandit.readthedocs.io/en/latest/
+#
+# Run all default tests *except* the ones listed under `skips`.
+# We do not pin a `tests:` allow-list because pinning it would
+# silently ignore any new check bandit ships in future releases
+# (this previously hid B602 subprocess-shell findings).
 
-[bandit]
-# Tests to skip
-skips = B101,B601
+# Skipped checks:
+#   B101 - assert_used (allow assertions; used throughout)
+#   B601 - paramiko_calls (we don't use paramiko)
+skips:
+  - B101
+  - B601
 
-# Test plugins to run
-tests = B201,B301,B302,B303,B304,B305,B306,B307,B308,B309,B310,B311,B312,B313,B314,B315,B316,B317,B318,B319,B320,B321,B322,B323,B324,B325
-
-[bandit:assert_used]
-skips = tests/,conftest.py
-
-[bandit:hardcoded_sql_string]
-# This is common in test fixtures
-skips = tests/
-
-[bandit:hardcoded_bind_all_interfaces]
-# Allow 0.0.0.0 in tests
-skips = tests/
+# Directories to exclude from scanning (tests and generated artefacts)
+exclude_dirs:
+  - tests
+  - env
+  - docs/_build
+  - build
