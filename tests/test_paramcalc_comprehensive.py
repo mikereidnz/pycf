@@ -159,8 +159,9 @@ class TestXiVal:
             xi_er = Xi_val(t, l, "Er")
             xi_tm = Xi_val(t, l, "Tm")
 
-            # Yb is interpolated between Er and Tm, but may not be exactly between them
-            # Just check that all three are computed properly
+            expected_yb = 0.5 * (xi_er + xi_tm)
+
+            assert xi_yb == pytest.approx(expected_yb)
             assert np.isfinite(xi_yb)
             assert np.isfinite(xi_er)
             assert np.isfinite(xi_tm)

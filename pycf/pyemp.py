@@ -53,11 +53,27 @@ from datetime import datetime
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional
 
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.projections import register_projection
+
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.projections import register_projection
+except ImportError as exc:
+    plt = None
+    register_projection = None
+    _MATPLOTLIB_IMPORT_ERROR = exc
+else:
+    _MATPLOTLIB_IMPORT_ERROR = None
 
 from pycf.constants import BOLTZMANN_CM_INVERSE
+
+
+def _require_matplotlib() -> None:
+    if _MATPLOTLIB_IMPORT_ERROR is not None:
+        raise ImportError(
+            "pycf.pyemp plotting requires matplotlib. Install pycf with the "
+            "'examples' extra, or install matplotlib directly."
+        ) from _MATPLOTLIB_IMPORT_ERROR
 
 
 # TODO:
@@ -978,7 +994,10 @@ class SpectrumErun(GenericErun):
         spectrum.haslabels = False
 
 
-class SpectrumAxes(plt.Axes):
+_SpectrumAxesBase = plt.Axes if plt is not None else object
+
+
+class SpectrumAxes(_SpectrumAxesBase):
     r"""
     The SpectrumAxes matplotlib projection; when instantiating an axis object,
     add the ``projection = 'spectrum'`` kwarg, then run the spectrumplot method
@@ -991,13 +1010,16 @@ class SpectrumAxes(plt.Axes):
     figure class.
     Notes
     -----
-    In order for the figure class to be aware of the spectrum projection one
-    must run ``register_projection(SpectrumAxes)`` which requires the
-    ``matplotlib.projections.register_projection`` module.  Importing all of the
-    pycf module automatically handles this.
+    When matplotlib is installed, importing this module registers the projection
+    automatically. Without matplotlib, non-plotting EMP wrappers remain
+    importable, but constructing or using this projection raises ImportError.
     """
 
     name = "spectrum"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        _require_matplotlib()
+        super().__init__(*args, **kwargs)
 
     def spectrumplot(self, spectrum: "Spectrum", *args: Any, **kwargs: Any) -> None:
         r"""
@@ -1170,4 +1192,5 @@ class SpectrumAxes(plt.Axes):
                 self.plot(x, data[:, i], *args, **kwargs)
 
 
-register_projection(SpectrumAxes)
+if register_projection is not None:
+    register_projection(SpectrumAxes)

@@ -210,14 +210,50 @@ cdef class Tensor:
         cdef cfl.zt *t
         cdef cfl.zt *t1
         cdef cfl.zt *t2
+        cdef int *col_ptr = NULL
+        cdef double complex *val_ptr = NULL
+        cdef Py_ssize_t n
+        cdef Py_ssize_t expected_nnz
+        cdef Py_ssize_t i
         self.states = states
 
         if (data_tuple is None):
+            if not isinstance(states, StateLabels):
+                raise TypeError("states must be a StateLabels instance")
+            if len(row_ptr) < 2:
+                raise ValueError("row_ptr must contain at least two entries")
+
+            n = len(row_ptr)-1
+            if n > 2147483647:
+                raise ValueError("Tensor dimension is too large for the C API")
+            if n != len(states.labels):
+                raise ValueError("row_ptr dimension must match StateLabels length")
+            if row_ptr[0] != 0:
+                raise ValueError("row_ptr must start at 0")
+            for i in range(n):
+                if row_ptr[i] > row_ptr[i+1]:
+                    raise ValueError("row_ptr entries must be nondecreasing")
+
+            expected_nnz = row_ptr[n]
+            if expected_nnz < 0:
+                raise ValueError("row_ptr cannot contain negative indices")
+            if len(col_in) != expected_nnz or len(val) != expected_nnz:
+                raise ValueError(
+                    "col_in and val lengths must match row_ptr[-1]"
+                )
+            for i in range(expected_nnz):
+                if col_in[i] < 0 or col_in[i] >= n:
+                    raise ValueError(
+                        "column indices must be in the range [0, n)"
+                    )
+            if expected_nnz > 0:
+                col_ptr = &col_in[0]
+                val_ptr = &val[0]
+
             self.name = name
             self.arith_name = None
-            n = len(row_ptr)-1
             self.n = n
-            t = cfl.zt_csr_alloc(name, n, &row_ptr[0], &col_in[0], &val[0], 
+            t = cfl.zt_csr_alloc(name, <int>n, &row_ptr[0], col_ptr, val_ptr,
                     <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
             
         elif (len(data_tuple)==3):
@@ -401,7 +437,18 @@ cdef class Hamiltonian:
     cdef int diag_run
     def __cinit__(self, tensors):
 
+        if len(tensors) == 0:
+            raise ValueError("Hamiltonian requires at least one Tensor")
+        for i,t in enumerate(tensors):
+            if not isinstance(t, Tensor):
+                raise TypeError("Hamiltonian inputs must be Tensor objects")
+
         n = tensors[0].n
+        for i,t in enumerate(tensors):
+            if t.n != n:
+                raise ValueError(
+                    "All tensors in a Hamiltonian must have the same dimension"
+                )
         self.n = n
         self.nt = len(tensors)
         self.tensors = tensors

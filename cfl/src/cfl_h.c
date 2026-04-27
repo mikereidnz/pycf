@@ -643,6 +643,11 @@ zhd_w *zhd_w_alloc(char job, zh *h) {
     hd_w->hcsr_ma[i] = h->t[i]->matel;
   }
   hd_w->coeff_w = zhcsrsama_alloc(h->nt, hd_w->hcsr_ma);
+  if (hd_w->coeff_w == 0) {
+    free(hd_w->hcsr_ma);
+    free(hd_w);
+    CFL_ERROR_NULL("alloc failed for hd_w->coeff_w");
+  }
 
   /* Find the connected components of the Hamiltonian. */
   zcsr_h = zhcsr2zcsr_alloc(hd_w->coeff_w->hcsr_m);

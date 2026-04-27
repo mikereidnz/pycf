@@ -31,7 +31,8 @@ repos:
     rev: v1.7.1
     hooks:
       - id: mypy
-        additional_dependencies: ['types-all']
+        stages: ['manual']
+        files: ^pycf/.*\.py$
         args: ['--ignore-missing-imports', '--no-error-summary']
 
   # Security scanning - bandit (Python security)

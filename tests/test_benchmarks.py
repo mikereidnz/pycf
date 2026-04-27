@@ -22,6 +22,8 @@ try:
 except ImportError:
     pytest.skip("pycf not installed", allow_module_level=True)
 
+pytestmark = pytest.mark.benchmark
+
 
 class TestArrayBenchmarks:
     """Benchmark NumPy and core array operations."""

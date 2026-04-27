@@ -758,6 +758,10 @@ zhcsrsama_data *zhcsrsama_alloc(int n, zhcsr **csr_ma) {
 
 void zhcsrsama_free(zhcsrsama_data *data) {
   int i;
+
+  if (data == 0) {
+    return;
+  }
   
   zhcsr_free(data->hcsr_m);
   for (i=0; i<data->n; i++) {

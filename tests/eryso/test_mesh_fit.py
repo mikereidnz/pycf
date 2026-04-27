@@ -25,7 +25,8 @@ HFS_BASE = Path(__file__).resolve().parent / "matel" / "erhfs"
 EXPERIMENT_BASE = Path(__file__).resolve().parent / "eryso_site1_energy.txt"
 
 
-@pytest.mark.slow  # mark this test as slow, so it can be skipped by default
+@pytest.mark.slow
+@pytest.mark.long_running
 def test_mesh_fit() -> None:
     t = ImportSLJM(MATEL_BASE)
     thfs = ImportSLJM(HFS_BASE)

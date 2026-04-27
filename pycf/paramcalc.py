@@ -81,9 +81,13 @@ def Xi_val(t: int, lam: int, Ln: str) -> float:
     except ValueError:
         raise ValueError(f"Invalid lanthanide: Ln={Ln} (valid: {', '.join(Ln_list)})")
     try:
-        v = xi_tl["%i%i" % (t, lam)][i]
+        xi_values = xi_tl["%i%i" % (t, lam)]
     except (ValueError, KeyError):
         raise ValueError("Invalid parameters: t=%i, lam=%i" % (t, lam))
+    if Ln == "Yb":
+        v = 0.5 * (xi_values[Ln_list.index("Er")] + xi_values[Ln_list.index("Tm")])
+    else:
+        v = xi_values[i]
     v *= 1e10  # Scale units to Angstrom^(t+1) erg^-1
     return v
 
