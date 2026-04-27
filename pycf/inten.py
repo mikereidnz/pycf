@@ -5,7 +5,7 @@ A rewrite of the intensity calculation to follow the old Pascal code more closel
 """
 
 from operator import itemgetter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -531,7 +531,7 @@ def boltzmann_factor(e: float, t: float) -> float:
     return ans
 
 
-def lorentzian(x: float | np.ndarray, x0: float, fwhm: float) -> float | np.ndarray:
+def lorentzian(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[float, np.ndarray]:
     """
     Calculate Lorentzian line shape.
     Parameters
