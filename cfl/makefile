@@ -50,12 +50,25 @@ TESTS=$(patsubst tests/%.c,%,$(wildcard tests/*test.c))
 
 all: libcfl.a
 
+.PHONY: all test debug asan clean
+
 test: $(TESTS) 
 	sh ./cfl_testing.sh
 	touch test
 
 debug: CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke $(OPENMP_CFLAGS)
 debug: all
+
+# AddressSanitizer + UndefinedBehaviorSanitizer build.
+# Usage:  make -C cfl asan
+# Then run individual test binaries directly, e.g. ./cfl/h_test.
+# OpenMP is disabled in this build because libgomp interacts poorly with
+# AddressSanitizer (spurious leak reports from the runtime's worker pools).
+asan: CFLAGS=-g -O2 -fPIC -std=c99 -fno-omit-frame-pointer -fsanitize=address,undefined -I/usr/include -I/usr/include/lapacke
+asan: LDFLAGS=-fsanitize=address,undefined
+asan: OPENMP_CFLAGS=
+asan: OPENMP_LDFLAGS=
+asan: clean libcfl.a $(TESTS)
 
 libcfl.a: cfl_error.o cfl_zefoz.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
 	$(AR) $(ARFLAGS) $@ $^

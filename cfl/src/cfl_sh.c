@@ -478,7 +478,7 @@ void zshp_p_w_free(zshp_p_w *shp_p_w) {
  *  zf          Flag whether we're dealing with a Zeeman term.
  *  shp_p_w     Projection workspace. 
  */
-inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zshp_p_w
+static inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zshp_p_w
     *shp_p_w) {
   int i, j, ii, jj, shi_dim, sh_dim;
   zsh_pro_data *pd;
@@ -526,7 +526,7 @@ inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zshp_p_w
  *          elements.
  *  shp_p_w The projection workspace, allocated with zshp_p_w_alloc.
  */
-inline void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
+static inline void zshp_p(complex double *hz, zsh *sh, int pro_i, zshp_p_w *shp_p_w) {
   int d;
   complex double one, zero;
   zsh_pro_data *pd;
@@ -743,7 +743,7 @@ void zshi_w_free(zshi_w *w) {
  *      parameter matrix of the interaction up on exit.
  *  w   The workspace allocated with zshi_w_alloc. 
  */
-inline void zshi(double *a, zshi_w *w) {
+static inline void zshi(double *a, zshi_w *w) {
   int i, info; 
   char lapack_err[64] = "LAPACKE_zgels failed with error code: 0";
 

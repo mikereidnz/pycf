@@ -179,7 +179,7 @@ void bh_work_free(void *work) {
 
 
 /* The Metropolis criterion. */ 
-inline int metropolis(double e_new, double e_old, gsl_rng *r) {
+static inline int metropolis(double e_new, double e_old, gsl_rng *r) {
   double p, u;
   p = fmin(1, exp(-(e_new - e_old)/BH_T));
   u = gsl_rng_uniform(r);
@@ -191,7 +191,7 @@ inline int metropolis(double e_new, double e_old, gsl_rng *r) {
 }
 
 /* Check that the boundary constraints have been satisfied. */
-inline int bh_bounds_check(double *x, bh_work *w) {
+static inline int bh_bounds_check(double *x, bh_work *w) {
   int i;
   
   for (i=0; i<w->n; i++) {
@@ -206,7 +206,7 @@ inline int bh_bounds_check(double *x, bh_work *w) {
 /* Take a basinhopping step; checks whether adaptive stepsize is enabled, and,
  * if so, adjust the stepsize to meet the set target_accept_rate every interval
  * number of steps. */
-inline void bh_takestep(double *x, bh_work *w) {
+static inline void bh_takestep(double *x, bh_work *w) {
   int i;
   float accept_rate;
 

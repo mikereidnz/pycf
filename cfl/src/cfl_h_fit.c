@@ -647,7 +647,7 @@ void meshfit_data_free(meshfit_data *data) {
  *  e         The theoretical energy array.
  *  ex_data   Pointer to the experimental data struct.
  */
-inline double echisq(double *e, ex_data *d) {
+static inline double echisq(double *e, ex_data *d) {
   int i;
   double chisq;
 
@@ -673,7 +673,7 @@ inline double echisq(double *e, ex_data *d) {
  *  pa    The theoretical parameter array.
  *  xpa   The experimental parameter array. 
  */
-inline double shchisq(double *pa, double *xpa) {
+static inline double shchisq(double *pa, double *xpa) {
   int i;
   double chisq;
 
@@ -699,7 +699,7 @@ inline double shchisq(double *pa, double *xpa) {
  *  h       The Hamiltonian for which to sort perform the state label sort. 
  *  evect   The eigenvectors of the h. 
  */
-inline void find_sort_indices(ex_data *ex, zh *h, complex double *evect) {
+static inline void find_sort_indices(ex_data *ex, zh *h, complex double *evect) {
   /* Initialise pj to 0 so it is always defined.  The inner loop overwrites it
    * with the index of the largest-magnitude component.  If all components are
    * exactly zero (degenerate/zero eigenvector), pj stays 0, which is safe. */
@@ -749,7 +749,7 @@ inline void find_sort_indices(ex_data *ex, zh *h, complex double *evect) {
  *  coeff     Complex array which will be overwritten with the parsed data.
  *  x         Source of data. 
  */
-inline void parse_param_data(int n_zx, param_type **p, complex double *coeff,
+static inline void parse_param_data(int n_zx, param_type **p, complex double *coeff,
     double *x) {
   int i;
   
@@ -785,7 +785,7 @@ inline void parse_param_data(int n_zx, param_type **p, complex double *coeff,
  *  sh        Pointer to spin Hamiltonian.    
  *  x         Source of data. 
  */
-inline void sh_parse_param_data(int n_zx, param_type **p, 
+static inline void sh_parse_param_data(int n_zx, param_type **p, 
     complex double *coeff, zsh *sh, double *x) {
   int i;
 
@@ -1095,7 +1095,7 @@ void meshfit_chi2(double *x, void *data, double *chi2) {
 
 
 /* Chi^2 for energy levels, non-linear least squares implementation. */
-inline void nls_echisq(double *e, ex_data *d, double *y) {
+static inline void nls_echisq(double *e, ex_data *d, double *y) {
   int i, ii;
 
   ii = 0;

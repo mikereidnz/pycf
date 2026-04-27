@@ -144,6 +144,7 @@ cdef class StateLabels:
     def __cinit__(self, label_key, labels):
         cdef size_t n
         cdef char *key
+        cdef bytes key_b
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
         cdef int **l_a
        
@@ -151,26 +152,27 @@ cdef class StateLabels:
         self.labels = labels
 
         n = <size_t> len(labels)
-        key = <char *> label_key
+        key_b = label_key.encode('utf-8')
+        key = key_b
         l_a = <int **>malloc(len(labels)*sizeof(int *))
         if l_a == NULL:
             raise MemoryError("l_a malloc failed")
 
-        nplabels = []
-        for i,l in enumerate(labels):
-            nplabels += [np.ascontiguousarray(np.array(labels[i], dtype=np.int32))]
-            clabels = nplabels[i]
-            l_a[i] = &clabels[0]
-        
-        # sl_alloc copies both the label key and the label arrays (via memcpy),
-        # so nplabels can safely go out of scope after this call.
-        self.cfl_sl = cfl.sl_alloc(n, key, l_a)
-        if self.cfl_sl == NULL:
-            raise MemoryError("cfl_sl alloc failed")
-        else:
+        try:
+            nplabels = []
+            for i,l in enumerate(labels):
+                nplabels += [np.ascontiguousarray(np.array(labels[i], dtype=np.int32))]
+                clabels = nplabels[i]
+                l_a[i] = &clabels[0]
+
+            # sl_alloc copies both the label key and the label arrays (via memcpy),
+            # so nplabels and key_b can safely go out of scope after this call.
+            self.cfl_sl = cfl.sl_alloc(n, key, l_a)
+            if self.cfl_sl == NULL:
+                raise MemoryError("cfl_sl alloc failed")
             self.sl_cap = PyCapsule_New(<void *>self.cfl_sl, "pycfl.StateLabels", NULL)
-        
-        free(l_a)
+        finally:
+            free(l_a)
 
     def __dealloc__(self):
         if self.cfl_sl != NULL:
@@ -204,7 +206,7 @@ cdef class Tensor:
     cdef public str arith_name
     cdef public int n
     cdef public StateLabels states
-    def __cinit__(self, char *name, np.ndarray[int, ndim=1, mode='c'] row_ptr, 
+    def __cinit__(self, name, np.ndarray[int, ndim=1, mode='c'] row_ptr, 
             np.ndarray[int, ndim=1, mode='c'] col_in, np.ndarray[double complex, ndim=1, mode='c'] val, 
             states, object data_tuple=None):
         cdef cfl.zt *t
@@ -215,7 +217,20 @@ cdef class Tensor:
         cdef Py_ssize_t n
         cdef Py_ssize_t expected_nnz
         cdef Py_ssize_t i
+        cdef bytes name_b
+        cdef char *name_c
         self.states = states
+
+        # Hold an explicit bytes buffer so the C string outlives the calls
+        # below; passing <char *> on a Python str directly produces a
+        # temporary whose lifetime is fragile.
+        if isinstance(name, bytes):
+            name_b = name
+            name_str = name.decode('utf-8')
+        else:
+            name_str = name
+            name_b = (<str>name).encode('utf-8')
+        name_c = name_b
 
         if (data_tuple is None):
             if not isinstance(states, StateLabels):
@@ -250,29 +265,29 @@ cdef class Tensor:
                 col_ptr = &col_in[0]
                 val_ptr = &val[0]
 
-            self.name = name
+            self.name = name_str
             self.arith_name = None
             self.n = n
-            t = cfl.zt_csr_alloc(name, <int>n, &row_ptr[0], col_ptr, val_ptr,
+            t = cfl.zt_csr_alloc(name_c, <int>n, &row_ptr[0], col_ptr, val_ptr,
                     <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
             
         elif (len(data_tuple)==3):
             # Addition or subtraction of tensors; we use the arithmetic name for
             # zt_sa.
             self.name = None
-            self.arith_name = name
+            self.arith_name = name_str
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
             t2 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[1].t_cap, "pycfl.Tensor")
-            t = cfl.zt_sa(<char *>self.arith_name, t1, t2, 1, data_tuple[2])
+            t = cfl.zt_sa(name_c, t1, t2, 1, data_tuple[2])
 
         else:
             # Scaling of a tensor; we use the arithmetic name for zt_sa.
             self.name = None
-            self.arith_name = name
+            self.arith_name = name_str
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
-            t = cfl.zt_s(<char *>self.arith_name, t1, <double complex> data_tuple[1])
+            t = cfl.zt_s(name_c, t1, <double complex> data_tuple[1])
 
         if t is NULL:
             self.t_cap = None
@@ -303,7 +318,7 @@ cdef class Tensor:
             t2name = t2.name
         tmp_name = "{0}+{1}".format(t1name, t2name)
         d = (t1, t2, 1)
-        return Tensor(<char *>tmp_name, None, None, None, t1.states, data_tuple=d) 
+        return Tensor(tmp_name, None, None, None, t1.states, data_tuple=d) 
 
     def __sub__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
@@ -320,7 +335,7 @@ cdef class Tensor:
             t2name = t2.name
         tmp_name = "{0}-{1}".format(t1name, t2name)
         d = (t1, t2, -1)
-        return Tensor(<char *>tmp_name, None, None, None, t1.states, data_tuple=d) 
+        return Tensor(tmp_name, None, None, None, t1.states, data_tuple=d) 
 
     def __mul__(x, y):
         # We check whether name has been explicitly set, otherwise use
@@ -333,7 +348,7 @@ cdef class Tensor:
                     yname = y.name
                 tmp_name = "{0:.2f}*{1}".format(x, yname)
                 d = (y, x)
-                return Tensor(<char *>tmp_name, None, None, None, y.states, data_tuple=d)
+                return Tensor(tmp_name, None, None, None, y.states, data_tuple=d)
         elif isinstance(x, Tensor):
             if isinstance(y, Number):
                 if x.name is None:
@@ -342,7 +357,7 @@ cdef class Tensor:
                     xname = x.name
                 tmp_name = "{0:.2f}x{1}".format(y, xname)
                 d = (x, y)
-                return Tensor(<char *>tmp_name, None, None, None, x.states, data_tuple=d)
+                return Tensor(tmp_name, None, None, None, x.states, data_tuple=d)
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
 
@@ -354,7 +369,7 @@ cdef class Tensor:
                 selfname = self.name
             tmp_name = "{0:.2f}*{1}".format(other, selfname)
             d = (self, other)
-            return Tensor(<char *>tmp_name, None, None, None, self.states, data_tuple=d)
+            return Tensor(tmp_name, None, None, None, self.states, data_tuple=d)
         raise TypeError("Tensors can only be multiplied by scalar numbers")
     
     def get_name(self):

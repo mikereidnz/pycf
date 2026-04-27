@@ -51,7 +51,7 @@
  *  ket     Array of the ket vector.
  *  zw      Workspace for multiplication -- of length n.
  */
-inline double complex inprod(int n, double complex *bra, double complex *op, double complex
+static inline double complex inprod(int n, double complex *bra, double complex *op, double complex
     *ket, double complex *zw) {
   double complex one, zero, dotc;
     
@@ -314,7 +314,7 @@ void zefoz_d_free(zefoz_d *data) {
  *            differentiate.
  *  data      The ZEFOZ search data.
  */
-inline double d1(int k, double complex *mi, zd_inst *data) {
+static inline double d1(int k, double complex *mi, zd_inst *data) {
   int n;
   double complex s;
   double complex *phi;
@@ -340,7 +340,7 @@ inline double d1(int k, double complex *mi, zd_inst *data) {
  *            derivative.
  *  data      The ZEFOZ search data.
  */
-inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
+static inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
   int l, n; 
   double s, *omega;
   double complex *phi, mikl, mljk;
@@ -383,7 +383,7 @@ inline double d2(int k, double complex *mi, double complex *mj, zd_inst *data) {
  *        order x, y, and z.
  *  data  Data for the ZEFOZ search.
  */
-inline void v_eval(int k, int l, double complex **m, zd_inst *data) {
+static inline void v_eval(int k, int l, double complex **m, zd_inst *data) {
   int i;
 
   for (i=0; i<3; i++) {
@@ -402,7 +402,7 @@ inline void v_eval(int k, int l, double complex **m, zd_inst *data) {
  *        order x, y, and z.
  *  data  Data for the ZEFOZ search.
  */
-inline void C_eval(int k, int l, double complex **m, zd_inst *data) {
+static inline void C_eval(int k, int l, double complex **m, zd_inst *data) {
   int i, j;
 
   for (i=0; i<3; i++) {
@@ -426,7 +426,7 @@ inline void C_eval(int k, int l, double complex **m, zd_inst *data) {
  *        order x, y, and z.
  *  data  Data for the ZEFOZ search.
  */
-inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
+static inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
   int i, info;
   char lapack_err[64] = "LAPACKE failed with error code: 0";
 
