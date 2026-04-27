@@ -105,7 +105,7 @@ make -C cfl test
 # Type checking (non-blocking but good to fix warnings)
 mypy pycf/ --ignore-missing-imports
 
-# Build documentation
+# Build documentation (requires the [docs] extra: pip install -e ".[docs]")
 cd docs && sphinx-build -b html . _build/html
 
 # Verify no deprecation warnings
@@ -289,6 +289,7 @@ void test_function_name() {
 ## Documentation Contributions
 
 - Update `.rst` files in `docs/` directory
+- Install the docs dependencies: `pip install -e ".[docs]"`
 - Build with `sphinx-build -b html docs/ docs/_build/html`
 - Check HTML output at `docs/_build/html/index.html`
 - For API docs, docstrings are auto-extracted via Sphinx autodoc

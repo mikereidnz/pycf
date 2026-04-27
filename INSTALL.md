@@ -331,14 +331,19 @@ python exdata_example.py
 # Both testing and examples (most common)
 pip install -e ".[test,examples]"
 
-# Full development (testing, examples, build tools, linting)
+# Build the Sphinx documentation
+pip install -e ".[docs]"
+cd docs && sphinx-build -b html . _build/html
+
+# Full development (testing, examples, build tools, linting, docs)
 pip install -e ".[dev]"
 ```
 
 **Bundle Contents:**
 - **`[test]`** - pytest and hypothesis for running tests
 - **`[examples]`** - matplotlib for running example scripts
-- **`[dev]`** - everything: testing, examples, build tools (setuptools, Cython), and code quality tools (black, flake8, mypy)
+- **`[docs]`** - sphinx and theme/extension packages for building the HTML docs
+- **`[dev]`** - everything: testing, examples, build tools (setuptools, Cython), code quality tools (black, flake8, mypy), and docs
 
 pycf requires `numpy` and `scipy` at runtime (automatically installed with `pip install -e .`).
 
