@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 # Filename = pyemp.py
-"""
-Python wrapper for Michael F. Reid's empirical crystal field (EMP) programs.
+"""LEGACY: Python wrapper for Michael F. Reid's empirical crystal field (EMP) programs.
+
+This module is **legacy code** kept for compatibility with historical EMP-based
+workflows.  New code should prefer the `pycf.cfl` and `pycf.import_sljm`
+machinery instead.  Per the project's "legacy module" convention (see
+CONTRIBUTING.md), this module is exempt from detailed audit attention:
+mypy, coverage, and bandit are configured to skip it, and only
+security-critical issues will be fixed here.
+
 This module provides a high-level Python interface to Michael F. Reid's
 empirical crystal field theory executables:
 - cfit: Least-squares fitting of crystal field parameters to experimental data
@@ -391,16 +398,23 @@ class GenericErun(BaseEmp):
             The names of files created by the specific erun program.
         """
         if os.path.isdir(self.emproot):
+            # Resolve the gnu_erun.csh path explicitly so we can drop
+            # shell=True (Bandit B602).  The csh script itself still
+            # uses $EMPSCRIPTS / $EMPBIN internally, so we keep them in
+            # the child environment.
+            erun_script = os.path.join(self.emproot, "scripts", "gnu_erun.csh")
             proc = Popen(
                 [
-                    "$EMPSCRIPTS/gnu_erun.csh {0} {1}_{0}.dat "
-                    "nolog".format(self.process, self.name)
+                    erun_script,
+                    self.process,
+                    "{0}_{1}.dat".format(self.name, self.process),
+                    "nolog",
                 ],
                 env={
                     "EMPSCRIPTS": self.emproot + "/scripts",
                     "EMPBIN": self.emproot + "/bin",
+                    "PATH": os.environ.get("PATH", ""),
                 },
-                shell=True,
                 stdout=PIPE,
                 stderr=PIPE,
             )

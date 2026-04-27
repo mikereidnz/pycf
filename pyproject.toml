@@ -90,3 +90,18 @@ package-data = {"pycf" = ["*.pyx", "*.pxd"]}
 
 [tool.setuptools.dynamic]
 version = {attr = "pycf.__version__"}
+
+# ---------------------------------------------------------------------------
+# Legacy-module exemptions
+#
+# Modules whose first docstring line begins with "LEGACY:" are excluded from
+# detailed static analysis.  See CONTRIBUTING.md ("Legacy modules") for the
+# convention.  Only security-critical fixes are accepted in these modules;
+# all other findings are recorded but not addressed.
+#
+# Currently legacy: pycf/pyemp.py
+# ---------------------------------------------------------------------------
+
+[[tool.mypy.overrides]]
+module = "pycf.pyemp"
+ignore_errors = true

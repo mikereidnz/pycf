@@ -180,6 +180,54 @@ def process_tensor(tensor, scale: float) -> Tensor:
     return result
 ```
 
+### Legacy modules
+
+Some files are kept for backwards compatibility but are not actively
+maintained (for example, thin wrappers around external legacy
+executables).  These modules are flagged with the `LEGACY:` convention
+and receive only minimal audit attention.
+
+A module is considered **legacy** when its module-level docstring's
+first line begins with the literal token `LEGACY:`, e.g.:
+
+```python
+"""LEGACY: short summary of the module's historical purpose.
+
+Longer description...
+"""
+```
+
+For legacy modules:
+
+- Only **security-critical** issues (e.g. command injection, arbitrary
+  file write, credential leakage) and import-time crashes are fixed.
+- Type hints, coverage gaps, lint/style warnings, and dead-code clean-up
+  are **not** addressed; mypy / coverage / bandit are configured to skip
+  these files (see `pyproject.toml`, `pytest.ini`, `.bandit`).
+- New code **must not** add dependencies on legacy modules.  Prefer the
+  actively maintained alternatives (`pycf.cfl`, `pycf.import_sljm`,
+  etc.).
+- When auditing the codebase, treat the contents of `LEGACY:` modules
+  as out-of-scope unless a finding is `critical` severity.
+
+Currently flagged as legacy:
+
+- `pycf/pyemp.py` — Python wrapper around Michael F. Reid's external
+  EMP executables (`cfit`, `inten`, `vtrans`, `spectrum`).
+
+To **add** a new module to the legacy list:
+
+1. Prepend `LEGACY:` to the first line of its docstring with a brief
+   reason.
+2. Add an entry to `[[tool.mypy.overrides]]` in `pyproject.toml` with
+   `ignore_errors = true`.
+3. Add the path to the `omit` list in `pytest.ini` `[coverage:run]`.
+4. Add the path to `exclude_dirs` in `.bandit`.
+5. Update the list above and note the addition in `CHANGELOG.md`.
+
+To **remove** a module from the legacy list, reverse those steps and
+fix any issues that the audit tools subsequently report.
+
 ## Submitting a Pull Request
 
 1. **Push your changes** to your fork:

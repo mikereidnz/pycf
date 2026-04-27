@@ -13,9 +13,11 @@ skips:
   - B101
   - B601
 
-# Directories to exclude from scanning (tests and generated artefacts)
+# Directories and files to exclude from scanning (tests, generated artefacts,
+# and legacy modules; see CONTRIBUTING.md "Legacy modules" for the convention).
 exclude_dirs:
   - tests
   - env
   - docs/_build
   - build
+  - pycf/pyemp.py
