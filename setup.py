@@ -160,9 +160,15 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
     link_args = split_flags(os.environ.get("CFL_LDLIBS"))
 
     link_args += ["cfl/libcfl.a", "-lgsl", "-lnlopt", "-lm"]
-    
-    # Only add GNU OpenMP on Linux
-    if sys.platform.startswith("linux"):
+
+    # GCC OpenMP: enable on Linux unless CFL_NO_OPENMP=1 is set or we are
+    # building via icc (which has its own OpenMP runtime, libiomp5, wired up
+    # in the icc branch below).
+    if (sys.platform.startswith("linux")
+            and os.environ.get("CFL_CC") != "icc"
+            and not os.environ.get("CFL_NO_OPENMP")):
+        compile_args.append("-fopenmp")
+        link_args.append("-fopenmp")
         link_args.append("-lgomp")
 
     if os.environ.get("CFL_CC") == "icc":
@@ -183,7 +189,7 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
                 f"INTEL_PATH={intel_path} does not exist or is not a directory"
             )
 
-        compile_args += [f"-I{intel_path}/include", "-openmp"]
+        compile_args += [f"-I{intel_path}/include", "-openmp"]  # NOTE: -openmp is the legacy icc flag; modern Intel oneAPI/icx requires -qopenmp.
         link_args += [
             "-mkl",
             "-lmkl_def",

@@ -2,15 +2,31 @@ CC=gcc
 VPATH=src tests include
 CPPFLAGS=-I include
 MARCH ?= 
-CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range $(MARCH)
+CFLAGS=-O3 -fPIC -std=c99 -ffast-math -fno-cx-limited-range $(MARCH) $(OPENMP_CFLAGS)
 #CFLAGS=-g -O -fPIC -I$(LAPACKE_INCLUDE)
 #CFLAGS=-g -O -fPIC -I$(LAPACKE_INCLUDE) 
 LDLIBS=-llapacke -llapack -lblas -lgfortran -lgslcblas -lgsl -lm -lnlopt
-LDFLAGS=
+LDFLAGS=$(OPENMP_LDFLAGS)
+# NOTE: -openmp is the legacy icc flag; deprecated in icc 16.0 and removed in
+# Intel oneAPI (icx). If building with a modern Intel compiler, change to
+# -qopenmp (and likewise in setup.py's icc branch).
 MKL_CFLAGS=-mkl -O3 -fPIC -std=c99 -ansi-alias -march=x86-64 -mtune=generic -lpthread -openmp
 MKL_LDLIBS=-lmkl_intel_lp64 -lgsl -lnlopt
 MKL_LDFLAGS=-Wl,-rpath,$(INTEL_PATH)/lib/intel64/ -Wl,-rpath,$(INTEL_PATH)/mkl/lib/intel64/
 ARFLAGS=rcs
+
+# OpenMP flags for the GCC build path. GCC on Linux ships libgomp; override
+# OPENMP_CFLAGS / OPENMP_LDFLAGS on platforms without it (e.g. stock Apple
+# clang -- use Homebrew libomp). To disable entirely:
+#   make OPENMP_CFLAGS= OPENMP_LDFLAGS=
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+  OPENMP_CFLAGS ?= -fopenmp
+  OPENMP_LDFLAGS ?= -fopenmp
+else
+  OPENMP_CFLAGS ?=
+  OPENMP_LDFLAGS ?=
+endif
 
 ifeq ($(CFL_CC), icc)
   CC=icc
@@ -38,7 +54,7 @@ test: $(TESTS)
 	sh ./cfl_testing.sh
 	touch test
 
-debug: CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke 
+debug: CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke $(OPENMP_CFLAGS)
 debug: all
 
 libcfl.a: cfl_error.o cfl_zefoz.o cfl_h_fit.o basinhopping.o cfl_min.o cfl_sh.o cfl_h.o cfl_tensor.o cfl_csr.o
