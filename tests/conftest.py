@@ -23,31 +23,31 @@ from pycf.import_sljm import ImportSLJM
 @pytest.fixture
 def ceylf_matel_path():
     """Path to Ce:YLF crystal field matrix elements directory."""
-    return Path(__file__).resolve().parent / "ceylf" / "matel" / "f1cf"
+    return Path(__file__).resolve().parent / "integration" / "ceylf" / "matel" / "f1cf"
 
 
 @pytest.fixture
 def ceylf_inten_path():
     """Path to Ce:YLF intensity matrix elements directory."""
-    return Path(__file__).resolve().parent / "inten" / "matel" / "f1int"
+    return Path(__file__).resolve().parent / "integration" / "inten" / "matel" / "f1int"
 
 
 @pytest.fixture
 def inten_c1_matel_path():
     """Path to C1 intensity test matrix elements directory."""
-    return Path(__file__).resolve().parent / "inten" / "matel" / "f1cf"
+    return Path(__file__).resolve().parent / "integration" / "inten" / "matel" / "f1cf"
 
 
 @pytest.fixture
 def inten_c3_matel_path():
     """Path to C3 intensity test matrix elements directory."""
-    return Path(__file__).resolve().parent / "inten" / "matel" / "f1cf"
+    return Path(__file__).resolve().parent / "integration" / "inten" / "matel" / "f1cf"
 
 
 @pytest.fixture
 def eryso_path():
     """Path to Er:YSO example data directory."""
-    return Path(__file__).resolve().parent / "eryso"
+    return Path(__file__).resolve().parent / "integration" / "eryso"
 
 
 # ============================================================================

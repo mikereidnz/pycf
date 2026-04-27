@@ -303,5 +303,5 @@ jobs:
 
     - name: Run benchmarks
       run: |
-        python -m pytest tests/test_benchmarks.py -v --benchmark-only 2>&1 | head -200 || true
+        python -m pytest tests/unit/test_benchmarks.py -v --benchmark-only 2>&1 | head -200 || true
       continue-on-error: true

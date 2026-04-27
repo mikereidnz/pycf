@@ -72,7 +72,7 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
    - Use Google-style docstrings with proper formatting
 
 3. **Add tests for your changes**:
-   - For Python: Add tests to `tests/test_*.py` files
+   - For Python: Add module-level unit tests to `tests/unit/test_*.py` (or to a new example-based subdirectory of `tests/` for integration tests)
    - For C: Add tests to `cfl/tests/*_test.c`
    - Aim for high coverage of new code
    - Test both happy path and error cases
