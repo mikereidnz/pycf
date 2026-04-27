@@ -48,7 +48,11 @@ import pycf.njsymbols as nj
 
 
 def t_q(
-    j1: Union[float, int], j2: Union[float, int], m1: Union[float, int], m2: Union[float, int], q: Union[float, int]
+    j1: Union[float, int],
+    j2: Union[float, int],
+    m1: Union[float, int],
+    m2: Union[float, int],
+    q: Union[float, int],
 ) -> complex:
     r"""
     Calculate the matrix element `\langle j_1 m_1 | T_q^{(1)} | j_2 m_2

@@ -68,12 +68,11 @@ def write_version_file() -> str:
     else:
         version_str = base_version
     
-    version_text = f'''
-__version__ = "{version_str}"
-__build_timestamp__ = "{build_timestamp}"
-__build_comment__ = "{build_comment}"
-
-'''
+    version_text = (
+        f'__version__ = "{version_str}"\n'
+        f'__build_timestamp__ = "{build_timestamp}"\n'
+        f'__build_comment__ = "{build_comment}"\n'
+    )
     VERSION_FILE.write_text(version_text, encoding="utf-8")
     return version_str
 

@@ -399,23 +399,22 @@ def su2_rotation(p: np.ndarray, m: np.ndarray) -> np.ndarray:
     m : ndarray
         The transformed matrix.
     """
-    I = complex(0, 1)
     a = p[0]
     b = p[1]
     c = p[2]
     rotation = np.array(
         [
             [
-                np.exp(-I * (a) / 2)
-                * (np.cos(b / 2) * np.cos(c / 2) + I * np.sin(b / 2) * np.sin(c / 2)),
-                -np.exp(-I * (a) / 2)
-                * (I * np.cos(b / 2) * np.sin(c / 2) + np.sin(b / 2) * np.cos(c / 2)),
+                np.exp(-1j * (a) / 2)
+                * (np.cos(b / 2) * np.cos(c / 2) + 1j * np.sin(b / 2) * np.sin(c / 2)),
+                -np.exp(-1j * (a) / 2)
+                * (1j * np.cos(b / 2) * np.sin(c / 2) + np.sin(b / 2) * np.cos(c / 2)),
             ],
             [
-                np.exp(I * (a) / 2)
-                * (np.sin(b / 2) * np.cos(c / 2) - I * np.cos(b / 2) * np.sin(c / 2)),
-                np.exp(I * (a) / 2)
-                * (-I * np.sin(b / 2) * np.sin(c / 2) + np.cos(b / 2) * np.cos(c / 2)),
+                np.exp(1j * (a) / 2)
+                * (np.sin(b / 2) * np.cos(c / 2) - 1j * np.cos(b / 2) * np.sin(c / 2)),
+                np.exp(1j * (a) / 2)
+                * (-1j * np.sin(b / 2) * np.sin(c / 2) + np.cos(b / 2) * np.cos(c / 2)),
             ],
         ]
     )
@@ -555,14 +554,14 @@ class SpinH(object):
             S_m = None
         if "ias" in terms or "iqi" in terms or "bi" in terms or "bmi" in terms:
             try:
-                I = kwargs["I"]
+                Ival = kwargs["I"]
             except KeyError:
                 raise ValueError("Missing keyword argument I.")
             # Calculate the matrix elements for nuclear spin.
             I_m = [None, None, None]
             for i in range(3):
-                I_m[i] = matel(j_l[i], I)
-            self.I = I
+                I_m[i] = matel(j_l[i], Ival)
+            self.I = Ival  # noqa: E741 - public attribute; physics symbol for nuclear spin
             self.I_m = I_m
         else:
             I_m = None
@@ -578,15 +577,15 @@ class SpinH(object):
                     H_dim = 2 * S + 1
                 else:
                     # The bgs and/or ias/iqi/bi terms.
-                    H_dim = (2 * S + 1) * (2 * I + 1)
+                    H_dim = (2 * S + 1) * (2 * Ival + 1)
             elif S_m is None:
                 # Only the iqi and/or bi term.
-                H_dim = 2 * I + 1
+                H_dim = 2 * Ival + 1
             else:
                 # S_m != None and no bgs -> ias term.
-                H_dim = (2 * S + 1) * (2 * I + 1)
+                H_dim = (2 * S + 1) * (2 * Ival + 1)
         else:
-            H_dim = 2 * I + 1
+            H_dim = 2 * Ival + 1
         self.H_dim = int(H_dim)
         # Calculate the coefficient arrays.
         if "inv" in kwargs:
@@ -615,7 +614,7 @@ class SpinH(object):
                         raise TypeError(
                             "When passing inv = True, B must be a" "list of numpy.ndarrays."
                         )
-                    I_dimsq = int((2 * I + 1) ** 2)
+                    I_dimsq = int((2 * Ival + 1) ** 2)
                     B_a = np.zeros([len(B), I_dimsq, 9], dtype=complex)
                     for i, e in enumerate(B):
                         B_a[i, :, :] = bmj_coeff_array(e, I_m)
