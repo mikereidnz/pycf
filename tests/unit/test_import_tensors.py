@@ -45,42 +45,44 @@ STATES_4 = np.array([[2, 1], [2, -1], [4, 1], [4, -1]], dtype=np.int32)
 def test_construct_from_dense_full():
     it = ImportTensors("M", STATES_2, {"SX": SX, "SZ": SZ})
     assert set(it.tensors) == {"SX", "SZ"}
-    # ImportTensors stores the upper triangle. The recovered matel should
-    # equal the upper triangle of the original.
-    assert np.allclose(it.SX.get_matel(), SX)
-    assert np.allclose(it.SZ.get_matel(), SZ)
+    # ImportTensors stores only the upper triangle (Hermitian-CSR convention
+    # inherited from the underlying C layer). get_matel() returns that upper
+    # triangle verbatim; consumers that need the full Hermitian completion
+    # do it themselves.
+    assert np.allclose(it.SX.get_matel(), np.triu(SX))
+    assert np.allclose(it.SZ.get_matel(), np.triu(SZ))
 
 
 def test_construct_from_full_sparse():
     sx_sp = csr_matrix(SX)
     it = ImportTensors("M", STATES_2, {"SX": sx_sp})
-    assert np.allclose(it.SX.get_matel(), SX)
+    assert np.allclose(it.SX.get_matel(), np.triu(SX))
 
 
 def test_construct_from_upper_csr():
     sx_upper = triu(csr_matrix(SX), format="csr")
-    it = ImportTensors("M", STATES_2, {"SX": sx_upper}, storage="upper", check_hermitian=False)
-    assert np.allclose(it.SX.get_matel(), SX)
+    it = ImportTensors("M", STATES_2, {"SX": sx_upper})
+    assert np.allclose(it.SX.get_matel(), np.triu(SX))
 
 
-def test_full_and_upper_storage_agree():
-    """Same operator via both storage paths must be numerically identical."""
+def test_full_and_upper_inputs_agree():
+    """Same operator passed as full and as upper-only gives identical storage."""
     it_full = ImportTensors("M", STATES_2, {"SX": SX})
     sx_upper = triu(csr_matrix(SX), format="csr")
-    it_upper = ImportTensors("M", STATES_2, {"SX": sx_upper}, storage="upper")
+    it_upper = ImportTensors("M", STATES_2, {"SX": sx_upper})
     assert np.allclose(it_full.SX.get_matel(), it_upper.SX.get_matel())
 
 
 def test_accepts_non_csr_sparse():
     sx_coo = coo_matrix(SX)
     it = ImportTensors("M", STATES_2, {"SX": sx_coo})
-    assert np.allclose(it.SX.get_matel(), SX)
+    assert np.allclose(it.SX.get_matel(), np.triu(SX))
 
 
 def test_mixed_dense_and_sparse():
     it = ImportTensors("M", STATES_2, {"SX": SX, "SZ": csr_matrix(SZ)})
-    assert np.allclose(it.SX.get_matel(), SX)
-    assert np.allclose(it.SZ.get_matel(), SZ)
+    assert np.allclose(it.SX.get_matel(), np.triu(SX))
+    assert np.allclose(it.SZ.get_matel(), np.triu(SZ))
 
 
 # ---------------------------------------------------------------------------
@@ -212,14 +214,14 @@ def test_aliases_synthesised_when_enabled():
     assert it.MAGZ.name == "MAGZ"
     # MAGX = -1/sqrt(2) * MAG11
     expected_magx = (-1.0 / np.sqrt(2)) * SX
-    assert np.allclose(it.MAGX.get_matel(), expected_magx)
+    assert np.allclose(it.MAGX.get_matel(), np.triu(expected_magx))
 
 
 def test_hyp_alias_synthesised():
     it = ImportTensors("M", STATES_2, {"AHYP": SX, "BHYP": SZ}, add_aliases=True)
     assert "HYP" in it.tensors
     expected = SX - np.sqrt(10) * SZ
-    assert np.allclose(it.HYP.get_matel(), expected)
+    assert np.allclose(it.HYP.get_matel(), np.triu(expected))
 
 
 def test_alias_collision_raises():
@@ -242,11 +244,6 @@ def test_empty_label_key_rejected():
         ImportTensors("", STATES_2, {"SX": SX})
 
 
-def test_invalid_storage_rejected():
-    with pytest.raises(ValueError, match="storage"):
-        ImportTensors("M", STATES_2, {"SX": SX}, storage="lower")
-
-
 def test_states_wrong_columns_rejected():
     bad_states = np.array([[1, 1], [-1, -1]], dtype=np.int32)
     with pytest.raises(ValueError, match="label_key"):
@@ -263,7 +260,7 @@ def test_states_1d_special_case_for_single_label():
     """A 1-D states array is allowed only when label_key has one character."""
     states_1d = np.array([1, -1], dtype=np.int32)
     it = ImportTensors("M", states_1d, {"SX": SX})
-    assert np.allclose(it.SX.get_matel(), SX)
+    assert np.allclose(it.SX.get_matel(), np.triu(SX))
 
 
 def test_empty_states_rejected():
@@ -283,23 +280,35 @@ def test_tensor_shape_mismatch_rejected():
         ImportTensors("M", STATES_2, {"X": bad})
 
 
-def test_non_hermitian_dense_rejected():
-    bad = np.array([[0, 1], [0, 0]], dtype=complex)
-    with pytest.raises(ValueError, match="Hermitian"):
-        ImportTensors("M", STATES_2, {"X": bad})
-
-
-def test_check_hermitian_false_bypasses():
-    """Setting check_hermitian=False allows a non-Hermitian dense input.
-
-    The matrix is uppper-triangulated and stored as Hermitian CRS, so the
-    recovered dense matrix is the Hermitian completion of the input's upper
-    triangle.
-    """
-    bad = np.array([[0, 1], [0, 0]], dtype=complex)
-    it = ImportTensors("M", STATES_2, {"X": bad}, check_hermitian=False)
-    expected = np.array([[0, 1], [1, 0]], dtype=complex)
+def test_non_hermitian_dense_accepted_lower_dropped():
+    """Non-Hermitian dense input is accepted; the strict lower triangle is
+    silently dropped. This documents the upper-triangle-only storage
+    contract (callers responsible for the input being meaningful)."""
+    bad = np.array([[0, 1], [2, 0]], dtype=complex)
+    it = ImportTensors("M", STATES_2, {"X": bad})
+    expected = np.array([[0, 1], [0, 0]], dtype=complex)
     assert np.allclose(it.X.get_matel(), expected)
+
+
+# ---------------------------------------------------------------------------
+# Round-trip through get_matel(): the upper triangle of the input is
+# preserved verbatim.
+#
+# The underlying Hermitian-CSR storage (zhcsr_alloc in cfl/src/cfl_csr.c)
+# discards strictly-lower entries by design — only upper-triangular
+# content is stored. A strictly-upper input therefore round-trips
+# faithfully, while a strictly-lower input is lost. Crystal-field T_kq
+# tensors with q<0 (which physically live below the diagonal) must be
+# folded into the upper triangle before being passed to ImportTensors;
+# this is what ImportSLJM does internally for SLJM matrix-element files.
+# ---------------------------------------------------------------------------
+
+
+def test_strictly_upper_tensor_round_trips():
+    """A q>0 tensor (upper-triangle only) survives the import round-trip."""
+    t_plus = np.array([[0.0, 1.0], [0.0, 0.0]], dtype=complex)
+    it = ImportTensors("M", STATES_2, {"TPLUS": t_plus})
+    assert np.allclose(it.TPLUS.get_matel(), t_plus)
 
 
 def test_tensors_must_be_mapping():
