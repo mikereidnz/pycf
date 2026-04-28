@@ -96,15 +96,15 @@ Indices and tables
 References
 ==========
 
-.. [1] Gómez-Herrero, J. C., & Sanchez-Dehesa, J. (1988). Crystal Field Theory and Crystal Field Effects. In Handbook of the Physics and Chemistry of Rare Earths.
+1. Gómez-Herrero, J. C., & Sanchez-Dehesa, J. (1988). Crystal Field Theory and Crystal Field Effects. In Handbook of the Physics and Chemistry of Rare Earths.
 
-.. [2] Krupke, W. F. (1966). Induced-emission cross sections for laser transitions in Nd: YAG. IEEE Journal of Quantum Electronics, 7(4), 153-159.
+2. Krupke, W. F. (1966). Induced-emission cross sections for laser transitions in Nd: YAG. IEEE Journal of Quantum Electronics, 7(4), 153-159.
 
-.. [3] Reid, M. F. (1997). Parameterization of the Nd³⁺ Free Ion and Crystal Field Interaction in NdAl₃(BO₃)₄. The Journal of Physical Chemistry A, 101(36), 6773-6781.
+3. Reid, M. F. (1997). Parameterization of the Nd³⁺ Free Ion and Crystal Field Interaction in NdAl₃(BO₃)₄. The Journal of Physical Chemistry A, 101(36), 6773-6781.
 
-.. [4] Rasch, M. J., & Yu, A. C. H. (2003). Efficient Computation of the Wigner 3j, 6j and 9j Symbols. SIAM Journal on Scientific Computing, 25(4), 1416-1428.
+4. Rasch, M. J., & Yu, A. C. H. (2003). Efficient Computation of the Wigner 3j, 6j and 9j Symbols. SIAM Journal on Scientific Computing, 25(4), 1416-1428.
 
-.. [5] Golding, R. M., & Halley, M. J. (1984). Spin-Hamiltonian and its Application to the Fine Structure of Rare-Earth Ions. Physical Review B, 30(8), 4661.
+5. Golding, R. M., & Halley, M. J. (1984). Spin-Hamiltonian and its Application to the Fine Structure of Rare-Earth Ions. Physical Review B, 30(8), 4661.
 
 License
 =======

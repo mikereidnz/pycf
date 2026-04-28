@@ -24,9 +24,11 @@ def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
     """
     Transform tensor matrix elements into eigenbasis previously calculated by
     diagonalizing a Hamiltonian.
+
     This does the transformation part of the Pascal vtrans program, but not the
     construction of the electric-dipole operators, which is now done in the
     dipole_str function.
+
     Mike Reid 3 April 2026:
         Delete lower-diagonal elements that are mistakenly added by t.get_matel()
 

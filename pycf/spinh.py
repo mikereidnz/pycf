@@ -2,16 +2,21 @@
 # Filename = spinh.py
 """
 Spin Hamiltonian extraction and manipulation utilities.
+
 This module provides functions for:
+
 - Building spin Hamiltonian matrices from tensor operators
 - Extracting spin Hamiltonian parameters from crystal field calculations
 - Inverting spin Hamiltonians to recover effective parameters
 - Manipulating and formatting spin Hamiltonian terms
+
 The spin Hamiltonian formalism reduces complex rare-earth ion interactions to
 effective magnetic operators acting on the lowest Kramers doublet. This module
 bridges crystal field theory (implemented in cfl) to spin Hamiltonian models
 commonly used in magnetic resonance and magnetism studies.
+
 Key workflow:
+
   1. Calculate crystal field Hamiltonian and eigenstates (cfl module)
   2. Project high-level (J=5/2...) multiplet onto Kramers doublet
   3. Extract effective spin Hamiltonian parameters
@@ -316,11 +321,13 @@ def invert_term(coeff_a: np.ndarray, b: np.ndarray) -> np.ndarray:
         The appropriate coefficient array, generated with either
         :func:`bmj_coeff_array`, :func:`ias_coeff_array` or
         :func:`iqi_coeff_array`.
-    b : numpy.ndarray For a 'BgS' or 'BMI' term, b must be a `3 \times (2j + 1)
-        \times (2j + 1)` array `(j = S or I)`, corresponding to individual
-        'BgS'/'BMI' matrix elements for a field along three linearly independent
-        directions. For an 'IAS' term, b must be a `2 (I + 1) \times 2`
-        np.ndarray corresponding to the `IAS` matrix elements.
+    b : numpy.ndarray
+        For a 'BgS' or 'BMI' term, b must be a :math:`3 \times (2j + 1)
+        \times (2j + 1)` array :math:`(j = S \mathrm{\ or\ } I)`, corresponding
+        to individual 'BgS'/'BMI' matrix elements for a field along three
+        linearly independent directions. For an 'IAS' term, b must be a
+        :math:`2 (I + 1) \times 2` np.ndarray corresponding to the `IAS`
+        matrix elements.
 
     Returns
     -------

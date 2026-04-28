@@ -418,10 +418,11 @@ cdef class Hamiltonian:
     The crystal field Hamiltonian class.  Creates a cfl zh object and provides
     an interface for diagonalizing zh.  Can be used to calculate:
 
-        * energy levels given a list of :class:`Tensor`s and corresponding coefficients;
-        * spin Hamiltonian parameters from crystal field parameters;
-        * crystal field parameters by fitting to either energy levels or both
-        energy levels and spin Hamiltonian parameters.
+    * energy levels given a list of :class:`Tensor` objects and corresponding
+      coefficients;
+    * spin Hamiltonian parameters from crystal field parameters;
+    * crystal field parameters by fitting to either energy levels or both
+      energy levels and spin Hamiltonian parameters.
 
     A summary of calculated energy levels can be generated with
     :func:`cfl_util.gen_e_summary`.
@@ -1317,36 +1318,39 @@ cdef class ExData(object):
         the second column containing the absolute experimental energy of the
         corresponding level.  If data is of type tuple each element must be a
         np.ndarray of type specified using the key argument.  Implemented types
-        are::
-            - Absolute energy level data with level index (default).
-            - Difference energy level data with level index; np.ndarray must be
-              3 by n dimensions, where the first column specifies the initial
-              energy level index, the second column specifies the final energy
-              level index, and the third column corresponds to the energy
-              difference.
-            - Absolute energy level data with state label index; of dimension
-              m+1 by n, where m is the number of state labels.  The first m
-              elements are state labels in LS coupling with the type of label of
-              each element specified by the label_key argument.  The (m+1)th
-              entry contains the absolute experimental energy of the
-              corresponding level.
-            - Difference energy level data with state label index; of
-              dimension 2m+1 by n, where m is the number of state labels.  The
-              first m elements are state labels in LS coupling specifying the
-              initial energy level.  The next m elements are state labels in LS
-              coupling specifying the final energy level.  The final entry
-              corresponds to the energy difference.  The type of state label
-              elements are given by label_key.
+        are:
+
+        - Absolute energy level data with level index (default).
+        - Difference energy level data with level index; np.ndarray must be
+          3 by n dimensions, where the first column specifies the initial
+          energy level index, the second column specifies the final energy
+          level index, and the third column corresponds to the energy
+          difference.
+        - Absolute energy level data with state label index; of dimension
+          m+1 by n, where m is the number of state labels.  The first m
+          elements are state labels in LS coupling with the type of label of
+          each element specified by the label_key argument.  The (m+1)th
+          entry contains the absolute experimental energy of the
+          corresponding level.
+        - Difference energy level data with state label index; of
+          dimension 2m+1 by n, where m is the number of state labels.  The
+          first m elements are state labels in LS coupling specifying the
+          initial energy level.  The next m elements are state labels in LS
+          coupling specifying the final energy level.  The final entry
+          corresponds to the energy difference.  The type of state label
+          elements are given by label_key.
+
         Note: mixing level index data with state label index data is not
         supported.
     key : str or tuple, optional
         If data is of type np.ndarray this argument is optional; otherwise it
         must be specified and be of the same length as the data tuple.  This
-        argument is used to specify the type of data. Available keys are::
-            - 'A', absolute energy data with level index;
-            - 'D', difference energy data with level index;
-            - 'AS', absolute energy level data with state label index;
-            - 'DS', difference energy level data with state label index.
+        argument is used to specify the type of data. Available keys are:
+
+        - 'A', absolute energy data with level index;
+        - 'D', difference energy data with level index;
+        - 'AS', absolute energy level data with state label index;
+        - 'DS', difference energy level data with state label index.
     label_key : str, optional
         This argument is only required if experimental data with state label
         indices is to be used.  In this case, each element of label_key

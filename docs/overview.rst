@@ -61,9 +61,7 @@ PyCF handles experimental data through the **ExData** class, supporting modes:
 Architecture
 =============
 
-PyCF is structured in layers:
-
-.. image::
+PyCF is structured in layers::
 
     User Code (Examples, Custom Scripts)
          |
