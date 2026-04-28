@@ -42,8 +42,8 @@ from typing import List
 
 import numpy as np
 from numpy.linalg import lstsq
-from scipy.linalg import block_diag, svd
-from scipy.optimize import basinhopping
+from scipy.linalg import block_diag, svd  # type: ignore[import-untyped]
+from scipy.optimize import basinhopping  # type: ignore[import-untyped]
 
 from pycf.matel import matel
 

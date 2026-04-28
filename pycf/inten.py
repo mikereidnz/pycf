@@ -114,7 +114,7 @@ def dipole_str(
     md: bool = True,
     ed: bool = False,
     Altp: Optional[List[Any]] = None,
-) -> Dict[str, Any]:
+) -> List[Dict[str, Any]]:
     """
     Calculate dipole strengths and transition properties in eigenbasis.
     Parameters
@@ -213,6 +213,8 @@ def dipole_str(
                 md_mom = [(md_prefac * tensor_dict[k][i, f]) for k in keys]
                 # print('md_mom', md_mom)
             if ed:
+                if Altp is None:
+                    raise ValueError("Altp must be provided when ed=True")
                 for A in Altp:
                     # print('\n###', A)
                     lam = int(A[0][1])
@@ -562,9 +564,9 @@ def inten(
     polarization: str,
     linewidth: float,
     T: float,
-    xlim: Optional[Tuple[float, float]] = None,
+    xlim: Optional[List[float]] = None,
     npoints: int = 1000,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate intensity spectrum from transitions and produce spectral data.
     Parameters
@@ -584,12 +586,13 @@ def inten(
         Number of points in the intensity curve (default 1000).
     Returns
     -------
-    dict
-        Dictionary containing:
-        - 'curve_energies': numpy array of energy values
-        - 'curve_inten': numpy array of intensities
-        - 'line_energies': numpy array of line positions
-        - 'line_inten': numpy array of line intensities
+    tuple of numpy.ndarray
+        ``(line_energies, line_inten, curve_energies, curve_inten)``:
+
+        - ``line_energies``: array of line positions
+        - ``line_inten``: array of line intensities
+        - ``curve_energies``: array of energy values
+        - ``curve_inten``: array of cumulative-curve intensities
     Raises
     ------
     ValueError

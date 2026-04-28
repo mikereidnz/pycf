@@ -32,7 +32,7 @@ Key workflow for complete CF model:
 from typing import List, Tuple
 
 import numpy as np
-from scipy.special import sph_harm_y
+from scipy.special import sph_harm_y  # type: ignore[import-untyped]
 
 from pycf.cfl_util import uline_char
 from pycf.constants import BOHR_RADIUS

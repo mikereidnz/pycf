@@ -49,7 +49,7 @@ from math import fsum
 from typing import Union
 
 import numpy as np
-from scipy.special import factorial
+from scipy.special import factorial  # type: ignore[import-untyped]
 
 
 def tricon_ck(a: Union[float, int], b: Union[float, int], c: Union[float, int]) -> bool:

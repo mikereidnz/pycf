@@ -20,9 +20,9 @@ from collections.abc import Mapping as MappingABC
 from typing import Any, Generator, List, Mapping, Optional
 
 import numpy as np
-from scipy.sparse import csr_matrix, issparse, triu
+from scipy.sparse import csr_matrix, issparse, triu  # type: ignore[import-untyped]
 
-import pycf.cfl as cfl
+import pycf.cfl as cfl  # type: ignore[import-not-found]
 from pycf.cfl_util import term2L
 
 # Attribute names on ImportTensors / ImportSLJM that must not be shadowed by

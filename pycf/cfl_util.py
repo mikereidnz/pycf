@@ -44,7 +44,7 @@ except ImportError as e:
     __build_comment__ = ""
 from math import fsum
 
-from scipy.special import factorial
+from scipy.special import factorial  # type: ignore[import-untyped]
 
 
 def uline_char(s: str) -> str:
@@ -588,7 +588,9 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
         The weighting applied during the chi2 fit; one entry for each spin
         Hamiltonian term.  This should be set if ndof is set.
     """
-    np.set_printoptions(formatter={"float": lambda x: "{:8.5f}".format(x)})
+    np.set_printoptions(
+        formatter={"float": lambda x: "{:8.5f}".format(x)},  # type: ignore[arg-type]
+    )
     if "name" in kwargs:
         s = "{} summary\n".format(kwargs["name"])
         s += "=" * len(kwargs["name"]) + "========\n\n"
@@ -691,7 +693,7 @@ def gen_fit_summary(
     }
     fmt_stepsize = {"FI": "{0: >15.0f}", "CF": "{0: >15.0f}", "HYP": "{0: >15.0f}"}
     fmt_scov = {"FI": "{0: >17.2g}", "CF": "{0: >17.2g}", "HYP": "{0: >17.2g}"}
-    np.set_printoptions(formatter={"float": lambda x: "{:.3f}".format(x)})
+    np.set_printoptions(formatter={"float": lambda x: "{:.3f}".format(x)})  # type: ignore[arg-type]
     cov = None
     s = "Fitting summary\n"
     s += "===============\n\n"
@@ -720,12 +722,14 @@ def gen_fit_summary(
         if co.imag == 0:
             co = co.real
             if kwargs["cov"]:
+                assert cov is not None
                 scov = fmt_scov[key].format(np.sqrt(cov[ii, ii]))
             else:
                 scov = ""
             ii += 1
         else:
             if kwargs["cov"]:
+                assert cov is not None
                 scov = fmt_scov[key].format(
                     complex(np.sqrt(cov[ii, ii]), np.sqrt(cov[ii + 1, ii + 1]))
                 )
@@ -744,7 +748,10 @@ def gen_fit_summary(
         del kwargs["bounds"]
     if "stepsize" in kwargs:
         del kwargs["stepsize"]
-    np.set_printoptions(formatter={"float": lambda x: "{:11.2f}".format(x)}, linewidth=200)
+    np.set_printoptions(
+        formatter={"float": lambda x: "{:11.2f}".format(x)},  # type: ignore[arg-type]
+        linewidth=200,
+    )
     if kwargs["cov"]:
         s += "\n" + uline_char("Covariance matrix:\n")
         s += str(cov) + "\n"
@@ -962,10 +969,10 @@ def rotate_cf_params(
             j = k_list[i]
             for mi, m in enumerate(np.arange(-j, j + 1)):
                 for mpi, mp in enumerate(np.arange(-j, j + 1)):
-                    rp[mi] += WignerR(j, m, mp, alpha, beta, gamma) * p[mpi]
+                    rp[mi] += WignerR(j, int(m), int(mp), alpha, beta, gamma) * p[mpi]
             rp_list += [rp]
         else:
-            rp_list += [p]
+            rp_list += [np.asarray(p)]
     rcoeff = coeff.copy()
     for i, k in enumerate(k_list):
         # Only want complex q >=0 parameters (negative q is implict for complex
