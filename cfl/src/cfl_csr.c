@@ -367,7 +367,33 @@ void zhcsr2zhpa(zhcsr *hcsr_m, complex double *ap) {
 }
 
 /*
- * Convert a Hermitian CSR matrix to a dense matrix A.
+ * Convert a Hermitian CSR matrix to a dense matrix A (row-major).
+ *
+ * Each entry stored in the CSR is written verbatim into the dense block.
+ * In our zhcsr layout only the upper triangle (j >= i) is ever stored
+ * (see zhcsr_alloc, ~line 125, which discards strictly-lower entries),
+ * so the resulting dense matrix has a zeroed lower triangle.
+ *
+ * Note (history, 2026-04): an earlier version of this routine ran a
+ * second pass that Hermitian-completed the lower triangle from
+ * conj(upper). That made sense for the assembled Hamiltonian (which is
+ * Hermitian by construction) but silently fabricated a fake conjugate
+ * lower triangle for *individual* tensors T_kq, which are not
+ * themselves Hermitian. The completion was therefore visible — and
+ * incorrect — through tensor.get_matel() (the Cython introspection API)
+ * and through the spin-Hamiltonian projection in cfl_sh.c, which had
+ * to work around it (see inten.vtrans for one such workaround). The
+ * second pass has been removed.
+ *
+ * The Hamiltonian assembly path does NOT use this function: it fills
+ * its dense block via zhcsr2zcsr (above), which performs its own
+ * Hermitian completion (line 312) on the *summed* CSR. That re-derivation
+ * is correct because the assembled H is Hermitian, regardless of how
+ * individual tensors were stored.
+ *
+ * Callers that need a fully Hermitian dense block from an individual
+ * tensor (e.g. for cblas_zhemm) must perform the lower-triangle fill
+ * themselves; see cfl_sh.c around line 364 for an example.
  *
  * Parameters
  * ----------
@@ -376,27 +402,13 @@ void zhcsr2zhpa(zhcsr *hcsr_m, complex double *ap) {
  *          double values.
  */
 void zhcsr2zha(zhcsr *hcsr_m, complex double *a) {
-  int i, j, k;
+  int i, k;
   int n = hcsr_m->n;
 
-  /* PASS 1: Fill upper triangular and diagonal from CSR data */
+  memset(a, 0, (size_t)n * (size_t)n * sizeof(complex double));
   for (i = 0; i < n; i++) {
-    for (j = i; j < n; j++) {
-      a[i*n+j] = 0;  /* Default: assume not in sparse matrix */
-      /* Search for element (i,j) in row i of CSR matrix */
-      for (k = hcsr_m->row_ptr[i]; k < hcsr_m->row_ptr[i+1]; k++) {
-        if (hcsr_m->col_in[k] == j) {
-          a[i*n+j] = hcsr_m->val[k];
-          break;
-        }
-      }
-    }
-  }
-
-  /* PASS 2: Fill lower triangular using Hermitian symmetry */
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < i; j++) {
-      a[i*n+j] = conj(a[j*n+i]);
+    for (k = hcsr_m->row_ptr[i]; k < hcsr_m->row_ptr[i+1]; k++) {
+      a[i*n + hcsr_m->col_in[k]] = hcsr_m->val[k];
     }
   }
 }
