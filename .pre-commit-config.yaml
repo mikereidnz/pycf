@@ -2,18 +2,23 @@
 # Install with: pip install pre-commit && pre-commit install
 # Run manually: pre-commit run --all-files
 
-# External fixture data files (JMCALC/SLJM outputs under */matel/, including
-# .mi_, .st_, and the .txt matrix-element files) are excluded globally so
-# whitespace-style fixers cannot silently mangle them. They are meant to be
-# byte-faithful to the producing tools.
+# External fixture data files (JMCALC/SLJM outputs and any other
+# producer-faithful data, including .mi_, .st_, and .txt matrix-element
+# files) live under matel/ subdirectories anywhere in the tree. They are
+# excluded globally so whitespace-style fixers cannot silently mangle
+# them. If you want to preserve sample output from legacy tools (for
+# example, output from the legacy pascal programs) byte-for-byte, drop
+# it under a matel/ directory and it will be left alone.
 #
-# Also excluded: backup files (*.backup, *.YYYYMMDD), plan/ planning notes,
-# outstanding_issues.txt, and the .coverage runtime artefact.
+# Also excluded: backup files (*.backup, *.YYYYMMDD), docs/legacy/
+# historical record, plan/ planning notes, outstanding_issues.txt, and
+# the .coverage runtime artefact.
 exclude: |
   (?x)^(
-    (tests|examples)/[^/]+/matel/
+    (.*/)?matel/
     |.*\.backup$
     |.*\.\d{8}$
+    |docs/legacy/
     |plan/
     |outstanding_issues\.txt$
     |\.coverage$
@@ -22,7 +27,7 @@ exclude: |
 repos:
   # Code formatting
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 24.10.0
     hooks:
       - id: black
         language_version: python3

@@ -19,11 +19,9 @@ import numpy as np
 import pytest
 
 sympy = pytest.importorskip("sympy")
-from sympy.physics.wigner import (  # noqa: E402
-    wigner_3j as sp_3j,
-    wigner_6j as sp_6j,
-    wigner_9j as sp_9j,
-)
+from sympy.physics.wigner import wigner_3j as sp_3j  # noqa: E402
+from sympy.physics.wigner import wigner_6j as sp_6j  # noqa: E402
+from sympy.physics.wigner import wigner_9j as sp_9j  # noqa: E402
 
 from pycf.njsymbols import wigner_3j, wigner_6j, wigner_9j  # noqa: E402
 
@@ -81,9 +79,9 @@ def test_wigner_3j_integer_sweep(j1, j2):
                     continue
                 pycf_val = wigner_3j(j1, j2, j3, m1, m2, m3)
                 sp_val = _f(sp_3j(j1, j2, j3, m1, m2, m3))
-                assert pycf_val == pytest.approx(sp_val, abs=TOL), (
-                    f"3j({j1},{j2},{j3};{m1},{m2},{m3}): pycf={pycf_val} sympy={sp_val}"
-                )
+                assert pycf_val == pytest.approx(
+                    sp_val, abs=TOL
+                ), f"3j({j1},{j2},{j3};{m1},{m2},{m3}): pycf={pycf_val} sympy={sp_val}"
 
 
 @pytest.mark.parametrize("j1", _HALF_VALS)
@@ -103,9 +101,9 @@ def test_wigner_3j_half_integer_sweep(j1, j2):
                     continue
                 pycf_val = wigner_3j(j1, j2, j3, m1, m2, m3)
                 sp_val = _f(sp_3j(j1, j2, j3, m1, m2, m3))
-                assert pycf_val == pytest.approx(sp_val, abs=TOL), (
-                    f"3j({j1},{j2},{j3};{m1},{m2},{m3}): pycf={pycf_val} sympy={sp_val}"
-                )
+                assert pycf_val == pytest.approx(
+                    sp_val, abs=TOL
+                ), f"3j({j1},{j2},{j3};{m1},{m2},{m3}): pycf={pycf_val} sympy={sp_val}"
         j3 += 1.0
 
 
@@ -125,9 +123,9 @@ def test_wigner_3j_column_swap_symmetry():
         a = wigner_3j(j1, j2, j3, m1, m2, m3)
         b = wigner_3j(j2, j1, j3, m2, m1, m3)
         sign = (-1) ** int(j1 + j2 + j3)
-        assert a == pytest.approx(sign * b, abs=TOL), (
-            f"swap mismatch for ({j1},{j2},{j3};{m1},{m2},{m3}): {a} vs {sign}*{b}"
-        )
+        assert a == pytest.approx(
+            sign * b, abs=TOL
+        ), f"swap mismatch for ({j1},{j2},{j3};{m1},{m2},{m3}): {a} vs {sign}*{b}"
 
 
 def test_wigner_3j_m_negation_symmetry():
@@ -173,9 +171,9 @@ def test_wigner_6j_integer_sweep_vs_sympy(j1, j2, j3):
             for j6 in range(0, 3):
                 pycf_val = wigner_6j(j1, j2, j3, j4, j5, j6)
                 sp_val = _f(sp_6j(j1, j2, j3, j4, j5, j6))
-                assert pycf_val == pytest.approx(sp_val, abs=TOL), (
-                    f"6j({j1},{j2},{j3};{j4},{j5},{j6}): pycf={pycf_val} sympy={sp_val}"
-                )
+                assert pycf_val == pytest.approx(
+                    sp_val, abs=TOL
+                ), f"6j({j1},{j2},{j3};{j4},{j5},{j6}): pycf={pycf_val} sympy={sp_val}"
 
 
 def test_wigner_6j_column_permutation_symmetry():
@@ -222,15 +220,9 @@ def test_wigner_9j_integer_sweep_vs_sympy(j1, j2):
                             j9_min = max(abs(j3 - j6), abs(j7 - j8))
                             j9_max = min(j3 + j6, j7 + j8)
                             for j9 in range(j9_min, j9_max + 1):
-                                pycf_val = wigner_9j(
-                                    j1, j2, j3, j4, j5, j6, j7, j8, j9
-                                )
-                                sp_val = _f(
-                                    sp_9j(j1, j2, j3, j4, j5, j6, j7, j8, j9)
-                                )
-                                assert pycf_val == pytest.approx(
-                                    sp_val, abs=TOL
-                                ), (
+                                pycf_val = wigner_9j(j1, j2, j3, j4, j5, j6, j7, j8, j9)
+                                sp_val = _f(sp_9j(j1, j2, j3, j4, j5, j6, j7, j8, j9))
+                                assert pycf_val == pytest.approx(sp_val, abs=TOL), (
                                     f"9j({j1},{j2},{j3};{j4},{j5},{j6};"
                                     f"{j7},{j8},{j9}): pycf={pycf_val} sympy={sp_val}"
                                 )

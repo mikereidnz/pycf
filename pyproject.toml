@@ -107,6 +107,10 @@ version = {attr = "pycf.__version__"}
 module = "pycf.pyemp"
 ignore_errors = true
 
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313"]
+
 [tool.coverage.run]
 # Legacy module — see "Legacy-module exemptions" note above.
 omit = ["pycf/pyemp.py"]

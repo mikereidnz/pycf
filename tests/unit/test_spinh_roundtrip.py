@@ -32,6 +32,7 @@ ROUNDTRIP_TOL = 1e-8
 # but repeated here as a stand-alone unit test with synthetic data.
 # ---------------------------------------------------------------------------
 
+
 def test_spinh_bgs_roundtrip_diagonal_g():
     """Diagonal g-tensor must round-trip exactly."""
     g = np.diag([2.0, 2.5, 1.8])
@@ -77,6 +78,7 @@ def test_spinh_bgs_roundtrip_full_g():
 # ---------------------------------------------------------------------------
 # ias (hyperfine A) round-trip — NEW coverage, not asserted in existing tests.
 # ---------------------------------------------------------------------------
+
 
 def test_spinh_ias_roundtrip_diagonal_A():
     """Diagonal hyperfine matrix must round-trip exactly."""
@@ -138,6 +140,7 @@ def test_spinh_ias_roundtrip_various_I(I_val):
 # iqi (quadrupole Q) round-trip — NEW coverage.
 # ---------------------------------------------------------------------------
 
+
 def test_spinh_iqi_roundtrip_diagonal_Q():
     """Diagonal quadrupole matrix must round-trip exactly."""
     Q = np.diag([15.0, -5.0, -10.0])
@@ -175,6 +178,7 @@ def test_spinh_iqi_roundtrip_full_Q():
 # usage pattern in eryso_site1_bobyqa_try_ab-initio.py).
 # ---------------------------------------------------------------------------
 
+
 def test_spinh_combined_ias_iqi_roundtrip():
     """Construct ias + iqi together; recover both matrices."""
     A = np.array([[50.0, 5.0, 0.0], [5.0, 80.0, 0.0], [0.0, 0.0, 120.0]])
@@ -198,6 +202,7 @@ def test_spinh_combined_ias_iqi_roundtrip():
 # ---------------------------------------------------------------------------
 # get_H sanity check — full Hamiltonian must be Hermitian.
 # ---------------------------------------------------------------------------
+
 
 def test_spinh_get_H_is_hermitian():
     """The full Hamiltonian assembled by SpinH.get_H() must be Hermitian."""
@@ -225,6 +230,7 @@ def test_spinh_get_H_is_hermitian():
 # ---------------------------------------------------------------------------
 # Error paths.
 # ---------------------------------------------------------------------------
+
 
 def test_spinh_bi_cannot_be_inverted():
     """The 'bi' (nuclear Zeeman) term has no parameter matrix and so

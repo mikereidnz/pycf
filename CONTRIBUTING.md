@@ -228,6 +228,21 @@ To **add** a new module to the legacy list:
 To **remove** a module from the legacy list, reverse those steps and
 fix any issues that the audit tools subsequently report.
 
+### Preserving legacy data files byte-faithfully
+
+Some files must stay byte-identical to the producing tool: the JMCALC/
+SLJM matrix-element fixtures, sample output from legacy pascal programs
+kept for comparison, etc. **Place any such file under a `matel/`
+subdirectory anywhere in the tree.** All `matel/` directories are
+excluded from every formatter, whitespace fixer, and lint hook in
+`.pre-commit-config.yaml`. The same convention applies to test
+fixtures (`tests/integration/<dir>/matel/`) and example data
+(`examples/<dir>/matel/`).
+
+The historical Sphinx documentation under `docs/legacy/` is also kept
+as a record and is excluded from the Sphinx build (via
+`exclude_patterns` in `docs/conf.py`) and from pre-commit hooks.
+
 ## Submitting a Pull Request
 
 1. **Push your changes** to your fork:

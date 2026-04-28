@@ -113,7 +113,7 @@ def dipole_str(
     V: np.ndarray,
     md: bool = True,
     ed: bool = False,
-    Altp: Optional[List[float]] = None,
+    Altp: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate dipole strengths and transition properties in eigenbasis.
@@ -446,14 +446,14 @@ def A_and_f_calc(
     clight = SPEED_OF_LIGHT
     rpi = np.pi
     if energy == 0:
-        lambda_ = 0
-        omega = 0
+        lambda_ = 0.0
+        omega = 0.0
     else:
         lambda_ = 1e-2 / energy  # {cm-1}; {m}
         if lambda_ != 0:
             omega = 2 * rpi * clight / lambda_  # {hz}
         else:
-            omega = 0
+            omega = 0.0
     chilocal = ((nrefractive**2 + 2) / 3) ** 2
     # our dipole strengths are in units of 10-20 cm2,
     # so we need to convert to SI units of C2m2 for the A and f calculations.

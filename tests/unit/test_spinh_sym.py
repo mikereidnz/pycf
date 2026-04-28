@@ -26,6 +26,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from pycf.matel import matel
 from pycf.spinh import (
     SpinH,
     bmj,
@@ -36,8 +37,6 @@ from pycf.spinh import (
     su2_rotation_lsq_f,
     su2_rz_lsq_f,
 )
-from pycf.matel import matel
-
 
 # ---------------------------------------------------------------------------
 # Direct tests of su2_rz_lsq_f

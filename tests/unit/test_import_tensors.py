@@ -5,17 +5,16 @@ without going through any of the legacy jmcalc text files, exercising the
 generic in-memory path that ``ImportTensors`` provides.
 """
 
-import io
 import contextlib
+import io
 
 import numpy as np
 import pytest
-from scipy.sparse import csr_matrix, coo_matrix, triu
+from scipy.sparse import coo_matrix, csr_matrix, triu
 
 import pycf
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportTensors
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: small Hermitian operators
@@ -60,9 +59,7 @@ def test_construct_from_full_sparse():
 
 def test_construct_from_upper_csr():
     sx_upper = triu(csr_matrix(SX), format="csr")
-    it = ImportTensors(
-        "M", STATES_2, {"SX": sx_upper}, storage="upper", check_hermitian=False
-    )
+    it = ImportTensors("M", STATES_2, {"SX": sx_upper}, storage="upper", check_hermitian=False)
     assert np.allclose(it.SX.get_matel(), SX)
 
 
@@ -70,9 +67,7 @@ def test_full_and_upper_storage_agree():
     """Same operator via both storage paths must be numerically identical."""
     it_full = ImportTensors("M", STATES_2, {"SX": SX})
     sx_upper = triu(csr_matrix(SX), format="csr")
-    it_upper = ImportTensors(
-        "M", STATES_2, {"SX": sx_upper}, storage="upper"
-    )
+    it_upper = ImportTensors("M", STATES_2, {"SX": sx_upper}, storage="upper")
     assert np.allclose(it_full.SX.get_matel(), it_upper.SX.get_matel())
 
 
@@ -83,9 +78,7 @@ def test_accepts_non_csr_sparse():
 
 
 def test_mixed_dense_and_sparse():
-    it = ImportTensors(
-        "M", STATES_2, {"SX": SX, "SZ": csr_matrix(SZ)}
-    )
+    it = ImportTensors("M", STATES_2, {"SX": SX, "SZ": csr_matrix(SZ)})
     assert np.allclose(it.SX.get_matel(), SX)
     assert np.allclose(it.SZ.get_matel(), SZ)
 
@@ -214,9 +207,7 @@ def test_aliases_off_by_default():
 
 
 def test_aliases_synthesised_when_enabled():
-    it = ImportTensors(
-        "M", STATES_2, {"MAG10": SZ, "MAG11": SX}, add_aliases=True
-    )
+    it = ImportTensors("M", STATES_2, {"MAG10": SZ, "MAG11": SX}, add_aliases=True)
     assert {"MAGX", "MAGY", "MAGZ"} <= set(it.tensors)
     assert it.MAGZ.name == "MAGZ"
     # MAGX = -1/sqrt(2) * MAG11
@@ -225,9 +216,7 @@ def test_aliases_synthesised_when_enabled():
 
 
 def test_hyp_alias_synthesised():
-    it = ImportTensors(
-        "M", STATES_2, {"AHYP": SX, "BHYP": SZ}, add_aliases=True
-    )
+    it = ImportTensors("M", STATES_2, {"AHYP": SX, "BHYP": SZ}, add_aliases=True)
     assert "HYP" in it.tensors
     expected = SX - np.sqrt(10) * SZ
     assert np.allclose(it.HYP.get_matel(), expected)
@@ -308,9 +297,7 @@ def test_check_hermitian_false_bypasses():
     triangle.
     """
     bad = np.array([[0, 1], [0, 0]], dtype=complex)
-    it = ImportTensors(
-        "M", STATES_2, {"X": bad}, check_hermitian=False
-    )
+    it = ImportTensors("M", STATES_2, {"X": bad}, check_hermitian=False)
     expected = np.array([[0, 1], [1, 0]], dtype=complex)
     assert np.allclose(it.X.get_matel(), expected)
 
@@ -336,9 +323,7 @@ def test_reserved_name_rejected_when_exposing_attrs():
 
 
 def test_reserved_name_allowed_when_not_exposing_attrs():
-    it = ImportTensors(
-        "M", STATES_2, {"tensors": SX}, expose_attrs=False
-    )
+    it = ImportTensors("M", STATES_2, {"tensors": SX}, expose_attrs=False)
     # The user-supplied "tensors" key lives in the dict, but self.tensors
     # is still the dict mapping (not shadowed).
     assert isinstance(it.tensors, dict)

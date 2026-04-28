@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `pycf.import_sljm.ImportTensors`: in-memory wrapper that accepts
+  user-supplied tensor matrices (NumPy arrays or SciPy sparse) and
+  state labels, producing the same `cfl.Tensor` / `cfl.StateLabels`
+  objects as `ImportSLJM` without any file I/O. Useful for unit
+  testing and for sourcing matrix elements from non-jmcalc backends.
+  `ImportSLJM` now delegates its tensor-wrapping path to
+  `ImportTensors`, removing duplicated logic.
+- Spin-half eigenvector regression test
+  (`tests/unit/test_import_tensors.py::test_spin_half_eigenvectors_match_numpy`)
+  that guards against the LAPACK transpose-vs-conjugate regression
+  fixed by the conjugation in `solve_hermitian_block`
+  (`cfl/src/cfl_h.c:160`).
+- SpinH round-trip and `njsymbols`-vs-`sympy` unit tests; closed
+  cfl_util / spinh coverage gaps identified in the prior audit.
 - Comprehensive Sphinx-based API documentation framework
 - GitHub Actions CI with AddressSanitizer and UndefinedBehaviorSanitizer
 - Type hints for 100% of core modules (8 modules, 130+ annotations)
@@ -16,14 +30,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - mypy type checking in CI pipeline
 - Module docstrings for all 8 core modules with workflow examples
 
+### Changed
+- Minimum supported Python is now 3.10; drop 3.8 and 3.9. `scipy>=1.15`
+  is now required. CI matrix expanded with Python 3.13.
+- Reorganised the test tree into `tests/unit/` and `tests/integration/`
+  subdirectories; `matel/` fixture data moved with its parent
+  integration tests.
+
 ### Improved
 - Standardized C test tolerances to use shared `TEST_TOLERANCE` constant
 - Enhanced module-level documentation with comprehensive docstrings
 - Improved Cython error handling in Tensor class
 - Better exception catching in PyCapsule validation
+- pre-commit is now a CI gate (coverage threshold + lint enforcement
+  enabled in CI).
 
 ### Fixed
 - Fixed scipy.special.sph_harm deprecation (migrated to sph_harm_y)
+- Corrected an effective transpose in `solve_hermitian_block`: the
+  call into LAPACK's Hermitian eigensolver previously delivered the
+  transpose of the input block. Eigenvectors of complex Hamiltonians
+  with non-zero imaginary off-diagonals are now numerically correct.
 - Improved error messages and validation in crystal field functions
 - Better parameter bounds checking in intensity calculations
 

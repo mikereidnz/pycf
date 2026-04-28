@@ -377,8 +377,8 @@ def su2_rz_lsq_f(p: float, coeff_a: np.ndarray, b: np.ndarray) -> float:
         b_p = su2_rz(p, b)
     tensor = invert_term(coeff_a, b_p)
     r = 0
-    for i in [(1, 3), (2, 6), (5, 7)]:
-        r += np.abs(tensor[i[0]] - tensor[i[1]])
+    for i_a, i_b in [(1, 3), (2, 6), (5, 7)]:
+        r += np.abs(tensor[i_a] - tensor[i_b])
     return r
 
 
@@ -462,8 +462,8 @@ def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> flo
         b_p = su2_rotation(p, b)
     tensor = invert_term(coeff_a, b_p)
     r = 0
-    for i in [(1, 3), (2, 6), (5, 7)]:
-        r += np.abs(tensor[i[0]] - tensor[i[1]])
+    for i_a, i_b in [(1, 3), (2, 6), (5, 7)]:
+        r += np.abs(tensor[i_a] - tensor[i_b])
     return r
 
 

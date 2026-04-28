@@ -45,7 +45,7 @@ templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that shouldn't be included
 # when building the documentation.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "legacy/**"]
 
 # -- Options for HTML output ---------------------------------------------------
 

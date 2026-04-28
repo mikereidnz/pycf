@@ -33,7 +33,6 @@ import pytest
 
 from pycf import cfl_util
 
-
 # ---------------------------------------------------------------------------
 # ex_parse_abs / ex_parse_diff
 # ---------------------------------------------------------------------------
@@ -89,9 +88,7 @@ class TestExParseAbs:
     def test_index_mode_with_diff_part_uses_only_n_a(self):
         # ``ex.e`` typically holds abs values first, then diff values.
         # ex_parse_abs must read only the first n_a entries.
-        ex = _make_index_exdata(
-            n_a=2, n_d=2, e=[10.0, 20.0, 999.0, 999.0], la=[1, 2]
-        )
+        ex = _make_index_exdata(n_a=2, n_d=2, e=[10.0, 20.0, 999.0, 999.0], la=[1, 2])
         out = cfl_util.ex_parse_abs(ex, np.eye(3), [(0, 0)] * 3)
         np.testing.assert_array_equal(out[:, 1], [10.0, 20.0])
 
@@ -158,18 +155,14 @@ class TestExParseDiff:
     def test_label_mode_missing_initial_label_raises(self):
         z = np.eye(2)
         labels = [(0,), (1,)]
-        ex = _make_label_exdata(
-            n_a=0, n_d=1, e=[10.0], id_states=[(99,)], fd_states=[(0,)]
-        )
+        ex = _make_label_exdata(n_a=0, n_d=1, e=[10.0], id_states=[(99,)], fd_states=[(0,)])
         with pytest.raises(RuntimeError, match="Initial-state label"):
             cfl_util.ex_parse_diff(ex, z, labels)
 
     def test_label_mode_missing_final_label_raises(self):
         z = np.eye(2)
         labels = [(0,), (1,)]
-        ex = _make_label_exdata(
-            n_a=0, n_d=1, e=[10.0], id_states=[(0,)], fd_states=[(99,)]
-        )
+        ex = _make_label_exdata(n_a=0, n_d=1, e=[10.0], id_states=[(0,)], fd_states=[(99,)])
         with pytest.raises(RuntimeError, match="Final-state label"):
             cfl_util.ex_parse_diff(ex, z, labels)
 
@@ -222,9 +215,7 @@ class TestGenESummary:
     def test_chi2_with_ndof_computes_sigma(self):
         w, z = _diag_eigenpair([0.0, 100.0])
         labels = [(0, 0), (0, 1)]
-        s = cfl_util.gen_e_summary(
-            w, z, labels, "JM", chi2=4.0, ndof=4, weighting=1.0
-        )
+        s = cfl_util.gen_e_summary(w, z, labels, "JM", chi2=4.0, ndof=4, weighting=1.0)
         # sigma = sqrt(4 / (1 * 4)) = 1.0
         assert "sigma = 1.0000" in s
         assert "weighted chi2 = 4.0000" in s
@@ -232,9 +223,7 @@ class TestGenESummary:
     def test_chi2_with_ndof_zero_shows_NA(self):
         w, z = _diag_eigenpair([0.0, 100.0])
         labels = [(0, 0), (0, 1)]
-        s = cfl_util.gen_e_summary(
-            w, z, labels, "JM", chi2=4.0, ndof=0, weighting=1.0
-        )
+        s = cfl_util.gen_e_summary(w, z, labels, "JM", chi2=4.0, ndof=0, weighting=1.0)
         assert "sigma = N/A" in s
 
     def test_chi2_with_ndof_missing_weighting_raises(self):
@@ -280,9 +269,7 @@ class TestGenESummaryTrunc:
     def test_diff_only(self):
         w, z = _diag_eigenpair([0.0, 50.0, 100.0])
         labels = [(0, i) for i in range(3)]
-        ex = _make_index_exdata(
-            n_a=0, n_d=1, e=[48.0], ild=[1], fld=[2]
-        )
+        ex = _make_index_exdata(n_a=0, n_d=1, e=[48.0], ild=[1], fld=[2])
         s = cfl_util.gen_e_summary_trunc(w, z, labels, "JM", ex, "TruncDiff")
         assert "TruncDiff summary" in s
         assert "48" in s
@@ -294,8 +281,15 @@ class TestGenESummaryTrunc:
         labels = [(0, 0), (0, 1)]
         ex = _make_index_exdata(n_a=1, n_d=0, e=[1.0], la=[1])
         s = cfl_util.gen_e_summary_trunc(
-            w, z, labels, "JM", ex, "Tr",
-            chi2=2.0, ndof=0, weighting=1.0,
+            w,
+            z,
+            labels,
+            "JM",
+            ex,
+            "Tr",
+            chi2=2.0,
+            ndof=0,
+            weighting=1.0,
         )
         assert "sigma = N/A" in s
 
@@ -304,9 +298,7 @@ class TestGenESummaryTrunc:
         labels = [(0, 0), (0, 1)]
         ex = _make_index_exdata(n_a=1, n_d=0, e=[0.0], la=[1])
         with pytest.raises(ValueError, match="weight argument"):
-            cfl_util.gen_e_summary_trunc(
-                w, z, labels, "JM", ex, "Tr", chi2=1.0, ndof=1
-            )
+            cfl_util.gen_e_summary_trunc(w, z, labels, "JM", ex, "Tr", chi2=1.0, ndof=1)
 
 
 # ---------------------------------------------------------------------------
@@ -389,8 +381,12 @@ class TestGenFitSummary:
         coeff = {"EAVG": 1000.0, "C20": 300.0}
         fit_obj = _FakeFitObj({"EAVG": 1010.0 + 0j, "C20": 290.0 + 0j})
         s = cfl_util.gen_fit_summary(
-            coeff, fit_obj, method="nlopt_bobyqa", fmin=1.5,
-            n_obs=10, n_param=2,
+            coeff,
+            fit_obj,
+            method="nlopt_bobyqa",
+            fmin=1.5,
+            n_obs=10,
+            n_param=2,
         )
         assert "Fitting summary" in s
         assert "EAVG" in s
@@ -409,8 +405,13 @@ class TestGenFitSummary:
         # diagonal: var(re C44)=4, var(im C44)=9, var(C20)=16
         cov = np.diag([4.0, 9.0, 16.0])
         s = cfl_util.gen_fit_summary(
-            coeff, fit_obj, method="nlopt_bobyqa", fmin=0.0,
-            n_obs=5, n_param=3, covar=cov,
+            coeff,
+            fit_obj,
+            method="nlopt_bobyqa",
+            fmin=0.0,
+            n_obs=5,
+            n_param=3,
+            covar=cov,
         )
         # The uncertainty on C20 should be sqrt(16) = 4, not sqrt(9) = 3.
         # The complex C44 uncertainty must be reported as a complex with
@@ -424,8 +425,13 @@ class TestGenFitSummary:
         coeff = {"EAVG": 1.0}
         fit_obj = _FakeFitObj({"EAVG": 1.0 + 0j})
         s = cfl_util.gen_fit_summary(
-            coeff, fit_obj, method="basinhopping", fmin=0.0,
-            n_obs=1, n_param=1, retval=42,
+            coeff,
+            fit_obj,
+            method="basinhopping",
+            fmin=0.0,
+            n_obs=1,
+            n_param=1,
+            retval=42,
         )
         assert "naccept:" in s
         assert "42" in s

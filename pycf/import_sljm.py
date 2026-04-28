@@ -17,7 +17,7 @@
 import os
 import re
 from collections.abc import Mapping as MappingABC
-from typing import Any, Generator, List, Mapping, Optional, Union
+from typing import Any, Generator, List, Mapping, Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix, issparse, triu
@@ -121,9 +121,7 @@ class ImportTensors(object):
         if states_arr.ndim == 1 and nkey == 1:
             states_arr = states_arr.reshape(-1, 1)
         if states_arr.ndim != 2:
-            raise ValueError(
-                "states must be 2-D with shape (N, len(label_key))"
-            )
+            raise ValueError("states must be 2-D with shape (N, len(label_key))")
         if states_arr.shape[1] != nkey:
             raise ValueError(
                 "states has %d columns but label_key has %d characters"
@@ -143,8 +141,7 @@ class ImportTensors(object):
             collisions = set(tensors).intersection(_RESERVED_TENSOR_NAMES)
             if collisions:
                 raise ValueError(
-                    "Tensor names collide with reserved attributes: %s"
-                    % sorted(collisions)
+                    "Tensor names collide with reserved attributes: %s" % sorted(collisions)
                 )
 
         # Convert each matrix to upper-triangle CSR complex128.
@@ -152,9 +149,7 @@ class ImportTensors(object):
         for name, mat in tensors.items():
             if not isinstance(name, str) or not name:
                 raise ValueError("tensor names must be non-empty strings")
-            tensor_matrices[name] = self._normalise_matrix(
-                name, mat, dim, storage, check_hermitian
-            )
+            tensor_matrices[name] = self._normalise_matrix(name, mat, dim, storage, check_hermitian)
 
         # Build StateLabels.
         sl_list = [list(row) for row in states_arr.tolist()]
@@ -195,8 +190,7 @@ class ImportTensors(object):
             sp = mat.tocsr().astype(np.complex128)
             if sp.shape != (dim, dim):
                 raise ValueError(
-                    "tensor %r has shape %s, expected (%d, %d)"
-                    % (name, sp.shape, dim, dim)
+                    "tensor %r has shape %s, expected (%d, %d)" % (name, sp.shape, dim, dim)
                 )
             if storage == "full":
                 sp = triu(sp, format="csr")
@@ -207,8 +201,7 @@ class ImportTensors(object):
             raise ValueError("tensor %r must be a square 2-D matrix" % name)
         if arr.shape != (dim, dim):
             raise ValueError(
-                "tensor %r has shape %s, expected (%d, %d)"
-                % (name, arr.shape, dim, dim)
+                "tensor %r has shape %s, expected (%d, %d)" % (name, arr.shape, dim, dim)
             )
         arr = arr.astype(np.complex128, copy=False)
         if check_hermitian and not np.allclose(arr, arr.conj().T):
@@ -230,8 +223,7 @@ class ImportTensors(object):
             collisions = {"MAGX", "MAGY", "MAGZ"} & set(tensors_dict)
             if collisions:
                 raise ValueError(
-                    "alias synthesis would overwrite supplied tensors: %s"
-                    % sorted(collisions)
+                    "alias synthesis would overwrite supplied tensors: %s" % sorted(collisions)
                 )
             # MFR: signs match the standard spherical tensor component
             # definitions; affects eigenvector phases (and therefore
@@ -244,12 +236,8 @@ class ImportTensors(object):
             tensors_dict["MAGZ"].name = "MAGZ"
         if "AHYP" in tensors_dict and "BHYP" in tensors_dict:
             if "HYP" in tensors_dict:
-                raise ValueError(
-                    "alias synthesis would overwrite supplied tensor: HYP"
-                )
-            tensors_dict["HYP"] = (
-                tensors_dict["AHYP"] - np.sqrt(10) * tensors_dict["BHYP"]
-            )
+                raise ValueError("alias synthesis would overwrite supplied tensor: HYP")
+            tensors_dict["HYP"] = tensors_dict["AHYP"] - np.sqrt(10) * tensors_dict["BHYP"]
             tensors_dict["HYP"].name = "HYP"
 
     def __iter__(self) -> Generator[Any, None, None]:
@@ -311,10 +299,10 @@ class ImportSLJM(object):
 
     def __init__(self, name: str, sl_name: Optional[str] = None) -> None:
         # Create list of tuples of the form ('tensor_name', 'tensor_dim')
-        tensor_dims = []
+        tensor_dims: List[tuple] = []
         with open("%s.mi_" % name, "r") as f:
-            for td in get_tensor_dim(f):
-                tensor_dims += td
+            for td_chunk in get_tensor_dim(f):
+                tensor_dims += td_chunk
         if not sl_name:
             sl_name = name
         # Get the number of states and state labels from *.st file.
@@ -348,19 +336,19 @@ class ImportSLJM(object):
             )
         # Index of regex group for each label type.
         gi = {"S": 1, "L": 2, "J": 4, "M": 5, "I": 6, "T": 3, "F": 0}
-        label_key = ["L", "J", "M"]
+        label_key_list = ["L", "J", "M"]
         for state_label in state_labels:
-            label_key += [k for k in gi if (state_label[gi[k]] and k not in label_key)]
+            label_key_list += [k for k in gi if (state_label[gi[k]] and k not in label_key_list)]
         # FIXME: T, which was intended as 'seniority', is labeled as X in
         # Nielson and Koster; should adopt this, but make sure if I change it
         # here nothing else get's messed up.
         # Rearrange label key to cannonical order.
         sort_key = ["T", "F", "S", "L", "J", "M", "I"]
-        label_key.sort(key=lambda k: sort_key.index(k))
+        label_key_list.sort(key=lambda k: sort_key.index(k))
         sl = []
         for state_label in state_labels:
             lk = []
-            for k in label_key:
+            for k in label_key_list:
                 # Convert total orbital angular momentum label to numerical
                 # label.
                 if k == "L":
@@ -382,7 +370,7 @@ class ImportSLJM(object):
                     label = int(state_label[gi[k]])
                 lk += [label]
             sl += [lk]
-        label_key = "".join(label_key)
+        label_key = "".join(label_key_list)
         # Generate a dictionary with keys for each tensor and lists of the form
         # [row, col, matel].  These are then used to create Scipy sparse CSR
         # matrices.

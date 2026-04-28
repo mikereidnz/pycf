@@ -54,7 +54,6 @@ all: libcfl.a
 
 test: $(TESTS)
 	sh ./cfl_testing.sh
-	touch test
 
 debug: CFLAGS=-g -O1 -fPIC -std=c99 -I/usr/include/lapacke $(OPENMP_CFLAGS)
 debug: all
