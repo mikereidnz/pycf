@@ -267,8 +267,7 @@ jobs:
       run: bandit -c .bandit -r pycf/
 
     - name: Run semgrep static analysis
-      run: semgrep --config=p/python pycf/
-      continue-on-error: true
+      run: semgrep --config=p/python --error pycf/
 
   benchmarks:
     runs-on: ubuntu-latest
