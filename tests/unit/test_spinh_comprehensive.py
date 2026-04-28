@@ -328,3 +328,42 @@ class TestIntegration:
             assert np.all(np.isfinite(result))
 
         assert result.shape == m.shape
+
+
+class TestBI:
+    """Test the bi() function (B . I-style dot product term)."""
+
+    def test_bi_matches_explicit_dot_product(self) -> None:
+        """bi(v, t) should equal sum_i v[i] * t[i]."""
+        from pycf.spinh import bi
+
+        I = 0.5
+        t = [matel("jx", I), matel("jy", I), matel("jz", I)]
+        v = np.array([0.3, -0.7, 1.1])
+
+        result = bi(v, t)
+        expected = v[0] * t[0] + v[1] * t[1] + v[2] * t[2]
+
+        np.testing.assert_allclose(result, expected, atol=1e-12)
+
+    def test_bi_zero_field_gives_zero(self) -> None:
+        """bi() with a zero field vector should return a zero matrix."""
+        from pycf.spinh import bi
+
+        I = 1.0
+        t = [matel("jx", I), matel("jy", I), matel("jz", I)]
+        result = bi(np.zeros(3), t)
+
+        assert result.shape == t[0].shape
+        np.testing.assert_allclose(result, np.zeros_like(t[0]), atol=1e-14)
+
+    def test_bi_hermitian_for_real_field(self) -> None:
+        """For a real field vector, bi() of Hermitian generators is Hermitian."""
+        from pycf.spinh import bi
+
+        I = 1.5
+        t = [matel("jx", I), matel("jy", I), matel("jz", I)]
+        v = np.array([0.5, 1.0, -0.25])
+
+        result = bi(v, t)
+        np.testing.assert_allclose(result, result.conj().T, atol=1e-12)
