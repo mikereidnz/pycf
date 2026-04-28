@@ -58,6 +58,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call into LAPACK's Hermitian eigensolver previously delivered the
   transpose of the input block. Eigenvectors of complex Hamiltonians
   with non-zero imaginary off-diagonals are now numerically correct.
+- Fixed NLS double-weighting in `cfl.pyx`: GSL `wts` is now an
+  all-ones array, since `nls_echisq` already encodes the full per-
+  residual weight as `sqrt(w)*(calc-obs)`. Previously the per-
+  Hamiltonian weight was effectively squared compared to the
+  gradient-based methods, making NLS inconsistent with `echisq` for
+  non-uniform `weights_list` values. Default error cases were also
+  added to `cfl_gsl_min_setup` and `cfl_nlopt_min_setup` so an
+  invalid algorithm enum returns `NULL` rather than dispatching
+  through uninitialised function pointers.
+- Fixed eigenvector percentage in `cfl_util` summaries: use
+  `|z|^2 / sum(|z|^2)` (probability weight) instead of
+  `|z| / sum(|z|)` (amplitude ratio). For a component
+  `z = -0.78+0.38j` this changes the reported weight from 58% to the
+  correct 75.3%. Applied at all four call sites.
+- `CFLMin.fit(dry_run=True)` now evaluates the objective function at
+  the initial parameters and returns the resulting `fmin`, instead
+  of returning `fmin=0`. Users can now use a dry run to inspect how
+  well the initial parameters fit the data without invoking the
+  minimiser.
 - Improved error messages and validation in crystal field functions
 - Better parameter bounds checking in intensity calculations
 
