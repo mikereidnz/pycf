@@ -197,6 +197,54 @@ def test_spin_half_eigenvectors_match_numpy(data_sel):
 
 
 # ---------------------------------------------------------------------------
+# Hamiltonian reconstruction from cfl.Hamiltonian.diag() output.
+#
+# For any Hermitian H, if (w, z) = diag(H) with z holding eigenvectors as
+# columns, then H == z @ diag(w) @ z.conj().T exactly. This is independent
+# of eigenvalue ordering and of any per-column phase choice, so it acts as
+# a strong, simple correctness check on h.diag() without needing the
+# phase-matching machinery used elsewhere in this file.
+#
+# Historical note: this is the diagnostic that originally pinpointed the
+# effective-transpose bug fixed by the conjugation in
+# ``solve_hermitian_block`` (cfl/src/cfl_h.c:160).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("data_sel", ["real", "imag", "complex"])
+def test_spin_half_hamiltonian_reconstruction(data_sel):
+    """h.diag() output reconstructs H exactly: H == z @ diag(w) @ z.conj().T."""
+    it = ImportTensors("M", STATES_2, {"SX": SX, "SY": SY, "SZ": SZ})
+    h = cfl.Hamiltonian([it.SX, it.SY, it.SZ])
+
+    coeff = {"SX": 0.0, "SY": 0.0, "SZ": 0.0}
+    if data_sel == "real":
+        coeff["SX"] = 1.0
+    elif data_sel == "imag":
+        coeff["SY"] = 1.0
+    elif data_sel == "complex":
+        coeff["SX"] = 1.0
+        coeff["SY"] = 1.0
+
+    h.set_coeff(coeff)
+    w, z = h.diag()
+
+    H_dense = coeff["SX"] * SX + coeff["SY"] * SY + coeff["SZ"] * SZ
+    H_reconstructed = z @ np.diag(w) @ z.conj().T
+    assert np.allclose(H_reconstructed, H_dense, atol=1e-10)
+
+
+def test_4x4_hamiltonian_reconstruction():
+    """Reconstruction check on a 4x4 Hermitian H built via ImportTensors."""
+    it = ImportTensors("JM", STATES_4, {"H": H4})
+    h = cfl.Hamiltonian([it.H])
+    h.set_coeff({"H": 1.0})
+    w, z = h.diag()
+    H_reconstructed = z @ np.diag(w) @ z.conj().T
+    assert np.allclose(H_reconstructed, H4, atol=1e-10)
+
+
+# ---------------------------------------------------------------------------
 # Alias synthesis
 # ---------------------------------------------------------------------------
 
