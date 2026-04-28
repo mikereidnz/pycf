@@ -520,6 +520,172 @@ python -c "import pycf.cfl; print(pycf.cfl.__file__)"
 
 ---
 
+### Option E: Setup for Multiple Users on a Server
+
+If you maintain a single pycf source tree on a shared server (e.g. an
+HPC login node, a lab workstation, or a multi-user research server) and
+want colleagues to be able to use it without each installing their own
+copy, the following setup works well: a **single editable install** of
+the source tree, and **one venv per user** that points at it.
+
+The maintainer rebuilds the C extension once; every user picks up the
+updated `.py` and `.so` files automatically the next time they start a
+Python process.
+
+#### Step 1: Maintainer prepares the source tree (one-time)
+
+```bash
+# Clone or develop the source tree at a stable, readable location
+git clone https://github.com/mikereidnz/pycf.git /shared/pycf
+cd /shared/pycf
+
+# Make the source tree readable by users
+chmod -R a+rX /shared/pycf
+```
+
+The maintainer rebuilds the C extension whenever the source changes:
+
+```bash
+cd /shared/pycf
+python setup.py build_ext --inplace
+```
+
+Because users install pycf in *editable* mode (next step), the
+freshly-built `pycf/cfl.cpython-3xx-...so` and any updated `.py`
+files are picked up automatically — no further action required from
+users beyond restarting their Python process.
+
+#### Step 2: Each user creates their own venv (one-time per user)
+
+```bash
+# Choose a location for your personal venv
+cd ~
+python -m venv my_pycf
+source ~/my_pycf/bin/activate
+
+# Editable install pointing at the shared source tree
+pip install -e /shared/pycf
+
+# Or, to also pull in the dependencies needed to run the examples
+# (matplotlib, pymatgen) and the test suite (pytest, hypothesis,
+# sympy, ...), use the dev extras:
+pip install -e "/shared/pycf[dev]"
+
+# Or pick just one bundle:
+#   [test]      -> pytest + test-only deps
+#   [examples]  -> matplotlib + pymatgen for examples
+#   [dev]       -> everything (test + examples + lint/build tools)
+```
+
+Each user owns their own venv, so they can freely add additional
+packages (`pip install <anything>`) without affecting anyone else.
+
+#### Running the test suite from a user account
+
+Once the `[test]` (or `[dev]`) extras are installed, any user can run
+the project's pytest suite directly against the shared source tree by
+passing the path:
+
+```bash
+# From any writable directory of your choice
+cd ~                                 # writable cwd for pytest cache
+python -m pytest /shared/pycf/tests/
+
+# Or a single subdirectory
+python -m pytest /shared/pycf/tests/unit/
+```
+
+pytest auto-discovers `pytest.ini` and `conftest.py` from
+`/shared/pycf/`, so the configuration is identical to running tests
+as the maintainer. The shared source tree itself stays read-only;
+pytest writes its `.pytest_cache/` into the current working
+directory, which is why running from a writable directory (e.g. your
+home) is recommended.
+
+The C test suite (`make -C cfl test`) requires write access to
+`/shared/pycf/cfl/` and is therefore a maintainer-only operation.
+
+#### Step 3: Optional convenience function
+
+Users may want a one-line activation function in their `~/.bashrc`:
+
+```bash
+my_pycf_activate() {
+    local old_ps1="${PS1:-}"
+    export VIRTUAL_ENV_DISABLE_PROMPT=1
+    source ~/my_pycf/bin/activate
+    unset VIRTUAL_ENV_DISABLE_PROMPT
+    export _OLD_VIRTUAL_PS1="$old_ps1"
+    PS1="(my_pycf) ${old_ps1}"
+    export PS1
+}
+```
+
+After `source ~/.bashrc`, just run:
+
+```bash
+my_pycf_activate
+```
+
+#### What this gives you
+
+- **Each user owns their venv.** They can `pip install` extra packages
+  freely; nothing they do affects other users.
+- **Rebuilds propagate automatically.** When the maintainer runs
+  `python setup.py build_ext --inplace` in `/shared/pycf`, every user
+  who starts a fresh Python process picks up the new `.so` and `.py`
+  files. Already-running Python processes need to be restarted to see
+  the change (Python caches loaded extensions).
+- **Activation is non-destructive.** Re-running the activation function
+  does not reset the venv; any packages a user has installed persist.
+
+#### Caveat: Python version compatibility
+
+The compiled extension `pycf/cfl.cpython-XYZ-...so` is tagged with the
+exact Python version it was built against (e.g. `cpython-313`). If a
+user creates their venv with a different Python version, `import
+pycf.cfl` will fail because no matching `.so` exists.
+
+Either standardise on a single Python version on the server, or
+rebuild for each version users might pick:
+
+```bash
+# As maintainer, rebuild against the Python in your shell
+python --version          # check which version
+python setup.py build_ext --inplace
+```
+
+Multiple `.so` files for different Python versions can coexist in
+`pycf/` simultaneously.
+
+#### Maintainer-controlled alternative (single shared venv)
+
+If you would rather provide a *ready-to-use* shared venv and let users
+just activate it (no per-user venv setup), do this once as the
+maintainer:
+
+```bash
+cd /shared/pycf
+python -m venv env
+source env/bin/activate
+pip install -e .
+chmod -R a+rX env
+deactivate
+```
+
+Users then add an activation function to their `~/.bashrc` pointing at
+`/shared/pycf/env/bin/activate` and run it. Limitation: users cannot
+`pip install` extra packages into the shared venv unless given write
+access. They can install user-local extras with `pip install --user
+<pkg>`, which lands in `~/.local/...` and remains importable inside
+the venv.
+
+The per-user venv pattern (Steps 1–3 above) is generally more
+flexible; the shared venv pattern is convenient for low-effort
+read-only deployments.
+
+---
+
 ## Usage Examples
 
 ### Running Existing Examples
