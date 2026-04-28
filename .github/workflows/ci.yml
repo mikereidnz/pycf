@@ -270,8 +270,7 @@ jobs:
       continue-on-error: true
 
     - name: Run semgrep static analysis
-      run: |
-        semgrep --config=.semgrep.yml pycf/ 2>&1 | head -100 || true
+      run: semgrep --config=p/python pycf/
       continue-on-error: true
 
   benchmarks:

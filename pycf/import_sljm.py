@@ -283,6 +283,7 @@ def get_state_number(source: Any) -> Generator[List[int], None, None]:
 class ImportSLJM(object):
     r"""
     Import the matrix elements and state labels from an SLJM calc plain text file.
+
     Parameters
     ----------
     name : string

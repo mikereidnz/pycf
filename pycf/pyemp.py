@@ -91,6 +91,7 @@ def _require_matplotlib() -> None:
 class Spectrum(dict):
     r"""
     Implements all the defining parameters of a Spectrum object.
+
     Parameters
     ----------
     name : string
@@ -156,9 +157,11 @@ class Spectrum(dict):
     plt : string
         The SpectrumErun input data file, the existence of which is also checked
         by SpectrumData to ensure Inten was run successfully.
+
     Returns
     -------
     object : Spectrum
+
     Notes
     -----
     The following list details attributes of Spectrum objects that need to be
@@ -230,12 +233,14 @@ class Spectrum(dict):
     def print_log(self, mode: str = "brief") -> str:
         r"""
         Generate a log of the executed erun programs.
+
         Parameters
         ----------
         mode : string
             Allowed values are 'brief' and 'full'.  'brief' will return the erun
             input parameters of all executed erun programs, whereas 'full' will
             return the log files of all executed erun programs.
+
         Returns
         -------
         log : string
@@ -390,6 +395,7 @@ class GenericErun(BaseEmp):
         method writes the logfile output to the file ``name_process_log.txt``
         and appends names of created data files to the :class:`Spectrum`
         instance.
+
         Parameters
         ----------
         spectrum : Spectrum
@@ -468,6 +474,7 @@ class GenericErun(BaseEmp):
 class Cfit(GenericErun):
     r"""
     Generate a cfit.dat input file and execute the cfit program.
+
     Parameters
     ----------
     spectrum : Spectrum
@@ -481,9 +488,11 @@ class Cfit(GenericErun):
     tensors : string, optional
         The .mi_ and .mm_ input file name; must be provided if it was not
         specified when the Spectrum object was instantiated.
+
     Returns
     -------
     object : Cfit
+
     Notes
     -----
     Instantiating an object of this type automatically sets the ``tvals``
@@ -686,6 +695,7 @@ class Cfit(GenericErun):
 class Vtrans(GenericErun):
     r"""
     Generate a vtrans.dat input file and execute the vtrans program.
+
     Parameters
     ----------
     spectrum : Spectrum
@@ -704,9 +714,11 @@ class Vtrans(GenericErun):
         The vtrans matrix element .mi_ and .mm_ input file name; must be
         provided if it was not specified when the Spectrum object was
         instantiated.
+
     Returns
     -------
     object : Vtrans
+
     Notes
     -----
     Instantiating an object of this type automatically sets the ``trans``
@@ -739,6 +751,7 @@ class Vtrans(GenericErun):
 class Inten(GenericErun):
     r"""
     Generate an inten.dat input file and execute the inten program.
+
     Parameters
     ----------
     spectrum : Spectrum
@@ -757,9 +770,11 @@ class Inten(GenericErun):
     trans : string, optional
         The .ti_ and .tm_ input file name; must be provided if it was not
         specified when the Spectrum object was instantiated.
+
     Returns
     -------
     object : Inten
+
     Notes
     -----
     Instantiating an object of this type automatically sets the ``plt`` keyword
@@ -808,6 +823,7 @@ class SpectrumData(BaseEmp):
     Natively generate spectrum data.  Intensity data is mined from the inten log
     file, which provides information such as the initial and final state of a
     transition.
+
     Parameters
     ----------
     spectrum : Spectrum
@@ -826,9 +842,11 @@ class SpectrumData(BaseEmp):
     plt : string
         The filename of the data created by inten, which must be specified here
         if it is not a Spectrum attribute.
+
     Returns
     -------
     object : SpectrumData
+
     Notes
     -----
     Instantiating an object of this type adds a ``transitions`` attribute to the
@@ -931,6 +949,7 @@ class SpectrumErun(GenericErun):
     r"""
     Facilitates the loading of c spectrum output files, or the execution of the
     c spectrum program and the subsequent loading of output files.
+
     Parameters
     ----------
     spectrum : Spectrum
@@ -952,9 +971,11 @@ class SpectrumErun(GenericErun):
         Kwarg, with allowed values of ``load`` (default) and ``exec``, to change
         between loading existing ``lines.gp`` and ``curves.gp_`` files or first
         executing the c spectrum program and then loading the resulting files.
+
     Returns
     -------
     object : SpectrumErun
+
     Notes
     -----
     The SpectrumErun log file can be displayed using the print_log() method.
@@ -1034,6 +1055,7 @@ class SpectrumAxes(_SpectrumAxesBase):
     instantiate the axis object so that the easiest workaround for adding a
     plotting method to the axis class is by using the projection option of the
     figure class.
+
     Notes
     -----
     When matplotlib is installed, importing this module registers the projection
@@ -1050,6 +1072,7 @@ class SpectrumAxes(_SpectrumAxesBase):
     def spectrumplot(self, spectrum: "Spectrum", *args: Any, **kwargs: Any) -> None:
         r"""
         Create a spectrum plot from a :class:`Spectrum` object.
+
         Parameters
         ----------
         spectrum : Spectrum
@@ -1180,6 +1203,7 @@ class SpectrumAxes(_SpectrumAxesBase):
     def splitplot(self, spectrum: "Spectrum", *args: Any, **kwargs: Any) -> None:
         r"""
         Create a splitplot from a :class:`Spectrum` object.
+
         Parameters
         ----------
         spectrum : Spectrum

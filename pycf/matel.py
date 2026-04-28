@@ -58,6 +58,7 @@ def t_q(
     r"""
     Calculate the matrix element `\langle j_1 m_1 | T_q^{(1)} | j_2 m_2
     \rangle`, where `T_q^{(1)}` is a rank one tensor.
+
     Parameters
     ----------
     j1 : integer or half-integer
@@ -70,6 +71,7 @@ def t_q(
         The value of `m_2`.
     q : integer or half-integer
         The value of `q`.
+
     Returns
     -------
     element : complex
@@ -99,12 +101,14 @@ def matel(c: str, j: Union[float, int]) -> np.ndarray:
     Calculate the matrix elements for `\langle j m_1 | J_a | j m_2 \rangle`,
     where `a \in \{x, y, z\}` for `m_1 = j, j-1 \ldots -j` and `m_2 = j, j-1,
     \ldots -j`.
+
     Parameters
     ----------
     j : integer or half-integer
         The value of `j`.
     c : string
         The component label, a value of either 'jx', 'jy', or 'jz'.
+
     Returns
     -------
     matel : numpy array

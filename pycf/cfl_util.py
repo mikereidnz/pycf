@@ -140,6 +140,7 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
     from an ExData object for absolute energy level data.
+
     Parameters
     ----------
     ex : ExData
@@ -149,6 +150,7 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         state labels.
     labels : list
         A list of state labels.
+
     Returns
     -------
     parsed_ex : np.ndarray
@@ -195,6 +197,7 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
     from an ExData object for energy level differences.
+
     Parameters
     ----------
     ex : ExData
@@ -204,6 +207,7 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         state labels.
     labels : list
         A list of state labels.
+
     Returns
     -------
     parsed_ex : np.ndarray
@@ -262,6 +266,7 @@ def gen_e_summary(
 ) -> str:
     r"""
     Generate energy level summary given eigenvalues and eigenvectors.
+
     Parameters
     ----------
     w : np.ndarray
@@ -412,6 +417,7 @@ def gen_e_summary_trunc(
     r"""
     Generate a truncated energy level summary displaying only levels for which
     experimental energy level data is provided.
+
     Parameters
     ----------
     w : np.ndarray
@@ -560,6 +566,7 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
     spin Hamiltonian data.
+
     Parameters
     ----------
     param : list
@@ -642,6 +649,7 @@ def gen_fit_summary(
 ) -> str:
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
+
     Parameters
     ----------
     coeff : dict
@@ -840,6 +848,7 @@ def bal_bounds(coeff: Dict[str, float], bounds: Dict[str, float]) -> Dict[str, T
     Helper function for creating balanced bounds dictionary.  That is, the
     bounds are are some constant, symmetric, $\pm$ offset from the starting
     coefficient values.
+
     Parameters
     ----------
     coeff : dict
@@ -847,6 +856,7 @@ def bal_bounds(coeff: Dict[str, float], bounds: Dict[str, float]) -> Dict[str, T
     bounds : dict
         Dictionary of single bounds values for each parameter to be fit, which
         will be added/subtracted from the initial coeff value.
+
     Returns
     -------
     bal_bounds : dict
@@ -864,6 +874,7 @@ def bal_bounds(coeff: Dict[str, float], bounds: Dict[str, float]) -> Dict[str, T
 def rJmmp(j: Union[int, float], m: Union[int, float], mp: Union[int, float], beta: float) -> float:
     r"""
     Equation (C.72) of Messiah.
+
     Parameters
     ----------
     j : half int or int
@@ -929,6 +940,7 @@ def rotate_cf_params(
     r"""
     Rotate crystal-field parameters by angles alpha, beta, and gamma, using the
     Euler angle convention of Messiah (zyz').
+
     Parameters
     ----------
     coeff : dict
@@ -941,6 +953,7 @@ def rotate_cf_params(
         Second Euler angle using zyz' convention (in radians).
     gamma : float
         Third Euler angle using zyz' convention (in radians).
+
     Returns
     -------
     rcoeff : dict

@@ -33,6 +33,7 @@ except ImportError:
 # extensions coming with Sphinx (in the form of modules or `sphinx` submodules).
 extensions = [
     "sphinx.ext.autodoc",  # Auto-generate docs from docstrings
+    "sphinx.ext.autosummary",  # Compact API summary tables
     "sphinx.ext.napoleon",  # Support for Google/NumPy style docstrings
     "sphinx.ext.intersphinx",  # Link to other Sphinx docs
     "sphinx.ext.viewcode",  # Add links to highlighted source code

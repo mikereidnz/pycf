@@ -29,6 +29,7 @@ def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
     dipole_str function.
     Mike Reid 3 April 2026:
         Delete lower-diagonal elements that are mistakenly added by t.get_matel()
+
     Parameters
     ----------
     tensors : list
@@ -37,6 +38,7 @@ def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
         The eigenvectors, columnwise, used for the transformation.  This is
         generally the second output variable from h.diag() where H is a
         cfl.Hamiltonian.
+
     Returns
     -------
     tensor_dict : list
@@ -110,6 +112,7 @@ def dipole_str(
 ) -> List[Dict[str, Any]]:
     """
     Calculate dipole strengths and transition properties in eigenbasis.
+
     Parameters
     ----------
     lrange : list
@@ -132,6 +135,7 @@ def dipole_str(
         Include electric dipole transitions via Altp parameters (default False).
     Altp : list, optional
         Altp coupling parameters for electric dipole calculation, required if ed=True.
+
     Returns
     -------
     trs : list
@@ -303,6 +307,7 @@ def group_transitions(items: List[Dict[str, Any]], tol: float = 1e-4) -> List[Di
     """
     Group transition dictionaries by (ei, ef) level-pair and annotate each group
     with initial/final degeneracies.
+
     Parameters
     ----------
     items : list of dict
@@ -311,6 +316,7 @@ def group_transitions(items: List[Dict[str, Any]], tol: float = 1e-4) -> List[Di
     tol : float
         Tolerance for comparing energies when determining degeneracies and
         when grouping transitions by level pair.
+
     Returns
     -------
     list of dict
@@ -384,6 +390,7 @@ def A_and_f_calc(
     """
     Calculate the Einstein A coefficient and oscillator strength for a transition
     with given electric and magnetic dipole strengths and transition energy.
+
     Parameters
     ----------
     S_ED : float
@@ -396,6 +403,7 @@ def A_and_f_calc(
         Degeneracy of the initial state.
     nrefractive : float, optional
         Refractive index of the medium (default is 1.0 for vacuum).
+
     Returns
     -------
     A : float
@@ -443,12 +451,14 @@ def add_oscillator_strengths_and_A_coefficients(
 ) -> None:
     """
     Add oscillator strengths and Einstein A coefficients to transition groups.
+
     Parameters
     ----------
     groups : list of dict
         List of transition groups from group_transitions(), modified in place.
     refractive_index : float, optional
         Refractive index of the medium (default 1.0 for vacuum).
+
     Returns
     -------
     None
@@ -472,16 +482,19 @@ def add_oscillator_strengths_and_A_coefficients(
 def boltzmann_factor(e: float, t: float) -> float:
     """
     Calculate the Boltzmann factor for a given energy and temperature.
+
     Parameters
     ----------
     e : float
         Energy difference (cm^-1).
     t : float
         Temperature (K). Must be >= 0.
+
     Returns
     -------
     float
         Boltzmann factor (dimensionless).
+
     Raises
     ------
     ValueError
@@ -499,6 +512,7 @@ def boltzmann_factor(e: float, t: float) -> float:
 def lorentzian(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[float, np.ndarray]:
     """
     Calculate Lorentzian line shape.
+
     Parameters
     ----------
     x : float or array
@@ -507,10 +521,12 @@ def lorentzian(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[flo
         Center of the Lorentzian (cm^-1).
     fwhm : float
         Full width at half maximum (cm^-1).
+
     Returns
     -------
     float or array
         Lorentzian function values.
+
     Raises
     ------
     ValueError
@@ -532,6 +548,7 @@ def inten(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate intensity spectrum from transitions and produce spectral data.
+
     Parameters
     ----------
     trs : list of dict
@@ -547,6 +564,7 @@ def inten(
         Energy range [xmin, xmax] for plotting. If None, computed from transitions.
     npoints : int, optional
         Number of points in the intensity curve (default 1000).
+
     Returns
     -------
     tuple of numpy.ndarray
@@ -556,6 +574,7 @@ def inten(
         - ``line_inten``: array of line intensities
         - ``curve_energies``: array of energy values
         - ``curve_inten``: array of cumulative-curve intensities
+
     Raises
     ------
     ValueError

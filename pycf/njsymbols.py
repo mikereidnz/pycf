@@ -77,6 +77,7 @@ def wigner_3j(
         m_1 & m_2 & m_3
         \end{pmatrix} = \frac{(-1)^{(j_1 - j_2 - m_3)}}{\sqrt{2j_3 +1}}
         \langle j_1 m_1 j_2 m_2 | j_3 - m_3 \rangle.
+
     Parameters
     ----------
     j1 : integer or half-integer
@@ -91,10 +92,12 @@ def wigner_3j(
         The value of `m_2`.
     m3 : integer or half-integer
         The value of `m_3`.
+
     Returns
     -------
     result : float
         The numerical value of the 3j symbol.
+
     Notes
     -----
     Uses the algorithm from Wybourne, notes on "Analysis of Hyperfine Structure
@@ -173,6 +176,7 @@ def wigner_6j(
         j_1 & j_2 & j_3 \\
         l_1 & l_2 & l_3
         \end{Bmatrix}.
+
     Parameters
     ----------
     a : integer or half-integer
@@ -187,10 +191,12 @@ def wigner_6j(
         The value of `l_2`.
     f : integer or half-integer
         The value of `l_3`.
+
     Returns
     -------
     result : float
         The numerical value of the 6j symbol.
+
     Notes
     -----
     Uses the algorithm on page 99 of Edmonds - Angular Momentum in Quantum
@@ -256,6 +262,7 @@ def wigner_9j(
         j_{21} & j_{22} & j_{23} \\
         j_{31} & j_{32} & j_{33}
         \end{Bmatrix}.
+
     Parameters
     ----------
     a : integer or half-integer
@@ -276,10 +283,12 @@ def wigner_9j(
         The value of `j_{32}`.
     i : integer or half-integer
         The value of `j_{33}`.
+
     Returns
     -------
     result : float
         The numerical value of the 9j symbol.
+
     Notes
     -----
     Uses the definition on page 101 in terms of 6j symbols of Edmonds - Angular
