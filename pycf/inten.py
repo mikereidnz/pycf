@@ -72,23 +72,16 @@ def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
         # Delete lower diagonal, in case it was added when reading in
         # Include the q==0 case, even though we put it back below
         # just to be sure.
-        # print(t.name)
-        # print('before deleting lower diagonal')
-        # print(M.real)
         M = M - np.tril(M, k=-1)  # subtract the lower triangle
         q = int(t.name[2])
         if q == 0:
             # in this case we need a Hermitian matrix
             # so we add the conjugate, omitting diagonal
             M = M + np.tril(M.conj().T, k=-1)
-        # print('after deleting lower diagonal, but hermetizing if q==0')
-        # print(M.real)
         matel = z.conj().T @ M @ z  # eigenvector transformation of M
         # discard small real or imaginary parts of the transformed matrix
         # matel.imag[np.abs(matel.imag) < tolerance] = 0
         # matel.real[np.abs(matel.real) < tolerance] = 0
-        # print('transformed matrix')
-        # print(matel.real)
         if q == 0:
             tensor_dict[t.name] = matel
         else:  # q != 0, specifically q > 0
@@ -164,16 +157,6 @@ def dipole_str(
         )
     # find principal components
     pc = np.argmax(np.abs(z), axis=0)
-    # print('\n##############')
-    # print('w', w)
-    # print('z', z)
-    # print('states')
-    # for i,s in enumerate(labels):
-    #      print(i, s)
-    # print('principal components')
-    # for i, p in enumerate(pc):
-    #    print(i, '\t', w[i], '\t', p, '\t', labels[p], '\t', np.abs(z[p,i]), '\t', z[p,i])
-    # print('##############\n')
     if ed:
         D_factor = {}
         if Altp is None:
@@ -189,15 +172,10 @@ def dipole_str(
                     CG_coeff = np.sqrt(2 * t + 1) * wigner_3j(lam, 1, t, p + q, -q, -p)
                     if (lam - 1 + p + q) % 2 != 0:
                         CG_coeff *= -1
-                    # print('% i % i % i % i % i  %f' % (lam, t, p+ q, p, q, factor))
                     D_factor["%i%i%i%i" % (lam, t, p, q)] = CG_coeff
-        # print('D_factor')
-        # for Df in D_factor:
-        #    print(Df, D_factor[Df])
     trs = []
     for i in lrange[0]:
         for f in lrange[1]:
-            # print('\nTransition: i', i, w[i], labels[pc[i]], 'f', f, w[f], labels[pc[f]])
             md_mom = [0, 0, 0]
             ed_mom = [0, 0, 0]
             if md:
@@ -211,26 +189,20 @@ def dipole_str(
                 # md_mom = [np.real(md_prefac*tensor_dict[k][i, f]) for k in keys]
                 # moments can be complex for complex eigenvectors.
                 md_mom = [(md_prefac * tensor_dict[k][i, f]) for k in keys]
-                # print('md_mom', md_mom)
             if ed:
                 if Altp is None:
                     raise ValueError("Altp must be provided when ed=True")
                 for A in Altp:
-                    # print('\n###', A)
                     lam = int(A[0][1])
                     t = int(A[0][2])
                     pp = int(A[0][3])
                     for q in [-1, 0, 1]:
-                        # print('>>> q',q)
                         for p in np.unique([-pp, pp]):
-                            # print('## p',p)
                             A_val = A[1]
                             if p < 0:  # symmetry of Altp parameter
                                 A_val = A_val.conjugate()
                                 if (1 + t + p) % 2 != 0:  # if 1+t+p is odd
                                     A_val = -A_val
-                            # print(A_val)
-                            # print('Altp', lam, t, p, q, A_val)
                             if -lam <= (p + q) <= lam:
                                 k = "U%i%i" % (lam, p + q)
                                 if k not in tensor_dict:
@@ -239,20 +211,13 @@ def dipole_str(
                                         "required by Altp.".format(k)
                                     )
                                     raise ValueError(msg)
-                                # print('Altp', lam, t, p, A_val, 'q', q, 'k', k)
-                                # print('D_factor', '%i%i%i%i' % (lam, t, p, q),
-                                #       D_factor['%i%i%i%i' % (lam, t, p, q)])
-                                # print('tensor_dict', k, i, f,
-                                #       tensor_dict[k][i, f])
                                 D = (
                                     -e
                                     * A_val
                                     * D_factor["%i%i%i%i" % (lam, t, p, q)]
                                     * tensor_dict[k][i, f]
                                 )
-                                # print('D', D)
                                 ed_mom[q + 1] += D  # order is -1, 0, 1
-                                # print('ed_mom', ed_mom)
             # Keep all transitions, otherwise our degeneracy calculations will be wrong.
             # Electric and magnetic dipole strengths for -1, 0, +1 components
             S_ED_m = np.abs(ed_mom[0]) ** 2
@@ -330,8 +295,6 @@ def dipole_str(
                     "pi": pi,
                 }
             ]
-            # print('trs')
-            # print(trs)
     trs.sort(key=itemgetter("e"))
     return trs
 

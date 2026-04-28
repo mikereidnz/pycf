@@ -176,9 +176,7 @@ jobs:
         pip install numpy scipy cython mypy
 
     - name: Check type hints with mypy
-      run: |
-        mypy pycf/ --ignore-missing-imports --no-error-summary 2>&1 | head -100 || true
-        echo "Type checking complete (warnings non-blocking)"
+      run: mypy pycf/ --ignore-missing-imports
 
   lint:
     runs-on: ubuntu-latest
