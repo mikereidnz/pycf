@@ -11,8 +11,8 @@
 # it under a matel/ directory and it will be left alone.
 #
 # Also excluded: backup files (*.backup, *.YYYYMMDD), docs/legacy/
-# historical record, plan/ planning notes, outstanding_issues.txt, and
-# the .coverage runtime artefact.
+# historical record, plan/ planning notes, and the .coverage runtime
+# artefact.
 exclude: |
   (?x)^(
     (.*/)?matel/
@@ -20,7 +20,6 @@ exclude: |
     |.*\.\d{8}$
     |docs/legacy/
     |plan/
-    |outstanding_issues\.txt$
     |\.coverage$
   )
 
