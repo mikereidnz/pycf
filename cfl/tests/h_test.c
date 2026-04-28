@@ -49,6 +49,32 @@ void zequ_chk(complex double *a, complex double *b, size_t n) {
 }
 
 /*
+ * Compare only the row-major upper triangle (j >= i) of two n x n complex
+ * matrices, ignoring the strict lower triangle. Used to check the output of
+ * zhcsr2zha, which since 2026-04 writes the upper triangle verbatim and
+ * leaves the strict lower triangle zeroed (it no longer Hermitian-completes
+ * the dense block; see comment in cfl_csr.c::zhcsr2zha).
+ */
+void zequ_chk_upper(complex double *expected, complex double *got, int n) {
+  int i, j;
+  int p = 0;
+
+  for (i=0; i<n; i++) {
+    for (j=i; j<n; j++) {
+      if (cabs(expected[i*n+j] - got[i*n+j]) >= TEST_TOLERANCE) {
+        p = 1;
+      }
+    }
+  }
+  if (p==0) {
+    printf("pass\n");
+  }
+  else {
+    printf("fail\n");
+  }
+}
+
+/*
  * @brief   Check the equality of two double valued arrays.
  *
  * @param[a]  Pointer to first array.
@@ -141,7 +167,7 @@ int main (void)
   zhcsr2zha(t3->matel, c);
 
   printf("zt_sa:\n");
-  zequ_chk(ztsa_res, c, 16);
+  zequ_chk_upper(ztsa_res, c, 4);
   zt_free(t3);
 
   /* zt_s test. */
@@ -152,7 +178,7 @@ int main (void)
   zhcsr2zha(t3->matel, c);
 
   printf("zt_s:\n");
-  zequ_chk(zts_res, c, 16);
+  zequ_chk_upper(zts_res, c, 4);
   zt_free(t3);
 
 
