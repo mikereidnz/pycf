@@ -335,16 +335,15 @@ class ImportSLJM(object):
                 "is indicative of either a limitation of the parsing regex,"
                 " or a corrupt *.st_ file." % sl_name
             )
-        # Index of regex group for each label type.
-        gi = {"S": 1, "L": 2, "J": 4, "M": 5, "I": 6, "T": 3, "F": 0}
+        # Index of regex group for each label type. 'X' denotes seniority
+        # (Nielson-Koster notation), formerly named 'T' in this module.
+        gi = {"S": 1, "L": 2, "J": 4, "M": 5, "I": 6, "X": 3, "F": 0}
         label_key_list = ["L", "J", "M"]
         for state_label in state_labels:
             label_key_list += [k for k in gi if (state_label[gi[k]] and k not in label_key_list)]
-        # FIXME: T, which was intended as 'seniority', is labeled as X in
-        # Nielson and Koster; should adopt this, but make sure if I change it
-        # here nothing else get's messed up.
-        # Rearrange label key to cannonical order.
-        sort_key = ["T", "F", "S", "L", "J", "M", "I"]
+        # Rearrange label key to cannonical order. 'X' is seniority
+        # (Nielson-Koster); previously labelled 'T' in pycf.
+        sort_key = ["X", "F", "S", "L", "J", "M", "I"]
         label_key_list.sort(key=lambda k: sort_key.index(k))
         sl = []
         for state_label in state_labels:
@@ -354,8 +353,9 @@ class ImportSLJM(object):
                 # label.
                 if k == "L":
                     label = term2L(state_label[gi[k]])
-                elif k == "T":
-                    # Set T labels to zero for states that don't specify it.
+                elif k == "X":
+                    # Set X (seniority) labels to zero for states that don't
+                    # specify it.
                     if not state_label[gi[k]]:
                         label = 0
                     else:

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (breaking)
+- Seniority `label_key` letter renamed from `T` to `X` in `ImportSLJM`,
+  `ExData`, and `States`, matching Nielson-Koster notation. User code
+  passing a `label_key` containing `T` (e.g. `'TLJM'`) for seniority
+  must be updated to use `X` (e.g. `'XLJM'`). All bundled examples and
+  tests use `'SLJM'` and are unaffected.
+
 ### Added
 - `pycf.import_sljm.ImportTensors`: in-memory wrapper that accepts
   user-supplied tensor matrices (NumPy arrays or SciPy sparse) and

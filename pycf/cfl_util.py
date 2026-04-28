@@ -304,7 +304,7 @@ def gen_e_summary(
     def fmt_label(li, labels):
         label = "|"
         for i, l in enumerate(labels[li]):
-            if label_key[i] == "T":
+            if label_key[i] == "X":
                 label += "{:d},".format(l)
             elif label_key[i] == "F":
                 if l:
@@ -450,7 +450,7 @@ def gen_e_summary_trunc(
     def fmt_label(li, labels):
         label = "|"
         for i, l in enumerate(labels[li]):
-            if label_key[i] == "T":
+            if label_key[i] == "X":
                 label += "{:d},".format(l)
             elif label_key[i] == "F":
                 if l:
