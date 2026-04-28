@@ -63,22 +63,14 @@ class ImportTensors(object):
         SciPy sparse format are accepted; all are converted to
         upper-triangle Hermitian CSR with ``complex128`` data before being
         handed to :class:`cfl.Tensor`.
-    storage : {"full", "upper"}, optional
-        Declares the storage convention of the input matrices.
 
-        - ``"full"`` (default): inputs are full Hermitian; the upper triangle
-          is taken via :func:`scipy.sparse.triu`. Dense input is also
-          validated for Hermiticity (subject to ``check_hermitian``).
-        - ``"upper"``: caller promises the matrices already store only the
-          upper triangle in Hermitian compressed-row form. The legacy
-          :class:`ImportSLJM` path uses this because the ``*.txt`` files
-          contain upper-triangle elements only.
-
-        Crystal-field and spin-Hamiltonian operators are Hermitian, so the
-        underlying C layer (``cfl.Tensor``) requires upper-triangle
-        Hermitian compressed-row storage. The ``storage`` parameter exists
-        to protect new callers who would otherwise pass a full sparse
-        Hermitian matrix and silently double-count off-diagonal elements.
+        Only the upper triangle (``j >= i``) of each input matrix is
+        retained. The strict lower triangle is silently discarded, so the
+        caller is responsible for ensuring the input is either Hermitian
+        (in which case the upper triangle alone is sufficient to reconstruct
+        the operator) or already in upper-triangular form. This matches the
+        underlying C layer (``cfl.Tensor``), which stores only the upper
+        triangle of Hermitian compressed-row data.
     add_aliases : bool, optional
         Default ``False``. When ``True`` and the corresponding source
         tensors are present, synthesise the rare-earth-specific convenience
@@ -91,9 +83,6 @@ class ImportTensors(object):
         legacy :class:`ImportSLJM` behaviour). Tensor names that collide
         with reserved attribute names raise :class:`ValueError` when this
         is enabled.
-    check_hermitian : bool, optional
-        Default ``True``. Validate dense input matrices are Hermitian using
-        :func:`numpy.allclose`. Has no effect for sparse input.
     warn_zero : bool, optional
         Default ``True``. Print a warning if a supplied tensor has no
         non-zero elements (matches the legacy :class:`ImportSLJM`
@@ -105,16 +94,12 @@ class ImportTensors(object):
         label_key: str,
         states: Any,
         tensors: Mapping[str, Any],
-        storage: str = "full",
         add_aliases: bool = False,
         expose_attrs: bool = True,
-        check_hermitian: bool = True,
         warn_zero: bool = True,
     ) -> None:
         if not isinstance(label_key, str) or not label_key:
             raise ValueError("label_key must be a non-empty string")
-        if storage not in ("full", "upper"):
-            raise ValueError("storage must be 'full' or 'upper'")
 
         states_arr = np.asarray(states, dtype=np.int32)
         nkey = len(label_key)
@@ -149,7 +134,7 @@ class ImportTensors(object):
         for name, mat in tensors.items():
             if not isinstance(name, str) or not name:
                 raise ValueError("tensor names must be non-empty strings")
-            tensor_matrices[name] = self._normalise_matrix(name, mat, dim, storage, check_hermitian)
+            tensor_matrices[name] = self._normalise_matrix(name, mat, dim)
 
         # Build StateLabels.
         sl_list = [list(row) for row in states_arr.tolist()]
@@ -182,19 +167,24 @@ class ImportTensors(object):
         name: str,
         mat: Any,
         dim: int,
-        storage: str,
-        check_hermitian: bool,
     ) -> "csr_matrix":
-        """Validate, cast, and (if storage='full') upper-triangle a matrix."""
+        """Validate, cast to complex128, and upper-triangulate a matrix.
+
+        The strict lower triangle of ``mat`` is dropped: this matches the
+        Hermitian-CSR convention used throughout the C layer (only the
+        upper triangle is stored; see ``zhcsr_alloc`` in
+        ``cfl/src/cfl_csr.c``). Callers passing a Hermitian matrix lose
+        nothing because the lower triangle is recoverable as ``conj(upper.T)``;
+        callers passing a non-Hermitian matrix must already have arranged
+        the data they care about into the upper triangle.
+        """
         if issparse(mat):
             sp = mat.tocsr().astype(np.complex128)
             if sp.shape != (dim, dim):
                 raise ValueError(
                     "tensor %r has shape %s, expected (%d, %d)" % (name, sp.shape, dim, dim)
                 )
-            if storage == "full":
-                sp = triu(sp, format="csr")
-            return sp.tocsr()
+            return triu(sp, format="csr")
 
         arr = np.asarray(mat)
         if arr.ndim != 2 or arr.shape[0] != arr.shape[1]:
@@ -204,17 +194,7 @@ class ImportTensors(object):
                 "tensor %r has shape %s, expected (%d, %d)" % (name, arr.shape, dim, dim)
             )
         arr = arr.astype(np.complex128, copy=False)
-        if check_hermitian and not np.allclose(arr, arr.conj().T):
-            raise ValueError(
-                "tensor %r is not Hermitian; pass check_hermitian=False to "
-                "bypass, or set storage='upper' if it already stores only "
-                "the upper triangle" % name
-            )
-        if storage == "full":
-            sp = triu(csr_matrix(arr), format="csr")
-        else:
-            sp = csr_matrix(arr)
-        return sp
+        return triu(csr_matrix(arr), format="csr")
 
     @staticmethod
     def _apply_aliases(tensors_dict: dict) -> None:
@@ -397,10 +377,9 @@ class ImportSLJM(object):
                 dtype=np.complex128,
             )
         # Delegate state-label construction, Tensor wrapping, and alias
-        # synthesis to ImportTensors. The *.txt files contain only the
-        # upper triangle of each (Hermitian) tensor, so storage="upper".
-        # check_hermitian=False because the input is already upper-triangle
-        # only and would fail a Hermitian check on a dense round-trip.
+        # synthesis to ImportTensors. ImportTensors upper-triangulates
+        # every tensor unconditionally, which is what the *.txt files
+        # already contain anyway.
         # expose_attrs=False so that the reserved-name guard does not fire
         # on legacy file inputs (the legacy path tolerated tensor names
         # that shadow attributes; we preserve that behaviour here).
@@ -408,10 +387,8 @@ class ImportSLJM(object):
             label_key,
             sl,
             tensor_matrices,
-            storage="upper",
             add_aliases=True,
             expose_attrs=False,
-            check_hermitian=False,
             warn_zero=True,
         )
         self.tensors = self._wrapped.tensors
