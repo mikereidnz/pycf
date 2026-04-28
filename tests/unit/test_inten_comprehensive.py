@@ -80,8 +80,12 @@ class TestDipoleStrEdgeCases:
     @pytest.fixture
     def setup_test_data(self):
         """Load test data for dipole_str testing."""
-        MATEL_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1cf"
-        INTEN_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1int"
+        MATEL_BASE = (
+            Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1cf"
+        )
+        INTEN_BASE = (
+            Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1int"
+        )
         t = ImportSLJM(MATEL_BASE)
         t_int = ImportSLJM(INTEN_BASE, sl_name=MATEL_BASE)
         return t, t_int
@@ -346,8 +350,12 @@ class TestIntegrationWithRealData:
     @pytest.fixture
     def setup_ce3_data(self):
         """Load Ce3+ test data."""
-        MATEL_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1cf"
-        INTEN_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1int"
+        MATEL_BASE = (
+            Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1cf"
+        )
+        INTEN_BASE = (
+            Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1int"
+        )
         t = ImportSLJM(MATEL_BASE)
         t_int = ImportSLJM(INTEN_BASE, sl_name=MATEL_BASE)
         return t, t_int
