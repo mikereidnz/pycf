@@ -30,7 +30,12 @@ def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
     dipole_str function.
 
     Mike Reid 3 April 2026:
-        Delete lower-diagonal elements that are mistakenly added by t.get_matel()
+        Delete lower-diagonal elements that *were* mistakenly added by
+        t.get_matel(). Since the 2026-04 fix to ``zhcsr2zha`` (see
+        ``cfl/src/cfl_csr.c``), ``get_matel()`` returns only the upper
+        triangle, so the ``M - np.tril(M, k=-1)`` step below is now a
+        no-op. It is retained as a defensive measure and to keep the q=0
+        Hermitian-completion logic that follows it self-evidently correct.
 
     Parameters
     ----------

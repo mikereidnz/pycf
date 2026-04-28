@@ -3974,7 +3974,17 @@ cdef class ZEFOZSearch:
 
         self.zmatel_list = []
         for i in range(3):
-            zm = np.ascontiguousarray(h.tensors[zi[i]].get_matel().reshape(h.n**2), dtype=np.complex128)
+            # ZEFOZ Zeeman operators (MX, MY, MZ) are Hermitian. Hermitian-fill
+            # the dense matrix here because cfl_zefoz.c::inprod uses
+            # cblas_zgemv (CblasNoTrans) -- a full matrix-vector multiply that
+            # reads both triangles. Tensor.get_matel() returns the upper
+            # triangle only with the lower triangle zeroed (see
+            # zhcsr2zha in cfl/src/cfl_csr.c), so without this completion the
+            # off-diagonal contributions to the ZEFOZ gradient and curvature
+            # would be silently dropped.
+            m = h.tensors[zi[i]].get_matel()
+            m = m + np.tril(m.conj().T, k=-1)
+            zm = np.ascontiguousarray(m.reshape(h.n**2), dtype=np.complex128)
             self.zmatel[i] = &zm[0]
             self.zmatel_list += [zm]    # Keep reference to avoid GC cleanup.
 
