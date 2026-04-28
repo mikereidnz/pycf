@@ -179,3 +179,17 @@ intersphinx_mapping = {
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+
+# Register matplotlib's custom :mpltype: role as a no-op so that inherited
+# docstrings from matplotlib.axes.Axes (used via SpectrumAxes) don't emit
+# "Unknown interpreted text role" warnings. The role is purely cosmetic in
+# matplotlib's own docs; we render its content as plain text.
+def setup(app):
+    from docutils import nodes
+    from docutils.parsers.rst import roles
+
+    def mpltype_role(name, rawtext, text, lineno, inliner, options=None, content=None):
+        return [nodes.Text(text)], []
+
+    roles.register_local_role("mpltype", mpltype_role)

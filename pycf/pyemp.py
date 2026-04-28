@@ -6,27 +6,34 @@ This module is **legacy code** kept for compatibility with historical EMP-based
 workflows.  New code should prefer the `pycf.cfl` and `pycf.import_sljm`
 machinery instead.  Per the project's "legacy module" convention (see
 CONTRIBUTING.md), this module is exempt from detailed audit attention:
-mypy, coverage, and bandit are configured to skip it, and only
-security-critical issues will be fixed here.
+mypy and coverage are configured to skip it, and only security-critical
+issues will be fixed here.
 
 This module provides a high-level Python interface to Michael F. Reid's
 empirical crystal field theory executables:
+
 - cfit: Least-squares fitting of crystal field parameters to experimental data
 - inten: Intensity calculations for absorption/emission spectra
 - vtrans: Transformation of tensor matrix elements to eigenbasis
 - spectrum: Generation of energy level diagrams and spectra
+
 The module handles:
+
 - File I/O with EMP format files (.txt, .mi_, .st_)
 - Parameter input/output management
 - Spectrum generation and analysis
 - Error handling and validation
+
 Used for empirical crystal field fitting workflows where EMP executables
 are preferred for reliability and compatibility with existing datasets.
+
 Example workflow:
+
   1. Prepare experimental data file
   2. Use cfit wrapper to optimize CF parameters
   3. Use inten wrapper to calculate intensities
   4. Analyze results with intensity summary functions
+
 NOTE: This module is a thin wrapper around external EMP executables and does not
 require unit test coverage. Testing is implicit in the integration examples and
 requires the external EMP tools to be installed, making unit test coverage impractical.
@@ -57,7 +64,7 @@ requires the external EMP tools to be installed, making unit test coverage impra
 import os
 import re
 from datetime import datetime
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen  # nosec B404
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -119,13 +126,15 @@ class Spectrum(dict):
         :func:`SpectrumAxes.splitplot` method for further details.
     spinh : dictionary, or list of dictionaries, optional
         If specified, :class:`Cfit` will generate and parse spin Hamiltonian
-        data.  Required dictionary keys are
-            - ``terms``, a list of strings with possible values of 'bgs', 'ias'
-              and 'iqi', which enable, respectively, Zeeman interactions,
-              magnetic dipole hyperfine interactions and electric quadrupole
-              hyperfine interactions;
-            - ``levels``, a tuple of integers specifying the lower and upper
-              energy levels for which to generate the spin Hamiltonian.
+        data.  Required dictionary keys are:
+
+        - ``terms``, a list of strings with possible values of 'bgs', 'ias'
+          and 'iqi', which enable, respectively, Zeeman interactions,
+          magnetic dipole hyperfine interactions and electric quadrupole
+          hyperfine interactions;
+        - ``levels``, a tuple of integers specifying the lower and upper
+          energy levels for which to generate the spin Hamiltonian.
+
         If the argument is a list of dictonaries then spin Hamiltonian data will
         be generated for each element.
     edconstruct : string
@@ -133,7 +142,9 @@ class Spectrum(dict):
         tensors to construct the A tensors.
     levels : array
         Of the form::
+
             ['initstart', 'initend', 'finstart', 'finend', 'initname', 'finname']
+
         where 'initstart' to 'initend' spans the range of initial energy levels,
         etc.
     edipoletensor: string
@@ -166,6 +177,7 @@ class Spectrum(dict):
     -----
     The following list details attributes of Spectrum objects that need to be
     called explicitly for certain applications.
+
     sh_terms : list
         Elements are dictionaries containing spin Hamiltonian data, set by
         :class:`Cfit` if the provided Spectrum object was instantiated with the
@@ -409,7 +421,7 @@ class GenericErun(BaseEmp):
             # uses $EMPSCRIPTS / $EMPBIN internally, so we keep them in
             # the child environment.
             erun_script = os.path.join(self.emproot, "scripts", "gnu_erun.csh")
-            proc = Popen(
+            proc = Popen(  # nosec B603 - args are internal/trusted; no shell
                 [
                     erun_script,
                     self.process,
@@ -829,16 +841,18 @@ class SpectrumData(BaseEmp):
     spectrum : Spectrum
         The object must have attributes ``plotargs`` - a dictionary that must
         have values for:
-            - ``polarization`` a string, with possible values of ``isotropic``,
-              ``axial``, ``sigma`` or ``pi``;
-            - ``temp`` an int or float specifying the temperature;
-            - ``linewidth`` an int or float specifying the Lorentzian linewidth;
-            - ``xrange`` a list of length two, with xmin and xmax limits;
-            - ``npoints`` an optional argument specifying the number of points
-              for the spectrum curve;
-          and optionally ``plt`` - the filename of the data created by inten,
-          which while unused is employed as an indicator of whether inten
-          executed successfully.
+
+        - ``polarization`` a string, with possible values of ``isotropic``,
+          ``axial``, ``sigma`` or ``pi``;
+        - ``temp`` an int or float specifying the temperature;
+        - ``linewidth`` an int or float specifying the Lorentzian linewidth;
+        - ``xrange`` a list of length two, with xmin and xmax limits;
+        - ``npoints`` an optional argument specifying the number of points
+          for the spectrum curve;
+
+        and optionally ``plt`` - the filename of the data created by inten,
+        which while unused is employed as an indicator of whether inten
+        executed successfully.
     plt : string
         The filename of the data created by inten, which must be specified here
         if it is not a Spectrum attribute.
@@ -852,6 +866,7 @@ class SpectrumData(BaseEmp):
     Instantiating an object of this type adds a ``transitions`` attribute to the
     provided :class:`Spectrum` object, which returns a list of dictionaries,
     corresponding to distinct transitions, where each transition has keys:
+
     initialstate : string
        The initial state label.
     finalstate : string
@@ -954,15 +969,17 @@ class SpectrumErun(GenericErun):
     ----------
     spectrum : Spectrum
         The object must have attributes ``plotargs``, a dictionary with values:
-            - ``polarization`` a string, with possible values of ``isotropic``,
-              ``axial``, ``sigma`` or ``pi``;
-            - ``temp`` an int or float specifying the temperature, required if
-              ``action = exec`` (see below);
-            - ``linewidth`` an int or float specifying the Lorentzian linewidth,
-              required if ``action = exec`` (see below);
-            - ``xrange`` a list of the form ``[min, max]`` where ``min`` and
-              ``max`` specify the lower and upper bound of the spectrum curve,
-              respectively, required if ``action = exec`` (see below);
+
+        - ``polarization`` a string, with possible values of ``isotropic``,
+          ``axial``, ``sigma`` or ``pi``;
+        - ``temp`` an int or float specifying the temperature, required if
+          ``action = exec`` (see below);
+        - ``linewidth`` an int or float specifying the Lorentzian linewidth,
+          required if ``action = exec`` (see below);
+        - ``xrange`` a list of the form ``[min, max]`` where ``min`` and
+          ``max`` specify the lower and upper bound of the spectrum curve,
+          respectively, required if ``action = exec`` (see below);
+
         and optionally ``plt`` - the filename of the data created by inten.
     plt : string
         The filename of the data created by inten, which must be specified here
@@ -1078,16 +1095,17 @@ class SpectrumAxes(_SpectrumAxesBase):
         spectrum : Spectrum
             The object should have the following spectrum plot specific
             keywords:
-                - ``transitionlabels`` enables or disables explicit labels for
-                  all plotted transitions - allowed values are ``False``
-                  (default) or ``True``;
-                - ``labelsize`` the fontsize for transition labels;
-                - ``intencutoff`` the minimum intensity for transitions to be
-                  plotted, primarily useful for suppressing uninteresting
-                  transition labels;
-                - ``energylabels`` if transition labels are enabled, then this
-                  option appends the transition energy - allowed values are
-                  ``False`` (default) or ``True``.
+
+            - ``transitionlabels`` enables or disables explicit labels for
+              all plotted transitions - allowed values are ``False``
+              (default) or ``True``;
+            - ``labelsize`` the fontsize for transition labels;
+            - ``intencutoff`` the minimum intensity for transitions to be
+              plotted, primarily useful for suppressing uninteresting
+              transition labels;
+            - ``energylabels`` if transition labels are enabled, then this
+              option appends the transition energy - allowed values are
+              ``False`` (default) or ``True``.
         *args, optional
             Additional arguments are passed passed to the vlines and plot
             routines have their usual functions.
@@ -1211,13 +1229,14 @@ class SpectrumAxes(_SpectrumAxesBase):
             achieved by adding the ``splitplot`` keyword to the
             :class:`Spectrum` object prior to instantiating the :class:`Cfit`
             object; ``splitplot`` is a dictionary with keys:
-                - ``energy`` a list of the form ``[min, max]``, where ``min``
-                  and ``max`` are integer values of the energy levels to be
-                  plotted;
-                - ``var`` a string of the variable name to be a varied;
-                - ``range`` a list of the form ``[min, max]`` where ``min`` and
-                  ``max`` are floating point numbers indicating the range over
-                  which ``var`` wil be varied.
+
+            - ``energy`` a list of the form ``[min, max]``, where ``min``
+              and ``max`` are integer values of the energy levels to be
+              plotted;
+            - ``var`` a string of the variable name to be a varied;
+            - ``range`` a list of the form ``[min, max]`` where ``min`` and
+              ``max`` are floating point numbers indicating the range over
+              which ``var`` wil be varied.
         *args, optional
             Additional arguments are passed to the vlines and plot routines have
             their usual functions.

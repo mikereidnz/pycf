@@ -20,4 +20,3 @@ exclude_dirs:
   - env
   - docs/_build
   - build
-  - pycf/pyemp.py

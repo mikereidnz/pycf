@@ -242,11 +242,10 @@ jobs:
         pip install -e ".[docs]"
 
     - name: Build Sphinx documentation
-      # Non-strict for now: catches catastrophic import failures and template
-      # errors but does not enforce the ~190 outstanding autodoc warnings.
-      # Re-enable -W after a docstring/autodoc cleanup pass.
+      # Strict mode: fails on any new docs warning. All known warnings have
+      # been cleared. Re-enabling this gates regressions.
       run: |
-        sphinx-build --keep-going -b html docs/ docs/_build/html
+        sphinx-build -W --keep-going -b html docs/ docs/_build/html
 
   security:
     runs-on: ubuntu-latest
@@ -265,9 +264,7 @@ jobs:
         pip install bandit semgrep
 
     - name: Run bandit security scan
-      run: |
-        bandit -c .bandit -r pycf/ 2>&1 | head -100 || true
-      continue-on-error: true
+      run: bandit -c .bandit -r pycf/
 
     - name: Run semgrep static analysis
       run: semgrep --config=p/python pycf/
