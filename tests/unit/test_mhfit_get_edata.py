@@ -76,7 +76,8 @@ def test_mhfit_get_edata_mixed_a_d_per_hamiltonian():
     np.testing.assert_allclose(edata.arr["e_calc"], [0.0, 15.0, 8.0, 18.0])
 
 
-def test_mhfit_get_edata_state_label_data_raises():
+def test_mhfit_get_edata_state_label_mixed_with_index():
+    """Mix AS-mode (sl_index=1) and A-mode (sl_index=0) ExData per Hamiltonian."""
     h0 = _make_ham("EAVG", [0.0, 5.0])
     abs_sl = np.array([[0, 0, 0, 0.0], [0, 0, 2, 5.0]], dtype=np.float64)
     ex0 = cfl.ExData(abs_sl, key="AS", label_key="LJM")
@@ -84,8 +85,11 @@ def test_mhfit_get_edata_state_label_data_raises():
     ex1 = cfl.ExData(np.array([[1, 0.0], [2, 5.0]]))
     fit = cfl.MHFit(["EAVG"], [h0, h1], [1.0, 1.0], [ex0, ex1])
 
-    with pytest.raises(NotImplementedError, match="state-label"):
-        fit.get_edata()
+    edata = fit.get_edata()
+    assert list(edata.arr["kind"]) == ["AS", "AS", "A", "A"]
+    assert list(edata.arr["i_lo"]) == [1, 2, 1, 2]
+    np.testing.assert_allclose(edata.arr["e_calc"], [0.0, 5.0, 0.0, 5.0])
+    assert edata.chi2() == pytest.approx(float(fit.eval({}).sum()), rel=1e-12)
 
 
 def test_mhfit_get_edata_per_h_weight_applied():

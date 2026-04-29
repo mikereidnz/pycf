@@ -145,13 +145,17 @@ The accessors added in `plan/hamiltonian_data_plan.md` (`get_edata`,
 and `MHFit`, and only for absolute/difference observation modes (`'A'`,
 `'D'`).  Outstanding gaps:
 
-- **State-label modes (`'AS'`/`'DS'`, a.k.a. `sl_diff`).**  Both `EFit` and
-  `MHFit` raise `NotImplementedError` when `ex.sl_index == 1`.  Adding
-  support requires reproducing the C-side state-matching logic in Python so
-  that residuals are aligned with the labelled states; the matching can
-  shift under finite-difference perturbation, so `fd_jacobian` needs care
-  around the matched-index bookkeeping.  Reference test:
-  `tests/integration/ceylf/test_exdata.py::data_sel == "sl_diff"`.
+- **State-label modes (`'AS'`/`'DS'`, a.k.a. `sl_diff`).**  Implemented
+  for `EFit` and `MHFit` (commit replacing the `NotImplementedError`
+  guards): `_build_edata_for_ex` now matches each observation's state
+  label against the principal component of every eigenvector via
+  `ex_parse_abs`/`ex_parse_diff`, mirroring `find_sort_indices` in
+  `cfl/src/cfl_h_fit.c`.  `kind` becomes `'AS'`/`'DS'` and the dtype
+  has been widened to `U2`.  Note that the matched index can shift
+  under finite-difference perturbation; if a swap occurs at a
+  parameter `x ± δ`, `fd_jacobian` reports it via the existing
+  `check_swaps` machinery.  `ESHFit`/`MESHFit` still need the same
+  treatment.
 
 - **`ESHFit` (single Hamiltonian + spin-Hamiltonian, `cfl.esh_fit`).**  Used
   by `examples/ceylf/shfit_example.py`.  Has its own residual block for the

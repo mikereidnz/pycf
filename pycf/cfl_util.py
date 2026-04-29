@@ -265,7 +265,7 @@ _EDATA_DTYPE = np.dtype(
     [
         ("h_index", np.int32),
         ("h_label", object),
-        ("kind", "U1"),
+        ("kind", "U2"),
         ("i_lo", np.int32),
         ("i_hi", np.int32),
         ("e_calc", np.float64),

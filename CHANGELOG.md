@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     or `"unscaled"` (matches GSL convention). Falls back to
     `last_jacobian` and warns on rank deficiency.
   - `cfl_util.gen_edata_summary()`: pretty-printer for `EData`.
+  - **State-label observation support.** `EFit.get_edata()` /
+    `MHFit.get_edata()` (and consequently `fd_jacobian` / `covariance`)
+    now handle `'AS'` and `'DS'` ExData by reproducing the
+    principal-component label-matching used by the C objective.  The
+    `kind` field of the EData dtype is widened to `U2` so the rows
+    can carry `'AS'`/`'DS'` instead of just `'A'`/`'D'`.
 
 ### Changed (breaking)
 - Seniority `label_key` letter renamed from `T` to `X` in `ImportSLJM`,

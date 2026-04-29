@@ -2141,19 +2141,7 @@ cdef class EFit(object):
         Returns
         -------
         edata : EData
-
-        Raises
-        ------
-        NotImplementedError
-            If the underlying ExData uses state-label-indexed observations
-            (``'AS'``/``'DS'``).  Support is planned as a follow-up; see
-            ``plan/hamiltonian_data_plan.md`` (F5).
         """
-        if self.ex.sl_index:
-            raise NotImplementedError(
-                "EFit.get_edata() does not yet support state-label-indexed "
-                "ExData ('AS'/'DS'). See plan/hamiltonian_data_plan.md F5."
-            )
         self.h.diag()
         return _build_edata_for_ex(self.h, self.ex, h_index=0)
 
@@ -2247,11 +2235,21 @@ cdef class EFit(object):
 cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=1.0):
     """Construct an EData table for a single (Hamiltonian, ExData) pair.
 
-    Assumes ``h.diag()`` has already populated ``h.w`` and that
-    ``ex.sl_index == 0``.  ``h_weight`` is the per-Hamiltonian scalar
-    weight used by MHFit (default 1.0 for EFit); the C side bakes
-    ``ex.w * h_weight`` into the value it squares, so we mirror that
-    here so that ``EData.chi2()`` matches the C objective.
+    Assumes ``h.diag()`` has already populated ``h.w`` and ``h.z``.
+    ``h_weight`` is the per-Hamiltonian scalar weight used by MHFit
+    (default 1.0 for EFit); the C side bakes ``ex.w * h_weight`` into
+    the value it squares, so we mirror that here so that
+    ``EData.chi2()`` matches the C objective.
+
+    For ``sl_index == 0`` ExData the level indices ``ex.la``/
+    ``ex.ild``/``ex.fld`` are taken directly.  For ``sl_index == 1``
+    ExData (``'AS'``/``'DS'`` modes), the matching mirrors the C
+    routine ``find_sort_indices`` (cfl_h_fit.c:702): for each
+    eigenvector the principal-component basis state is identified, and
+    the requested state label is matched against those basis labels.
+    The implementation reuses :py:func:`pycf.cfl_util.ex_parse_abs`
+    and :py:func:`pycf.cfl_util.ex_parse_diff` which already encode
+    that same logic in NumPy.
     """
     cdef np.ndarray w = h.w
     n_a = ex.n_a
@@ -2263,20 +2261,42 @@ cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=
     arr["h_index"] = h_index
     arr["h_label"] = label
 
-    # 'A' rows: indices 0 .. n_a-1 in the residual vector.
+    if ex.sl_index:
+        # State-label-indexed observations; resolve level indices via
+        # principal-component matching.
+        labels = h.tensors[0].states.labels
+        a_kind = "AS"
+        d_kind = "DS"
+        if n_a > 0:
+            parsed_a = ex_parse_abs(ex, h.z, labels)
+            la = np.asarray(parsed_a[:, 0], dtype=np.int64)
+        else:
+            la = np.empty(0, dtype=np.int64)
+        if n_d > 0:
+            parsed_d = ex_parse_diff(ex, h.z, labels)
+            ild = np.asarray(parsed_d[:, 0], dtype=np.int64)
+            fld = np.asarray(parsed_d[:, 1], dtype=np.int64)
+        else:
+            ild = np.empty(0, dtype=np.int64)
+            fld = np.empty(0, dtype=np.int64)
+    else:
+        a_kind = "A"
+        d_kind = "D"
+        la = np.asarray(ex.la, dtype=np.int64) if n_a > 0 else np.empty(0, dtype=np.int64)
+        ild = np.asarray(ex.ild, dtype=np.int64) if n_d > 0 else np.empty(0, dtype=np.int64)
+        fld = np.asarray(ex.fld, dtype=np.int64) if n_d > 0 else np.empty(0, dtype=np.int64)
+
+    # Absolute rows: indices 0 .. n_a-1 in the residual vector.
     if n_a > 0:
-        la = np.asarray(ex.la, dtype=np.int64)  # 0-based level indices.
-        arr["kind"][:n_a] = "A"
+        arr["kind"][:n_a] = a_kind
         arr["i_lo"][:n_a] = la + 1
         arr["i_hi"][:n_a] = 0
         arr["e_calc"][:n_a] = w[la]
 
-    # 'D' rows: indices n_a .. n_a+n_d-1.
+    # Difference rows: indices n_a .. n_a+n_d-1.
     if n_d > 0:
-        ild = np.asarray(ex.ild, dtype=np.int64)
-        fld = np.asarray(ex.fld, dtype=np.int64)
         sl = slice(n_a, n_a + n_d)
-        arr["kind"][sl] = "D"
+        arr["kind"][sl] = d_kind
         arr["i_lo"][sl] = ild + 1
         arr["i_hi"][sl] = fld + 1
         # Match the C objective's fabs(...) (see cfl_h_fit.c:661,1112).
@@ -2662,22 +2682,7 @@ cdef class MHFit(object):
         Returns
         -------
         edata : EData
-
-        Raises
-        ------
-        NotImplementedError
-            If any per-Hamiltonian ExData uses state-label-indexed
-            observations (``'AS'``/``'DS'``).  See
-            ``plan/hamiltonian_data_plan.md`` (F5).
         """
-        for ex in self.ex_list:
-            if ex.sl_index:
-                raise NotImplementedError(
-                    "MHFit.get_edata() does not yet support "
-                    "state-label-indexed ExData ('AS'/'DS'). "
-                    "See plan/hamiltonian_data_plan.md F5."
-                )
-
         parts = []
         for i, h in enumerate(self.h_list):
             h.diag()

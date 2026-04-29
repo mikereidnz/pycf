@@ -126,16 +126,59 @@ def test_get_edata_chi2_matches_efit_eval():
     assert edata.chi2() == pytest.approx(chi2_eval, rel=1e-12)
 
 
-def test_get_edata_state_label_data_raises():
+def test_get_edata_state_label_absolute():
+    """AS-mode ExData: principal-component matching populates AS rows."""
     diag = np.array([0.0, 5.0])
     # State-label-indexed AS data triggers sl_index==1 inside ExData.
+    # Rows are [L, J, 2M, e_obs]; matches the basis labels [[0,0,0],[0,0,2]].
     abs_sl = np.array([[0, 0, 0, 0.0],
                        [0, 0, 2, 5.0]], dtype=np.float64)
     ex = cfl.ExData(abs_sl, key="AS", label_key="LJM")
     fit, _h = _make_fit_data(diag, ex)
 
-    with pytest.raises(NotImplementedError, match="state-label"):
-        fit.get_edata()
+    edata = fit.get_edata()
+    assert all(edata.arr["kind"] == "AS")
+    assert list(edata.arr["i_lo"]) == [1, 2]
+    assert list(edata.arr["e_calc"]) == [0.0, 5.0]
+    assert edata.chi2() == pytest.approx(float(fit.eval({})[0]), rel=1e-12)
+
+
+def test_get_edata_state_label_difference():
+    """DS-mode ExData: principal-component matching populates DS rows."""
+    diag = np.array([0.0, 5.0, 12.0])
+    # 3 basis states with labels [0,0,0], [0,0,2], [0,0,4]; observe the
+    # 0->2M=4 transition (12.0) and the 2M=2 -> 2M=4 transition (7.0).
+    diff_sl = np.array(
+        [[0, 0, 0, 0, 0, 4, 12.0],
+         [0, 0, 2, 0, 0, 4, 7.0]],
+        dtype=np.float64,
+    )
+    ex = cfl.ExData(diff_sl, key="DS", label_key="LJM")
+    fit, _h = _make_fit_data(diag, ex)
+
+    edata = fit.get_edata()
+    assert all(edata.arr["kind"] == "DS")
+    assert list(edata.arr["i_lo"]) == [1, 2]
+    assert list(edata.arr["i_hi"]) == [3, 3]
+    np.testing.assert_allclose(edata.arr["e_calc"], [12.0, 7.0])
+    assert edata.chi2() == pytest.approx(float(fit.eval({})[0]), rel=1e-12)
+
+
+def test_get_edata_state_label_mixed_as_ds():
+    """Mixed AS+DS ExData: both row kinds populated correctly."""
+    diag = np.array([0.0, 5.0, 12.0])
+    abs_sl = np.array([[0, 0, 0, 0.0],
+                       [0, 0, 4, 12.5]], dtype=np.float64)
+    diff_sl = np.array([[0, 0, 0, 0, 0, 2, 5.5]], dtype=np.float64)
+    ex = cfl.ExData((abs_sl, diff_sl), key=("AS", "DS"), label_key="LJM")
+    fit, _h = _make_fit_data(diag, ex)
+
+    edata = fit.get_edata()
+    assert list(edata.arr["kind"]) == ["AS", "AS", "DS"]
+    assert list(edata.arr["i_lo"]) == [1, 3, 1]
+    assert list(edata.arr["i_hi"]) == [0, 0, 2]
+    np.testing.assert_allclose(edata.arr["e_calc"], [0.0, 12.0, 5.0])
+    assert edata.chi2() == pytest.approx(float(fit.eval({})[0]), rel=1e-12)
 
 
 def test_get_edata_uses_hamiltonian_label():
