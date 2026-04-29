@@ -42,7 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **`pycf.pyfit.PyFit`**: pure-Python fitting wrapper around
     `scipy.optimize.least_squares` that drives an `EFit`/`MHFit`
     through its `EData` residual vector.  Provides `residuals(x)`,
-    `chi2(x)`, and `fit_(method=..., bounds=..., jac=...)`.  Parameter
+    `chi2(x)`, `jacobian(x)` (weighted FD residual Jacobian),
+    `fit_(method=..., bounds=..., jac=...)` (with ``jac='pycf'`` to
+    use the pycf FD helper), `covariance()` and `stderr()` for
+    one-sigma parameter uncertainties at the optimum.  Parameter
     perturbations go through `_temporary_x` so the wrapped fit's
     persistent state is preserved.  Useful for irrep-aware extensions,
     bound-constrained fits, and any custom Python-side residual logic

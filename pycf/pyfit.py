@@ -74,6 +74,10 @@ class PyFit:
             )
         self.fit = fit
         self.x0 = np.asarray(fit.x0, dtype=np.float64).copy()
+        # The most recent scipy.optimize.OptimizeResult, populated by
+        # :meth:`fit_`.  Used by :meth:`covariance` and :meth:`stderr`
+        # when no explicit ``x`` is supplied.
+        self.last_result: Any = None
 
     @property
     def n_p_real(self) -> int:
@@ -111,6 +115,39 @@ class PyFit:
         r = self.residuals(x)
         return float(np.dot(r, r))
 
+    def jacobian(self, x: np.ndarray, **fd_kwargs: Any) -> np.ndarray:
+        r"""Weighted residual Jacobian at parameter point ``x``.
+
+        Wraps :py:meth:`pycf.cfl.EFit.fd_jacobian` (or the equivalent
+        MHFit method), then multiplies row :math:`i` by
+        :math:`\sqrt{w_i}` so the returned matrix is
+        :math:`\partial r_i / \partial x_\alpha` for the same residuals
+        ``r`` returned by :meth:`residuals`.  Suitable for passing to
+        ``scipy.optimize.least_squares`` via ``jac=PyFit.jacobian``.
+
+        Parameters
+        ----------
+        x : array_like
+            Parameter vector of length ``n_p_real``.
+        **fd_kwargs
+            Forwarded to ``fit.fd_jacobian`` (``delta``, ``rel_delta``,
+            ``atol``, ``check_swaps``).
+
+        Returns
+        -------
+        J : numpy.ndarray, shape ``(n_obs, n_p_real)``
+        """
+        x = np.asarray(x, dtype=np.float64)
+        # fd_jacobian internally restores parameter state on exit.
+        J_E = np.asarray(self.fit.fd_jacobian(x, **fd_kwargs),
+                         dtype=np.float64)
+        # Weight rows by sqrt(w_i) so that J matches d(residuals)/dx.
+        with _temporary_x(self.fit, x):
+            edata = self.fit.get_edata()
+        weights = np.asarray(edata.arr["weight"], dtype=np.float64)
+        sqrtw = np.sqrt(np.maximum(weights, 0.0))
+        return sqrtw[:, None] * J_E
+
     def fit_(
         self,
         x0: Optional[np.ndarray] = None,
@@ -138,9 +175,11 @@ class PyFit:
             valid with ``method != 'lm'``.
         jac : str or callable, optional
             Jacobian specification.  Defaults to numerical differences
-            via SciPy.  Pass ``self.fit.fd_jacobian`` (suitably
-            wrapped) to use the pycf finite-difference helper, or your
-            own callable returning shape ``(n_obs, n_p_real)``.
+            via SciPy (``'2-point'``).  Pass the string ``'pycf'`` to
+            use :meth:`jacobian` (pycf's own central-difference helper
+            with the same step convention as
+            ``fit.covariance()``), or any callable returning shape
+            ``(n_obs, n_p_real)``.
         **kwargs
             Any other keyword argument accepted by
             :func:`scipy.optimize.least_squares`
@@ -150,7 +189,8 @@ class PyFit:
         -------
         result : scipy.optimize.OptimizeResult
             The full SciPy result object (``x``, ``cost``, ``fun``,
-            ``jac``, ``nfev``, ``status``, ``message``, ...).
+            ``jac``, ``nfev``, ``status``, ``message``, ...).  Also
+            cached on :attr:`last_result` for use by :meth:`covariance`.
 
         Notes
         -----
@@ -166,9 +206,67 @@ class PyFit:
             x0 = self.x0
         x0 = np.asarray(x0, dtype=np.float64)
 
+        if jac == "pycf":
+            jac = self.jacobian
+
         kwargs.setdefault("method", method)
         if bounds is not None:
             kwargs["bounds"] = bounds
         kwargs["jac"] = jac
 
-        return least_squares(self.residuals, x0, **kwargs)
+        result = least_squares(self.residuals, x0, **kwargs)
+        self.last_result = result
+        return result
+
+    def covariance(
+        self,
+        x: Optional[np.ndarray] = None,
+        *,
+        scale: str = "reduced_chi2",
+        **fd_kwargs: Any,
+    ) -> Any:
+        r"""Variance-covariance matrix of the fit parameters.
+
+        Delegates to ``self.fit.covariance(...)`` (which builds
+        :math:`(J_E^T W J_E)^+` and applies the requested scale).  If
+        ``x`` is omitted and a previous :meth:`fit_` call has populated
+        :attr:`last_result`, the optimum from that result is used.
+
+        Parameters
+        ----------
+        x : array_like, optional
+            Parameter vector at which to evaluate.  Defaults to
+            ``self.last_result.x`` if available, else the underlying
+            fit's current ``x0``.
+        scale : {"reduced_chi2", "unscaled"}, optional
+            Forwarded to :py:meth:`pycf.cfl.EFit.covariance`.
+        **fd_kwargs
+            Forwarded to ``fit.fd_jacobian`` when an FD Jacobian is
+            recomputed.
+
+        Returns
+        -------
+        cov : numpy.ndarray, shape ``(n_p_real, n_p_real)``
+        sigma : numpy.ndarray, shape ``(n_p_real,)``
+            ``sqrt(diag(cov))`` (clipped at 0).
+        edata : EData
+            Snapshot used to weight the normal matrix.
+        """
+        if x is None and self.last_result is not None:
+            x = np.asarray(self.last_result.x, dtype=np.float64)
+        return self.fit.covariance(x=x, scale=scale, **fd_kwargs)
+
+    def stderr(
+        self,
+        x: Optional[np.ndarray] = None,
+        *,
+        scale: str = "reduced_chi2",
+        **fd_kwargs: Any,
+    ) -> np.ndarray:
+        """One-sigma parameter uncertainties.
+
+        Convenience wrapper around :meth:`covariance` that returns
+        only the ``sigma`` vector (``sqrt(diag(cov))``).
+        """
+        _, sigma, _ = self.covariance(x=x, scale=scale, **fd_kwargs)
+        return np.asarray(sigma, dtype=np.float64)

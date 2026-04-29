@@ -134,3 +134,63 @@ def test_pyfit_bounds_with_trf():
     # Force x to stay >= 0.9; the optimum is then on the boundary.
     res = py.fit_(method="trf", bounds=([0.9], [2.0]))
     assert res.x[0] == pytest.approx(0.9, abs=1e-6)
+
+
+def test_pyfit_jacobian_matches_residual_fd():
+    """PyFit.jacobian(x) approximates the FD Jacobian of residuals."""
+    diag = np.array([0.0, 5.0, 12.0])
+    ex = cfl.ExData(np.array([[1, 0.5], [2, 4.6], [3, 11.0]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    x = np.array([0.95])
+    J = py.jacobian(x)
+    assert J.shape == (3, 1)
+
+    # Compare with central differences on residuals().
+    h = 1e-5
+    rp = py.residuals(x + h)
+    rm = py.residuals(x - h)
+    J_ref = (rp - rm)[:, None] / (2 * h)
+    np.testing.assert_allclose(J, J_ref, atol=1e-7, rtol=1e-7)
+
+
+def test_pyfit_fit_with_pycf_jacobian():
+    """jac='pycf' converges to the same minimum as default '2-point'."""
+    diag = np.array([0.0, 5.0, 10.0])
+    ex = cfl.ExData(np.array([[1, 0.0], [2, 3.5], [3, 7.0]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    res = py.fit_(method="lm", jac="pycf")
+    assert res.x[0] == pytest.approx(0.7, rel=1e-6)
+    assert py.chi2(res.x) == pytest.approx(0.0, abs=1e-18)
+    assert py.last_result is res
+
+
+def test_pyfit_covariance_matches_underlying_fit():
+    """PyFit.covariance delegates to fit.covariance() at the optimum."""
+    diag = np.array([0.0, 5.0, 10.0])
+    # add a small offset so the fit isn't exactly zero residual.
+    ex = cfl.ExData(np.array([[1, 0.05], [2, 3.45], [3, 7.05]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    res = py.fit_(method="lm")
+    cov_py, sigma_py, _ = py.covariance()
+    cov_ref, sigma_ref, _ = efit.covariance(x=res.x)
+    np.testing.assert_allclose(cov_py, cov_ref, rtol=1e-8, atol=1e-12)
+    np.testing.assert_allclose(sigma_py, sigma_ref, rtol=1e-8, atol=1e-12)
+
+
+def test_pyfit_stderr_shape_and_positive():
+    """stderr() returns a length-n_p_real non-negative vector."""
+    diag = np.array([0.0, 5.0, 10.0])
+    ex = cfl.ExData(np.array([[1, 0.05], [2, 3.45], [3, 7.05]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    py.fit_(method="lm")
+    sigma = py.stderr()
+    assert sigma.shape == (py.n_p_real,)
+    assert np.all(sigma >= 0.0)

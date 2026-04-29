@@ -84,7 +84,7 @@ print("  pyfit:        {:14.6f}".format(py.chi2(py.x0)))
 print("  efit.eval:    {:14.6f}".format(float(efit.eval({})[0])))
 print("=" * 72)
 
-result = py.fit_(method="lm", xtol=1e-10, ftol=1e-10, verbose=1)
+result = py.fit_(method="lm", jac="pycf", xtol=1e-10, ftol=1e-10, verbose=1)
 
 print()
 print("scipy.optimize.least_squares result:")
@@ -95,9 +95,10 @@ print("  cost:     {:.6e}  (== 0.5 * chi2)".format(result.cost))
 print("  chi2:     {:.6e}".format(2.0 * result.cost))
 
 print()
-print("Optimised parameters:")
-for name, value in zip(params, result.x):
-    print("  {:6s} = {:14.6f}".format(name, value))
+print("Optimised parameters (with one-sigma uncertainties):")
+sigma = py.stderr()
+for name, value, err in zip(params, result.x, sigma):
+    print("  {:6s} = {:14.6f}  +/- {:10.6f}".format(name, value, err))
 
 # Reuse PyFit's residual vector to populate an EData snapshot at the
 # optimum and pretty-print it.
