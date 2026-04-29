@@ -39,6 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     principal-component label-matching used by the C objective.  The
     `kind` field of the EData dtype is widened to `U2` so the rows
     can carry `'AS'`/`'DS'` instead of just `'A'`/`'D'`.
+  - **`pycf.pyfit.PyFit`**: pure-Python fitting wrapper around
+    `scipy.optimize.least_squares` that drives an `EFit`/`MHFit`
+    through its `EData` residual vector.  Provides `residuals(x)`,
+    `chi2(x)`, and `fit_(method=..., bounds=..., jac=...)`.  Parameter
+    perturbations go through `_temporary_x` so the wrapped fit's
+    persistent state is preserved.  Useful for irrep-aware extensions,
+    bound-constrained fits, and any custom Python-side residual logic
+    that doesn't yet exist in the C code.  See
+    `examples/ceylf/pyfit_example.py` for a worked Ce:YLF fit.
 
 ### Changed (breaking)
 - Seniority `label_key` letter renamed from `T` to `X` in `ImportSLJM`,

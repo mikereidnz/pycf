@@ -218,6 +218,13 @@ inexpensive:
   analytic Jacobian once available) as its callbacks; that wrapper then
   becomes the natural integration point for irrep-aware residuals.
 
+  **Status:** the wrapper now exists as `pycf.pyfit.PyFit` (see
+  `examples/ceylf/pyfit_example.py`).  It uses `_temporary_x` +
+  `get_edata` to feed weighted residuals to `scipy.optimize.least_squares`
+  and supports any scipy method, bounds, and custom Jacobians.  Remaining
+  work in this section: irrep assignment, analytic Jacobians, and any
+  `lmfit` / Gauss-Newton variants.
+
 These items are speculative until the §8.1 state-label work is
 underway — listed here so they are not lost.
 
