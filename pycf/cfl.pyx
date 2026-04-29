@@ -1914,6 +1914,82 @@ cdef class EFit(object):
 
         return chi2
 
+    def get_edata(self):
+        r"""
+        Return an :class:`~pycf.cfl_util.EData` table describing this fit's
+        observations and the values currently produced by the Hamiltonian.
+
+        The Hamiltonian is (re-)diagonalised at its current coefficients so
+        that ``self.h.w`` matches the eigenvalues used to compute
+        ``e_calc`` for each row.  Row order matches the order in which the
+        C objective concatenates residuals: all ``'A'`` rows first, then
+        all ``'D'`` rows.
+
+        Returns
+        -------
+        edata : EData
+
+        Raises
+        ------
+        NotImplementedError
+            If the underlying ExData uses state-label-indexed observations
+            (``'AS'``/``'DS'``).  Support is planned as a follow-up; see
+            ``plan/hamiltonian_data_plan.md`` (F5).
+        """
+        if self.ex.sl_index:
+            raise NotImplementedError(
+                "EFit.get_edata() does not yet support state-label-indexed "
+                "ExData ('AS'/'DS'). See plan/hamiltonian_data_plan.md F5."
+            )
+        self.h.diag()
+        return _build_edata_for_ex(self.h, self.ex, h_index=0)
+
+
+cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index):
+    """Construct an EData table for a single (Hamiltonian, ExData) pair.
+
+    Assumes ``h.diag()`` has already populated ``h.w`` and that
+    ``ex.sl_index == 0``.  The per-Hamiltonian scalar weight that MHFit
+    applies is already baked into ``ex.w`` by ``exdata_alloc_helper``,
+    so callers should pass the same ``ExData`` instance that the fit
+    runner stores.
+    """
+    cdef np.ndarray w = h.w
+    n_a = ex.n_a
+    n_d = ex.n_d
+    n_obs = ex.n_obs
+    label = h.label if h.label is not None else "H[%d]" % h_index
+
+    arr = np.zeros(n_obs, dtype=EData.DTYPE)
+    arr["h_index"] = h_index
+    arr["h_label"] = label
+
+    # 'A' rows: indices 0 .. n_a-1 in the residual vector.
+    if n_a > 0:
+        la = np.asarray(ex.la, dtype=np.int64)  # 0-based level indices.
+        arr["kind"][:n_a] = "A"
+        arr["i_lo"][:n_a] = la + 1
+        arr["i_hi"][:n_a] = 0
+        arr["e_calc"][:n_a] = w[la]
+
+    # 'D' rows: indices n_a .. n_a+n_d-1.
+    if n_d > 0:
+        ild = np.asarray(ex.ild, dtype=np.int64)
+        fld = np.asarray(ex.fld, dtype=np.int64)
+        sl = slice(n_a, n_a + n_d)
+        arr["kind"][sl] = "D"
+        arr["i_lo"][sl] = ild + 1
+        arr["i_hi"][sl] = fld + 1
+        # Match the C objective's fabs(...) (see cfl_h_fit.c:661,1112).
+        arr["e_calc"][sl] = np.abs(w[fld] - w[ild])
+
+    arr["e_obs"][:] = np.asarray(ex.e, dtype=np.float64)[:n_obs]
+    arr["weight"][:] = np.asarray(ex.w, dtype=np.float64)[:n_obs]
+    arr["residual"][:] = arr["e_calc"] - arr["e_obs"]
+    arr["wresidual"][:] = np.sqrt(arr["weight"]) * arr["residual"]
+
+    return EData(arr)
+
 
 cdef class MHFit(object):
     r"""
