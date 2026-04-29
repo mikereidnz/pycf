@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Hamiltonian data accessors.** New Python-side helpers for
+  inspecting fit residuals and parameter uncertainties without
+  reaching into C internals:
+  - `cfl.Hamiltonian.label`: optional human-readable label, rendered
+    in `gen_summary()` headings and copied into every row of the
+    `EData` table returned by `EFit.get_edata` / `MHFit.get_edata`.
+  - `cfl_util.EData`: structured-array container with `.arr`,
+    `.chi2()`, `.to_str()`, and `__len__`. Row order matches the
+    objective vector consumed by `gsl_nls`, so row indices align
+    with Jacobian rows and `last_jacobian` columns.
+  - `EFit.get_edata()` / `MHFit.get_edata()`: snapshot of calculated
+    and experimental energies (absolute and difference observations),
+    weights, residuals, and weighted residuals at the current
+    parameter point.
+  - `EFit.fd_jacobian()` / `MHFit.fd_jacobian()`: central-difference
+    energy Jacobian with optional swap-detection warning. Caches the
+    result on `last_jacobian`.
+  - `EFit.last_jacobian` / `MHFit.last_jacobian`: also populated by
+    `gsl_nls` fits with the convergence Jacobian extracted from GSL
+    (see `cfl_min.c::cfl_gsl_nls_setup`).
+  - `EFit.covariance()` / `MHFit.covariance()`: variance-covariance
+    matrix from `pinv(JᵀWJ)`, with `scale="reduced_chi2"` (default)
+    or `"unscaled"` (matches GSL convention). Falls back to
+    `last_jacobian` and warns on rank deficiency.
+  - `cfl_util.gen_edata_summary()`: pretty-printer for `EData`.
+
 ### Changed (breaking)
 - Seniority `label_key` letter renamed from `T` to `X` in `ImportSLJM`,
   `ExData`, and `States`, matching Nielson-Koster notation. User code
