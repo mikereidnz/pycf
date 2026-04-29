@@ -1945,14 +1945,14 @@ cdef class EFit(object):
         return _build_edata_for_ex(self.h, self.ex, h_index=0)
 
 
-cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index):
+cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=1.0):
     """Construct an EData table for a single (Hamiltonian, ExData) pair.
 
     Assumes ``h.diag()`` has already populated ``h.w`` and that
-    ``ex.sl_index == 0``.  The per-Hamiltonian scalar weight that MHFit
-    applies is already baked into ``ex.w`` by ``exdata_alloc_helper``,
-    so callers should pass the same ``ExData`` instance that the fit
-    runner stores.
+    ``ex.sl_index == 0``.  ``h_weight`` is the per-Hamiltonian scalar
+    weight used by MHFit (default 1.0 for EFit); the C side bakes
+    ``ex.w * h_weight`` into the value it squares, so we mirror that
+    here so that ``EData.chi2()`` matches the C objective.
     """
     cdef np.ndarray w = h.w
     n_a = ex.n_a
@@ -1984,7 +1984,7 @@ cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index):
         arr["e_calc"][sl] = np.abs(w[fld] - w[ild])
 
     arr["e_obs"][:] = np.asarray(ex.e, dtype=np.float64)[:n_obs]
-    arr["weight"][:] = np.asarray(ex.w, dtype=np.float64)[:n_obs]
+    arr["weight"][:] = np.asarray(ex.w, dtype=np.float64)[:n_obs] * h_weight
     arr["residual"][:] = arr["e_calc"] - arr["e_obs"]
     arr["wresidual"][:] = np.sqrt(arr["weight"]) * arr["residual"]
 
@@ -2334,6 +2334,60 @@ cdef class MHFit(object):
             cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
 
         return chi2
+
+    def get_edata(self):
+        r"""
+        Return an :class:`~pycf.cfl_util.EData` table aggregating the
+        observations of every Hamiltonian in this fit.
+
+        Each Hamiltonian is (re-)diagonalised at its current coefficients
+        and rows are concatenated in fit-evaluation order
+        ``(h_list[0], h_list[1], ...)``, with each Hamiltonian's rows in
+        the same internal order produced by :py:meth:`EFit.get_edata`
+        (all ``'A'`` rows then all ``'D'`` rows).  Row index in the
+        returned table aligns with column index of the residual vector
+        the C minimiser sees, which is also the column index of the
+        Jacobian.
+
+        The per-Hamiltonian scalar weight passed in ``weights_list`` is
+        applied to each row's ``weight`` field so that
+        ``EData.chi2()`` matches the value the C objective squares.
+        (Internally, the C side bakes that scalar into the ``ex_data.w``
+        buffer it reads, while the Python ``ExData.w`` attribute keeps
+        the original per-level weights.)
+
+        Returns
+        -------
+        edata : EData
+
+        Raises
+        ------
+        NotImplementedError
+            If any per-Hamiltonian ExData uses state-label-indexed
+            observations (``'AS'``/``'DS'``).  See
+            ``plan/hamiltonian_data_plan.md`` (F5).
+        """
+        for ex in self.ex_list:
+            if ex.sl_index:
+                raise NotImplementedError(
+                    "MHFit.get_edata() does not yet support "
+                    "state-label-indexed ExData ('AS'/'DS'). "
+                    "See plan/hamiltonian_data_plan.md F5."
+                )
+
+        parts = []
+        for i, h in enumerate(self.h_list):
+            h.diag()
+            parts.append(
+                _build_edata_for_ex(
+                    h, self.ex_list[i], h_index=i,
+                    h_weight=float(self.weights_list[i]),
+                ).arr
+            )
+
+        if len(parts) == 0:
+            return EData.empty(0)
+        return EData(np.concatenate(parts))
 
 
 cdef shxdata_alloc_helper(sh, shx, weights):
