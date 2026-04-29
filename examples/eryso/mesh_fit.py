@@ -163,7 +163,7 @@ coeff = {
 }
 
 h1 = cfl.Hamiltonian(t_list)
-h1.label = "Site 1, ground state"
+h1.label = "Crystal field"
 h1.set_coeff(coeff)
 (w, z) = h1.diag()
 print(h1.gen_summary())
@@ -184,7 +184,7 @@ weights1 = {"energy": 0.001, "zeeman": 12.0}
 h_sh_list = [{"h": h1, "sh": sh1, "ex": ex1, "shx": shx1, "weights": weights1, "svd_sym": True}]
 # Fix: thfs_list already contains HYP and EQHYP (line 36)
 h2 = cfl.Hamiltonian(thfs_list)
-h2.label = "Site 1, hyperfine"
+h2.label = "Crystal field + hyperfine"
 h2.set_coeff(coeff)
 
 

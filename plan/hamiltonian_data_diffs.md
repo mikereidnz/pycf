@@ -81,9 +81,9 @@ Branch `feat/hamiltonian-data-accessors` against `devel`.
 
 ### Examples
 
-- **`examples/eryso/mesh_fit.py`** — sets `h1.label = "Site 1, ground state"`
-  and `h2.label = "Site 1, hyperfine"`; docstring updated to mention
-  the new accessor workflow.
+- **`examples/eryso/mesh_fit.py`** — sets `h1.label = "Crystal field"`
+  and `h2.label = "Crystal field + hyperfine"`; docstring updated to
+  mention the new accessor workflow.
 
 ### Tests
 

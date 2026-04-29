@@ -23,7 +23,7 @@ As in previous work (see other files in /plan such as import_tensor_plan.md)
 
 ## 2. Goals
 
-G1. Allow the user to attach a human-readable label (e.g. `"Site 1"`,
+G1. Allow the user to attach a human-readable label (e.g. `"No hyperfine"`,
     `"B || c"`) to a `Hamiltonian` so multi-Hamiltonian summary output
     can be unambiguously identified.
 
