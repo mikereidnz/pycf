@@ -147,7 +147,8 @@ cdef extern from "../../cfl/include/cfl_min.h":
     cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data),
             size_t n, void *data, gsl_min_alg algorithm)
     cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n, int p,
-            void *data, double *wts, double xtol, double gtol, double ftol, double *covar, int niter)
+            void *data, double *wts, double xtol, double gtol, double ftol, double *covar,
+            double *jac, int niter)
     cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad, void *data),
             size_t n, void *data, int niter, cfl_min_bounds *bounds, double *stepsize, double Tstart,
             double Tmin, double muT, double k, double *chi2accept, double *xaccept, double maxtime)

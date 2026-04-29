@@ -5,6 +5,26 @@ Installation
 This guide covers installation of PyCF on various platforms. For detailed
 system-specific requirements, see see `ENVIRONMENT.md <../ENVIRONMENT.md>`__.
 
+Choosing a Branch
+=================
+
+The repository uses three classes of branches:
+
+- ``main`` — recommended for users who want stability; updated when a
+  development cycle reaches a tagged release.
+- ``devel`` — current integration branch; track this if you want to
+  follow ongoing work and try features before they land on ``main``,
+  but expect occasional breakage.
+- ``feat/...`` — in-progress feature branches, typically opened for
+  review as pull requests against ``devel``.
+- ``legacy`` — mirrors Sebastian Horvath's original Bitbucket
+  repository (https://bitbucket.org/sebastianhorvath/pycf/).  Provided
+  for historical reference; not actively developed.
+
+``git clone`` defaults to ``main``.  To follow development, pass
+``-b devel`` to ``git clone`` or run ``git checkout devel`` after
+cloning.
+
 Quick Install
 =============
 

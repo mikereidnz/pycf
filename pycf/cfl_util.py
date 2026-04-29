@@ -261,6 +261,168 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
     return parsed_ex
 
 
+_EDATA_DTYPE = np.dtype(
+    [
+        ("h_index", np.int32),
+        ("h_label", object),
+        ("kind", "U2"),
+        ("i_lo", np.int32),
+        ("i_hi", np.int32),
+        ("e_calc", np.float64),
+        ("e_obs", np.float64),
+        ("weight", np.float64),
+        ("residual", np.float64),
+        ("wresidual", np.float64),
+    ]
+)
+
+
+class EData:
+    """A flat per-observation table of fit-residual data.
+
+    `EData` is a thin wrapper around a NumPy structured array that holds
+    one row per experimental observation seen by an :class:`EFit` /
+    :class:`MHFit` objective evaluation.  It is normally produced by
+    :py:meth:`EFit.get_edata` or :py:meth:`MHFit.get_edata`, not
+    constructed directly by user code.
+
+    Row order matches the order in which the C minimiser concatenates
+    residuals, so row indices into ``arr`` align with column indices of
+    the Jacobian returned by :py:meth:`fd_jacobian` and the Jacobian
+    captured by ``gsl_nls`` (see :py:attr:`EFit.last_jacobian`).
+
+    Parameters
+    ----------
+    arr : numpy.ndarray
+        A structured array with dtype matching :py:attr:`EData.DTYPE`.
+
+    Attributes
+    ----------
+    arr : numpy.ndarray
+        The underlying structured array.  Modifying its values is
+        supported but its dtype must not change.
+    DTYPE : numpy.dtype
+        The expected structured dtype.  Available on the class.
+
+    See Also
+    --------
+    gen_edata_summary : pretty-printer for an :class:`EData` instance.
+    """
+
+    DTYPE = _EDATA_DTYPE
+
+    def __init__(self, arr: np.ndarray) -> None:
+        if not isinstance(arr, np.ndarray):
+            raise TypeError("EData requires a NumPy structured array")
+        if arr.dtype != self.DTYPE:
+            raise TypeError(
+                f"EData expects dtype matching EData.DTYPE; got {arr.dtype!r}"
+            )
+        if arr.ndim != 1:
+            raise ValueError(
+                f"EData expects a 1-D structured array; got ndim={arr.ndim}"
+            )
+        self.arr = arr
+
+    @classmethod
+    def empty(cls, n: int) -> "EData":
+        """Allocate an EData with ``n`` zero-initialised rows."""
+        if n < 0:
+            raise ValueError("EData length must be non-negative")
+        return cls(np.zeros(n, dtype=cls.DTYPE))
+
+    def __len__(self) -> int:
+        return int(self.arr.shape[0])
+
+    def __getitem__(self, idx):  # type: ignore[no-untyped-def]
+        return self.arr[idx]
+
+    def chi2(self) -> float:
+        r"""Return :math:`\sum_i w_i (e_{\mathrm{calc},i} - e_{\mathrm{obs},i})^2`.
+
+        This matches the scalar minimised by the underlying C objective
+        (modulo any sign/constant conventions handled inside the C code).
+        For zero-length tables, returns ``0.0``.
+        """
+        if len(self) == 0:
+            return 0.0
+        return float(np.sum(self.arr["weight"] * self.arr["residual"] ** 2))
+
+    def to_str(self, precision: int = 4, max_rows: Optional[int] = None) -> str:
+        """Render the table as a labelled, fixed-width string.
+
+        Parameters
+        ----------
+        precision : int
+            Number of digits after the decimal point for floating-point
+            columns.
+        max_rows : int, optional
+            If set, truncate the printed output to this many rows and
+            append an ellipsis line.  ``None`` (the default) prints all
+            rows.
+        """
+        n = len(self)
+        if n == 0:
+            return "EData (empty)"
+        n_show = n if max_rows is None else min(n, max_rows)
+
+        header = (
+            f"{'idx':>4}  {'H':>3}  {'label':<14}  {'kind':<4}  "
+            f"{'i_lo':>4}  {'i_hi':>4}  "
+            f"{'e_calc':>12}  {'e_obs':>12}  "
+            f"{'weight':>10}  {'residual':>12}  {'wresid':>12}"
+        )
+        sep = "-" * len(header)
+        lines = [header, sep]
+        fmt_e = f"{{:>12.{precision}f}}"
+        fmt_w = f"{{:>10.{precision}f}}"
+        for i in range(n_show):
+            row = self.arr[i]
+            lab = "" if row["h_label"] is None else str(row["h_label"])
+            if len(lab) > 14:
+                lab = lab[:13] + "…"
+            lines.append(
+                f"{i:>4}  {int(row['h_index']):>3}  {lab:<14}  "
+                f"{str(row['kind']):<4}  "
+                f"{int(row['i_lo']):>4}  {int(row['i_hi']):>4}  "
+                + fmt_e.format(float(row["e_calc"]))
+                + "  "
+                + fmt_e.format(float(row["e_obs"]))
+                + "  "
+                + fmt_w.format(float(row["weight"]))
+                + "  "
+                + fmt_e.format(float(row["residual"]))
+                + "  "
+                + fmt_e.format(float(row["wresidual"]))
+            )
+        if n_show < n:
+            lines.append(f"... ({n - n_show} more rows)")
+        lines.append(sep)
+        lines.append(f"chi2 = {self.chi2():.{precision}e}   N = {n}")
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return f"EData(n={len(self)}, chi2={self.chi2():.6g})"
+
+
+def gen_edata_summary(edata: EData, **kwargs: Any) -> str:
+    """Return a pretty-printed summary of an :class:`EData` table.
+
+    Thin wrapper around :py:meth:`EData.to_str` provided for symmetry
+    with the other ``gen_*_summary`` helpers in this module.
+
+    Parameters
+    ----------
+    edata : EData
+        The table to render.
+    **kwargs
+        Forwarded to :py:meth:`EData.to_str` (``precision``, ``max_rows``).
+    """
+    if not isinstance(edata, EData):
+        raise TypeError("gen_edata_summary requires an EData instance")
+    return edata.to_str(**kwargs)
+
+
 def gen_e_summary(
     w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
 ) -> str:
@@ -347,7 +509,10 @@ def gen_e_summary(
             e_shift = -np.min(w)
             w = w + e_shift
     s = "Energy level summary\n"
-    s += "====================\n\n"
+    s += "====================\n"
+    if "h_label" in kwargs and kwargs["h_label"] is not None:
+        s += "Hamiltonian: {}\n".format(kwargs["h_label"])
+    s += "\n"
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]
@@ -776,7 +941,7 @@ def gen_fit_summary(
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
     s += "{0:<20} {1: <}\n".format("method:", method)
     for k in kwargs:
-        if k not in ["chi2accept", "xaccept"]:
+        if k not in ["chi2accept", "xaccept", "covar", "jac"]:
             s += "{0:<20} {1: <}\n".format(k + ":", kwargs[k])
     return s
 

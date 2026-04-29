@@ -27,6 +27,8 @@ from pycf cimport cfl
 
 import copy
 import sys
+import warnings
+from contextlib import contextmanager
 from numbers import Number
 
 import numpy as np
@@ -434,6 +436,12 @@ cdef class Hamiltonian:
     tensors : list
         A list with components of type Tensor; this specifies the type of
         interactions modeled by the Hamiltonian.
+    label : str, optional
+        A human-readable label for this Hamiltonian (e.g. ``"Ground state"``,
+        ``"B || c"``).  Surfaced in summary output produced by
+        :func:`cfl_util.gen_e_summary` and the EData/covariance helpers, and
+        used to disambiguate Hamiltonians in multi-Hamiltonian fits
+        (:class:`MHFit`).  Defaults to ``None`` (no label printed).
 
     Returns
     -------
@@ -450,8 +458,9 @@ cdef class Hamiltonian:
     cdef public np.ndarray w
     cdef public np.ndarray z
     cdef public object h_cap
+    cdef public object label
     cdef int diag_run
-    def __cinit__(self, tensors):
+    def __cinit__(self, tensors, *, label=None):
 
         if len(tensors) == 0:
             raise ValueError("Hamiltonian requires at least one Tensor")
@@ -470,6 +479,9 @@ cdef class Hamiltonian:
         self.tensors = tensors
         self.coeff_dict = None
         self.diag_run = 0
+        if label is not None and not isinstance(label, str):
+            raise TypeError("Hamiltonian label must be a str or None")
+        self.label = label
 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function.
@@ -670,6 +682,8 @@ cdef class Hamiltonian:
             Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero.
         """
         if self.diag_run:
+            if "h_label" not in kwargs and self.label is not None:
+                kwargs["h_label"] = self.label
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
                     self.tensors[0].states.label_key, **kwargs)
         else:
@@ -1669,6 +1683,209 @@ cdef set_param_helper(fit_obj):
             fit_obj.x0[ii] = fit_obj.coeff[p]
             ii += 1
 
+
+def _x_to_coeff_dict(fit_obj, x):
+    """Convert a real-valued parameter vector to a coeff dict.
+
+    Splits each complex parameter back into a (Re, Im) pair following
+    the same indexing convention as ``set_param_helper`` (the inverse
+    operation).
+    """
+    coeff = {}
+    ii = 0
+    for p in fit_obj.parameters:
+        if fit_obj.param_types[p] == 'c':
+            coeff[p] = complex(float(x[ii]), float(x[ii + 1]))
+            ii += 2
+        else:
+            coeff[p] = float(x[ii])
+            ii += 1
+    return coeff
+
+
+def _fit_hamiltonians(fit_obj):
+    """Return the list of Hamiltonians a fit object owns."""
+    if hasattr(fit_obj, "h_list") and fit_obj.h_list is not None:
+        return list(fit_obj.h_list)
+    return [fit_obj.h]
+
+
+@contextmanager
+def _temporary_x(fit_obj, x):
+    """Temporarily set fit parameters to ``x``; restore on exit.
+
+    Round-trips both the Python state (``fit_obj.coeff``, ``fit_obj.x0``,
+    each Hamiltonian's ``coeff_dict``) and the C-side coefficients in
+    each Hamiltonian (via :py:meth:`Hamiltonian.update_coeff`) so that a
+    subsequent ``h.diag()`` evaluates at the perturbed point and the
+    original state is fully restored on context exit (even on
+    exceptions).
+    """
+    x_arr = np.asarray(x, dtype=np.float64)
+    if x_arr.shape != (fit_obj.n_p_real,):
+        raise ValueError(
+            "x must have shape (%d,); got shape %s" % (
+                fit_obj.n_p_real, x_arr.shape,
+            )
+        )
+    h_list = _fit_hamiltonians(fit_obj)
+    saved_coeff = copy.deepcopy(fit_obj.coeff)
+    saved_x0 = np.asarray(fit_obj.x0, dtype=np.float64).copy()
+    saved_h_coeffs = [copy.deepcopy(h.coeff_dict) for h in h_list]
+    new_coeff = _x_to_coeff_dict(fit_obj, x_arr)
+    try:
+        fit_obj.coeff.update(new_coeff)
+        np.asarray(fit_obj.x0)[:] = x_arr  # in-place; preserves buffer.
+        for h in h_list:
+            sub = {k: v for k, v in new_coeff.items() if k in h}
+            if sub:
+                h.update_coeff(sub)
+        yield
+    finally:
+        for h, saved in zip(h_list, saved_h_coeffs):
+            if saved is not None:
+                h.set_coeff(saved)
+        fit_obj.coeff.clear()
+        fit_obj.coeff.update(saved_coeff)
+        np.asarray(fit_obj.x0)[:] = saved_x0
+
+
+def _fd_jacobian_impl(fit_obj, x=None, *, delta=None,
+                      rel_delta=1e-5, atol=1e-8, check_swaps=True):
+    """Shared finite-difference Jacobian implementation.
+
+    Computes ``J_E`` (the unweighted energy Jacobian, see the project
+    plan section 5.3) by central differences, returning an
+    ``(n_obs, n_p_real)`` ``np.ndarray``.  ``check_swaps`` raises a
+    ``UserWarning`` for any column whose magnitude suggests an
+    eigenvalue swap across the FD step.
+
+    On exit the fit's parameter state matches its state on entry.
+    """
+    n_p = fit_obj.n_p_real
+    n_obs = fit_obj.n_obs
+    if x is None:
+        x_base = np.asarray(fit_obj.x0, dtype=np.float64).copy()
+    else:
+        x_base = np.asarray(x, dtype=np.float64).copy()
+    if x_base.shape != (n_p,):
+        raise ValueError(
+            "x must have shape (%d,); got shape %s" % (n_p, x_base.shape)
+        )
+
+    if delta is None:
+        delta_vec = np.maximum(rel_delta * np.abs(x_base), atol)
+    elif np.isscalar(delta):
+        delta_vec = np.full(n_p, float(delta), dtype=np.float64)
+    else:
+        delta_vec = np.asarray(delta, dtype=np.float64).copy()
+        if delta_vec.shape != (n_p,):
+            raise ValueError(
+                "delta must be a scalar or shape (%d,) array; got %s" % (
+                    n_p, delta_vec.shape,
+                )
+            )
+    if np.any(delta_vec <= 0):
+        raise ValueError("All FD step sizes must be strictly positive")
+
+    # Capture the baseline calculated energies (used for the swap check).
+    with _temporary_x(fit_obj, x_base):
+        E_base = fit_obj.get_edata().arr["e_calc"].astype(np.float64, copy=True)
+
+    J = np.zeros((n_obs, n_p), dtype=np.float64)
+    for alpha in range(n_p):
+        d = float(delta_vec[alpha])
+        x_p = x_base.copy()
+        x_p[alpha] = x_base[alpha] + d
+        x_m = x_base.copy()
+        x_m[alpha] = x_base[alpha] - d
+        with _temporary_x(fit_obj, x_p):
+            E_p = fit_obj.get_edata().arr["e_calc"]
+        with _temporary_x(fit_obj, x_m):
+            E_m = fit_obj.get_edata().arr["e_calc"]
+        J[:, alpha] = (E_p - E_m) / (2.0 * d)
+
+    if check_swaps and n_obs > 0:
+        e_range = float(np.ptp(E_base)) if n_obs > 1 else 1.0
+        if e_range > 0.0:
+            for alpha in range(n_p):
+                col_max = float(np.max(np.abs(J[:, alpha]))) if n_obs > 0 else 0.0
+                if col_max * delta_vec[alpha] > 0.5 * e_range:
+                    warnings.warn(
+                        "fd_jacobian: column %d has max|J|*delta=%.3g, "
+                        "comparable to the energy spread (%.3g). This may "
+                        "indicate an eigenvalue swap or near-degeneracy "
+                        "across the FD step; consider reducing delta for "
+                        "this parameter." % (
+                            alpha, col_max * delta_vec[alpha], e_range,
+                        ),
+                        UserWarning,
+                        stacklevel=3,
+                    )
+
+    fit_obj.last_jacobian = J
+    return J
+
+
+def _covariance_impl(fit_obj, x=None, *, jacobian=None,
+                     scale="reduced_chi2", **fd_kwargs):
+    """Shared covariance implementation for EFit/MHFit.
+
+    Returns ``(cov, sigma, edata)`` where ``cov`` has shape
+    ``(n_p_real, n_p_real)``, ``sigma = sqrt(diag(cov))``, and ``edata``
+    is the :class:`EData` snapshot used to compute the residuals.
+    """
+    if scale not in ("reduced_chi2", "unscaled"):
+        raise ValueError(
+            "scale must be 'reduced_chi2' or 'unscaled', got %r" % (scale,))
+
+    if jacobian is None:
+        J = getattr(fit_obj, "last_jacobian", None)
+        if J is None or x is not None:
+            J = _fd_jacobian_impl(fit_obj, x=x, **fd_kwargs)
+    else:
+        J = np.ascontiguousarray(jacobian, dtype=np.float64)
+
+    # Snapshot edata at the requested x (or current state).
+    if x is None:
+        edata = fit_obj.get_edata()
+    else:
+        with _temporary_x(fit_obj, np.asarray(x, dtype=np.float64)):
+            edata = fit_obj.get_edata()
+
+    arr = edata.arr
+    weights = np.asarray(arr["weight"], dtype=np.float64)
+    n_obs = arr.shape[0]
+    n_p_real = J.shape[1]
+    if J.shape[0] != n_obs:
+        raise ValueError(
+            "Jacobian row count %d does not match n_obs=%d"
+            % (J.shape[0], n_obs))
+
+    JtWJ = J.T @ (weights[:, None] * J)
+    rank = np.linalg.matrix_rank(JtWJ)
+    if rank < n_p_real:
+        warnings.warn(
+            "Normal matrix is rank-deficient (rank %d < %d); "
+            "returning Moore-Penrose pseudo-inverse covariance."
+            % (rank, n_p_real),
+            UserWarning,
+            stacklevel=3,
+        )
+    N = np.linalg.pinv(JtWJ)
+
+    if scale == "unscaled":
+        cov = N
+    else:
+        chi2 = float(np.sum(np.asarray(arr["wresidual"]) ** 2))
+        ndof = max(n_obs - n_p_real, 1)
+        cov = (chi2 / ndof) * N
+
+    diag = np.diag(cov)
+    sigma = np.sqrt(np.where(diag > 0, diag, 0.0))
+    return cov, sigma, edata
+
+
 cdef class EFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
@@ -1713,6 +1930,7 @@ cdef class EFit(object):
     cdef public object nls_f_cap
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
+    cdef public object last_jacobian
     cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h, ex, **kwargs):
         self.h = h
@@ -1862,6 +2080,11 @@ cdef class EFit(object):
 
         fmin = min_object.minimize(self, x)
 
+        # If the minimiser produced a Jacobian (gsl_nls path), expose it
+        # for downstream callers (e.g. covariance helper).
+        if 'jac' in min_object.kwargs:
+            self.last_jacobian = np.array(min_object.kwargs['jac'], copy=True)
+
         coeff = self.coeff.copy()
         params = {}
         ri = 0
@@ -1903,6 +2126,188 @@ cdef class EFit(object):
             cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
 
         return chi2
+
+    def get_edata(self):
+        r"""
+        Return an :class:`~pycf.cfl_util.EData` table describing this fit's
+        observations and the values currently produced by the Hamiltonian.
+
+        The Hamiltonian is (re-)diagonalised at its current coefficients so
+        that ``self.h.w`` matches the eigenvalues used to compute
+        ``e_calc`` for each row.  Row order matches the order in which the
+        C objective concatenates residuals: all ``'A'`` rows first, then
+        all ``'D'`` rows.
+
+        Returns
+        -------
+        edata : EData
+        """
+        self.h.diag()
+        return _build_edata_for_ex(self.h, self.ex, h_index=0)
+
+
+    def fd_jacobian(self, x=None, *, delta=None, rel_delta=1e-5,
+                    atol=1e-8, check_swaps=True):
+        r"""
+        Finite-difference energy Jacobian.
+
+        Computes :math:`J_E[i, \alpha] = \partial E_i / \partial x_\alpha`
+        by central differences, where :math:`E_i` is the calculated value
+        of the i-th row of :py:meth:`get_edata` (an eigenvalue for ``'A'``
+        rows or :math:`|\lambda_f - \lambda_i|` for ``'D'`` rows) and
+        :math:`x` is the real-valued parameter vector with the same
+        layout as :attr:`x0` (complex parameters split into Re/Im).
+
+        Parameters
+        ----------
+        x : array_like, optional
+            Parameter vector at which to evaluate the Jacobian.  Defaults
+            to the current :attr:`x0`.
+        delta : float or array_like, optional
+            Per-parameter FD step.  If ``None``, ``max(rel_delta * |x|,
+            atol)`` is used.
+        rel_delta : float, optional
+            Relative step used when ``delta`` is ``None``.
+        atol : float, optional
+            Minimum absolute step used when ``delta`` is ``None``.
+        check_swaps : bool, optional
+            Emit a :class:`UserWarning` for any column whose magnitude
+            suggests an eigenvalue swap or near-degeneracy across the
+            FD step.
+
+        Returns
+        -------
+        J : np.ndarray, shape ``(n_obs, n_p_real)``
+            The unweighted energy Jacobian.  Also stored on
+            :attr:`last_jacobian`.
+
+        Notes
+        -----
+        On exit the fit's parameter state matches its state on entry,
+        even if an exception is raised.  Cost is ``2 * n_p_real``
+        diagonalisations.
+        """
+        return _fd_jacobian_impl(self, x=x, delta=delta,
+                                 rel_delta=rel_delta, atol=atol,
+                                 check_swaps=check_swaps)
+
+    def covariance(self, x=None, *, jacobian=None,
+                   scale="reduced_chi2", **fd_kwargs):
+        r"""
+        Variance-covariance matrix for the real-valued parameter vector.
+
+        Builds :math:`N = (J_E^T W J_E)^+` (Moore-Penrose pseudo-inverse)
+        and applies the requested ``scale``:
+
+        - ``scale="unscaled"`` returns ``N`` directly (matches the GSL
+          ``gsl_multifit_nlinear_covar`` convention).
+        - ``scale="reduced_chi2"`` (default) returns
+          ``(chi2 / max(N_obs - M, 1)) * N`` where ``M = n_p_real``.
+
+        Parameters
+        ----------
+        x : array_like, optional
+            Parameter vector at which to evaluate.  Defaults to the
+            current ``x0``.  If supplied, a fresh FD Jacobian is
+            computed at ``x`` (ignoring any cached ``last_jacobian``).
+        jacobian : array_like, optional
+            Pre-computed energy Jacobian of shape ``(n_obs, n_p_real)``.
+            If omitted, ``self.last_jacobian`` is used when available
+            and ``x is None``; otherwise an FD Jacobian is computed.
+        scale : {"reduced_chi2", "unscaled"}, optional
+            Scaling convention.
+        **fd_kwargs
+            Forwarded to :py:meth:`fd_jacobian` when an FD Jacobian is
+            computed.
+
+        Returns
+        -------
+        cov : np.ndarray, shape ``(n_p_real, n_p_real)``
+        sigma : np.ndarray, shape ``(n_p_real,)``
+            ``sqrt(diag(cov))`` (clipped at 0).
+        edata : EData
+            Snapshot used to weight the normal matrix.
+        """
+        return _covariance_impl(self, x=x, jacobian=jacobian,
+                                scale=scale, **fd_kwargs)
+
+
+cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=1.0):
+    """Construct an EData table for a single (Hamiltonian, ExData) pair.
+
+    Assumes ``h.diag()`` has already populated ``h.w`` and ``h.z``.
+    ``h_weight`` is the per-Hamiltonian scalar weight used by MHFit
+    (default 1.0 for EFit); the C side bakes ``ex.w * h_weight`` into
+    the value it squares, so we mirror that here so that
+    ``EData.chi2()`` matches the C objective.
+
+    For ``sl_index == 0`` ExData the level indices ``ex.la``/
+    ``ex.ild``/``ex.fld`` are taken directly.  For ``sl_index == 1``
+    ExData (``'AS'``/``'DS'`` modes), the matching mirrors the C
+    routine ``find_sort_indices`` (cfl_h_fit.c:702): for each
+    eigenvector the principal-component basis state is identified, and
+    the requested state label is matched against those basis labels.
+    The implementation reuses :py:func:`pycf.cfl_util.ex_parse_abs`
+    and :py:func:`pycf.cfl_util.ex_parse_diff` which already encode
+    that same logic in NumPy.
+    """
+    cdef np.ndarray w = h.w
+    n_a = ex.n_a
+    n_d = ex.n_d
+    n_obs = ex.n_obs
+    label = h.label if h.label is not None else "H[%d]" % h_index
+
+    arr = np.zeros(n_obs, dtype=EData.DTYPE)
+    arr["h_index"] = h_index
+    arr["h_label"] = label
+
+    if ex.sl_index:
+        # State-label-indexed observations; resolve level indices via
+        # principal-component matching.
+        labels = h.tensors[0].states.labels
+        a_kind = "AS"
+        d_kind = "DS"
+        if n_a > 0:
+            parsed_a = ex_parse_abs(ex, h.z, labels)
+            la = np.asarray(parsed_a[:, 0], dtype=np.int64)
+        else:
+            la = np.empty(0, dtype=np.int64)
+        if n_d > 0:
+            parsed_d = ex_parse_diff(ex, h.z, labels)
+            ild = np.asarray(parsed_d[:, 0], dtype=np.int64)
+            fld = np.asarray(parsed_d[:, 1], dtype=np.int64)
+        else:
+            ild = np.empty(0, dtype=np.int64)
+            fld = np.empty(0, dtype=np.int64)
+    else:
+        a_kind = "A"
+        d_kind = "D"
+        la = np.asarray(ex.la, dtype=np.int64) if n_a > 0 else np.empty(0, dtype=np.int64)
+        ild = np.asarray(ex.ild, dtype=np.int64) if n_d > 0 else np.empty(0, dtype=np.int64)
+        fld = np.asarray(ex.fld, dtype=np.int64) if n_d > 0 else np.empty(0, dtype=np.int64)
+
+    # Absolute rows: indices 0 .. n_a-1 in the residual vector.
+    if n_a > 0:
+        arr["kind"][:n_a] = a_kind
+        arr["i_lo"][:n_a] = la + 1
+        arr["i_hi"][:n_a] = 0
+        arr["e_calc"][:n_a] = w[la]
+
+    # Difference rows: indices n_a .. n_a+n_d-1.
+    if n_d > 0:
+        sl = slice(n_a, n_a + n_d)
+        arr["kind"][sl] = d_kind
+        arr["i_lo"][sl] = ild + 1
+        arr["i_hi"][sl] = fld + 1
+        # Match the C objective's fabs(...) (see cfl_h_fit.c:661,1112).
+        arr["e_calc"][sl] = np.abs(w[fld] - w[ild])
+
+    arr["e_obs"][:] = np.asarray(ex.e, dtype=np.float64)[:n_obs]
+    arr["weight"][:] = np.asarray(ex.w, dtype=np.float64)[:n_obs] * h_weight
+    arr["residual"][:] = arr["e_calc"] - arr["e_obs"]
+    arr["wresidual"][:] = np.sqrt(arr["weight"]) * arr["residual"]
+
+    return EData(arr)
 
 
 cdef class MHFit(object):
@@ -1967,6 +2372,7 @@ cdef class MHFit(object):
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
     cdef public list weights_list
+    cdef public object last_jacobian
     cdef list _ex_w_backing     # keeps each ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
@@ -2208,6 +2614,9 @@ cdef class MHFit(object):
 
         fmin = min_object.minimize(self, x)
 
+        if 'jac' in min_object.kwargs:
+            self.last_jacobian = np.array(min_object.kwargs['jac'], copy=True)
+
         params = {}
         ri = 0
 
@@ -2248,6 +2657,84 @@ cdef class MHFit(object):
             cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
 
         return chi2
+
+    def get_edata(self):
+        r"""
+        Return an :class:`~pycf.cfl_util.EData` table aggregating the
+        observations of every Hamiltonian in this fit.
+
+        Each Hamiltonian is (re-)diagonalised at its current coefficients
+        and rows are concatenated in fit-evaluation order
+        ``(h_list[0], h_list[1], ...)``, with each Hamiltonian's rows in
+        the same internal order produced by :py:meth:`EFit.get_edata`
+        (all ``'A'`` rows then all ``'D'`` rows).  Row index in the
+        returned table aligns with column index of the residual vector
+        the C minimiser sees, which is also the column index of the
+        Jacobian.
+
+        The per-Hamiltonian scalar weight passed in ``weights_list`` is
+        applied to each row's ``weight`` field so that
+        ``EData.chi2()`` matches the value the C objective squares.
+        (Internally, the C side bakes that scalar into the ``ex_data.w``
+        buffer it reads, while the Python ``ExData.w`` attribute keeps
+        the original per-level weights.)
+
+        Returns
+        -------
+        edata : EData
+        """
+        parts = []
+        for i, h in enumerate(self.h_list):
+            h.diag()
+            parts.append(
+                _build_edata_for_ex(
+                    h, self.ex_list[i], h_index=i,
+                    h_weight=float(self.weights_list[i]),
+                ).arr
+            )
+
+        if len(parts) == 0:
+            return EData.empty(0)
+        return EData(np.concatenate(parts))
+
+
+    def fd_jacobian(self, x=None, *, delta=None, rel_delta=1e-5,
+                    atol=1e-8, check_swaps=True):
+        r"""
+        Finite-difference energy Jacobian for a multi-Hamiltonian fit.
+
+        Computes :math:`J_E[i, \alpha] = \partial E_i / \partial x_\alpha`
+        by central differences across all Hamiltonians.  Row order
+        matches :py:meth:`get_edata`; ``x`` and the column order match
+        :attr:`x0`.  See :py:meth:`EFit.fd_jacobian` for parameter
+        details.
+
+        Returns
+        -------
+        J : np.ndarray, shape ``(n_obs, n_p_real)``
+            The unweighted energy Jacobian.  Also stored on
+            :attr:`last_jacobian`.
+
+        Notes
+        -----
+        On exit the fit's parameter state matches its state on entry.
+        Cost is ``2 * n_p_real`` diagonalisations of every Hamiltonian.
+        """
+        return _fd_jacobian_impl(self, x=x, delta=delta,
+                                 rel_delta=rel_delta, atol=atol,
+                                 check_swaps=check_swaps)
+
+    def covariance(self, x=None, *, jacobian=None,
+                   scale="reduced_chi2", **fd_kwargs):
+        r"""
+        Variance-covariance matrix for the real-valued parameter vector.
+
+        See :py:meth:`EFit.covariance` for the convention; for ``MHFit``
+        the Jacobian rows correspond to the concatenated per-Hamiltonian
+        observation list returned by :py:meth:`get_edata`.
+        """
+        return _covariance_impl(self, x=x, jacobian=jacobian,
+                                scale=scale, **fd_kwargs)
 
 
 cdef shxdata_alloc_helper(sh, shx, weights):
@@ -3329,9 +3816,11 @@ cdef class CFLMin:
         cdef void (*nls_f_ptr)(double *, void *, double *) noexcept
         cdef void *data_ptr = NULL
         cdef double *covar_ptr = NULL
+        cdef double *jac_ptr = NULL
         cdef double *wts_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] cwts
         cdef np.ndarray[double, ndim=2, mode="c"] covar
+        cdef np.ndarray[double, ndim=2, mode="c"] jac
         cdef double *chi2accept_ptr = NULL
         cdef double *xaccept_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] chi2accept
@@ -3463,6 +3952,10 @@ cdef class CFLMin:
                     dtype=np.float64)
             self.kwargs['covar'] = covar
             covar_ptr = &covar[0,0]
+            jac = np.ascontiguousarray(np.zeros([fit_obj.n_obs, fit_obj.n_p_real]),
+                    dtype=np.float64)
+            self.kwargs['jac'] = jac
+            jac_ptr = &jac[0,0]
             cwts = <np.ndarray[double, ndim=1, mode="c"]>fit_obj.wts
             wts_ptr = &cwts[0]
         else:
@@ -3583,7 +4076,7 @@ cdef class CFLMin:
         elif self.method == 'gsl_nls':
             min_obj = cfl_gsl_nls_setup(nls_f_ptr, fit_obj.n_obs,
                     fit_obj.n_p_real, data_ptr, wts_ptr, cxtol, cgtol, cftol,
-                    covar_ptr, self.niter)
+                    covar_ptr, jac_ptr, self.niter)
         else:
             raise ValueError("Unknown minimization method: %s" % self.method)
 
