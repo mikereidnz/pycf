@@ -8,6 +8,10 @@ This example demonstrates:
 3. Scaling magnetic field components (MX, MY, MZ) by Bohr magneton
 4. Setting up a mesh-based optimization to search parameter space
 5. Fitting to experimental energy levels with HFS corrections
+6. Attaching human-readable labels to each Hamiltonian via ``h.label``,
+   which then appears in the heading of ``h.gen_summary()`` and in
+   per-row ``h_label`` entries of any ``EData`` returned by
+   ``EFit.get_edata`` / ``MHFit.get_edata``.
 
 The example fits Er^3+ in YSO using magnetic field geometry to identify
 crystal field parameters across multiple datasets.
@@ -159,6 +163,7 @@ coeff = {
 }
 
 h1 = cfl.Hamiltonian(t_list)
+h1.label = "Site 1, ground state"
 h1.set_coeff(coeff)
 (w, z) = h1.diag()
 print(h1.gen_summary())
@@ -179,6 +184,7 @@ weights1 = {"energy": 0.001, "zeeman": 12.0}
 h_sh_list = [{"h": h1, "sh": sh1, "ex": ex1, "shx": shx1, "weights": weights1, "svd_sym": True}]
 # Fix: thfs_list already contains HYP and EQHYP (line 36)
 h2 = cfl.Hamiltonian(thfs_list)
+h2.label = "Site 1, hyperfine"
 h2.set_coeff(coeff)
 
 
