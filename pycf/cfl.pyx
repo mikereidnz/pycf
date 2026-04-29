@@ -434,6 +434,12 @@ cdef class Hamiltonian:
     tensors : list
         A list with components of type Tensor; this specifies the type of
         interactions modeled by the Hamiltonian.
+    label : str, optional
+        A human-readable label for this Hamiltonian (e.g. ``"Ground state"``,
+        ``"B || c"``).  Surfaced in summary output produced by
+        :func:`cfl_util.gen_e_summary` and the EData/covariance helpers, and
+        used to disambiguate Hamiltonians in multi-Hamiltonian fits
+        (:class:`MHFit`).  Defaults to ``None`` (no label printed).
 
     Returns
     -------
@@ -450,8 +456,9 @@ cdef class Hamiltonian:
     cdef public np.ndarray w
     cdef public np.ndarray z
     cdef public object h_cap
+    cdef public object label
     cdef int diag_run
-    def __cinit__(self, tensors):
+    def __cinit__(self, tensors, *, label=None):
 
         if len(tensors) == 0:
             raise ValueError("Hamiltonian requires at least one Tensor")
@@ -470,6 +477,9 @@ cdef class Hamiltonian:
         self.tensors = tensors
         self.coeff_dict = None
         self.diag_run = 0
+        if label is not None and not isinstance(label, str):
+            raise TypeError("Hamiltonian label must be a str or None")
+        self.label = label
 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function.
