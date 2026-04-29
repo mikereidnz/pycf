@@ -1825,6 +1825,65 @@ def _fd_jacobian_impl(fit_obj, x=None, *, delta=None,
     return J
 
 
+def _covariance_impl(fit_obj, x=None, *, jacobian=None,
+                     scale="reduced_chi2", **fd_kwargs):
+    """Shared covariance implementation for EFit/MHFit.
+
+    Returns ``(cov, sigma, edata)`` where ``cov`` has shape
+    ``(n_p_real, n_p_real)``, ``sigma = sqrt(diag(cov))``, and ``edata``
+    is the :class:`EData` snapshot used to compute the residuals.
+    """
+    if scale not in ("reduced_chi2", "unscaled"):
+        raise ValueError(
+            "scale must be 'reduced_chi2' or 'unscaled', got %r" % (scale,))
+
+    if jacobian is None:
+        J = getattr(fit_obj, "last_jacobian", None)
+        if J is None or x is not None:
+            J = _fd_jacobian_impl(fit_obj, x=x, **fd_kwargs)
+    else:
+        J = np.ascontiguousarray(jacobian, dtype=np.float64)
+
+    # Snapshot edata at the requested x (or current state).
+    if x is None:
+        edata = fit_obj.get_edata()
+    else:
+        with _temporary_x(fit_obj, np.asarray(x, dtype=np.float64)):
+            edata = fit_obj.get_edata()
+
+    arr = edata.arr
+    weights = np.asarray(arr["weight"], dtype=np.float64)
+    n_obs = arr.shape[0]
+    n_p_real = J.shape[1]
+    if J.shape[0] != n_obs:
+        raise ValueError(
+            "Jacobian row count %d does not match n_obs=%d"
+            % (J.shape[0], n_obs))
+
+    JtWJ = J.T @ (weights[:, None] * J)
+    rank = np.linalg.matrix_rank(JtWJ)
+    if rank < n_p_real:
+        warnings.warn(
+            "Normal matrix is rank-deficient (rank %d < %d); "
+            "returning Moore-Penrose pseudo-inverse covariance."
+            % (rank, n_p_real),
+            UserWarning,
+            stacklevel=3,
+        )
+    N = np.linalg.pinv(JtWJ)
+
+    if scale == "unscaled":
+        cov = N
+    else:
+        chi2 = float(np.sum(np.asarray(arr["wresidual"]) ** 2))
+        ndof = max(n_obs - n_p_real, 1)
+        cov = (chi2 / ndof) * N
+
+    diag = np.diag(cov)
+    sigma = np.sqrt(np.where(diag > 0, diag, 0.0))
+    return cov, sigma, edata
+
+
 cdef class EFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
@@ -2141,6 +2200,46 @@ cdef class EFit(object):
         return _fd_jacobian_impl(self, x=x, delta=delta,
                                  rel_delta=rel_delta, atol=atol,
                                  check_swaps=check_swaps)
+
+    def covariance(self, x=None, *, jacobian=None,
+                   scale="reduced_chi2", **fd_kwargs):
+        r"""
+        Variance-covariance matrix for the real-valued parameter vector.
+
+        Builds :math:`N = (J_E^T W J_E)^+` (Moore-Penrose pseudo-inverse)
+        and applies the requested ``scale``:
+
+        - ``scale="unscaled"`` returns ``N`` directly (matches the GSL
+          ``gsl_multifit_nlinear_covar`` convention).
+        - ``scale="reduced_chi2"`` (default) returns
+          ``(chi2 / max(N_obs - M, 1)) * N`` where ``M = n_p_real``.
+
+        Parameters
+        ----------
+        x : array_like, optional
+            Parameter vector at which to evaluate.  Defaults to the
+            current ``x0``.  If supplied, a fresh FD Jacobian is
+            computed at ``x`` (ignoring any cached ``last_jacobian``).
+        jacobian : array_like, optional
+            Pre-computed energy Jacobian of shape ``(n_obs, n_p_real)``.
+            If omitted, ``self.last_jacobian`` is used when available
+            and ``x is None``; otherwise an FD Jacobian is computed.
+        scale : {"reduced_chi2", "unscaled"}, optional
+            Scaling convention.
+        **fd_kwargs
+            Forwarded to :py:meth:`fd_jacobian` when an FD Jacobian is
+            computed.
+
+        Returns
+        -------
+        cov : np.ndarray, shape ``(n_p_real, n_p_real)``
+        sigma : np.ndarray, shape ``(n_p_real,)``
+            ``sqrt(diag(cov))`` (clipped at 0).
+        edata : EData
+            Snapshot used to weight the normal matrix.
+        """
+        return _covariance_impl(self, x=x, jacobian=jacobian,
+                                scale=scale, **fd_kwargs)
 
 
 cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=1.0):
@@ -2617,6 +2716,18 @@ cdef class MHFit(object):
         return _fd_jacobian_impl(self, x=x, delta=delta,
                                  rel_delta=rel_delta, atol=atol,
                                  check_swaps=check_swaps)
+
+    def covariance(self, x=None, *, jacobian=None,
+                   scale="reduced_chi2", **fd_kwargs):
+        r"""
+        Variance-covariance matrix for the real-valued parameter vector.
+
+        See :py:meth:`EFit.covariance` for the convention; for ``MHFit``
+        the Jacobian rows correspond to the concatenated per-Hamiltonian
+        observation list returned by :py:meth:`get_edata`.
+        """
+        return _covariance_impl(self, x=x, jacobian=jacobian,
+                                scale=scale, **fd_kwargs)
 
 
 cdef shxdata_alloc_helper(sh, shx, weights):
