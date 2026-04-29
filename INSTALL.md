@@ -2,6 +2,25 @@
 
 This guide covers system requirements, installation methods, and troubleshooting for **pycf** — the Python crystal field theory package.
 
+## Choosing a Branch
+
+The repository uses a simple branch model:
+
+- **`main`** — recommended for users who want stability.  Updated when a development cycle reaches a tagged release.
+- **`devel`** — the current integration branch.  Track this if you want to follow ongoing work and try features before they reach `main`; expect occasional breakage.
+- **`feat/...`** — in-progress feature branches, typically opened for review as pull requests against `devel`.  Examine or comment on them if you want to influence a feature before it merges.
+- **`legacy`** — mirrors Sebastian Horvath's original Bitbucket repository (<https://bitbucket.org/sebastianhorvath/pycf/>).  Provided for historical reference; not actively developed.
+
+`git clone` defaults to `main`.  To follow development:
+
+```bash
+git clone -b devel https://github.com/mikereidnz/pycf.git
+# or, after cloning:
+git checkout devel
+```
+
+The remainder of this guide assumes you have chosen a branch and refers to your local checkout simply as the pycf source tree.
+
 ## Platform Support & Testing Status
 
 | Platform | Python | Status | Notes |
