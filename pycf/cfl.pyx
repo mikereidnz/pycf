@@ -2019,6 +2019,11 @@ cdef class EFit(object):
 
         fmin = min_object.minimize(self, x)
 
+        # If the minimiser produced a Jacobian (gsl_nls path), expose it
+        # for downstream callers (e.g. covariance helper).
+        if 'jac' in min_object.kwargs:
+            self.last_jacobian = np.array(min_object.kwargs['jac'], copy=True)
+
         coeff = self.coeff.copy()
         params = {}
         ri = 0
@@ -2487,6 +2492,9 @@ cdef class MHFit(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
 
         fmin = min_object.minimize(self, x)
+
+        if 'jac' in min_object.kwargs:
+            self.last_jacobian = np.array(min_object.kwargs['jac'], copy=True)
 
         params = {}
         ri = 0
@@ -3690,9 +3698,11 @@ cdef class CFLMin:
         cdef void (*nls_f_ptr)(double *, void *, double *) noexcept
         cdef void *data_ptr = NULL
         cdef double *covar_ptr = NULL
+        cdef double *jac_ptr = NULL
         cdef double *wts_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] cwts
         cdef np.ndarray[double, ndim=2, mode="c"] covar
+        cdef np.ndarray[double, ndim=2, mode="c"] jac
         cdef double *chi2accept_ptr = NULL
         cdef double *xaccept_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] chi2accept
@@ -3824,6 +3834,10 @@ cdef class CFLMin:
                     dtype=np.float64)
             self.kwargs['covar'] = covar
             covar_ptr = &covar[0,0]
+            jac = np.ascontiguousarray(np.zeros([fit_obj.n_obs, fit_obj.n_p_real]),
+                    dtype=np.float64)
+            self.kwargs['jac'] = jac
+            jac_ptr = &jac[0,0]
             cwts = <np.ndarray[double, ndim=1, mode="c"]>fit_obj.wts
             wts_ptr = &cwts[0]
         else:
@@ -3944,7 +3958,7 @@ cdef class CFLMin:
         elif self.method == 'gsl_nls':
             min_obj = cfl_gsl_nls_setup(nls_f_ptr, fit_obj.n_obs,
                     fit_obj.n_p_real, data_ptr, wts_ptr, cxtol, cgtol, cftol,
-                    covar_ptr, self.niter)
+                    covar_ptr, jac_ptr, self.niter)
         else:
             raise ValueError("Unknown minimization method: %s" % self.method)
 

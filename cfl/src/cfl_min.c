@@ -745,6 +745,18 @@ int gsl_nls_f(double *x0, double *fmin, void *data) {
   gsl_matrix_view covar = gsl_matrix_view_array(d->covar, d->p, d->p);
   gsl_multifit_nlinear_covar(J, GSL_COV_EPSREL, &covar.matrix);
 
+  /* Optionally copy the Jacobian to the caller-supplied buffer (row-major
+   * n*p). gsl_multifit_nlinear_jac returns a pointer owned by d->w; we
+   * must extract its values before gsl_multifit_nlinear_free. */
+  if (d->jac != NULL) {
+    size_t ii, jj;
+    for (ii = 0; ii < d->n; ii++) {
+      for (jj = 0; jj < d->p; jj++) {
+        d->jac[ii * d->p + jj] = gsl_matrix_get(J, ii, jj);
+      }
+    }
+  }
+
   return status;
 }
 
@@ -772,11 +784,14 @@ void gsl_nls_free(void *data) {
  *  xtol, gtol, ftol    Tolerances; see GSL reference, section 39.8.
  *  covar               Pointer to p*p array; will be overwritten by the
  *                      covariance matrix on exit.
+ *  jac                 Optional pointer to n*p array (row-major). If
+ *                      non-NULL, the Jacobian at the converged solution
+ *                      is copied into this buffer on exit.
  *  niter               The maximum number of iterations.
  */
 cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
     int p, void *data, double *wts, double xtol, double gtol, double ftol,
-    double *covar, int niter) {
+    double *covar, double *jac, int niter) {
   cfl_min_obj *obj;
   cfl_nls_data *d;
 
@@ -820,6 +835,7 @@ cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int 
   d->n = n;
   d->p = p;
   d->covar = covar;
+  d->jac = jac;
 
   /* d->data is the data that will be passed to the actual objective function,
    * that is, cfl_h_fit.c functions.  We need to assign this to d here, since

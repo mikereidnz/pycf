@@ -148,6 +148,8 @@ typedef struct {
   double ftol;
   /* Covariance matrix. */
   double *covar;
+  /* Jacobian matrix (row-major, n*p). NULL means do not extract. */
+  double *jac;
   /* Contiguous storage for parameters. */
   double *x;
   /* Contiguous storage for least-square differences. */
@@ -216,7 +218,7 @@ cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad,
     double maxtime, cfl_min_bounds *bounds);
 cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n,
     int p, void *data, double *wts, double xtol, double gtol, double ftol,
-    double *covar, int niter);
+    double *covar, double *jac, int niter);
 cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad,
       void *data), size_t n, void *data, int niter, cfl_min_bounds *bounds,
     double *stepsize, double Tstart, double Tmin, double muT, double k, double

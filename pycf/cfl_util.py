@@ -938,7 +938,7 @@ def gen_fit_summary(
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
     s += "{0:<20} {1: <}\n".format("method:", method)
     for k in kwargs:
-        if k not in ["chi2accept", "xaccept"]:
+        if k not in ["chi2accept", "xaccept", "covar", "jac"]:
             s += "{0:<20} {1: <}\n".format(k + ":", kwargs[k])
     return s
 
