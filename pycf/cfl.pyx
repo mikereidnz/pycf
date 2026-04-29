@@ -27,6 +27,8 @@ from pycf cimport cfl
 
 import copy
 import sys
+import warnings
+from contextlib import contextmanager
 from numbers import Number
 
 import numpy as np
@@ -1679,6 +1681,150 @@ cdef set_param_helper(fit_obj):
             fit_obj.x0[ii] = fit_obj.coeff[p]
             ii += 1
 
+
+def _x_to_coeff_dict(fit_obj, x):
+    """Convert a real-valued parameter vector to a coeff dict.
+
+    Splits each complex parameter back into a (Re, Im) pair following
+    the same indexing convention as ``set_param_helper`` (the inverse
+    operation).
+    """
+    coeff = {}
+    ii = 0
+    for p in fit_obj.parameters:
+        if fit_obj.param_types[p] == 'c':
+            coeff[p] = complex(float(x[ii]), float(x[ii + 1]))
+            ii += 2
+        else:
+            coeff[p] = float(x[ii])
+            ii += 1
+    return coeff
+
+
+def _fit_hamiltonians(fit_obj):
+    """Return the list of Hamiltonians a fit object owns."""
+    if hasattr(fit_obj, "h_list") and fit_obj.h_list is not None:
+        return list(fit_obj.h_list)
+    return [fit_obj.h]
+
+
+@contextmanager
+def _temporary_x(fit_obj, x):
+    """Temporarily set fit parameters to ``x``; restore on exit.
+
+    Round-trips both the Python state (``fit_obj.coeff``, ``fit_obj.x0``,
+    each Hamiltonian's ``coeff_dict``) and the C-side coefficients in
+    each Hamiltonian (via :py:meth:`Hamiltonian.update_coeff`) so that a
+    subsequent ``h.diag()`` evaluates at the perturbed point and the
+    original state is fully restored on context exit (even on
+    exceptions).
+    """
+    x_arr = np.asarray(x, dtype=np.float64)
+    if x_arr.shape != (fit_obj.n_p_real,):
+        raise ValueError(
+            "x must have shape (%d,); got shape %s" % (
+                fit_obj.n_p_real, x_arr.shape,
+            )
+        )
+    h_list = _fit_hamiltonians(fit_obj)
+    saved_coeff = copy.deepcopy(fit_obj.coeff)
+    saved_x0 = np.asarray(fit_obj.x0, dtype=np.float64).copy()
+    saved_h_coeffs = [copy.deepcopy(h.coeff_dict) for h in h_list]
+    new_coeff = _x_to_coeff_dict(fit_obj, x_arr)
+    try:
+        fit_obj.coeff.update(new_coeff)
+        np.asarray(fit_obj.x0)[:] = x_arr  # in-place; preserves buffer.
+        for h in h_list:
+            sub = {k: v for k, v in new_coeff.items() if k in h}
+            if sub:
+                h.update_coeff(sub)
+        yield
+    finally:
+        for h, saved in zip(h_list, saved_h_coeffs):
+            if saved is not None:
+                h.set_coeff(saved)
+        fit_obj.coeff.clear()
+        fit_obj.coeff.update(saved_coeff)
+        np.asarray(fit_obj.x0)[:] = saved_x0
+
+
+def _fd_jacobian_impl(fit_obj, x=None, *, delta=None,
+                      rel_delta=1e-5, atol=1e-8, check_swaps=True):
+    """Shared finite-difference Jacobian implementation.
+
+    Computes ``J_E`` (the unweighted energy Jacobian, see the project
+    plan section 5.3) by central differences, returning an
+    ``(n_obs, n_p_real)`` ``np.ndarray``.  ``check_swaps`` raises a
+    ``UserWarning`` for any column whose magnitude suggests an
+    eigenvalue swap across the FD step.
+
+    On exit the fit's parameter state matches its state on entry.
+    """
+    n_p = fit_obj.n_p_real
+    n_obs = fit_obj.n_obs
+    if x is None:
+        x_base = np.asarray(fit_obj.x0, dtype=np.float64).copy()
+    else:
+        x_base = np.asarray(x, dtype=np.float64).copy()
+    if x_base.shape != (n_p,):
+        raise ValueError(
+            "x must have shape (%d,); got shape %s" % (n_p, x_base.shape)
+        )
+
+    if delta is None:
+        delta_vec = np.maximum(rel_delta * np.abs(x_base), atol)
+    elif np.isscalar(delta):
+        delta_vec = np.full(n_p, float(delta), dtype=np.float64)
+    else:
+        delta_vec = np.asarray(delta, dtype=np.float64).copy()
+        if delta_vec.shape != (n_p,):
+            raise ValueError(
+                "delta must be a scalar or shape (%d,) array; got %s" % (
+                    n_p, delta_vec.shape,
+                )
+            )
+    if np.any(delta_vec <= 0):
+        raise ValueError("All FD step sizes must be strictly positive")
+
+    # Capture the baseline calculated energies (used for the swap check).
+    with _temporary_x(fit_obj, x_base):
+        E_base = fit_obj.get_edata().arr["e_calc"].astype(np.float64, copy=True)
+
+    J = np.zeros((n_obs, n_p), dtype=np.float64)
+    for alpha in range(n_p):
+        d = float(delta_vec[alpha])
+        x_p = x_base.copy()
+        x_p[alpha] = x_base[alpha] + d
+        x_m = x_base.copy()
+        x_m[alpha] = x_base[alpha] - d
+        with _temporary_x(fit_obj, x_p):
+            E_p = fit_obj.get_edata().arr["e_calc"]
+        with _temporary_x(fit_obj, x_m):
+            E_m = fit_obj.get_edata().arr["e_calc"]
+        J[:, alpha] = (E_p - E_m) / (2.0 * d)
+
+    if check_swaps and n_obs > 0:
+        e_range = float(np.ptp(E_base)) if n_obs > 1 else 1.0
+        if e_range > 0.0:
+            for alpha in range(n_p):
+                col_max = float(np.max(np.abs(J[:, alpha]))) if n_obs > 0 else 0.0
+                if col_max * delta_vec[alpha] > 0.5 * e_range:
+                    warnings.warn(
+                        "fd_jacobian: column %d has max|J|*delta=%.3g, "
+                        "comparable to the energy spread (%.3g). This may "
+                        "indicate an eigenvalue swap or near-degeneracy "
+                        "across the FD step; consider reducing delta for "
+                        "this parameter." % (
+                            alpha, col_max * delta_vec[alpha], e_range,
+                        ),
+                        UserWarning,
+                        stacklevel=3,
+                    )
+
+    fit_obj.last_jacobian = J
+    return J
+
+
 cdef class EFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
@@ -1723,6 +1869,7 @@ cdef class EFit(object):
     cdef public object nls_f_cap
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
+    cdef public object last_jacobian
     cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h, ex, **kwargs):
         self.h = h
@@ -1945,6 +2092,52 @@ cdef class EFit(object):
         return _build_edata_for_ex(self.h, self.ex, h_index=0)
 
 
+    def fd_jacobian(self, x=None, *, delta=None, rel_delta=1e-5,
+                    atol=1e-8, check_swaps=True):
+        r"""
+        Finite-difference energy Jacobian.
+
+        Computes :math:`J_E[i, \alpha] = \partial E_i / \partial x_\alpha`
+        by central differences, where :math:`E_i` is the calculated value
+        of the i-th row of :py:meth:`get_edata` (an eigenvalue for ``'A'``
+        rows or :math:`|\lambda_f - \lambda_i|` for ``'D'`` rows) and
+        :math:`x` is the real-valued parameter vector with the same
+        layout as :attr:`x0` (complex parameters split into Re/Im).
+
+        Parameters
+        ----------
+        x : array_like, optional
+            Parameter vector at which to evaluate the Jacobian.  Defaults
+            to the current :attr:`x0`.
+        delta : float or array_like, optional
+            Per-parameter FD step.  If ``None``, ``max(rel_delta * |x|,
+            atol)`` is used.
+        rel_delta : float, optional
+            Relative step used when ``delta`` is ``None``.
+        atol : float, optional
+            Minimum absolute step used when ``delta`` is ``None``.
+        check_swaps : bool, optional
+            Emit a :class:`UserWarning` for any column whose magnitude
+            suggests an eigenvalue swap or near-degeneracy across the
+            FD step.
+
+        Returns
+        -------
+        J : np.ndarray, shape ``(n_obs, n_p_real)``
+            The unweighted energy Jacobian.  Also stored on
+            :attr:`last_jacobian`.
+
+        Notes
+        -----
+        On exit the fit's parameter state matches its state on entry,
+        even if an exception is raised.  Cost is ``2 * n_p_real``
+        diagonalisations.
+        """
+        return _fd_jacobian_impl(self, x=x, delta=delta,
+                                 rel_delta=rel_delta, atol=atol,
+                                 check_swaps=check_swaps)
+
+
 cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=1.0):
     """Construct an EData table for a single (Hamiltonian, ExData) pair.
 
@@ -2053,6 +2246,7 @@ cdef class MHFit(object):
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
     cdef public list weights_list
+    cdef public object last_jacobian
     cdef list _ex_w_backing     # keeps each ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
@@ -2388,6 +2582,33 @@ cdef class MHFit(object):
         if len(parts) == 0:
             return EData.empty(0)
         return EData(np.concatenate(parts))
+
+
+    def fd_jacobian(self, x=None, *, delta=None, rel_delta=1e-5,
+                    atol=1e-8, check_swaps=True):
+        r"""
+        Finite-difference energy Jacobian for a multi-Hamiltonian fit.
+
+        Computes :math:`J_E[i, \alpha] = \partial E_i / \partial x_\alpha`
+        by central differences across all Hamiltonians.  Row order
+        matches :py:meth:`get_edata`; ``x`` and the column order match
+        :attr:`x0`.  See :py:meth:`EFit.fd_jacobian` for parameter
+        details.
+
+        Returns
+        -------
+        J : np.ndarray, shape ``(n_obs, n_p_real)``
+            The unweighted energy Jacobian.  Also stored on
+            :attr:`last_jacobian`.
+
+        Notes
+        -----
+        On exit the fit's parameter state matches its state on entry.
+        Cost is ``2 * n_p_real`` diagonalisations of every Hamiltonian.
+        """
+        return _fd_jacobian_impl(self, x=x, delta=delta,
+                                 rel_delta=rel_delta, atol=atol,
+                                 check_swaps=check_swaps)
 
 
 cdef shxdata_alloc_helper(sh, shx, weights):
