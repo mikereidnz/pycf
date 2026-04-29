@@ -509,7 +509,10 @@ def gen_e_summary(
             e_shift = -np.min(w)
             w = w + e_shift
     s = "Energy level summary\n"
-    s += "====================\n\n"
+    s += "====================\n"
+    if "h_label" in kwargs and kwargs["h_label"] is not None:
+        s += "Hamiltonian: {}\n".format(kwargs["h_label"])
+    s += "\n"
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]

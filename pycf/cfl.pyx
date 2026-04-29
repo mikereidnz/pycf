@@ -682,6 +682,8 @@ cdef class Hamiltonian:
             Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero.
         """
         if self.diag_run:
+            if "h_label" not in kwargs and self.label is not None:
+                kwargs["h_label"] = self.label
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
                     self.tensors[0].states.label_key, **kwargs)
         else:
