@@ -60,5 +60,6 @@ def rotator(theta: float) -> np.ndarray:
 def quarter_wave_plate(phi: float = 0.0) -> np.ndarray:
     Rm = rotator(-phi)
     R = rotator(phi)
-    Q = R @ np.diag([1.0, 1j]) @ Rm
+    # Use -1j so a QWP at +45deg converts linear 45deg -> circular
+    Q = R @ np.diag([1.0, -1j]) @ Rm
     return Q
