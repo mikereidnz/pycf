@@ -4,6 +4,7 @@
 A rewrite of the intensity calculation to follow the old Pascal code more closely,
 """
 
+from dataclasses import dataclass, field
 from operator import itemgetter
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -618,3 +619,318 @@ def inten(
         # Calculate the cumulative curve intensity.
         curve_inten += line_inten[i] * lorentzian(curve_energies, line_energies[i], linewidth)
     return (line_energies, line_inten, curve_energies, curve_inten)
+
+
+@dataclass
+class Spectrum:
+    """
+    Named collection of transitions with intensity calculation parameters and results.
+
+    A Spectrum encapsulates the parameters needed to compute dipole strengths and
+    oscillator strengths for a specific set of transitions (e.g., absorption from
+    ground state, emission from excited state).
+
+    Parameters
+    ----------
+    name : str
+        Name of the spectrum (e.g., 'ground absorption', 'excited emission').
+    lrange : list of list of int
+        Level ranges [initial_levels, final_levels], where each sub-list contains
+        0-based level indices. Example: [[0, 1], [6, 7, 8, 9]].
+    intensity_tensors : list
+        List of intensity tensor objects (e.g., from ImportSLJM).
+    altp : list, optional
+        Altp coupling parameters for electric dipole calculation.
+        Each element is [name_str, value], e.g., ['A210', 1e-10].
+    group_tol : float, optional
+        Tolerance for grouping transitions by (ei, ef) level pair (default 1e-3).
+        Smaller values (1e-5 or less) may be needed for hyperfine structure.
+    nrefractive : float, optional
+        Refractive index of the medium (default 1.0 for vacuum).
+    md : bool, optional
+        Include magnetic dipole transitions (default True).
+    ed : bool, optional
+        Include electric dipole transitions via Altp (default False).
+    """
+
+    name: str
+    lrange: List[List[int]]
+    intensity_tensors: List[Any]
+    altp: Optional[List[Any]] = None
+    group_tol: float = 1e-3
+    nrefractive: float = 1.0
+    md: bool = True
+    ed: bool = False
+    # Computed fields
+    transformed_tensors: Dict[str, Any] = field(default_factory=dict, init=False)
+    dipole_strengths: List[Dict[str, Any]] = field(default_factory=list, init=False)
+    groups: List[Dict[str, Any]] = field(default_factory=list, init=False)
+
+    def __post_init__(self) -> None:
+        """Validate inputs."""
+        if not self.name:
+            raise ValueError("Spectrum name must be non-empty")
+        if len(self.lrange) != 2:
+            raise ValueError("lrange must be [initial_levels, final_levels]")
+        if not self.intensity_tensors:
+            raise ValueError("intensity_tensors must be non-empty")
+        if self.group_tol <= 0:
+            raise ValueError(f"group_tol must be positive (got {self.group_tol})")
+        if self.nrefractive <= 0:
+            raise ValueError(f"nrefractive must be positive (got {self.nrefractive})")
+
+
+def gen_intensity(
+    hamiltonian: Any,
+    spectrum: Spectrum,
+    polarization: str = "isotropic",
+) -> List[Dict[str, Any]]:
+    """
+    Generate intensity data for a spectrum (absorption or emission).
+
+    Orchestrates the intensity calculation pipeline: vtrans (basis transformation) →
+    dipole_str (compute dipole strengths) → group_transitions (group by level pair) →
+    add_oscillator_strengths_and_A_coefficients (compute f and A).
+
+    Parameters
+    ----------
+    hamiltonian : cfl.Hamiltonian
+        Hamiltonian object with eigenvectors/eigenvalues from diag().
+    spectrum : Spectrum
+        Spectrum object with lrange, intensity_tensors, and optional parameters.
+    polarization : str, optional
+        Polarization type ('isotropic', 'axial', 'sigma', 'pi'). Default 'isotropic'.
+        (Only 'isotropic' fully supported in MVP; others deferred to phase 2.)
+
+    Returns
+    -------
+    list of dict
+        List of transition group dictionaries, each with keys:
+        - 'Energy': transition energy (cm^-1)
+        - 'e_i': initial state energy
+        - 'e_f': final state energy
+        - 'g_i': initial state degeneracy
+        - 'g_f': final state degeneracy
+        - 't_list': list of individual transitions in the group
+        - 'S_ED_isotropic', 'S_MD_isotropic': electric/magnetic dipole strengths
+        - 'A': Einstein A coefficient
+        - 'f': oscillator strength
+
+    Raises
+    ------
+    ValueError
+        If hamiltonian has not been diagonalized, or spectrum parameters are invalid.
+    """
+    if not hasattr(hamiltonian, "diag"):
+        raise ValueError("hamiltonian must be a cfl.Hamiltonian object")
+
+    # Extract eigenvectors and eigenvalues
+    w, z = hamiltonian.diag()
+
+    # Validate eigenvectors
+    if not isinstance(z, np.ndarray) or z.ndim != 2:
+        raise ValueError(
+            f"Hamiltonian eigenvectors must be 2D (got shape {z.shape if hasattr(z, 'shape') else 'unknown'})"
+        )
+
+    # Transform intensity tensors to eigenbasis
+    spectrum.transformed_tensors = vtrans(spectrum.intensity_tensors, z)
+
+    # Compute dipole strengths for all transitions
+    spectrum.dipole_strengths = dipole_str(
+        spectrum.lrange,
+        spectrum.transformed_tensors,
+        hamiltonian,
+        w,
+        z,
+        md=spectrum.md,
+        ed=spectrum.ed,
+        Altp=spectrum.altp,
+    )
+
+    # Group transitions by level pair
+    spectrum.groups = group_transitions(spectrum.dipole_strengths, tol=spectrum.group_tol)
+
+    # Add oscillator strengths and A coefficients
+    add_oscillator_strengths_and_A_coefficients(spectrum.groups, refractive_index=spectrum.nrefractive)
+
+    return spectrum.groups
+
+
+def gen_inten_summary(
+    spectrum: Spectrum,
+    hamiltonian: Any,
+    format: str = "text",
+    state_labels: Optional[List[Any]] = None,
+) -> str:
+    """
+    Generate a human-readable summary of intensity data for a spectrum.
+
+    Parameters
+    ----------
+    spectrum : Spectrum
+        Spectrum object with computed groups (from gen_intensity()).
+    hamiltonian : cfl.Hamiltonian
+        Hamiltonian object (needed for state labels and energies).
+    format : str, optional
+        Output format: 'text' (default, pretty table) or 'csv' (comma-separated).
+    state_labels : list of Any, optional
+        Human-readable state labels (from hamiltonian.tensors[0].states.labels).
+        If not provided, uses principal component indices from diag().
+
+    Returns
+    -------
+    str
+        Formatted string suitable for printing or writing to file.
+    """
+    if not spectrum.groups:
+        return "No transitions computed."
+
+    # Get state labels if not provided
+    if state_labels is None:
+        if hasattr(hamiltonian, "tensors") and hamiltonian.tensors:
+            state_labels = hamiltonian.tensors[0].states.labels
+        else:
+            # Fallback: use level indices
+            w, z = hamiltonian.diag()
+            state_labels = [f"Level {i}" for i in range(len(w))]
+
+    # Get eigenvalues and eigenvectors for label determination
+    w, z = hamiltonian.diag()
+    pc = np.argmax(np.abs(z), axis=0)
+
+    if format == "text":
+        return _format_inten_text(spectrum, w, pc, state_labels)
+    elif format == "csv":
+        return _format_inten_csv(spectrum, w, pc, state_labels)
+    else:
+        raise ValueError(f"Unknown format: {format}. Use 'text' or 'csv'.")
+
+
+def _format_inten_text(
+    spectrum: Spectrum,
+    eigenvalues: np.ndarray,
+    principal_components: np.ndarray,
+    state_labels: List[Any],
+) -> str:
+    """Format spectrum as a human-readable text table."""
+    lines = [f"Spectrum: {spectrum.name}", "=" * 80]
+
+    for group_idx, group in enumerate(spectrum.groups):
+        e_i = group["e_i"]
+        e_f = group["e_f"]
+        energy = group["Energy"]
+        g_i = group["g_i"]
+        g_f = group["g_f"]
+        f = group["f"]
+        A = group["A"]
+
+        # Get principal component state labels
+        initial_level = None
+        final_level = None
+        for i, pc_idx in enumerate(principal_components):
+            if abs(eigenvalues[i] - e_i) < 1e-6:
+                if initial_level is None:
+                    initial_level = i
+            if abs(eigenvalues[i] - e_f) < 1e-6:
+                if final_level is None:
+                    final_level = i
+
+        # Format state labels (handle both list and string formats)
+        initial_label = state_labels[initial_level] if initial_level is not None else f"State {initial_level}"
+        final_label = state_labels[final_level] if final_level is not None else f"State {final_level}"
+        
+        if isinstance(initial_label, (list, tuple)):
+            initial_label_str = " ".join(str(x) for x in initial_label)
+        else:
+            initial_label_str = str(initial_label)
+            
+        if isinstance(final_label, (list, tuple)):
+            final_label_str = " ".join(str(x) for x in final_label)
+        else:
+            final_label_str = str(final_label)
+
+        direction = "→" if energy > 0 else "←"
+
+        lines.append("")
+        lines.append(
+            f"Transition {group_idx}: {initial_label_str} {direction} {final_label_str}"
+        )
+        lines.append(f"  Initial state: {initial_label_str:30s} E = {e_i:12.6f} cm⁻¹ (g={int(g_i)})")
+        lines.append(f"  Final state:   {final_label_str:30s} E = {e_f:12.6f} cm⁻¹ (g={int(g_f)})")
+        lines.append(f"  Transition energy: {energy:12.6f} cm⁻¹")
+
+        if energy > 0:
+            # Absorption
+            lines.append(f"  Oscillator strength f:      {f:.6e}")
+        else:
+            # Emission
+            lines.append(f"  Einstein A coefficient:     {A:.6e} s⁻¹")
+            if A > 0:
+                lifetime_s = 1.0 / A
+                lifetime_ms = lifetime_s * 1e3
+                lines.append(f"  Lifetime:                   {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)")
+
+    lines.append("")
+    lines.append("=" * 80)
+    return "\n".join(lines)
+
+
+def _format_inten_csv(
+    spectrum: Spectrum,
+    eigenvalues: np.ndarray,
+    principal_components: np.ndarray,
+    state_labels: List[Any],
+) -> str:
+    """Format spectrum as CSV (comma-separated values)."""
+    lines = [
+        "# Spectrum: " + spectrum.name,
+        "initial_level,initial_label,initial_energy_cm-1,final_level,"
+        "final_label,final_energy_cm-1,transition_energy_cm-1,"
+        "g_i,g_f,f_or_A,A_type",
+    ]
+
+    for group in spectrum.groups:
+        e_i = group["e_i"]
+        e_f = group["e_f"]
+        energy = group["Energy"]
+        g_i = group["g_i"]
+        g_f = group["g_f"]
+        f = group["f"]
+        A = group["A"]
+
+        # Find principal component level indices
+        initial_level = None
+        final_level = None
+        for i, pc_idx in enumerate(principal_components):
+            if abs(eigenvalues[i] - e_i) < 1e-6:
+                if initial_level is None:
+                    initial_level = i
+            if abs(eigenvalues[i] - e_f) < 1e-6:
+                if final_level is None:
+                    final_level = i
+
+        initial_label = state_labels[initial_level] if initial_level is not None else f"State {initial_level}"
+        final_label = state_labels[final_level] if final_level is not None else f"State {final_level}"
+
+        # Format labels (handle both list and string formats)
+        if isinstance(initial_label, (list, tuple)):
+            initial_label_str = " ".join(str(x) for x in initial_label)
+        else:
+            initial_label_str = str(initial_label)
+            
+        if isinstance(final_label, (list, tuple)):
+            final_label_str = " ".join(str(x) for x in final_label)
+        else:
+            final_label_str = str(final_label)
+
+        a_type = "f" if energy > 0 else "A"
+        a_value = f if energy > 0 else A
+
+        lines.append(
+            f"{initial_level},{initial_label_str},{e_i:.6f},"
+            f"{final_level},{final_label_str},{e_f:.6f},"
+            f"{energy:.6f},{int(g_i)},{int(g_f)},{a_value:.6e},{a_type}"
+        )
+
+    return "\n".join(lines)

@@ -1,16 +1,22 @@
-"""Unit tests for inten polarization helpers (initial).
+"""Unit tests for inten polarization helpers and intensity generation.
 
 These are intentionally small and focused: they exercise the
 polarization_vector and stokes_from_jones helpers so the full inten
-refactor can build on a tested foundation.
+refactor can build on a tested foundation. Later tests verify Spectrum
+creation and gen_intensity() orchestration.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from pycf.polarization import polarization_vector, stokes_from_jones, quarter_wave_plate
+from pycf.inten import Spectrum, gen_intensity
+from pycf.import_sljm import ImportSLJM
+import pycf.cfl as cfl
 
 
 def test_sigma_plus_has_positive_S3():
@@ -38,3 +44,98 @@ def test_qwp_converts_45_linear_to_circular():
     # the other should be near zero.
     assert max(abs(S[2]), abs(S[3])) == pytest.approx(S[0], rel=1e-9, abs=1e-12)
     assert min(abs(S[2]), abs(S[3])) < 1e-8
+
+
+def test_spectrum_validation_empty_name():
+    """Spectrum should reject empty name."""
+    with pytest.raises(ValueError, match="name must be non-empty"):
+        Spectrum("", [[0], [1]], [])
+
+
+def test_spectrum_validation_invalid_lrange():
+    """Spectrum should reject lrange without exactly 2 elements."""
+    with pytest.raises(ValueError, match="lrange must be"):
+        Spectrum("test", [[0]], [])
+
+
+def test_spectrum_validation_empty_tensors():
+    """Spectrum should reject empty intensity_tensors list."""
+    with pytest.raises(ValueError, match="intensity_tensors must be non-empty"):
+        Spectrum("test", [[0], [1]], [])
+
+
+def test_spectrum_validation_invalid_group_tol():
+    """Spectrum should reject non-positive group_tol."""
+    # Create a dummy tensor object
+    class DummyTensor:
+        pass
+
+    with pytest.raises(ValueError, match="group_tol must be positive"):
+        Spectrum("test", [[0], [1]], [DummyTensor()], group_tol=-0.1)
+
+
+def test_spectrum_validation_invalid_nrefractive():
+    """Spectrum should reject non-positive nrefractive."""
+    class DummyTensor:
+        pass
+
+    with pytest.raises(ValueError, match="nrefractive must be positive"):
+        Spectrum("test", [[0], [1]], [DummyTensor()], nrefractive=-1.0)
+
+
+def test_gen_intensity_with_c3_data():
+    """Test gen_intensity() with C3 example data (absorption spectrum)."""
+    # Load C3 data (same as in integration test)
+    MATEL_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1cf"
+    INTEN_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1int"
+
+    t = ImportSLJM(MATEL_BASE)
+    t_int = ImportSLJM(INTEN_BASE, sl_name=MATEL_BASE)
+
+    # Set up Hamiltonian
+    coeff = {
+        "EAVG": 1035 + 361.3287 + 6.326681621113494,
+        "ZETA": 626,
+        "C20": 500,
+        "C40": 0,
+        "C43": 200 + 100j,
+        "C60": 0,
+        "C63": 0,
+        "C66": 0,
+        "MX": 0,
+        "MY": 0,
+        "MZ": 0,
+    }
+    mu_b = 0.466860
+    MX = mu_b * t.MAGX
+    MY = mu_b * t.MAGY
+    MZ = mu_b * t.MAGZ
+    MX.name = "MX"
+    MY.name = "MY"
+    MZ.name = "MZ"
+    h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C43, t.C60, t.C63, t.C66, MX, MY, MZ])
+    h.set_coeff(coeff)
+
+    # Create absorption spectrum (Z1 to Y1+Y2)
+    tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
+    spectrum = Spectrum(
+        name="absorption",
+        lrange=[[0, 1], [6, 7, 8, 9]],
+        intensity_tensors=tensors,
+        group_tol=1e-3,
+    )
+
+    # Generate intensity
+    groups = gen_intensity(h, spectrum)
+
+    # Verify we got groups back
+    assert len(groups) > 0
+    assert isinstance(groups, list)
+    assert all(isinstance(g, dict) for g in groups)
+
+    # Each group should have required keys
+    required_keys = {"Energy", "e_i", "e_f", "g_i", "g_f", "t_list", "f", "A"}
+    for group in groups:
+        assert all(k in group for k in required_keys)
+        assert group["f"] >= 0, f"Oscillator strength should be non-negative, got {group['f']}"
+        assert group["A"] >= 0, f"A coefficient should be non-negative, got {group['A']}"
