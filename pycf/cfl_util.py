@@ -1178,11 +1178,16 @@ def update_coeff(coeff: dict, updates: dict) -> dict:
         Base coefficient dictionary (e.g., from hamiltonian.coeff).
     updates : dict
         Dictionary of updated parameters (e.g., from fit result['coeff']).
+        Any keys in updates that are not in coeff will be added to the result.
+        This is by design: if fit results include new tensors, they are merged in.
+        **Warning**: It is the user's responsibility to ensure all keys in updates
+        are valid tensor names; otherwise h.set_coeff() will fail downstream.
 
     Returns
     -------
     dict
         New coefficient dictionary with updates applied.
+        Keys from coeff are preserved; keys from updates override or are added.
 
     Example
     -------
