@@ -31,7 +31,7 @@ import pycf.cfl as cfl
 def main():
     """Main intensity calculation example."""
     
-    print("\nIntensity Spectrum Example")
+    print("\nIntensity Spectrum Example (Ce3+ C3 Symmetry)")
     print("=" * 80)
     
     # Paths to SLJM data
@@ -64,8 +64,7 @@ def main():
         print("Please ensure intensity SLJM files (f1int.txt, f1int.mi_, f1int.st_) are available.")
         return
 
-    print(f"Loading SLJM data from: {MATEL_CF}")
-    print(f"Loading intensity tensors from: {MATEL_INT}")
+    print(f"Loading SLJM data from: {test_inten_dir}")
 
     # Load crystal-field tensors (for Hamiltonian)
     t_cf = ImportSLJM(str(MATEL_CF))
@@ -73,7 +72,8 @@ def main():
     # Load intensity tensors (electric and magnetic dipole operators)
     t_int = ImportSLJM(str(MATEL_INT), sl_name=str(MATEL_CF))
 
-    # Define crystal-field parameters (from literature or fitting)
+    # Define crystal-field parameters
+    # Using exact same parameters as test_inten_c3.py for easy verification
     coeff = {
         "EAVG": 1035 + 361.3287 + 6.326681621113494,
         "ZETA": 626,
@@ -83,12 +83,12 @@ def main():
         "C60": 0,
         "C63": 0,
         "C66": 0,
-        "MX": 0,  # Magnetic field not applied in this example
+        "MX": 0,
         "MY": 0,
         "MZ": 0,
     }
 
-    # Scale magnetic tensor by Bohr magneton (cm⁻¹/T)
+    # Scale magnetic tensor by Bohr magneton (cm-1/T)
     mu_b = 0.466860
     MX = mu_b * t_cf.MAGX
     MY = mu_b * t_cf.MAGY
@@ -104,7 +104,7 @@ def main():
     ])
     h.set_coeff(coeff)
 
-    print(f"\nCrystal-field parameters:")
+    print(f"\nCrystal-field parameters (from test_inten_c3.py):")
     for p, v in coeff.items():
         if v != 0:
             print(f"  {p:6s} = {v}")
@@ -114,14 +114,14 @@ def main():
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
 
     # =========================================================================
-    # Define Spectrum 1: Ground state absorption (Z1 → Y1+Y2)
+    # Define Spectrum 1: Ground state absorption (Z1 -> Y1+Y2)
     # =========================================================================
     # lrange specifies which levels participate in the transitions:
     # - Initial levels: [0, 1] (Z1 Kramers doublet)
     # - Final levels: [6, 7, 8, 9] (Y1+Y2 multiplet in C3 symmetry)
     
     spec_abs = Spectrum(
-        name="Ground state absorption (Z₁ → Y₁ + Y₂)",
+        name="Ground state absorption (Z1 -> Y1 + Y2)",
         lrange=[[0, 1], [6, 7, 8, 9]],
         intensity_tensors=intensity_tensors,
         group_tol=1e-3,      # Tolerance for grouping transitions by level pair
@@ -134,7 +134,7 @@ def main():
     # Define Spectrum 2: Emission from Y1+Y2 to Z1
     # =========================================================================
     spec_em = Spectrum(
-        name="Emission from Y₁ + Y₂ → Z₁",
+        name="Emission from Y1 + Y2 -> Z1",
         lrange=[[6, 7], [0, 1, 2, 3, 4, 5]],
         intensity_tensors=intensity_tensors,
         group_tol=1e-3,

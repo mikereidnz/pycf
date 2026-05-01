@@ -816,7 +816,16 @@ def _format_inten_text(
     """Format spectrum as a human-readable text table."""
     lines = [f"Spectrum: {spectrum.name}", "=" * 80]
 
-    for group_idx, group in enumerate(spectrum.groups):
+    # Print Altp parameters if present
+    if spectrum.altp:
+        lines.append("Altp (electric dipole coupling) parameters:")
+        for altp_item in spectrum.altp:
+            if isinstance(altp_item, (list, tuple)) and len(altp_item) == 2:
+                name, value = altp_item
+                lines.append(f"  {name}: {value}")
+        lines.append("")
+
+    for group_idx, group in enumerate(spectrum.groups, start=1):
         e_i = group["e_i"]
         e_f = group["e_f"]
         energy = group["Energy"]
@@ -850,22 +859,22 @@ def _format_inten_text(
         else:
             final_label_str = str(final_label)
 
-        direction = "→" if energy > 0 else "←"
+        direction = "->" if energy > 0 else "<-"
 
         lines.append("")
         lines.append(
             f"Transition {group_idx}: {initial_label_str} {direction} {final_label_str}"
         )
-        lines.append(f"  Initial state: {initial_label_str:30s} E = {e_i:12.6f} cm⁻¹ (g={int(g_i)})")
-        lines.append(f"  Final state:   {final_label_str:30s} E = {e_f:12.6f} cm⁻¹ (g={int(g_f)})")
-        lines.append(f"  Transition energy: {energy:12.6f} cm⁻¹")
+        lines.append(f"  Initial state: {initial_label_str:30s} E = {e_i:12.6f} cm-1 (g={int(g_i)})")
+        lines.append(f"  Final state:   {final_label_str:30s} E = {e_f:12.6f} cm-1 (g={int(g_f)})")
+        lines.append(f"  Transition energy: {energy:12.6f} cm-1")
 
         if energy > 0:
             # Absorption
             lines.append(f"  Oscillator strength f:      {f:.6e}")
         else:
             # Emission
-            lines.append(f"  Einstein A coefficient:     {A:.6e} s⁻¹")
+            lines.append(f"  Einstein A coefficient:     {A:.6e} s-1")
             if A > 0:
                 lifetime_s = 1.0 / A
                 lifetime_ms = lifetime_s * 1e3

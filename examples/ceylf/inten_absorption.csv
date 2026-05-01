@@ -1,0 +1,4 @@
+# Spectrum: Ground state absorption (Z1 -> Y1 + Y2)
+initial_level,initial_label,initial_energy_cm-1,final_level,final_label,final_energy_cm-1,transition_energy_cm-1,g_i,g_f,f_or_A,A_type
+0,2 3 7 7,0.000000,6,2 3 7 1,2169.756474,2169.756474,2,2,4.453423e-08,f
+0,2 3 7 7,0.000000,8,2 3 7 -1,2313.748603,2313.748603,2,2,1.104145e-08,f
