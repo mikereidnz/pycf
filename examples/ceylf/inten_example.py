@@ -184,18 +184,30 @@ def main():
     
     # Print absorption summary (brief format - compact tabular)
     print("\n" + "=" * 80)
-    print("Brief format (compact tabular):")
+    print("Absorption - Brief format (compact tabular):")
     print("=" * 80)
     print("\n" + gen_inten_summary(spec_abs, h, format='brief'))
+    
+    # Print absorption summary (verbose format - BRIEF + individual transitions)
+    print("\n" + "=" * 80)
+    print("Absorption - Verbose format (BRIEF + individual transitions):")
+    print("=" * 80)
+    print("\n" + gen_inten_summary(spec_abs, h, format='verbose'))
 
     # Print emission summary (text format)
     print("\n" + gen_inten_summary(spec_em, h, format='text'))
     
     # Print emission summary (brief format - compact tabular)
     print("\n" + "=" * 80)
-    print("Emission brief format (compact tabular):")
+    print("Emission - Brief format (compact tabular):")
     print("=" * 80)
     print("\n" + gen_inten_summary(spec_em, h, format='brief'))
+    
+    # Print emission summary (verbose format - BRIEF + individual transitions)
+    print("\n" + "=" * 80)
+    print("Emission - Verbose format (BRIEF + individual transitions):")
+    print("=" * 80)
+    print("\n" + gen_inten_summary(spec_em, h, format='verbose'))
 
     # =========================================================================
     # Export to CSV for spreadsheet import/analysis

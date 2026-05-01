@@ -858,10 +858,12 @@ def gen_inten_summary(
         return _format_inten_text(spectrum, w, pc, state_labels)
     elif format == "brief":
         return _format_inten_brief(spectrum, w, pc, state_labels)
+    elif format == "verbose":
+        return _format_inten_verbose(spectrum, w, pc, state_labels)
     elif format == "csv":
         return _format_inten_csv(spectrum, w, pc, state_labels)
     else:
-        raise ValueError(f"Unknown format: {format}. Use 'text', 'brief', or 'csv'.")
+        raise ValueError(f"Unknown format: {format}. Use 'text', 'brief', 'verbose', or 'csv'.")
 
 
 
@@ -965,6 +967,15 @@ def _format_state_label_with_energy(label: Any, level: int, energy: float) -> st
     return f"{level}: | {label_str} > (E = {energy:12.6f} cm-1)"
 
 
+def _format_state_label_short(label: Any) -> str:
+    """Format a state label in short form (just the quantum numbers)."""
+    if isinstance(label, (list, tuple)):
+        label_str = " ".join(str(x) for x in label)
+    else:
+        label_str = str(label)
+    return f"{label_str}"
+
+
 def _format_inten_brief(
     spectrum: Spectrum,
     eigenvalues: np.ndarray,
@@ -1015,31 +1026,149 @@ def _format_inten_brief(
         final_label = _format_state_label_with_energy(state_labels[final_level - 1], final_level, e_f) if final_level is not None else "Unknown"
         
         energy = group["Energy"]
+        g_i = group.get("g_i", 1)
         
-        # Get dipole strength components
-        f_total = group.get("f", 0.0)
-        A_total = group.get("A", 0.0)
-        
-        # Compute ED and MD contributions to f or A
-        # Sum over all transitions in group
+        # Sum dipole strengths over all transitions in group
         total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
         total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
         
-        # Convert to f or A based on direction
+        # Calculate f_total and A_total using the group's values
+        f_total = group.get("f", 0.0)
+        A_total = group.get("A", 0.0)
+        
+        # Decompose into ED and MD components using A_and_f_calc
+        # Call with ED only (S_ED, 0), MD only (0, S_MD), get separate values
+        A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
+        A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
+        
+        # Format line based on absorption or emission
         if is_absorption:
-            # f = 1.5 * S / (g_i * (2J_i + 1))
-            g_i = group.get("g_i", 1)
-            f_ED = total_S_ED * (8.06554e-6) * (energy / g_i) if energy > 0 else 0.0
-            f_MD = total_S_MD * (8.06554e-6) * (energy / g_i) if energy > 0 else 0.0
-            
             line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_MD:>13.6e}  {f_ED:>13.6e}  {f_total:>13.6e}"
         else:
-            # For emission, A is already computed
-            f_ED = 0.0  # Placeholder
-            f_MD = 0.0  # Placeholder
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_MD:>13.6e}  {f_ED:>13.6e}  {A_total:>13.6e}"
+            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_MD:>13.6e}  {A_ED:>13.6e}  {A_total:>13.6e}"
 
         lines.append(line)
+
+    lines.append("-" * 132)
+    
+    # Add totals
+    if spectrum.groups:
+        if is_absorption:
+            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}")
+        else:
+            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}")
+    
+    lines.append("=" * 132)
+    return "\n".join(lines)
+
+
+def _format_inten_verbose(
+    spectrum: Spectrum,
+    eigenvalues: np.ndarray,
+    principal_components: np.ndarray,
+    state_labels: List[Any],
+) -> str:
+    """Format spectrum as verbose output (BRIEF + individual transitions for each group)."""
+    lines = [f"Spectrum: {spectrum.name}"]
+    lines.append("=" * 132)
+
+    # Print Altp parameters if present
+    if spectrum.altp:
+        lines.append("Altp (electric dipole coupling) parameters:")
+        for altp_item in spectrum.altp:
+            if isinstance(altp_item, (list, tuple)) and len(altp_item) == 2:
+                name, value = altp_item
+                lines.append(f"  {name}: {value}")
+        lines.append("")
+
+    # Determine if absorption or emission
+    is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
+
+    # Header
+    if is_absorption:
+        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_MD':<14} {'f_ED':<14} {'f_Total':<14}"
+    else:
+        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_MD':<14} {'A_ED':<14} {'A_Total':<14}"
+
+    lines.append(header)
+    lines.append("-" * 132)
+
+    # Print each group with its individual transitions
+    for group_idx, group in enumerate(spectrum.groups, start=1):
+        t_list = group["t_list"]
+        e_i = group["e_i"]
+        e_f = group["e_f"]
+        
+        # Get state labels from first transition in group
+        if t_list:
+            initial_level = t_list[0]["pc_i"] + 1  # Convert to 1-based
+            final_level = t_list[0]["pc_f"] + 1    # Convert to 1-based
+        else:
+            initial_level = None
+            final_level = None
+
+        # Format state labels with energies
+        initial_label = _format_state_label_with_energy(state_labels[initial_level - 1], initial_level, e_i) if initial_level is not None else "Unknown"
+        final_label = _format_state_label_with_energy(state_labels[final_level - 1], final_level, e_f) if final_level is not None else "Unknown"
+        
+        energy = group["Energy"]
+        g_i = group.get("g_i", 1)
+        
+        # Sum dipole strengths over all transitions in group
+        total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
+        total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
+        
+        # Calculate f_total and A_total using the group's values
+        f_total = group.get("f", 0.0)
+        A_total = group.get("A", 0.0)
+        
+        # Decompose into ED and MD components using A_and_f_calc
+        A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
+        A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
+        
+        # Format group line based on absorption or emission
+        if is_absorption:
+            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_MD:>13.6e}  {f_ED:>13.6e}  {f_total:>13.6e}"
+        else:
+            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_MD:>13.6e}  {A_ED:>13.6e}  {A_total:>13.6e}"
+
+        lines.append(line)
+        
+        # Print individual transitions for this group
+        lines.append("        Individual transitions:")
+        if is_absorption:
+            trans_header = "        i     Initial State                      f     Final State                        S_MD_iso      f_MD           S_ED_iso      f_ED           f_Total"
+        else:
+            trans_header = "        i     Initial State                      f     Final State                        S_MD_iso      A_MD           S_ED_iso      A_ED           A_Total"
+        lines.append(trans_header)
+        
+        # List each transition
+        for trans in t_list:
+            i_1b = trans["i"] + 1  # Convert to 1-based
+            f_1b = trans["f"] + 1  # Convert to 1-based
+            e_trans = trans["e"]
+            s_ed = trans.get("S_ED_isotropic", 0.0)
+            s_md = trans.get("S_MD_isotropic", 0.0)
+            
+            # Get state labels
+            i_label = _format_state_label_short(state_labels[trans["i"]])
+            f_label = _format_state_label_short(state_labels[trans["f"]])
+            
+            # Calculate f_ED, f_MD for this individual transition
+            A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
+            A_MD_t, f_MD_t = A_and_f_calc(0.0, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
+            
+            # Get transition-level total (not group total)
+            A_t, f_t = A_and_f_calc(s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
+            
+            if is_absorption:
+                trans_line = f"        {i_1b:<2} | {i_label:<35} {f_1b:<2} | {f_label:<35} {s_md:>10.6e}  {f_MD_t:>13.6e}  {s_ed:>10.6e}  {f_ED_t:>13.6e}  {f_t:>13.6e}"
+            else:
+                trans_line = f"        {i_1b:<2} | {i_label:<35} {f_1b:<2} | {f_label:<35} {s_md:>10.6e}  {A_MD_t:>13.6e}  {s_ed:>10.6e}  {A_ED_t:>13.6e}  {A_t:>13.6e}"
+            
+            lines.append(trans_line)
+        
+        lines.append("")  # Blank line between groups
 
     lines.append("-" * 132)
     
