@@ -72,8 +72,7 @@ def main():
     # Load intensity tensors (electric and magnetic dipole operators)
     t_int = ImportSLJM(str(MATEL_INT), sl_name=str(MATEL_CF))
 
-    # Define crystal-field parameters
-    # Using exact same parameters as test_inten_c3.py for easy verification
+    # Define crystal-field parameters (exact same as test_inten_c3.py)
     coeff = {
         "EAVG": 1035 + 361.3287 + 6.326681621113494,
         "ZETA": 626,
@@ -103,6 +102,19 @@ def main():
         t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ
     ])
     h.set_coeff(coeff)
+    
+    # Fit EAVG to match test (fitting is a no-op in dry_run mode)
+    import numpy as np
+    ex = np.array([[2, 0], [4, 1], [6, 2]])
+    weights = np.ones(len(ex))
+    exdata = cfl.ExData(ex, "A", weights=weights)
+    cfl_min = cfl.CFLMin("nlopt_bobyqa", xtol=1e-6, dry_run=True)
+    param = ["EAVG"]
+    res = cfl.e_fit(param, h, exdata, cfl_min)
+    fitcoeff = res["coeff"]
+    for p in fitcoeff:
+        coeff[p] = fitcoeff[p]
+    h.set_coeff(coeff)
 
     print(f"\nCrystal-field parameters (from test_inten_c3.py):")
     for p, v in coeff.items():
@@ -110,35 +122,44 @@ def main():
             print(f"  {p:6s} = {v}")
 
     # Prepare list of intensity tensors
-    # Typically includes electric dipole (U2q, U4q, ...) and magnetic dipole (M1q) tensors
+    # Must match test_inten_c3.py: M11, M10, U20, U21, U22
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
+    
+    # Electric dipole coupling parameters (exact same as test_inten_c3.py)
+    altp = [["A210", 1e-10], ["A230", -1e-10], ["A233", 1e-10 + 2e-10j]]
+    
+    print(f"\nAltp (electric dipole coupling) parameters:")
+    for name, value in altp:
+        print(f"  {name}: {value}")
 
     # =========================================================================
-    # Define Spectrum 1: Ground state absorption (Z1 -> Y1+Y2)
+    # Define Spectrum 1: Ground state absorption (Z1 -> Y1+Y2) with MD+ED
     # =========================================================================
-    # lrange specifies which levels participate in the transitions:
-    # - Initial levels: [0, 1] (Z1 Kramers doublet)
-    # - Final levels: [6, 7, 8, 9] (Y1+Y2 multiplet in C3 symmetry)
     
     spec_abs = Spectrum(
         name="Ground state absorption (Z1 -> Y1 + Y2)",
         lrange=[[0, 1], [6, 7, 8, 9]],
         intensity_tensors=intensity_tensors,
-        group_tol=1e-3,      # Tolerance for grouping transitions by level pair
-        nrefractive=1.0,     # Refractive index (1.0 = vacuum)
-        md=True,             # Include magnetic dipole
-        ed=False,            # No electric dipole (altp=None)
+        altp=altp,
+        group_tol=1e-3,
+        nrefractive=1.0,
+        md=True,             # Magnetic dipole (default in test)
+        ed=True,             # Electric dipole with Altp
     )
 
     # =========================================================================
-    # Define Spectrum 2: Emission from Y1+Y2 to Z1
+    # Define Spectrum 2: Emission from Y1+Y2 to Z1 (MD+ED, same as absorption)
     # =========================================================================
+    
     spec_em = Spectrum(
         name="Emission from Y1 + Y2 -> Z1",
         lrange=[[6, 7], [0, 1, 2, 3, 4, 5]],
         intensity_tensors=intensity_tensors,
+        altp=altp,           # Same Altp parameters as absorption
         group_tol=1e-3,
         nrefractive=1.0,
+        md=True,             # Magnetic dipole (default in test)
+        ed=True,             # Electric dipole with Altp (same as absorption)
     )
 
     # =========================================================================
