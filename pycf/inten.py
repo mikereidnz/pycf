@@ -695,6 +695,8 @@ class Spectrum:
     groups: List[Dict[str, Any]] = field(default_factory=list, init=False)
     total_f: float = field(default=0.0, init=False)
     total_A: float = field(default=0.0, init=False)
+    eigenvalues: Optional[np.ndarray] = field(default=None, init=False)
+    principal_components: Optional[np.ndarray] = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         """Validate inputs."""
@@ -754,6 +756,8 @@ class Spectrum:
 
         # Extract eigenvectors and eigenvalues
         w, z = self.hamiltonian.diag()
+        self.eigenvalues = w
+        self.principal_components = np.argmax(np.abs(z), axis=0)
 
         # Validate eigenvectors
         if not isinstance(z, np.ndarray) or z.ndim != 2:
@@ -794,39 +798,6 @@ class Spectrum:
         return self.groups
 
 
-def gen_intensity(
-    hamiltonian: Any,
-    spectrum: Spectrum,
-    polarization: str = "isotropic",
-) -> List[Dict[str, Any]]:
-    """
-    Convenience wrapper: calculate_intensities() on the Spectrum object.
-
-    This is a backward-compatibility wrapper. New code should call 
-    spectrum.calculate_intensities() directly.
-
-    Parameters
-    ----------
-    hamiltonian : cfl.Hamiltonian
-        (Deprecated: pass via Spectrum constructor instead)
-    spectrum : Spectrum
-        Spectrum object with hamiltonian, intensity_tensors, and parameters.
-    polarization : str, optional
-        Polarization type ('isotropic'). Default 'isotropic'.
-
-    Returns
-    -------
-    list of dict
-        List of transition group dictionaries (see Spectrum.calculate_intensities).
-
-    Raises
-    ------
-    ValueError
-        If spectrum parameters are invalid.
-    """
-    return spectrum.calculate_intensities(polarization=polarization)
-
-
 def gen_inten_summary(
     spectrum: Spectrum,
     hamiltonian: Any,
@@ -839,14 +810,14 @@ def gen_inten_summary(
     Parameters
     ----------
     spectrum : Spectrum
-        Spectrum object with computed groups (from gen_intensity()).
+        Spectrum object with computed groups (from calculate_intensities()).
     hamiltonian : cfl.Hamiltonian
-        Hamiltonian object (needed for state labels and energies).
+        Hamiltonian object (needed for state labels and energies if cached values not available).
     format : str, optional
         Output format: 'text' (default, pretty table) or 'csv' (comma-separated).
     state_labels : list of Any, optional
         Human-readable state labels (from hamiltonian.tensors[0].states.labels).
-        If not provided, uses principal component indices from diag().
+        If not provided, uses principal component indices from cached spectrum data.
 
     Returns
     -------
@@ -862,12 +833,12 @@ def gen_inten_summary(
             state_labels = hamiltonian.tensors[0].states.labels
         else:
             # Fallback: use level indices
-            w, z = hamiltonian.diag()
+            w = spectrum.eigenvalues if spectrum.eigenvalues is not None else hamiltonian.diag()[0]
             state_labels = [f"Level {i}" for i in range(len(w))]
 
-    # Get eigenvalues and eigenvectors for label determination
-    w, z = hamiltonian.diag()
-    pc = np.argmax(np.abs(z), axis=0)
+    # Use cached eigenvalues and principal components (computed during calculate_intensities)
+    w = spectrum.eigenvalues if spectrum.eigenvalues is not None else hamiltonian.diag()[0]
+    pc = spectrum.principal_components if spectrum.principal_components is not None else np.argmax(np.abs(hamiltonian.diag()[1]), axis=0)
 
     if format == "text":
         return _format_inten_text(spectrum, w, pc, state_labels)
@@ -875,6 +846,7 @@ def gen_inten_summary(
         return _format_inten_csv(spectrum, w, pc, state_labels)
     else:
         raise ValueError(f"Unknown format: {format}. Use 'text' or 'csv'.")
+
 
 
 def _format_inten_text(

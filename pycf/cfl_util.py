@@ -1163,3 +1163,35 @@ def rotate_cf_params(
                 except KeyError:
                     pass
     return rcoeff
+
+
+def update_coeff(coeff: dict, updates: dict) -> dict:
+    """
+    Update a coefficient dictionary with new values from a fit result.
+
+    Common pattern after fitting: merge fitted parameter updates into the full
+    coefficient dictionary and pass to hamiltonian.set_coeff().
+
+    Parameters
+    ----------
+    coeff : dict
+        Base coefficient dictionary (e.g., from hamiltonian.coeff).
+    updates : dict
+        Dictionary of updated parameters (e.g., from fit result['coeff']).
+
+    Returns
+    -------
+    dict
+        New coefficient dictionary with updates applied.
+
+    Example
+    -------
+    >>> coeff = {"EAVG": 1000, "ZETA": 600, "C20": 500}
+    >>> fitcoeff = {"EAVG": 1010, "C20": 480}  # from fit result
+    >>> new_coeff = update_coeff(coeff, fitcoeff)
+    >>> # new_coeff is {"EAVG": 1010, "ZETA": 600, "C20": 480}
+    >>> h.set_coeff(new_coeff)
+    """
+    result = coeff.copy()
+    result.update(updates)
+    return result

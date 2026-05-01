@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from pycf.polarization import polarization_vector, stokes_from_jones, quarter_wave_plate
-from pycf.inten import Spectrum, gen_intensity
+from pycf.inten import Spectrum
 from pycf.import_sljm import ImportSLJM
 import pycf.cfl as cfl
 
