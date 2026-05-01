@@ -149,6 +149,170 @@ is wrapped cleanly. Spectrum class encapsulates state; gen_intensity() orchestra
       update_coeff(coeff, res)
 
 
+Architecture Refactoring (Phase 2 Preparation)
+-----------------------------------------------
+
+**Completed Refactoring:**
+1. Renamed t_list keys for consistency: pci -> pc_i, pcf -> pc_f
+2. Optimized format functions: removed O(n) energy-matching lookup
+   - Now extract level indices from t_list[0]["pc_i"], t_list[0]["pc_f"]
+   - Benefit: MEDIUM, BRIEF, VERBOSE formats all efficient
+3. Added direction validation: each Spectrum must be purely absorption OR emission
+
+**t_list Structure (ready for all formats):**
+```
+Each transition in group["t_list"][n]:
+  "i": initial level (0-based)
+  "f": final level (0-based)
+  "pc_i": principal component index of initial level  ✨ newly added
+  "pc_f": principal component index of final level    ✨ newly added
+  "ei": initial energy
+  "ef": final energy
+  "e": transition energy
+  "isotropic": isotropic dipole strength
+  "md_-1", "md_0", "md_+1": magnetic dipole moments
+  "ed_-1", "ed_0", "ed_+1": electric dipole moments
+  "S_ED_-1", "S_ED_0", "S_ED_+1": ED dipole strengths
+  "S_MD_-1", "S_MD_0", "S_MD_+1": MD dipole strengths
+  "S_ED_isotropic", "S_MD_isotropic": isotropic strengths
+  (also: axial, sigma, pi for each)
+```
+
+
+Output Formats Design (BRIEF and VERBOSE)
+-----------------------------------------
+
+**MEDIUM Format (Current - MVP)**
+```
+Spectrum: absorption
+================================================================================
+Altp (electric dipole coupling) parameters:
+  A210: 1e-10
+  A230: -1e-10
+
+Transition 1: [2,3,5,-5] -> [2,3,7,7]
+  Initial state: [2,3,5,-5]              E =   0.000000 cm-1 (g=2)
+  Final state:   [2,3,7,7]               E = 2169.756 cm-1 (g=2)
+  Transition energy: 2169.756000 cm-1
+  Oscillator strength f: 4.482614e-08
+
+Transition 2: [2,3,5,-5] -> [2,3,7,-5]
+  ...
+
+Total oscillator strength (f): 8.631216e-08
+================================================================================
+```
+- Pros: Clear, human-readable, shows state labels and energies
+- Cons: Verbose for many transitions
+
+
+**BRIEF Format (Compact, one line per group)**
+
+Design Question 1: Line format?
+
+Option A (Tabular, aligned):
+```
+Group  State (i)          State (f)          Energy      f or A
+  1    [2,3,5,-5]        [2,3,7,7]        2169.756    4.48e-08
+  2    [2,3,5,-5]        [2,3,7,-5]       2313.749    4.15e-08
+  
+Total oscillator strength (f): 8.63e-08
+```
+
+Option B (Compact):
+```
+1: [2,3,5,-5] → [2,3,7,7]     2169.756 cm⁻¹  f=4.48e-08
+2: [2,3,5,-5] → [2,3,7,-5]    2313.749 cm⁻¹  f=4.15e-08
+Total f: 8.63e-08
+```
+
+Option C (CSV-like but readable):
+```
+Group, i_label, f_label, energy_cm1, f_or_A
+1, [2,3,5,-5], [2,3,7,7], 2169.756, 4.48e-08
+2, [2,3,5,-5], [2,3,7,-5], 2313.749, 4.15e-08
+Total, , , , 8.63e-08
+```
+
+Design Question 2: Show Altp parameters?
+- Yes? (like MEDIUM)
+- No? (assume implicit, too verbose)
+
+Design Question 3: Show state labels or level indices?
+- Labels: [2,3,5,-5] (current)
+- Indices: 0→6 (simpler, but less informative)
+- Both? 0:[2,3,5,-5] (hybrid, verbose)
+
+
+**VERBOSE Format (All transitions + dipole moments)**
+
+Design Question 4: Structure?
+
+Option A (Hierarchical - group as header):
+```
+Transition Group 1
+  Energy range: 2169.756 cm-1
+  Initial: [2,3,5,-5] (E=0.0), Final: [2,3,7,7] (E=2169.756)
+  Group total f: 4.48e-08
+  Individual transitions:
+    0 → 7  e=2169.756
+      Isotropic: S_ED=6.33e-03, S_MD=1.75e-05, Total=6.34e-03
+      ED moments: -1: (1.25e-18+4.02e-17j), 0: (0.00308-0.00031j), +1: (3.92e-16-5.88e-17j)
+      MD moments: -1: (-9.45e-17+3.56e-17j), 0: (-0.00651+0.00067j), +1: (-1.28e-17+3.23e-18j)
+    
+    1 → 6  e=2169.756
+      Isotropic: S_ED=1.75e-05, S_MD=6.33e-03, Total=6.34e-03
+      ...
+```
+
+Option B (Tabular - all transitions listed):
+```
+Group  i    f   e_i        e_f      e(cm-1)  S_ED_iso  S_MD_iso  Total
+  1    0    7   0.0     2169.76    2169.76   6.33e-03  1.75e-05  6.34e-03
+       1    6   0.0     2169.76    2169.76   1.75e-05  6.33e-03  6.34e-03
+  Total group f: 4.48e-08
+```
+
+Option C (Condensed group, expandable transitions):
+```
+Group 1 (absorption): [2,3,5,-5] → [2,3,7,7]  E=2169.756  f=4.48e-08
+  Transitions (4):
+    0→7 (e=2169.76): S_iso=6.34e-03, ED: (-,0,+)=(...), MD: (-,0,+)=(...)
+    1→6 (e=2169.76): S_iso=6.34e-03, ED: (-,0,+)=(...), MD: (-,0,+)=(...)
+    ...
+```
+
+Design Question 5: Which dipole moments to show?
+- All (-1, 0, +1 for both ED and MD)? Very verbose
+- Isotropic only? Loses debugging detail
+- Isotropic + decomposition (ED vs MD)? Good balance
+- Component-wise (show as complex values)? Useful for debugging
+
+Design Question 6: Should VERBOSE show state labels on every transition?
+- Yes: [2,3,5,-5][i=0] → [2,3,7,7][f=7]
+- No: Just indices: 0 → 7 (shorter, but need context)
+- Hybrid: Show once per group, indices on transitions
+
+
+**Implementation Strategy**
+
+1. Implement BRIEF first (simpler, no significant refactoring needed)
+   - Add elif format == 'brief': in gen_inten_summary()
+   - Call new _format_inten_brief() function
+
+2. Implement VERBOSE second (iterate t_list, show all dipole moments)
+   - Add elif format == 'verbose': in gen_inten_summary()
+   - Call new _format_inten_verbose() function
+   - May need to extract _format_dipole_moments() helper
+
+3. Update gen_inten_summary() docstring with all format options
+
+4. Add tests: test_inten_brief.py and test_inten_verbose.py
+
+5. Update examples/ceylf/inten_example.py to show all formats
+
+
+
 ANSWERS TO QUESTIONS
 
   ⚠️ One inefficiency to fix before scaling: Both MEDIUM and VERBOSE formats need to find level indices by energy matching (loop through 
