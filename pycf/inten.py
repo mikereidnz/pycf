@@ -109,7 +109,8 @@ def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
 
 
 def dipole_str(
-    lrange: List[List[int]],
+    i_range: List[int],
+    f_range: List[int],
     tensor_dict: Dict[str, Any],
     h: Any,
     E: np.ndarray,
@@ -123,11 +124,12 @@ def dipole_str(
 
     Parameters
     ----------
-    lrange : list
-        A list of two lists: [initial_levels, final_levels], where each
-        sub-list contains 0-based level indices.
-        Example: [[0, 1], [6, 7, 8, 9]] selects levels 0–1 as initial
-        and levels 6–9 as final.
+    i_range : list of int
+        0-based initial state level indices.
+        Example: [0, 1] for ground state doublet.
+    f_range : list of int
+        0-based final state level indices.
+        Example: [6, 7, 8, 9] for excited multiplet.
     tensor_dict : dict
         Dictionary of transformed dipole tensors with keys (M10, M11, M1-1, etc.)
         pointing to matrix elements in the eigenbasis.
@@ -186,8 +188,8 @@ def dipole_str(
                         CG_coeff *= -1
                     D_factor["%i%i%i%i" % (lam, t, p, q)] = CG_coeff
     trs = []
-    for i in lrange[0]:
-        for f in lrange[1]:
+    for i in i_range:
+        for f in f_range:
             md_mom = [0, 0, 0]
             ed_mom = [0, 0, 0]
             if md:
@@ -768,14 +770,14 @@ class Spectrum:
         # Convert 1-based i_range, f_range to 0-based for internal API
         i_range_0based = [i - 1 for i in self.i_range]
         f_range_0based = [i - 1 for i in self.f_range]
-        lrange_0based = [i_range_0based, f_range_0based]
 
         # Transform intensity tensors to eigenbasis
         self.transformed_tensors = vtrans(self.intensity_tensors, z)
 
         # Compute dipole strengths for all transitions
         self.dipole_strengths = dipole_str(
-            lrange_0based,
+            i_range_0based,
+            f_range_0based,
             self.transformed_tensors,
             self.hamiltonian,
             w,

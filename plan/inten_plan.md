@@ -147,3 +147,12 @@ for hyperfine structure). Refractive index exposed as parameter to A_and_f_calc(
 is wrapped cleanly. Spectrum class encapsulates state; gen_intensity() orchestrates computation.
 
       update_coeff(coeff, res)
+
+
+#COMMENTS
+
+- In calculate_intensities() we should not create lrange_0based, but modify the API of dipole_str() to accept two lists. This will be much easier for users who want to query the Spectrum class. 
+
+- Will pdate_coeff() fail if there are tensors in upates that are not in coeff?
+
+- Can you generate new versions of my intensity tests that make use of the new structure? Keep the old files as well. 

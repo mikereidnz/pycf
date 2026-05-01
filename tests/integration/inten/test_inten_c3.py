@@ -103,9 +103,11 @@ def test_inten_c3() -> None:
     print("Altp")
     for A in Altp:
         print(A)
-    lrange = [[0, 1], [6, 7, 8, 9]]  # Z1 to Y1 + Y2
+    i_range = [0, 1]  # Z1 (0-based)
+    f_range = [6, 7, 8, 9]  # Y1 + Y2 (0-based)
+    lrange = [i_range, f_range]
     print("lrange", lrange)
-    trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
+    trs = dipole_str(i_range, f_range, tensor_dict, h, E, V, ed=True, Altp=Altp)
     # sort the dictionary
     from operator import itemgetter
 
@@ -192,9 +194,11 @@ def test_inten_c3() -> None:
             pascal_f[i-1], rel=tolerance
         ), f'Group {i} oscillator strength \
         {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
-    # Nolrange = [[0, 1], [6, 7, 8, 9]]  # Z1 to Y1 + Y2
-    print("lrange", lrange)
-    trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
+    
+    # Print raw transition data
+    print("\nPrint raw transition data")
+    print("lrange", [i_range, f_range])
+    trs = dipole_str(i_range, f_range, tensor_dict, h, E, V, ed=True, Altp=Altp)
     # sort the dictionary
     from operator import itemgetter
 
@@ -283,9 +287,11 @@ def test_inten_c3() -> None:
         {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
     # Now do emission from Y1 and Y2 to Z
     print("\nNow do emission from Y1 and Y2 to Z\n")
-    lrange = [[6, 7], [0, 1, 2, 3, 4, 5]]  # Y1, Y2 to Z
+    i_range_em = [6, 7]  # Y1, Y2 (0-based)
+    f_range_em = [0, 1, 2, 3, 4, 5]  # Z all levels (0-based)
+    lrange = [i_range_em, f_range_em]
     print("lrange", lrange)
-    trs_em = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
+    trs_em = dipole_str(i_range_em, f_range_em, tensor_dict, h, E, V, ed=True, Altp=Altp)
     # sort the dictionary
     from operator import itemgetter
 

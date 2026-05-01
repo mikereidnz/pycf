@@ -102,9 +102,11 @@ def test_inten_c1() -> None:
     print("Altp")
     for A in Altp:
         print(A)
-    lrange = [[0, 1], [6, 7, 8, 9]]  # Z1 to Y1 + Y2
+    i_range = [0, 1]  # Z1 (0-based)
+    f_range = [6, 7, 8, 9]  # Y1 + Y2 (0-based)
+    lrange = [i_range, f_range]
     print("lrange", lrange)
-    trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
+    trs = dipole_str(i_range, f_range, tensor_dict, h, E, V, ed=True, Altp=Altp)
     # sort the dictionary
     from operator import itemgetter
 
