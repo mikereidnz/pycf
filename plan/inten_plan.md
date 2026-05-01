@@ -183,6 +183,7 @@ Output Formats Design (BRIEF and VERBOSE)
 -----------------------------------------
 
 **MEDIUM Format (Current - MVP)**
+>>> This will become redundant with the implementation of the verbose formats. 
 ```
 Spectrum: absorption
 ================================================================================
@@ -206,150 +207,108 @@ Total oscillator strength (f): 8.631216e-08
 - Cons: Verbose for many transitions
 
 
-**BRIEF Format (Compact, one line per group)**
+**BRIEF Format (Completed - Commit a85de1c)**
+✅ Tabular format, one line per transition group
+✅ Three columns: f_MD, f_ED, f_Total (or A_MD, A_ED, A_Total for emission)
+✅ Shows Altp parameters at top
+✅ State labels with level indices (1-based) and quantum numbers in "| S L J M >" format
+✅ Includes initial and final state energies
+✅ 132-character width
 
-Design Question 1: Line format?
 
-Option A (Tabular, aligned):
+**VERBOSE and More Verbose Formats (To be designed)**
+
+All more verbose formats will use BRIEF as the base line, then expand with additional detail on subsequent lines.
+
+Hierarchy of verbosity:
+1. BRIEF: One line per group (completed)
+2. VERBOSE: BRIEF line + additional transition details below each group
+3. ULTRA: VERBOSE + dipole moment components
+4. DEBUG: All available data for each transition
+
+
+
+IMPLEMENTATION STATUS
+
+**COMPLETED: BRIEF Format (Commit a85de1c)**
 ```
-Group  State (i)          State (f)          Energy      f or A
-  1    [2,3,5,-5]        [2,3,7,7]        2169.756    4.48e-08
-  2    [2,3,5,-5]        [2,3,7,-5]       2313.749    4.15e-08
-  
-Total oscillator strength (f): 8.63e-08
-```
+Spectrum: Ground state absorption (Z1 -> Y1 + Y2)
+====================================================================================================================================
+Altp (electric dipole coupling) parameters:
+  A210: 1e-10
+  A230: -1e-10
+  A233: (1e-10+2e-10j)
 
-  >>> Tabular but there should be three columns of f or A: 
-     MD   ED  Total. 
-     Note that we can use 132 columns, like the output files in cfl_util.py, so we have plenty of room. 
-     See more comments below. 
-
-Option B (Compact):
-```
-1: [2,3,5,-5] → [2,3,7,7]     2169.756 cm⁻¹  f=4.48e-08
-2: [2,3,5,-5] → [2,3,7,-5]    2313.749 cm⁻¹  f=4.15e-08
-Total f: 8.63e-08
-```
-
-Option C (CSV-like but readable):
-```
-Group, i_label, f_label, energy_cm1, f_or_A
-1, [2,3,5,-5], [2,3,7,7], 2169.756, 4.48e-08
-2, [2,3,5,-5], [2,3,7,-5], 2313.749, 4.15e-08
-Total, , , , 8.63e-08
-```
-
-Design Question 2: Show Altp parameters?
-- Yes? (like MEDIUM)
-- No? (assume implicit, too verbose)
->>> Yes. 
-
-Design Question 3: Show state labels or level indices?
-- Labels: [2,3,5,-5] (current)
-- Indices: 0→6 (simpler, but less informative)
-- Both? 0:[2,3,5,-5] (hybrid, verbose)
->>> Both, but starting at 1. Also, we need to move to the format used in the energy summary, i.e. "| S L J M >". See the cfl_utils.py file. 
-
-
-This would have almost all of the information of the MEDIUM format. The only thing not included is the conversion to lifetime. 
-
-Let's try that out before designing the next phase. 
-
-
-**VERBOSE Format (All transitions + dipole moments)**
-
-Design Question 4: Structure?
-
-Option A (Hierarchical - group as header):
-```
-Transition Group 1
-  Energy range: 2169.756 cm-1
-  Initial: [2,3,5,-5] (E=0.0), Final: [2,3,7,7] (E=2169.756)
-  Group total f: 4.48e-08
-  Individual transitions:
-    0 → 7  e=2169.756
-      Isotropic: S_ED=6.33e-03, S_MD=1.75e-05, Total=6.34e-03
-      ED moments: -1: (1.25e-18+4.02e-17j), 0: (0.00308-0.00031j), +1: (3.92e-16-5.88e-17j)
-      MD moments: -1: (-9.45e-17+3.56e-17j), 0: (-0.00651+0.00067j), +1: (-1.28e-17+3.23e-18j)
-    
-    1 → 6  e=2169.756
-      Isotropic: S_ED=1.75e-05, S_MD=6.33e-03, Total=6.34e-03
-      ...
+Group  Initial State                                      Final State                                        f_MD           f_ED           f_Total       
+------------------------------------------------------------------------------------------------------------------------------------
+1      2: | 2 3 5 5 > (E =     0.000000 cm-1)             14: | 2 3 7 -7 > (E =  2169.756474 cm-1)            1.103784e-04   7.235053e-07   4.482614e-08
+2      2: | 2 3 5 5 > (E =     0.000000 cm-1)             3: | 2 3 7 5 > (E =  2313.748603 cm-1)              2.736630e-05   7.545708e-05   4.148602e-08
+------------------------------------------------------------------------------------------------------------------------------------
+Total                                                                                                                                       8.631216e-08
+====================================================================================================================================
 ```
 
+- ✅ Tabular format with one line per transition group (Option A chosen)
+- ✅ Three columns of f or A values: MD, ED, Total (user preference)
+- ✅ 132-character width for ample column space
+- ✅ Shows Altp parameters at top
+- ✅ State labels include level index (1-based) and quantum numbers in "| S L J M >" format
+- ✅ Shows both initial and final state info with energies
+- ✅ Added to gen_inten_summary() format dispatch
+- ✅ Works for both absorption and emission spectra
+- ✅ Updated examples/ceylf/inten_example.py to demonstrate
+- ✅ All 50 tests pass
 
-Option B (Tabular - all transitions listed):
+**Implementation Details (Commit a85de1c):**
+1. Added _format_state_label_with_energy() helper to format "level: | S L J M > (E = x.xxx cm-1)"
+2. Added _format_inten_brief() function that:
+   - Extracts state labels from t_list[0]["pc_i"] and t_list[0]["pc_f"] (principal components)
+   - Formats header with "Group", "Initial State", "Final State", "f/A_MD", "f/A_ED", "f/A_Total"
+   - Handles both absorption (f) and emission (A) modes automatically
+   - Pads all columns to 132-character total width
+3. Updated gen_inten_summary() to dispatch 'brief' format to _format_inten_brief()
+
+**Known Issues/Corrections needed for BRIEF:**
+1. f_MD and f_ED calculations: Use same logic as total calculation for ED/MD decomposition. Total f and A should be sum of MD and ED.
+2. For emission, A_MD and A_ED: Remove placeholder zeros; use ED/MD decomposition logic.
+3. Remove misleading total dipole strength (only meaningful when nrefractive=1).
+
+
+VERBOSE Format (To be implemented)
+----------------------------------
+
+VERBOSE expands BRIEF by adding individual transition details below each group line.
+
+Structure:
+- Print BRIEF line for each group (same as BRIEF format)
+- Below each BRIEF line, print: "Individual transitions:"
+- List each transition in the group with a tabular format
+- Blank line before next group
+
+Example layout:
 ```
-Group  i    f   e_i        e_f      e(cm-1)  S_ED_iso  S_MD_iso  Total
-  1    0    7   0.0     2169.76    2169.76   6.33e-03  1.75e-05  6.34e-03
-       1    6   0.0     2169.76    2169.76   1.75e-05  6.33e-03  6.34e-03
-  Total group f: 4.48e-08
+Spectrum: Ground state absorption (Z1 -> Y1 + Y2)
+====================================================================================================================================
+Altp (electric dipole coupling) parameters:
+  A210: 1e-10
+  A230: -1e-10
+  A233: (1e-10+2e-10j)
+
+Group  Initial State                                      Final State                                        f_MD           f_ED           f_Total       
+------------------------------------------------------------------------------------------------------------------------------------
+1      2: | 2 3 5 5 > (E =     0.000000 cm-1)             14: | 2 3 7 -7 > (E =  2169.756474 cm-1)            1.103784e-04   7.235053e-07   4.482614e-08
+       Individual transitions:
+       i(0b)  f(0b)  Energy(cm-1)  S_ED_iso     S_MD_iso     f_ED           f_MD           f_Total
+         1      13     2169.756    6.33e-03     1.75e-05     7.235e-07      1.103e-04      4.482e-08
+         0      13     2169.756    1.75e-05     6.33e-03     7.235e-07      1.103e-04      4.482e-08
+
+2      2: | 2 3 5 5 > (E =     0.000000 cm-1)             3: | 2 3 7 5 > (E =  2313.748603 cm-1)              2.736630e-05   7.545708e-05   4.148602e-08
+       Individual transitions:
+       i(0b)  f(0b)  Energy(cm-1)  S_ED_iso     S_MD_iso     f_ED           f_MD           f_Total
+         1       2     2313.749    ...          ...          ...            ...            ...
+         0       2     2313.749    ...          ...          ...            ...            ...
+
+------------------------------------------------------------------------------------------------------------------------------------
+Total                                                                                                                                       8.631216e-08
+====================================================================================================================================
 ```
-
-Option C (Condensed group, expandable transitions):
-```
-Group 1 (absorption): [2,3,5,-5] → [2,3,7,7]  E=2169.756  f=4.48e-08
-  Transitions (4):
-    0→7 (e=2169.76): S_iso=6.34e-03, ED: (-,0,+)=(...), MD: (-,0,+)=(...)
-    1→6 (e=2169.76): S_iso=6.34e-03, ED: (-,0,+)=(...), MD: (-,0,+)=(...)
-    ...
-```
->>> I think a hybrid option
-
-
-Design Question 5: Which dipole moments to show?
-- All (-1, 0, +1 for both ED and MD)? Very verbose
-- Isotropic only? Loses debugging detail
-- Isotropic + decomposition (ED vs MD)? Good balance
-- Component-wise (show as complex values)? Useful for debugging
-
-Design Question 6: Should VERBOSE show state labels on every transition?
-- Yes: [2,3,5,-5][i=0] → [2,3,7,7][f=7]
-- No: Just indices: 0 → 7 (shorter, but need context)
-- Hybrid: Show once per group, indices on transitions
-
-
-**Implementation Strategy**
-
-1. Implement BRIEF first (simpler, no significant refactoring needed)
-   - Add elif format == 'brief': in gen_inten_summary()
-   - Call new _format_inten_brief() function
-
-2. Implement VERBOSE second (iterate t_list, show all dipole moments)
-   - Add elif format == 'verbose': in gen_inten_summary()
-   - Call new _format_inten_verbose() function
-   - May need to extract _format_dipole_moments() helper
-
-3. Update gen_inten_summary() docstring with all format options
-
-4. Add tests: test_inten_brief.py and test_inten_verbose.py
-
-5. Update examples/ceylf/inten_example.py to show all formats
-
-
-
-ANSWERS TO QUESTIONS
-
-  ⚠️ One inefficiency to fix before scaling: Both MEDIUM and VERBOSE formats need to find level indices by energy matching (loop through 
-  principal_components). This should be stored directly in the group dict or we should rely on t_list[n]["i"] and t_list[n]["f"] which already have the
-  level indices.
-
-  Key questions for you to decide:
-
-   1. Are t_list[n]["i"] and t_list[n]["f"] already the 0-based level indices? If yes, VERBOSE format can use them directly without any refactoring
-      - yes, we can use them. We need to store the principal components in that same place, so we have 
-        keys ei, ef, e, i, f, pc_i, pc_f
-   2. Should a Spectrum mix absorption and emission groups? (The current code assumes all groups have the same direction for totals display)
-      - no, it should be one or the other. 
-   3. What's your priority order? BRIEF (compact scanning), VERBOSE (detailed debugging), or both equally?
-      - we can do both together, but I will need to think about the verbose one in more detail. 
-
-  Once you answer these, I can either:
-
-   - Add a small optimization now (store level indices in group dict for efficiency)
-   - Wait and handle it when implementing the new formats
-   - Or confirm the current structure needs no changes
-
-  What's your thought?
-    
-   - Is my answer clear enough? 
