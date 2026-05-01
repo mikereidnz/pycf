@@ -103,8 +103,8 @@ def test_inten_c3() -> None:
     print("Altp")
     for A in Altp:
         print(A)
-    i_range = [0, 1]  # Z1 (0-based)
-    f_range = [6, 7, 8, 9]  # Y1 + Y2 (0-based)
+    i_range = [1, 2]  # Z1 (1-based)
+    f_range = [7, 8, 9, 10]  # Y1 + Y2 (1-based)
     lrange = [i_range, f_range]
     print("lrange", lrange)
     trs = dipole_str(i_range, f_range, tensor_dict, h, E, V, ed=True, Altp=Altp)
@@ -287,8 +287,8 @@ def test_inten_c3() -> None:
         {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
     # Now do emission from Y1 and Y2 to Z
     print("\nNow do emission from Y1 and Y2 to Z\n")
-    i_range_em = [6, 7]  # Y1, Y2 (0-based)
-    f_range_em = [0, 1, 2, 3, 4, 5]  # Z all levels (0-based)
+    i_range_em = [7, 8]  # Y1, Y2 (1-based)
+    f_range_em = [1, 2, 3, 4, 5, 6]  # Z all levels (1-based)
     lrange = [i_range_em, f_range_em]
     print("lrange", lrange)
     trs_em = dipole_str(i_range_em, f_range_em, tensor_dict, h, E, V, ed=True, Altp=Altp)

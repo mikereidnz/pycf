@@ -125,11 +125,11 @@ def dipole_str(
     Parameters
     ----------
     i_range : list of int
-        0-based initial state level indices.
-        Example: [0, 1] for ground state doublet.
+        1-based initial state level indices (user-friendly convention).
+        Example: [1, 2] for ground state doublet.
     f_range : list of int
-        0-based final state level indices.
-        Example: [6, 7, 8, 9] for excited multiplet.
+        1-based final state level indices (user-friendly convention).
+        Example: [7, 8, 9, 10] for excited multiplet.
     tensor_dict : dict
         Dictionary of transformed dipole tensors with keys (M10, M11, M1-1, etc.)
         pointing to matrix elements in the eigenbasis.
@@ -161,6 +161,11 @@ def dipole_str(
     hbar = 1.0545903e-27  # erg-sec
     me = 9.109553e-28  # gm
     md_prefac = -(e * hbar) / (2 * me * clight)
+    
+    # Convert 1-based user input to 0-based internal indices
+    i_range = [i - 1 for i in i_range]
+    f_range = [i - 1 for i in f_range]
+    
     w = E
     z = V
     # Validate eigenvector dimensions
@@ -767,17 +772,14 @@ class Spectrum:
                 f"Hamiltonian eigenvectors must be 2D (got shape {z.shape if hasattr(z, 'shape') else 'unknown'})"
             )
 
-        # Convert 1-based i_range, f_range to 0-based for internal API
-        i_range_0based = [i - 1 for i in self.i_range]
-        f_range_0based = [i - 1 for i in self.f_range]
-
         # Transform intensity tensors to eigenbasis
         self.transformed_tensors = vtrans(self.intensity_tensors, z)
 
         # Compute dipole strengths for all transitions
+        # dipole_str() expects 1-based indices and converts internally
         self.dipole_strengths = dipole_str(
-            i_range_0based,
-            f_range_0based,
+            self.i_range,
+            self.f_range,
             self.transformed_tensors,
             self.hamiltonian,
             w,

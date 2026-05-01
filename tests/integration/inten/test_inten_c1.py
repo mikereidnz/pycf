@@ -102,8 +102,8 @@ def test_inten_c1() -> None:
     print("Altp")
     for A in Altp:
         print(A)
-    i_range = [0, 1]  # Z1 (0-based)
-    f_range = [6, 7, 8, 9]  # Y1 + Y2 (0-based)
+    i_range = [1, 2]  # Z1 (1-based)
+    f_range = [7, 8, 9, 10]  # Y1 + Y2 (1-based)
     lrange = [i_range, f_range]
     print("lrange", lrange)
     trs = dipole_str(i_range, f_range, tensor_dict, h, E, V, ed=True, Altp=Altp)

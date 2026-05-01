@@ -101,7 +101,7 @@ class TestDipoleStrEdgeCases:
         tensor_dict = {"U20": np.eye(2)}
         # Test with 1D array (should fail)
         with pytest.raises(ValueError, match="Eigenvector V must be 2-dimensional"):
-            dipole_str([0], [1], tensor_dict, mock_h, np.array([0.5, 1.0]), np.array([1, 2]))
+            dipole_str([1], [2], tensor_dict, mock_h, np.array([0.5, 1.0]), np.array([1, 2]))
 
     def test_dipole_str_missing_altp_when_ed_true(self, setup_test_data):
         """Test that dipole_str raises ValueError when ed=True but Altp not provided."""
@@ -115,7 +115,7 @@ class TestDipoleStrEdgeCases:
         E = np.array([0.5, 1.0])
         # ed=True but Altp=None should raise
         with pytest.raises(ValueError, match="ed is True but no Altp parameters"):
-            dipole_str([0], [1], tensor_dict, mock_h, E, V, ed=True, Altp=None)
+            dipole_str([1], [2], tensor_dict, mock_h, E, V, ed=True, Altp=None)
 
     def test_dipole_str_missing_magnetic_dipole_tensors(self, setup_test_data):
         """Test that dipole_str raises ValueError when md=True but tensors missing."""
@@ -130,7 +130,7 @@ class TestDipoleStrEdgeCases:
         E = np.array([0.5, 1.0])
         # md=True but missing M1-1, M10, M11 should raise
         with pytest.raises(ValueError, match="Missing all or some of the magnetic dipole"):
-            dipole_str([0], [1], tensor_dict, mock_h, E, V, md=True)
+            dipole_str([1], [2], tensor_dict, mock_h, E, V, md=True)
 
     def test_dipole_str_missing_electric_dipole_tensor(self, setup_test_data):
         """Test that dipole_str raises ValueError when ed=True with proper Altp format."""
@@ -145,7 +145,7 @@ class TestDipoleStrEdgeCases:
         V = np.eye(2)
         E = np.array([0.5, 1.0])
         # With md=False and ed=False, should work with empty tensor_dict
-        result = dipole_str([0], [1], tensor_dict, mock_h, E, V, md=False, ed=False)
+        result = dipole_str([1], [2], tensor_dict, mock_h, E, V, md=False, ed=False)
         assert isinstance(result, list)
 
 
