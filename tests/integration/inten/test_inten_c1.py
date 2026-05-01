@@ -152,11 +152,11 @@ def test_inten_c1() -> None:
             ":",
             line["i"],
             line["ei"],
-            labels[line["pci"]],
+            labels[line["pc_i"]],
             "\t->\t",
             line["f"],
             line["ef"],
-            labels[line["pcf"]],
+            labels[line["pc_f"]],
             "\tEnergy:",
             line["e"],
         )

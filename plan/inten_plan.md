@@ -147,3 +147,30 @@ for hyperfine structure). Refractive index exposed as parameter to A_and_f_calc(
 is wrapped cleanly. Spectrum class encapsulates state; gen_intensity() orchestrates computation.
 
       update_coeff(coeff, res)
+
+
+ANSWERS TO QUESTIONS
+
+  ⚠️ One inefficiency to fix before scaling: Both MEDIUM and VERBOSE formats need to find level indices by energy matching (loop through 
+  principal_components). This should be stored directly in the group dict or we should rely on t_list[n]["i"] and t_list[n]["f"] which already have the
+  level indices.
+
+  Key questions for you to decide:
+
+   1. Are t_list[n]["i"] and t_list[n]["f"] already the 0-based level indices? If yes, VERBOSE format can use them directly without any refactoring
+      - yes, we can use them. We need to store the principal components in that same place, so we have 
+        keys ei, ef, e, i, f, pc_i, pc_f
+   2. Should a Spectrum mix absorption and emission groups? (The current code assumes all groups have the same direction for totals display)
+      - no, it should be one or the other. 
+   3. What's your priority order? BRIEF (compact scanning), VERBOSE (detailed debugging), or both equally?
+      - we can do both together, but I will need to think about the verbose one in more detail. 
+
+  Once you answer these, I can either:
+
+   - Add a small optimization now (store level indices in group dict for efficiency)
+   - Wait and handle it when implementing the new formats
+   - Or confirm the current structure needs no changes
+
+  What's your thought?
+    
+   - Is my answer clear enough? 

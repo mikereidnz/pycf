@@ -280,8 +280,8 @@ def dipole_str(
                     # states and principal components
                     "i": i,
                     "f": f,
-                    "pci": pc[i],
-                    "pcf": pc[f],
+                    "pc_i": pc[i],
+                    "pc_f": pc[f],
                     # energies
                     "ei": w[i],
                     "ef": w[f],
@@ -799,6 +799,16 @@ class Spectrum:
         self.total_f = sum(group.get("f", 0.0) for group in self.groups)
         self.total_A = sum(group.get("A", 0.0) for group in self.groups)
 
+        # Validate that all groups have the same direction (all absorption or all emission)
+        if self.groups:
+            first_direction = self.groups[0]["Energy"] > 0
+            for group in self.groups[1:]:
+                if (group["Energy"] > 0) != first_direction:
+                    raise ValueError(
+                        "Spectrum contains mixed absorption and emission groups. "
+                        "Each Spectrum must be purely absorption (Energy > 0) or purely emission (Energy < 0)."
+                    )
+
         return self.groups
 
 
@@ -879,17 +889,15 @@ def _format_inten_text(
         g_f = group["g_f"]
         f = group["f"]
         A = group["A"]
+        t_list = group["t_list"]
 
-        # Get principal component state labels
-        initial_level = None
-        final_level = None
-        for i, pc_idx in enumerate(principal_components):
-            if abs(eigenvalues[i] - e_i) < 1e-6:
-                if initial_level is None:
-                    initial_level = i
-            if abs(eigenvalues[i] - e_f) < 1e-6:
-                if final_level is None:
-                    final_level = i
+        # Get principal component state labels from first transition in group
+        if t_list:
+            initial_level = t_list[0]["pc_i"]
+            final_level = t_list[0]["pc_f"]
+        else:
+            initial_level = None
+            final_level = None
 
         # Format state labels (handle both list and string formats)
         initial_label = state_labels[initial_level] if initial_level is not None else f"State {initial_level}"
@@ -968,17 +976,15 @@ def _format_inten_csv(
         g_f = group["g_f"]
         f = group["f"]
         A = group["A"]
+        t_list = group["t_list"]
 
-        # Find principal component level indices
-        initial_level = None
-        final_level = None
-        for i, pc_idx in enumerate(principal_components):
-            if abs(eigenvalues[i] - e_i) < 1e-6:
-                if initial_level is None:
-                    initial_level = i
-            if abs(eigenvalues[i] - e_f) < 1e-6:
-                if final_level is None:
-                    final_level = i
+        # Get principal component level indices from first transition in group
+        if t_list:
+            initial_level = t_list[0]["pc_i"]
+            final_level = t_list[0]["pc_f"]
+        else:
+            initial_level = None
+            final_level = None
 
         initial_label = state_labels[initial_level] if initial_level is not None else f"State {initial_level}"
         final_label = state_labels[final_level] if final_level is not None else f"State {final_level}"
