@@ -17,15 +17,44 @@ Refactor inten.py to provide:
 - Unit tests and example scripts showing linear and circular polarization outputs
 - Backwards compatibility is not very important, since there is very little code that uses the current format. 
 
-Approach (refined)
-------------------
-1. **Design data structures** (Spectrum, IntensityResult) and API stubs.
-2. **Implement gen_intensity()** to compute oscillator strengths (f_E, f_M) and A coefficients from Hamiltonian eigenvectors and dipole transitions.
-3. **Implement gen_inten_summary()** to render text and CSV outputs with state labels, energies, and cross-sections.
-4. **Polarization handling**: Start with isotropic, axial, sigma, pi as named variants. Circular (sigma_plus/sigma_minus) deferred to phase 2.
-5. **Unit tests**: polarization sign/convention, oscillator strength conservation, normalized residual computation, label formatting.
-6. **Example**: examples/ceylf/inten_example.py showing absorption and emission spectra, CSV output, fitting integration.
-7. **Reuse**: cfl_util.py label formatters (gen_e_summary), existing dipole tensor infrastructure, ExData/EData patterns.
+Approach (implementation steps)
+-------------------------------
+1. **Define Spectrum dataclass** in pycf/inten.py:
+   - Input fields: name (str), lrange (list of lists), intensity_tensors (dict from ImportSLJM), 
+     altp (optional), group_tol (default 1e-3), nrefractive (default 1.0).
+   - Computed fields: transformed_tensors (from vtrans), dipole_str_output, groups, oscillator_strengths.
+
+2. **Implement gen_intensity(hamiltonian, spectrum) -> list of dicts**:
+   - Extract eigenvectors/eigenvalues from hamiltonian.diag().
+   - Call vtrans() on spectrum.intensity_tensors.
+   - Call dipole_str() with spectrum.lrange and optional spectrum.altp (ED only).
+   - Call group_transitions() with spectrum.group_tol.
+   - Call add_oscillator_strengths_and_A_coefficients() with spectrum.nrefractive.
+   - Store results in spectrum; return results list.
+
+3. **Implement gen_inten_summary(spectrum, format='text') -> str**:
+   - Iterate groups; format each as: initial_label (principal component), initial_energy, 
+     final_label, final_energy, f_E, f_M, f_total (or A coefficients for emission).
+   - Use cfl_util.py label formatters for state labels.
+   - Text output: pretty table with aligned columns.
+   - CSV output: columns matching text table.
+
+4. **Polarization support (MVP)**:
+   - Accept polarization='isotropic' parameter; later extend to axial/sigma/pi.
+   - Internally, dipole_str always computes all components; select aggregate in summary.
+
+5. **Unit tests** (test_inten_ui.py expansion):
+   - Test Spectrum creation and field validation.
+   - Test gen_intensity() with C1/C3 example tensors; verify against group_transitions output.
+   - Test gen_inten_summary() text/CSV formatting; spot-check state labels and energies.
+
+6. **Example script**: examples/ceylf/inten_example.py
+   - Load CF and intensity tensors (ImportSLJM).
+   - Define two Spectrum objects (absorption, emission).
+   - Call gen_intensity() for each.
+   - Print summaries and write CSV.
+
+7. **Update docs/CHANGELOG**: Document new Spectrum class, gen_intensity(), gen_inten_summary().
 
 Deliverables
 ------------
@@ -63,17 +92,54 @@ Core data structures:
 - `gen_inten_summary(result, format='text'|'csv') -> str`
 
 
-Next steps
-----------
-1. Create Spectrum and IntensityResult dataclasses in pycf/inten.py.
-2. Implement gen_intensity(hamiltonian, spectrum_label, ...) → IntensityResult.
-3. Implement gen_inten_summary() for text and CSV formats.
-4. Add unit tests and examples/ceylf/inten_example.py.
-5. Update CHANGELOG and docs.
+Next steps (implementation roadmap)
+-----------------------------------
+**MVP Phase 1** (isotropic polarization, no experimental data):
+1. Define Spectrum dataclass with input/computed fields.
+2. Implement gen_intensity(hamiltonian, spectrum) orchestrating vtrans→dipole_str→group→strengths.
+3. Implement gen_inten_summary() text and CSV output with state labels and energies.
+4. Write unit tests (Spectrum validation, gen_intensity correctness, label formatting).
+5. Create examples/ceylf/inten_example.py (two-spectrum absorption/emission).
+6. Update CHANGELOG and inline docs.
+
+**Phase 2** (post-MVP): 
+- Extend to axial/sigma/pi polarizations with per-spectrum selection.
+- Add experimental data flow (analogous to ExData).
+- JSON/LaTeX output formats.
+- Per-transition-group weights for fitting pipelines.
 
 See also: 
 - plan/inten_research.md for polarization background.
 - plan/inten_diff.md for API design notes.
 - pycf/polarization.py for working example of Jones vectors and helpers.
 - tests/unit/test_inten_ui.py for test structure.
+
+
+
+Design clarifications (from C3 example review)
+-----------------------------------------------
+
+**Spectrum class design**: Spectrum contains input parameters (lrange, intensity tensors, altp) 
+and computed outputs (transformed tensors, dipole moments, oscillator strengths, groups).
+Initialize with file paths/params; call gen_intensity() to compute derived data.
+
+**Intensity tensor loading**: Users provide file paths (via ImportSLJM) just like CF tensors.
+Spectrum will store the imported tensor objects; gen_intensity() receives Spectrum with 
+tensors already loaded.
+
+**Altp parameters**: Like Ckq parameters in Hamiltonian. Passed to Spectrum during init
+or provided per-call to gen_intensity(). Initially support isotropic only; defer multi-polarization UI.
+
+**Output structure**: Keep list-of-dicts (from dipole_str/group_transitions). Lightweight; 
+most CPU is in vtrans. Minimal wrapper overhead is acceptable.
+
+**Experimental data**: Future enhancement. Similar pattern to ExData: user creates list
+of observed intensities with weights. For now, focus on computed spectra only.
+
+**Polarization**: Isotropic only for MVP (phase 1). State labeling uses principal component
+(max abs value in eigenvector). Group tolerance is user-configurable (default 1e-3, override
+for hyperfine structure). Refractive index exposed as parameter to A_and_f_calc().
+
+**Workflow**: The procedural pattern (load tensors → vtrans → dipole_str → group → add_strengths)
+is wrapped cleanly. Spectrum class encapsulates state; gen_intensity() orchestrates computation. 
 
