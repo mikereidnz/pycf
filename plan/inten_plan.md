@@ -105,7 +105,10 @@ Next steps (implementation roadmap)
 **Phase 2** (post-MVP): 
 - Extend to axial/sigma/pi polarizations with per-spectrum selection.
 - Add experimental data flow (analogous to ExData).
-- JSON/LaTeX output formats.
+- **Multiple output formats per user feedback:**
+  - Detailed multi-line (current MVP: state labels, energies, f/A, lifetime)
+  - Compact one-line-per-group (for quick scanning)
+  - Data-oriented: JSON (programmatic), LaTeX (publication), enhanced CSV (metadata)
 - Per-transition-group weights for fitting pipelines.
 
 See also: 
