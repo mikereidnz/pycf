@@ -626,22 +626,24 @@ class Spectrum:
     """
     Named collection of transitions with intensity calculation parameters and results.
 
-    A Spectrum encapsulates the parameters needed to compute dipole strengths and
-    oscillator strengths for a specific set of transitions (e.g., absorption from
-    ground state, emission from excited state).
+    A Spectrum encapsulates the parameters and state needed to compute dipole strengths
+    and oscillator strengths for a specific set of transitions (e.g., absorption from
+    ground state, emission from excited state). Similar to Hamiltonian.diag(), call
+    calculate_intensities() to compute derived data after creating or updating the spectrum.
 
     Parameters
     ----------
+    hamiltonian : cfl.Hamiltonian
+        Reference to the Hamiltonian object (must be diagonalized before computing intensities).
     name : str
         Name of the spectrum (e.g., 'ground absorption', 'excited emission').
-    lrange : list of list of int
-        Level ranges [initial_levels, final_levels], where each sub-list contains
-        0-based level indices. Example: [[0, 1], [6, 7, 8, 9]].
+    i_range : list of int
+        Initial state level indices (1-based, matching energy level printouts Z1, Z2, ...).
+        Example: [1, 2] for ground state Z1 doublet.
+    f_range : list of int
+        Final state level indices (1-based). Example: [7, 8, 9, 10] for excited Y multiplet.
     intensity_tensors : list
         List of intensity tensor objects (e.g., from ImportSLJM).
-    altp : list, optional
-        Altp coupling parameters for electric dipole calculation.
-        Each element is [name_str, value], e.g., ['A210', 1e-10].
     group_tol : float, optional
         Tolerance for grouping transitions by (ei, ef) level pair (default 1e-3).
         Smaller values (1e-5 or less) may be needed for hyperfine structure.
@@ -650,34 +652,146 @@ class Spectrum:
     md : bool, optional
         Include magnetic dipole transitions (default True).
     ed : bool, optional
-        Include electric dipole transitions via Altp (default False).
+        Include electric dipole transitions via altp (default False).
+
+    Attributes
+    ----------
+    altp : list, optional
+        Altp coupling parameters for electric dipole calculation.
+        Each element is [name_str, value], e.g., ['A210', 1e-10].
+    transformed_tensors : dict
+        Cached transformed tensors (computed by calculate_intensities).
+    groups : list of dict
+        Computed transition groups (from calculate_intensities).
+    total_f : float
+        Total oscillator strength across all groups (absorption only).
+    total_A : float
+        Total Einstein A coefficient across all groups (emission only).
+
+    Methods
+    -------
+    set_altp(altp)
+        Update Altp parameters without recreating spectrum.
+    calculate_intensities(polarization='isotropic')
+        Compute transformed tensors, dipole strengths, and oscillator strengths.
     """
 
+    hamiltonian: Any
     name: str
-    lrange: List[List[int]]
+    i_range: List[int]
+    f_range: List[int]
     intensity_tensors: List[Any]
-    altp: Optional[List[Any]] = None
     group_tol: float = 1e-3
     nrefractive: float = 1.0
     md: bool = True
     ed: bool = False
+    
+    # Mutable Altp parameters (can be changed via set_altp)
+    altp: Optional[List[Any]] = field(default=None)
+    
     # Computed fields
     transformed_tensors: Dict[str, Any] = field(default_factory=dict, init=False)
     dipole_strengths: List[Dict[str, Any]] = field(default_factory=list, init=False)
     groups: List[Dict[str, Any]] = field(default_factory=list, init=False)
+    total_f: float = field(default=0.0, init=False)
+    total_A: float = field(default=0.0, init=False)
 
     def __post_init__(self) -> None:
         """Validate inputs."""
         if not self.name:
             raise ValueError("Spectrum name must be non-empty")
-        if len(self.lrange) != 2:
-            raise ValueError("lrange must be [initial_levels, final_levels]")
+        if not self.i_range or not isinstance(self.i_range, list):
+            raise ValueError("i_range must be non-empty list of initial state indices (1-based)")
+        if not self.f_range or not isinstance(self.f_range, list):
+            raise ValueError("f_range must be non-empty list of final state indices (1-based)")
         if not self.intensity_tensors:
             raise ValueError("intensity_tensors must be non-empty")
         if self.group_tol <= 0:
             raise ValueError(f"group_tol must be positive (got {self.group_tol})")
         if self.nrefractive <= 0:
             raise ValueError(f"nrefractive must be positive (got {self.nrefractive})")
+        if not hasattr(self.hamiltonian, "diag"):
+            raise ValueError("hamiltonian must be a cfl.Hamiltonian object")
+
+    def set_altp(self, altp: Optional[List[Any]]) -> None:
+        """Update Altp parameters. Call calculate_intensities() to recompute."""
+        self.altp = altp
+
+    def calculate_intensities(self, polarization: str = "isotropic") -> List[Dict[str, Any]]:
+        """
+        Compute intensity data for this spectrum.
+
+        Orchestrates: vtrans (basis transformation) → dipole_str (compute dipole strengths) → 
+        group_transitions (group by level pair) → add_oscillator_strengths_and_A_coefficients.
+
+        Parameters
+        ----------
+        polarization : str, optional
+            Polarization type ('isotropic', 'axial', 'sigma', 'pi'). Default 'isotropic'.
+            (Only 'isotropic' fully supported in MVP; others deferred to phase 2.)
+
+        Returns
+        -------
+        list of dict
+            List of transition group dictionaries with keys:
+            - 'Energy': transition energy (cm^-1)
+            - 'e_i': initial state energy
+            - 'e_f': final state energy
+            - 'g_i': initial state degeneracy
+            - 'g_f': final state degeneracy
+            - 't_list': list of individual transitions in the group
+            - 'S_ED_isotropic', 'S_MD_isotropic': electric/magnetic dipole strengths
+            - 'A': Einstein A coefficient
+            - 'f': oscillator strength
+
+        Raises
+        ------
+        ValueError
+            If hamiltonian has not been diagonalized, or spectrum parameters are invalid.
+        """
+        if polarization != "isotropic":
+            raise ValueError(f"Polarization '{polarization}' not yet supported (MVP phase 1)")
+
+        # Extract eigenvectors and eigenvalues
+        w, z = self.hamiltonian.diag()
+
+        # Validate eigenvectors
+        if not isinstance(z, np.ndarray) or z.ndim != 2:
+            raise ValueError(
+                f"Hamiltonian eigenvectors must be 2D (got shape {z.shape if hasattr(z, 'shape') else 'unknown'})"
+            )
+
+        # Convert 1-based i_range, f_range to 0-based for internal API
+        i_range_0based = [i - 1 for i in self.i_range]
+        f_range_0based = [i - 1 for i in self.f_range]
+        lrange_0based = [i_range_0based, f_range_0based]
+
+        # Transform intensity tensors to eigenbasis
+        self.transformed_tensors = vtrans(self.intensity_tensors, z)
+
+        # Compute dipole strengths for all transitions
+        self.dipole_strengths = dipole_str(
+            lrange_0based,
+            self.transformed_tensors,
+            self.hamiltonian,
+            w,
+            z,
+            md=self.md,
+            ed=self.ed,
+            Altp=self.altp,
+        )
+
+        # Group transitions by level pair
+        self.groups = group_transitions(self.dipole_strengths, tol=self.group_tol)
+
+        # Add oscillator strengths and A coefficients
+        add_oscillator_strengths_and_A_coefficients(self.groups, refractive_index=self.nrefractive)
+
+        # Compute totals
+        self.total_f = sum(group.get("f", 0.0) for group in self.groups)
+        self.total_A = sum(group.get("A", 0.0) for group in self.groups)
+
+        return self.groups
 
 
 def gen_intensity(
@@ -686,75 +800,31 @@ def gen_intensity(
     polarization: str = "isotropic",
 ) -> List[Dict[str, Any]]:
     """
-    Generate intensity data for a spectrum (absorption or emission).
+    Convenience wrapper: calculate_intensities() on the Spectrum object.
 
-    Orchestrates the intensity calculation pipeline: vtrans (basis transformation) →
-    dipole_str (compute dipole strengths) → group_transitions (group by level pair) →
-    add_oscillator_strengths_and_A_coefficients (compute f and A).
+    This is a backward-compatibility wrapper. New code should call 
+    spectrum.calculate_intensities() directly.
 
     Parameters
     ----------
     hamiltonian : cfl.Hamiltonian
-        Hamiltonian object with eigenvectors/eigenvalues from diag().
+        (Deprecated: pass via Spectrum constructor instead)
     spectrum : Spectrum
-        Spectrum object with lrange, intensity_tensors, and optional parameters.
+        Spectrum object with hamiltonian, intensity_tensors, and parameters.
     polarization : str, optional
-        Polarization type ('isotropic', 'axial', 'sigma', 'pi'). Default 'isotropic'.
-        (Only 'isotropic' fully supported in MVP; others deferred to phase 2.)
+        Polarization type ('isotropic'). Default 'isotropic'.
 
     Returns
     -------
     list of dict
-        List of transition group dictionaries, each with keys:
-        - 'Energy': transition energy (cm^-1)
-        - 'e_i': initial state energy
-        - 'e_f': final state energy
-        - 'g_i': initial state degeneracy
-        - 'g_f': final state degeneracy
-        - 't_list': list of individual transitions in the group
-        - 'S_ED_isotropic', 'S_MD_isotropic': electric/magnetic dipole strengths
-        - 'A': Einstein A coefficient
-        - 'f': oscillator strength
+        List of transition group dictionaries (see Spectrum.calculate_intensities).
 
     Raises
     ------
     ValueError
-        If hamiltonian has not been diagonalized, or spectrum parameters are invalid.
+        If spectrum parameters are invalid.
     """
-    if not hasattr(hamiltonian, "diag"):
-        raise ValueError("hamiltonian must be a cfl.Hamiltonian object")
-
-    # Extract eigenvectors and eigenvalues
-    w, z = hamiltonian.diag()
-
-    # Validate eigenvectors
-    if not isinstance(z, np.ndarray) or z.ndim != 2:
-        raise ValueError(
-            f"Hamiltonian eigenvectors must be 2D (got shape {z.shape if hasattr(z, 'shape') else 'unknown'})"
-        )
-
-    # Transform intensity tensors to eigenbasis
-    spectrum.transformed_tensors = vtrans(spectrum.intensity_tensors, z)
-
-    # Compute dipole strengths for all transitions
-    spectrum.dipole_strengths = dipole_str(
-        spectrum.lrange,
-        spectrum.transformed_tensors,
-        hamiltonian,
-        w,
-        z,
-        md=spectrum.md,
-        ed=spectrum.ed,
-        Altp=spectrum.altp,
-    )
-
-    # Group transitions by level pair
-    spectrum.groups = group_transitions(spectrum.dipole_strengths, tol=spectrum.group_tol)
-
-    # Add oscillator strengths and A coefficients
-    add_oscillator_strengths_and_A_coefficients(spectrum.groups, refractive_index=spectrum.nrefractive)
-
-    return spectrum.groups
+    return spectrum.calculate_intensities(polarization=polarization)
 
 
 def gen_inten_summary(
@@ -880,7 +950,22 @@ def _format_inten_text(
                 lifetime_ms = lifetime_s * 1e3
                 lines.append(f"  Lifetime:                   {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)")
 
+    # Add totals summary (f for absorption, A for emission)
     lines.append("")
+    if spectrum.groups:
+        # Determine if absorption (Energy > 0) or emission (Energy < 0)
+        is_absorption = spectrum.groups[0]["Energy"] > 0
+        
+        if is_absorption:
+            if spectrum.total_f > 0:
+                lines.append(f"Total oscillator strength (f): {spectrum.total_f:.6e}")
+        else:  # emission
+            if spectrum.total_A > 0:
+                lines.append(f"Total A coefficient:          {spectrum.total_A:.6e} s-1")
+                lifetime_s = 1.0 / spectrum.total_A
+                lifetime_ms = lifetime_s * 1e3
+                lines.append(f"Lifetime (from total A):      {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)")
+    
     lines.append("=" * 80)
     return "\n".join(lines)
 

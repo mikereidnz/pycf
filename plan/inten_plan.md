@@ -146,3 +146,31 @@ for hyperfine structure). Refractive index exposed as parameter to A_and_f_calc(
 **Workflow**: The procedural pattern (load tensors → vtrans → dipole_str → group → add_strengths)
 is wrapped cleanly. Spectrum class encapsulates state; gen_intensity() orchestrates computation. 
 
+
+COMMENTS
+
+## Structure
+
+I have some comments about the structure. 
+
+   - For a particular Hamiltonian the vtrans transformation will be identical and the Atp parameters will all have the same value. 
+
+   - However, subsequent code will be simpler if the Altp  are duplicated in each spectrum. 
+
+   -So we should be generating a list of spectra by a function that takes as arguments: 
+Hamiltonian, Altp parameters, refractive index and then a list of lrange (which is the list of inital and final states). 
+
+   - For a particular set of Hamiltonian parameters, vtrans only needs to run once - needsot once for each spectrum. 
+
+   - Furthermore, we should have the option of changing the Altp parameters and recalculating without having to set up the list of spectra again. Much like we can change the Hamiltonian parameters without reconstructing the Hamiltonian. 
+
+   - If the Hamiltonian parameters change, we need to calculate eigenvectors and rerun the vtrans process. 
+
+   - So we may need a rethink the structure a little. 
+
+# Smaller issues
+
+1. - The lrange list should be lists starting from 1, which matches the energy-level printouts. Furthermore, the format of a list of two lists is obscure. 
+   - It would be better to have an i_range and a f_range (initial and final) as separate lists. 
+
+2. We should calculateulate the total oscillator strength or total A coefficients. The latter is used for lifetimes. 

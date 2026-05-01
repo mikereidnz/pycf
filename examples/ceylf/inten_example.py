@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Example: Compute and display intensity spectra (template).
+Example: Compute and display intensity spectra (Ce3+ C3 symmetry).
 
-Demonstrates the new Spectrum class and gen_intensity() API for computing
+Demonstrates the Spectrum class and calculate_intensities() API for computing
 and summarizing electric- and magnetic-dipole intensity data.
 
 This script template shows how to:
 1. Load crystal-field and intensity tensors from SLJM output
 2. Build and diagonalize a Hamiltonian
-3. Define spectra: absorption (ground state) and emission (excited state)
-4. Generate oscillator strengths and Einstein A coefficients
+3. Create Spectrum objects with 1-based level ranges (Z1, Z2, ... convention)
+4. Call calculate_intensities() to compute oscillator strengths and Einstein A coefficients
 5. Print text and CSV summaries
 
 NOTE: This example requires both crystal-field (*cf) and intensity (*int) SLJM data.
@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 import pycf
-from pycf.inten import Spectrum, gen_intensity, gen_inten_summary
+from pycf.inten import Spectrum, gen_inten_summary
 from pycf.import_sljm import ImportSLJM
 import pycf.cfl as cfl
 
@@ -104,7 +104,6 @@ def main():
     h.set_coeff(coeff)
     
     # Fit EAVG to match test (fitting is a no-op in dry_run mode)
-    import numpy as np
     ex = np.array([[2, 0], [4, 1], [6, 2]])
     weights = np.ones(len(ex))
     exdata = cfl.ExData(ex, "A", weights=weights)
@@ -134,11 +133,14 @@ def main():
 
     # =========================================================================
     # Define Spectrum 1: Ground state absorption (Z1 -> Y1+Y2) with MD+ED
+    # i_range and f_range use 1-based indexing (Z1=1, Z2=2, ..., Y1=7, Y2=8, ...)
     # =========================================================================
     
     spec_abs = Spectrum(
+        hamiltonian=h,
         name="Ground state absorption (Z1 -> Y1 + Y2)",
-        lrange=[[0, 1], [6, 7, 8, 9]],
+        i_range=[1, 2],                    # Z1 Kramers doublet (1-based)
+        f_range=[7, 8, 9, 10],             # Y1+Y2 multiplet (1-based)
         intensity_tensors=intensity_tensors,
         altp=altp,
         group_tol=1e-3,
@@ -152,10 +154,12 @@ def main():
     # =========================================================================
     
     spec_em = Spectrum(
+        hamiltonian=h,
         name="Emission from Y1 + Y2 -> Z1",
-        lrange=[[6, 7], [0, 1, 2, 3, 4, 5]],
+        i_range=[7, 8],                    # Y1+Y2 (1-based)
+        f_range=[1, 2, 3, 4, 5, 6],        # Z1 and all intermediate levels (1-based)
         intensity_tensors=intensity_tensors,
-        altp=altp,           # Same Altp parameters as absorption
+        altp=altp,
         group_tol=1e-3,
         nrefractive=1.0,
         md=True,             # Magnetic dipole (default in test)
@@ -163,14 +167,17 @@ def main():
     )
 
     # =========================================================================
-    # Generate intensity data for both spectra
+    # Generate intensity data for both spectra (new API: call calculate_intensities)
     # =========================================================================
     print("\n" + "=" * 80)
     print("Computing intensity spectra...")
     print("=" * 80)
     
-    gen_intensity(h, spec_abs, polarization='isotropic')
-    gen_intensity(h, spec_em, polarization='isotropic')
+    spec_abs.calculate_intensities(polarization='isotropic')
+    spec_em.calculate_intensities(polarization='isotropic')
+    
+    print(f"\nAbsorption: {len(spec_abs.groups)} transition groups, total f = {spec_abs.total_f:.6e}")
+    print(f"Emission:   {len(spec_em.groups)} transition groups, total A = {spec_em.total_A:.6e}")
 
     # Print absorption summary (text format)
     print("\n" + gen_inten_summary(spec_abs, h, format='text'))
