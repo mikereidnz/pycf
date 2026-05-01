@@ -856,10 +856,12 @@ def gen_inten_summary(
 
     if format == "text":
         return _format_inten_text(spectrum, w, pc, state_labels)
+    elif format == "brief":
+        return _format_inten_brief(spectrum, w, pc, state_labels)
     elif format == "csv":
         return _format_inten_csv(spectrum, w, pc, state_labels)
     else:
-        raise ValueError(f"Unknown format: {format}. Use 'text' or 'csv'.")
+        raise ValueError(f"Unknown format: {format}. Use 'text', 'brief', or 'csv'.")
 
 
 
@@ -951,6 +953,104 @@ def _format_inten_text(
                 lines.append(f"Lifetime (from total A):      {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)")
     
     lines.append("=" * 80)
+    return "\n".join(lines)
+
+
+def _format_state_label_with_energy(label: Any, level: int, energy: float) -> str:
+    """Format a state label with 1-based level index and energy."""
+    if isinstance(label, (list, tuple)):
+        label_str = " ".join(str(x) for x in label)
+    else:
+        label_str = str(label)
+    return f"{level}: | {label_str} > (E = {energy:12.6f} cm-1)"
+
+
+def _format_inten_brief(
+    spectrum: Spectrum,
+    eigenvalues: np.ndarray,
+    principal_components: np.ndarray,
+    state_labels: List[Any],
+) -> str:
+    """Format spectrum as a brief tabular summary (one line per group)."""
+    lines = [f"Spectrum: {spectrum.name}"]
+    lines.append("=" * 132)
+
+    # Print Altp parameters if present
+    if spectrum.altp:
+        lines.append("Altp (electric dipole coupling) parameters:")
+        for altp_item in spectrum.altp:
+            if isinstance(altp_item, (list, tuple)) and len(altp_item) == 2:
+                name, value = altp_item
+                lines.append(f"  {name}: {value}")
+        lines.append("")
+
+    # Determine if absorption or emission
+    is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
+
+    # Header
+    if is_absorption:
+        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_MD':<14} {'f_ED':<14} {'f_Total':<14}"
+    else:
+        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_MD':<14} {'A_ED':<14} {'A_Total':<14}"
+
+    lines.append(header)
+    lines.append("-" * 132)
+
+    # Print each group as one line
+    for group_idx, group in enumerate(spectrum.groups, start=1):
+        t_list = group["t_list"]
+        e_i = group["e_i"]
+        e_f = group["e_f"]
+        
+        # Get state labels from first transition in group
+        if t_list:
+            initial_level = t_list[0]["pc_i"] + 1  # Convert to 1-based
+            final_level = t_list[0]["pc_f"] + 1    # Convert to 1-based
+        else:
+            initial_level = None
+            final_level = None
+
+        # Format state labels with energies
+        initial_label = _format_state_label_with_energy(state_labels[initial_level - 1], initial_level, e_i) if initial_level is not None else "Unknown"
+        final_label = _format_state_label_with_energy(state_labels[final_level - 1], final_level, e_f) if final_level is not None else "Unknown"
+        
+        energy = group["Energy"]
+        
+        # Get dipole strength components
+        f_total = group.get("f", 0.0)
+        A_total = group.get("A", 0.0)
+        
+        # Compute ED and MD contributions to f or A
+        # Sum over all transitions in group
+        total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
+        total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
+        
+        # Convert to f or A based on direction
+        if is_absorption:
+            # f = 1.5 * S / (g_i * (2J_i + 1))
+            g_i = group.get("g_i", 1)
+            f_ED = total_S_ED * (8.06554e-6) * (energy / g_i) if energy > 0 else 0.0
+            f_MD = total_S_MD * (8.06554e-6) * (energy / g_i) if energy > 0 else 0.0
+            
+            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_MD:>13.6e}  {f_ED:>13.6e}  {f_total:>13.6e}"
+        else:
+            # For emission, A is already computed
+            f_ED = 0.0  # Placeholder
+            f_MD = 0.0  # Placeholder
+            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_MD:>13.6e}  {f_ED:>13.6e}  {A_total:>13.6e}"
+
+        lines.append(line)
+
+    lines.append("-" * 132)
+    
+    # Add totals
+    if spectrum.groups:
+        if is_absorption:
+            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}")
+        else:
+            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}")
+    
+    lines.append("=" * 132)
     return "\n".join(lines)
 
 

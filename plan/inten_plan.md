@@ -219,6 +219,11 @@ Group  State (i)          State (f)          Energy      f or A
 Total oscillator strength (f): 8.63e-08
 ```
 
+  >>> Tabular but there should be three columns of f or A: 
+     MD   ED  Total. 
+     Note that we can use 132 columns, like the output files in cfl_util.py, so we have plenty of room. 
+     See more comments below. 
+
 Option B (Compact):
 ```
 1: [2,3,5,-5] → [2,3,7,7]     2169.756 cm⁻¹  f=4.48e-08
@@ -237,11 +242,18 @@ Total, , , , 8.63e-08
 Design Question 2: Show Altp parameters?
 - Yes? (like MEDIUM)
 - No? (assume implicit, too verbose)
+>>> Yes. 
 
 Design Question 3: Show state labels or level indices?
 - Labels: [2,3,5,-5] (current)
 - Indices: 0→6 (simpler, but less informative)
 - Both? 0:[2,3,5,-5] (hybrid, verbose)
+>>> Both, but starting at 1. Also, we need to move to the format used in the energy summary, i.e. "| S L J M >". See the cfl_utils.py file. 
+
+
+This would have almost all of the information of the MEDIUM format. The only thing not included is the conversion to lifetime. 
+
+Let's try that out before designing the next phase. 
 
 
 **VERBOSE Format (All transitions + dipole moments)**
@@ -265,6 +277,7 @@ Transition Group 1
       ...
 ```
 
+
 Option B (Tabular - all transitions listed):
 ```
 Group  i    f   e_i        e_f      e(cm-1)  S_ED_iso  S_MD_iso  Total
@@ -281,6 +294,8 @@ Group 1 (absorption): [2,3,5,-5] → [2,3,7,7]  E=2169.756  f=4.48e-08
     1→6 (e=2169.76): S_iso=6.34e-03, ED: (-,0,+)=(...), MD: (-,0,+)=(...)
     ...
 ```
+>>> I think a hybrid option
+
 
 Design Question 5: Which dipole moments to show?
 - All (-1, 0, +1 for both ED and MD)? Very verbose
