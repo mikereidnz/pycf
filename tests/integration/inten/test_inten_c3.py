@@ -170,7 +170,7 @@ def test_inten_c3() -> None:
     # From Pascal calculation (cfit/vtrans/inten)
     pascal_f = [4.482614e-08, 4.148602e-08]
     # pascal_f =[4.482614e-08,4.14e-08]# deliberately less precise value for the second transition to test the assertion
-    for i, group in enumerate(groups):
+    for i, group in enumerate(groups, start=1):
         print(
             "Group",
             i,
@@ -187,11 +187,11 @@ def test_inten_c3() -> None:
         )
         for line in group["t_list"]:
             print("\t", line["i"], line["f"], line["e"], line["isotropic"])
-        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i])
+        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i-1])
         assert group["f"] == pytest.approx(
-            pascal_f[i], rel=tolerance
+            pascal_f[i-1], rel=tolerance
         ), f'Group {i} oscillator strength \
-        {group["f"]} differs from Pascal calculation {pascal_f[i]} by more than the tolerance of {tolerance}'
+        {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
     # Nolrange = [[0, 1], [6, 7, 8, 9]]  # Z1 to Y1 + Y2
     print("lrange", lrange)
     trs = dipole_str(lrange, tensor_dict, h, E, V, ed=True, Altp=Altp)
@@ -259,7 +259,7 @@ def test_inten_c3() -> None:
     # From Pascal calculation (cfit/vtrans/inten)
     pascal_f = [4.482614e-08, 4.148602e-08]
     # pascal_f =[4.482614e-08,4.14e-08]# deliberately less precise value for the second transition to test the assertion
-    for i, group in enumerate(groups):
+    for i, group in enumerate(groups, start=1):
         print(
             "Group",
             i,
@@ -276,11 +276,11 @@ def test_inten_c3() -> None:
         )
         for line in group["t_list"]:
             print("\t", line["i"], line["f"], line["e"], line["isotropic"])
-        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i])
+        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i-1])
         assert group["f"] == pytest.approx(
-            pascal_f[i], rel=tolerance
+            pascal_f[i-1], rel=tolerance
         ), f'Group {i} oscillator strength \
-        {group["f"]} differs from Pascal calculation {pascal_f[i]} by more than the tolerance of {tolerance}'
+        {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
     # Now do emission from Y1 and Y2 to Z
     print("\nNow do emission from Y1 and Y2 to Z\n")
     lrange = [[6, 7], [0, 1, 2, 3, 4, 5]]  # Y1, Y2 to Z
@@ -302,7 +302,7 @@ def test_inten_c3() -> None:
     # From Pascal calculation (cfit/vtrans/inten)
     pascal_f = [4.482614e-08, 4.148602e-08]
     # pascal_f =[4.482614e-08,4.14e-08]# deliberately less precise value for the second transition to test the assertion
-    for i, group in enumerate(groups_em):
+    for i, group in enumerate(groups_em, start=1):
         print(
             "Group",
             i,
@@ -320,9 +320,9 @@ def test_inten_c3() -> None:
         for line in group["t_list"]:
             print("\t", line["i"], line["f"], line["e"], line["isotropic"])
         print("\tA:", group["A"], "f:", group["f"])
-        # 'Compare to Pascal f:', pascal_f[i])
-        # assert group['f'] == pytest.approx(pascal_f[i], rel=tolerance), f'Group {i} oscillator strength \
-        # {group["f"]} differs from Pascal calculation {pascal_f[i]} by more than the tolerance of {tolerance}'
+        # 'Compare to Pascal f:', pascal_f[i-1])
+        # assert group['f'] == pytest.approx(pascal_f[i-1], rel=tolerance), f'Group {i} oscillator strength \
+        # {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
     A_total = sum(group["A"] for group in groups_em)
     print("\nTotal A coefficient for all transitions:", A_total)
     print(
