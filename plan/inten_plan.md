@@ -312,3 +312,42 @@ Group  Initial State                                      Final State           
 Total                                                                                                                                       8.631216e-08
 ====================================================================================================================================
 ```
+
+**COMPLETED: VERBOSE Format (Commit f54b4aa)**
+
+✅ Shows BRIEF group line + individual transitions below each group
+✅ State indices match between BRIEF and individual transition lines (1-based, using i/f not pc indices)
+✅ Individual transitions show: i | SLJM > and f | SLJM > with angle brackets
+✅ Decomposed dipole strengths and f/A values for each transition
+✅ Proper alignment with tabs and 4-space wide i/f columns
+✅ Works for both absorption and emission modes
+
+Example output (absorption mode):
+```
+1      2: | 2 3 5 5 > (E =     0.000000 cm-1)             7: | 2 3 7 1 > (E =  2169.756474 cm-1)              4.453423e-08   2.919118e-10   4.482614e-08
+        Individual transitions:
+        i     Initial State                 f      Final State                  S_MD_iso      f_MD           S_ED_iso      f_ED           f_Total
+        2    | 2 3 5 5 >                    7    | 2 3 7 1 >                  6.292960e-03   2.221669e-08  3.816299e-05   1.347307e-10   2.235142e-08
+        2    | 2 3 5 5 >                    8    | 2 3 5 -1 >                  1.428355e-05   5.042669e-11  3.179564e-06   1.122514e-11   6.165184e-11
+        1    | 2 3 7 7 >                    7    | 2 3 7 1 >                  1.428355e-05   5.042669e-11  3.179564e-06   1.122514e-11   6.165184e-11
+        1    | 2 3 7 7 >                    8    | 2 3 5 -1 >                  6.292960e-03   2.221669e-08  3.816299e-05   1.347307e-10   2.235142e-08
+```
+
+**Key Issues Fixed (Commit f54b4aa):**
+1. ✅ State indices in BRIEF and VERBOSE now match (using first transition's i/f indices, not principal components)
+2. ✅ Individual transition lines include complete angle-bracket format: "i | SLJM >"
+3. ✅ Removed redundant text format output from example
+4. ✅ Proper column alignment with tabs and 4-space wide i/f columns
+5. ✅ Clean visual hierarchy with indentation
+
+**Implementation Details:**
+1. Added _format_state_label_short() helper for quantum number formatting
+2. Added clean_complex() utility function for tolerance-based rounding (1e-12 default)
+3. Added _format_inten_verbose() function showing BRIEF line + individual transitions
+4. Updated examples/ceylf/inten_example.py to show VERBOSE for both absorption and emission
+5. All 50 tests pass
+
+
+NEXT STEPS
+----------
+User feedback requested on next phase improvements.
