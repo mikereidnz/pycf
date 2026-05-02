@@ -456,7 +456,16 @@ def A_and_f_calc(
         Einstein A coefficient for the transition (s^-1).
     f : float
         Oscillator strength (dimensionless).
+    
+    Raises
+    ------
+    ValueError
+        If g_i <= 0 (invalid degeneracy).
     """
+    # Validate degeneracy
+    if g_i <= 0:
+        raise ValueError(f"Initial state degeneracy g_i must be positive (got {g_i})")
+    
     # Constants, in SI units
     melectron = ELECTRON_MASS
     echarge = ELEMENTARY_CHARGE
@@ -873,9 +882,16 @@ def _format_inten_text(
             initial_level = None
             final_level = None
 
-        # Format state labels (handle both list and string formats)
-        initial_label = state_labels[initial_level] if initial_level is not None else f"State {initial_level}"
-        final_label = state_labels[final_level] if final_level is not None else f"State {final_level}"
+        # Format state labels (with bounds checking)
+        if initial_level is not None and 0 <= initial_level < len(state_labels):
+            initial_label = state_labels[initial_level]
+        else:
+            initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
+        
+        if final_level is not None and 0 <= final_level < len(state_labels):
+            final_label = state_labels[final_level]
+        else:
+            final_label = f"State {final_level}" if final_level is not None else "Unknown"
         
         if isinstance(initial_label, (list, tuple)):
             initial_label_str = " ".join(str(x) for x in initial_label)
@@ -981,9 +997,13 @@ def _format_group_line(
         initial_level = None
         final_level = None
 
-    # Format state labels with energies
-    initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_level, e_i) if t_list else "Unknown"
-    final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_level, e_f) if t_list else "Unknown"
+    # Format state labels with energies (with bounds checking)
+    if t_list and 0 <= initial_pc_idx < len(state_labels) and 0 <= final_pc_idx < len(state_labels):
+        initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_level, e_i)
+        final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_level, e_f)
+    else:
+        initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
+        final_label = f"State {final_level}" if final_level is not None else "Unknown"
     
     energy = group["Energy"]
     g_i = group.get("g_i", 1)
@@ -1025,9 +1045,16 @@ def _format_transition_line(
     s_ed = trans.get("S_ED_isotropic", 0.0)
     s_md = trans.get("S_MD_isotropic", 0.0)
     
-    # Get state labels using principal component indices
-    i_label = _format_state_label_short(state_labels[i_pc_idx])
-    f_label = _format_state_label_short(state_labels[f_pc_idx])
+    # Get state labels using principal component indices (with bounds checking)
+    if 0 <= i_pc_idx < len(state_labels):
+        i_label = _format_state_label_short(state_labels[i_pc_idx])
+    else:
+        i_label = f"State {i_pc_idx + 1}"
+    
+    if 0 <= f_pc_idx < len(state_labels):
+        f_label = _format_state_label_short(state_labels[f_pc_idx])
+    else:
+        f_label = f"State {f_pc_idx + 1}"
     
     # Calculate f_ED, f_MD for this individual transition
     A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
@@ -1105,15 +1132,22 @@ def _format_inten(
         lines.append("")
 
     # Determine if absorption or emission
-    is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
+    if not spectrum.groups:
+        raise ValueError("Cannot format spectrum with no groups")
+    is_absorption = spectrum.groups[0]["Energy"] > 0
 
     # Build expt_data lookup (group_idx -> f_expt) - only used in brief format
+    # Parse with error handling for type consistency
     expt_lookup = {}
     if spectrum.expt_data and format == "brief":
         for expt_entry in spectrum.expt_data:
             if len(expt_entry) >= 2:
-                group_idx, f_expt = expt_entry[0], expt_entry[1]
-                expt_lookup[int(group_idx)] = f_expt
+                try:
+                    group_idx = int(expt_entry[0])  # Convert to int with validation
+                    f_expt = float(expt_entry[1])   # Convert to float with validation
+                    expt_lookup[group_idx] = f_expt
+                except (ValueError, TypeError):
+                    continue  # Skip malformed entries silently
 
     # Header
     if is_absorption:
@@ -1228,10 +1262,16 @@ def _format_inten_csv(
             initial_level = None
             final_level = None
 
-        initial_label = state_labels[initial_level] if initial_level is not None else f"State {initial_level}"
-        final_label = state_labels[final_level] if final_level is not None else f"State {final_level}"
-
-        # Format labels (handle both list and string formats)
+        # Format state labels (with bounds checking) for CSV export
+        if initial_level is not None and 0 <= initial_level < len(state_labels):
+            initial_label = state_labels[initial_level]
+        else:
+            initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
+        
+        if final_level is not None and 0 <= final_level < len(state_labels):
+            final_label = state_labels[final_level]
+        else:
+            final_label = f"State {final_level}" if final_level is not None else "Unknown"
         if isinstance(initial_label, (list, tuple)):
             initial_label_str = " ".join(str(x) for x in initial_label)
         else:
@@ -1715,7 +1755,12 @@ def inten_plot(
         expt_intensities = []
         for expt_entry in spectrum.expt_data:
             if len(expt_entry) >= 2:
-                group_idx, f_expt = expt_entry[0], expt_entry[1]
+                try:
+                    group_idx = int(expt_entry[0])  # Convert to int with validation
+                    f_expt = float(expt_entry[1])   # Convert to float with validation
+                except (ValueError, TypeError):
+                    continue  # Skip malformed entries
+                
                 if 1 <= group_idx <= len(spectrum.groups):
                     e = spectrum.groups[group_idx - 1].get('Energy', 0.0)
                     expt_energies.append(e)
