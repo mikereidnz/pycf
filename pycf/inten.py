@@ -842,7 +842,7 @@ def gen_inten_summary(
     elif format == "csv":
         return _format_inten_csv(spectrum, w, pc, state_labels)
     else:
-        raise ValueError(f"Unknown format: {format}. Use 'text', 'brief', 'verbose', 'ultra', or 'csv'.")
+        raise ValueError(f"Unknown format: {format}. Use 'text', 'brief', 'detailed', 'moments', or 'csv'.")
 
 
 
