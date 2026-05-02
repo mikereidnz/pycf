@@ -691,12 +691,17 @@ class Spectrum:
         Include magnetic dipole transitions (default True).
     ed : bool, optional
         Include electric dipole transitions via altp (default False).
+    expt_data : list of [group_idx, f_calc, f_expt], optional
+        Experimental intensity data for comparison. When provided, BRIEF output includes
+        experimental values and χ² residuals: χ² = ((f_calc - f_expt) / (f_calc + f_expt))².
 
     Attributes
     ----------
     altp : list, optional
         Altp coupling parameters for electric dipole calculation.
         Each element is [name_str, value], e.g., ['A210', 1e-10].
+    expt_data : list, optional
+        Experimental data (format: [[group_idx, f_calc, f_expt], ...]).
     transformed_tensors : dict
         Cached transformed tensors (computed by calculate_intensities).
     groups : list of dict
@@ -726,6 +731,9 @@ class Spectrum:
     
     # Mutable Altp parameters (can be changed via set_altp)
     altp: Optional[List[Any]] = field(default=None)
+    
+    # Experimental data (optional): list of [group_idx, f_calc, f_expt]
+    expt_data: Optional[List[List[float]]] = field(default=None)
     
     # Computed fields
     transformed_tensors: Dict[str, Any] = field(default_factory=dict, init=False)
@@ -1030,7 +1038,7 @@ def _format_inten_brief(
 ) -> str:
     """Format spectrum as a brief tabular summary (one line per group)."""
     lines = [f"Spectrum: {spectrum.name}"]
-    lines.append("=" * 132)
+    lines.append("=" * 160)
 
     # Print Altp parameters if present
     if spectrum.altp:
@@ -1044,16 +1052,31 @@ def _format_inten_brief(
     # Determine if absorption or emission
     is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
 
-    # Header (reordered: ED, MD, Total for consistency)
-    if is_absorption:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
+    # Build expt_data lookup (group_idx -> f_expt)
+    expt_lookup = {}
+    if spectrum.expt_data:
+        for expt_entry in spectrum.expt_data:
+            if len(expt_entry) >= 3:
+                group_idx, f_calc, f_expt = expt_entry[0], expt_entry[1], expt_entry[2]
+                expt_lookup[int(group_idx)] = f_expt
+
+    # Header (includes experimental data if available)
+    if spectrum.expt_data:
+        if is_absorption:
+            header = f"{'Group':<6} {'Initial State':<40} {'Final State':<40} {'f_Calc':<14} {'f_Expt':<14} {'χ²':<14}"
+        else:
+            header = f"{'Group':<6} {'Initial State':<40} {'Final State':<40} {'A_Calc':<14} {'A_Expt':<14} {'χ²':<14}"
     else:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
+        if is_absorption:
+            header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
+        else:
+            header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
 
     lines.append(header)
-    lines.append("-" * 132)
+    lines.append("-" * 160)
 
     # Print each group as one line
+    total_chi2 = 0.0
     for group_idx, group in enumerate(spectrum.groups, start=1):
         t_list = group["t_list"]
         e_i = group["e_i"]
@@ -1067,9 +1090,13 @@ def _format_inten_brief(
             initial_level = None
             final_level = None
 
-        # Format state labels with energies
-        initial_label = _format_state_label_with_energy(state_labels[initial_level - 1], initial_level, e_i) if initial_level is not None else "Unknown"
-        final_label = _format_state_label_with_energy(state_labels[final_level - 1], final_level, e_f) if final_level is not None else "Unknown"
+        # Format state labels with energies (shorter format when expt data present)
+        if spectrum.expt_data:
+            initial_label = f"Z{initial_level}" if initial_level is not None else "Unknown"
+            final_label = f"Z{final_level}" if final_level is not None else "Unknown"
+        else:
+            initial_label = _format_state_label_with_energy(state_labels[initial_level - 1], initial_level, e_i) if initial_level is not None else "Unknown"
+            final_label = _format_state_label_with_energy(state_labels[final_level - 1], final_level, e_f) if final_level is not None else "Unknown"
         
         energy = group["Energy"]
         g_i = group.get("g_i", 1)
@@ -1081,30 +1108,49 @@ def _format_inten_brief(
         # Calculate f_total and A_total using the group's values
         f_total = group.get("f", 0.0)
         A_total = group.get("A", 0.0)
-        
-        # Decompose into ED and MD components using A_and_f_calc
-        # Call with ED only (S_ED, 0), MD only (0, S_MD), get separate values
-        A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
-        A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
-        
-        # Format line based on absorption or emission (reordered: ED, MD, Total)
-        if is_absorption:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+
+        if spectrum.expt_data:
+            # Format with experimental data
+            f_expt = expt_lookup.get(group_idx, 0.0)
+            f_calc = f_total if is_absorption else A_total
+            
+            # Calculate χ² = ((calc - exp) / (calc + exp))²
+            if f_calc + f_expt != 0:
+                chi2 = ((f_calc - f_expt) / (f_calc + f_expt)) ** 2
+            else:
+                chi2 = 0.0
+            total_chi2 += chi2
+            
+            if is_absorption:
+                line = f"{group_idx:<6} {initial_label:<40} {final_label:<40} {f_calc:>13.6e}  {f_expt:>13.6e}  {chi2:>13.6e}"
+            else:
+                line = f"{group_idx:<6} {initial_label:<40} {final_label:<40} {A_total:>13.6e}  {f_expt:>13.6e}  {chi2:>13.6e}"
         else:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
+            # Original format without experimental data
+            # Decompose into ED and MD components using A_and_f_calc
+            A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
+            A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
+            
+            if is_absorption:
+                line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+            else:
+                line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
 
         lines.append(line)
 
-    lines.append("-" * 132)
+    lines.append("-" * 160)
     
     # Add totals
     if spectrum.groups:
-        if is_absorption:
-            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}")
+        if spectrum.expt_data:
+            lines.append(f"{'TOTAL':<6} {'':<40} {'':<40} {'':<14} {'':<14} {total_chi2:>13.6e}")
         else:
-            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}")
+            if is_absorption:
+                lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}")
+            else:
+                lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}")
     
-    lines.append("=" * 132)
+    lines.append("=" * 160)
     return "\n".join(lines)
 
 

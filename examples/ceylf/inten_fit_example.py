@@ -17,7 +17,7 @@ import numpy as np
 
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
-from pycf.inten import Spectrum, fit_altp
+from pycf.inten import Spectrum, fit_altp, gen_inten_summary
 
 
 def print_transitions_with_energy(label, spec):
@@ -247,6 +247,35 @@ def main():
         print("\n✓ Fit converged successfully!")
     else:
         print("\n⚠ Fit did not converge well")
+    
+    # ======================================================================
+    # STEP 5: Demonstrate experimental data integration
+    # ======================================================================
+    print("\n" + "=" * 70)
+    print("STEP 5: VIEWING WITH EXPERIMENTAL DATA")
+    print("=" * 70)
+    
+    # Create synthetic experimental data (with small random noise)
+    np.random.seed(42)
+    expt_data = []
+    for group_idx, group in enumerate(spec_final.groups, start=1):
+        f_calc = group.get('f', 0.0)
+        # Add 5% random noise to calculated values as "experimental"
+        f_expt = f_calc * (1.0 + 0.05 * (np.random.random() - 0.5))
+        expt_data.append([group_idx, f_calc, f_expt])
+    
+    print("\nExperimental data (with 5% noise):")
+    print(expt_data)
+    
+    # Create new spectrum with experimental data for display
+    spectrum_config["expt_data"] = expt_data
+    spec_with_expt = Spectrum(**spectrum_config)
+    spec_with_expt.calculate_intensities(polarization='isotropic')
+    
+    print("\n" + "=" * 160)
+    print("BRIEF FORMAT WITH EXPERIMENTAL DATA")
+    print("=" * 160)
+    print(gen_inten_summary(spec_with_expt, h, format='brief'))
 
 
 if __name__ == "__main__":
