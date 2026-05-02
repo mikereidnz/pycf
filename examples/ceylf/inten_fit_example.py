@@ -98,8 +98,8 @@ def main():
     spectrum_config = {
         "hamiltonian": h,
         "name": "Target spectrum",
-        "i_range": [1, 2],
-        "f_range": [7, 8, 9, 10],
+        "i_range": [1],
+        "f_range": [7, 8, 9, 10, 11, 12, 13, 14],
         "intensity_tensors": intensity_tensors,
         "altp": known_altp,
         "group_tol": 1e-3,
