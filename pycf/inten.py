@@ -902,12 +902,8 @@ def gen_inten_summary(
 
     if format == "text":
         return _format_inten_text(spectrum, w, pc, state_labels)
-    elif format == "brief":
-        return _format_inten_brief(spectrum, w, pc, state_labels)
-    elif format == "verbose":
-        return _format_inten_verbose(spectrum, w, pc, state_labels)
-    elif format == "ultra":
-        return _format_inten_ultra(spectrum, w, pc, state_labels)
+    elif format in ("brief", "detailed", "moments"):
+        return _format_inten(spectrum, w, pc, state_labels, format=format)
     elif format == "csv":
         return _format_inten_csv(spectrum, w, pc, state_labels)
     else:
@@ -1137,7 +1133,7 @@ def _format_dipole_moments(trans: Dict[str, Any]) -> List[str]:
     ]
 
 
-def _format_inten_unified(
+def _format_inten(
     spectrum: Spectrum,
     eigenvalues: np.ndarray,
     principal_components: np.ndarray,
@@ -1272,37 +1268,6 @@ def _format_inten_unified(
     
     lines.append("=" * sep_width)
     return "\n".join(lines)
-
-
-def _format_inten_brief(
-    spectrum: Spectrum,
-    eigenvalues: np.ndarray,
-    principal_components: np.ndarray,
-    state_labels: List[Any],
-) -> str:
-    """Format spectrum as a brief tabular summary (one line per group).
-    When expt_data is present, appends f_Expt and χ² columns."""
-    return _format_inten_unified(spectrum, eigenvalues, principal_components, state_labels, format="brief")
-
-
-def _format_inten_verbose(
-    spectrum: Spectrum,
-    eigenvalues: np.ndarray,
-    principal_components: np.ndarray,
-    state_labels: List[Any],
-) -> str:
-    """Format spectrum as verbose output (BRIEF + individual transitions for each group)."""
-    return _format_inten_unified(spectrum, eigenvalues, principal_components, state_labels, format="detailed")
-
-
-def _format_inten_ultra(
-    spectrum: Spectrum,
-    eigenvalues: np.ndarray,
-    principal_components: np.ndarray,
-    state_labels: List[Any],
-) -> str:
-    """Format spectrum as ultra-verbose output (VERBOSE + dipole moment components)."""
-    return _format_inten_unified(spectrum, eigenvalues, principal_components, state_labels, format="moments")
 
 
 def _format_inten_csv(
