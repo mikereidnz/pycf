@@ -190,6 +190,12 @@ def main():
     print("Absorption - Verbose format (BRIEF + individual transitions):")
     print("=" * 80)
     print("\n" + gen_inten_summary(spec_abs, h, format='verbose'))
+    
+    # Print absorption summary (ultra format - VERBOSE + dipole moments)
+    print("\n" + "=" * 80)
+    print("Absorption - Ultra format (VERBOSE + dipole moments):")
+    print("=" * 80)
+    print("\n" + gen_inten_summary(spec_abs, h, format='ultra'))
 
     # Print emission summary (brief format - compact tabular)
     print("\n" + "=" * 80)
@@ -202,6 +208,12 @@ def main():
     print("Emission - Verbose format (BRIEF + individual transitions):")
     print("=" * 80)
     print("\n" + gen_inten_summary(spec_em, h, format='verbose'))
+    
+    # Print emission summary (ultra format - VERBOSE + dipole moments)
+    print("\n" + "=" * 80)
+    print("Emission - Ultra format (VERBOSE + dipole moments):")
+    print("=" * 80)
+    print("\n" + gen_inten_summary(spec_em, h, format='ultra'))
 
     # =========================================================================
     # Export to CSV for spreadsheet import/analysis
