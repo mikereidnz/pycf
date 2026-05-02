@@ -122,10 +122,21 @@ def gen_pycf_summary(started_at: Optional[Union[datetime, str]] = None, suppress
     if not suppress_input:
         s = "\nInput file\n"
         s += "==========\n\n"
-        s += "File: {}\n\n".format(os.path.abspath(inspect.stack()[1][1]))
-        with open(str(os.path.abspath(inspect.stack()[1][1])), "r") as f:
-            s += f.read()
-        s += "\n\n"
+        try:
+            filename = os.path.abspath(inspect.stack()[1][1])
+            s += "File: {}\n\n".format(filename)
+            with open(filename, "r") as f:
+                s += f.read()
+            s += "\n\n"
+        except (OSError, IndexError) as e:
+            # If we can't read the input file (e.g., called from interactive shell,
+            # or file permissions issue), include a note and continue
+            s += "*** ERROR: Unable to read input file ***\n"
+            s += "Reason: {}\n".format(str(e))
+            s += "\nThis typically happens when gen_pycf_summary() is called from:\n"
+            s += "  - An interactive Python/IPython session\n"
+            s += "  - A script in a location that can't be read\n"
+            s += "  - Use suppress_input=True to skip input file echo\n\n"
     s += gen_pycf_details(started_at)
     return s
 
