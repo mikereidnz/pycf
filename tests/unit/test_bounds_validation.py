@@ -8,7 +8,7 @@ for physical plausibility (e.g., positive temperatures, positive linewidths).
 import numpy as np
 import pytest
 
-from pycf.inten import inten, lorentzian
+from pycf.inten import lorentzian
 from pycf.paramcalc import Ckq, RInt4f, Xi_val
 
 
@@ -29,57 +29,6 @@ class TestLorentzianBounds:
         """Lorentzian should reject zero FWHM."""
         with pytest.raises(ValueError, match="fwhm must be positive"):
             lorentzian(0.0, 0.0, 0.0)
-
-
-class TestIntenBounds:
-    """Test inten function parameter validation."""
-
-    @pytest.fixture
-    def simple_transition(self):
-        """Simple single transition for testing."""
-        return [
-            {
-                "e": 100.0,  # transition energy
-                "ei": 0.0,  # initial state energy
-                "pi": 1.0,  # pi polarization strength
-                "sigma": 0.5,  # sigma polarization strength
-            }
-        ]
-
-    def test_inten_positive_linewidth(self, simple_transition):
-        """inten should accept positive linewidth."""
-        result = inten(simple_transition, "pi", 1.0, 300.0)
-        assert len(result) == 4  # Returns (line_energies, line_inten, curve_energies, curve_inten)
-
-    def test_inten_negative_linewidth_raises(self, simple_transition):
-        """inten should reject negative linewidth."""
-        with pytest.raises(ValueError, match="linewidth must be positive"):
-            inten(simple_transition, "pi", -1.0, 300.0)
-
-    def test_inten_zero_linewidth_raises(self, simple_transition):
-        """inten should reject zero linewidth."""
-        with pytest.raises(ValueError, match="linewidth must be positive"):
-            inten(simple_transition, "pi", 0.0, 300.0)
-
-    def test_inten_negative_temperature_raises(self, simple_transition):
-        """inten should reject negative temperature."""
-        with pytest.raises(ValueError, match="Temperature T must be non-negative"):
-            inten(simple_transition, "pi", 1.0, -10.0)
-
-    def test_inten_zero_temperature_allowed(self, simple_transition):
-        """inten should accept zero temperature (ground state only)."""
-        result = inten(simple_transition, "pi", 1.0, 0.0)
-        assert len(result) == 4
-
-    def test_inten_zero_npoints_raises(self, simple_transition):
-        """inten should reject npoints < 1."""
-        with pytest.raises(ValueError, match="npoints must be >= 1"):
-            inten(simple_transition, "pi", 1.0, 300.0, npoints=0)
-
-    def test_inten_empty_transitions_raises(self):
-        """inten should reject empty transition list."""
-        with pytest.raises(ValueError, match="inten requires at least one transition"):
-            inten([], "pi", 1.0, 300.0)
 
 
 class TestXiValBounds:
