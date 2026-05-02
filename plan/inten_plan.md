@@ -350,4 +350,129 @@ Example output (absorption mode):
 
 NEXT STEPS
 ----------
-User feedback requested on next phase improvements.
+Now we need to add the electric and magnetic dipole moments.
+
+1. For ease of checking I want to use the order: ED then MD.
+   Also I would like to change the order in both the one-line group listing and the individual transitions, since we,
+   can align the f/A coloumns. 
+
+   So change the one-line BRIEF line to:  f_ED, f_MD, f_total (or A_ED, A_MD, A_total)
+   The individual transitions in the VERBOSE output then become: 
+   S_ED, S_MD, f_ED, f_MD, f_total (replacing f with A for emission). 
+   This means that the f_ED, f_MD, f_total columns can be aligned with the correspoinding BRIEF columns. 
+
+2. For the COMPLETE listing (I am not sure of the name yet), we add moments underneath each individual transition line. 
+  Format: 
+    D_ED :      -1:  <value>    0: <value>   1: <value>
+    D_MD :      -1:  <value>    0: <value>   1: <value>
+
+I can then check against my pascal output. 
+
+
+
+
+USER COMMENTS AND FEEDBACK
+--------------------------
+
+**Column Order Change (BRIEF and VERBOSE):**
+User feedback: Reorder columns for consistency and visual alignment.
+
+BRIEF format (current): f_MD, f_ED, f_Total
+BRIEF format (desired): f_ED, f_MD, f_Total
+
+VERBOSE individual transitions (current): S_MD_iso, f_MD, S_ED_iso, f_ED, f_Total
+VERBOSE individual transitions (desired): S_ED, S_MD, f_ED, f_MD, f_Total
+
+Rationale: 
+- Aligns with user preference for ED before MD
+- Allows vertical alignment of f/A columns between BRIEF group line and individual transitions
+- Groups ED and MD pairs together for easier comparison
+
+**ULTRA Format (To be implemented):**
+User wants a new format level that shows dipole moments for each transition.
+
+Structure:
+```
+VERBOSE group line and individual transitions as above, then:
+    For each transition, add:
+    D_ED :      -1:  <value>    0: <value>   1: <value>
+    D_MD :      -1:  <value>    0: <value>   1: <value>
+```
+
+Example (for first individual transition):
+```
+2    | 2 3 5 5 >                    7    | 2 3 7 1 >                  6.292960e-03   2.221669e-08  3.816299e-05   1.347307e-10   2.235142e-08
+     D_ED :      -1:  1.234e-10    0: 5.678e-11   1: 9.012e-12
+     D_MD :      -1:  3.456e-09    0: 7.890e-10   1: 1.234e-09
+```
+
+Purpose: Enable verification against Pascal reference output.
+
+NOTES ON IMPLEMENTATION
+-----------------------
+- Need to store ED and MD dipole moment components (e.g., ed_-1, ed_0, ed_+1, md_-1, md_0, md_+1) in transition records
+- These are already being calculated and stored in dipole_str() - just need to include in output
+- Will require new format function (e.g., _format_inten_ultra()) that expands VERBOSE with dipole moments
+- May need helper to format complex numbers nicely (already have clean_complex() for rounding)
+
+
+REVIEW AND FEEDBACK
+-------------------
+
+**Column Order Change - APPROVED**
+✅ Makes sense to have ED before MD (more intuitive order)
+✅ Aligning columns between BRIEF and VERBOSE is elegant and helps readability
+✅ Individual transition columns (S_ED, S_MD, f_ED, f_MD, f_Total) will nicely align vertically with BRIEF group line (f_ED, f_MD, f_Total)
+✅ Easy to implement - just reorder the column positions in both _format_inten_brief() and _format_inten_verbose()
+
+**ULTRA Format - GOOD IDEA**
+✅ Showing individual dipole moment components (-1, 0, +1) enables detailed verification
+✅ Dipole moment data already exists in transition records (stored in dipole_str)
+✅ Format is clean and readable
+✅ Will be excellent for debugging and comparing with Pascal output
+
+**Implementation Plan:**
+1. Reorder BRIEF columns: ED -> MD -> Total
+2. Reorder VERBOSE individual transition columns: ED -> MD -> Total  
+3. Create new _format_inten_ultra() function that:
+   - Shows all VERBOSE output (group lines and individual transitions)
+   - Adds dipole moment lines after each individual transition
+   - Format: D_ED and D_MD rows with -1, 0, +1 components
+   - Uses clean_complex() cleaned values for output
+4. Update gen_inten_summary() to dispatch 'ultra' format
+5. Add example output to inten_example.py showing ULTRA format
+
+**Questions/Clarifications:**
+1. For the dipole moment display, should we show the absolute value, or keep complex format?
+   (e.g., "1.234e-09" vs "1.234e-09 + 5.678e-12j")
+2. Should we also show S_ED and S_MD under each transition (for reference)?
+   Or is that redundant with the individual transaction line?
+3. For the "complete listing" name - suggestions:
+   - ULTRA (shows everything up to dipole moments)
+   - FULL (all details for verification)
+   - DETAILED (with moment details)
+   - COMPLETE (user's suggestion)
+
+
+ROUNDING ERROR STRATEGY - CONFIRMED
+-----------------------------------
+
+User insight: Clean dipole moments at source, no further action needed.
+
+**Current implementation (Commit a81db7f):**
+✅ Applied clean_complex() to dipole moments immediately after calculation in dipole_str()
+✅ Cleaned values are stored in transition records
+
+**Why this works:**
+- All subsequent calculations are modulus squared: |moment|²
+- Squared values are inherently non-negative reals
+- No further rounding errors accumulate in f/A calculations
+- Output values are mathematically "clean" by construction
+
+**Dipole moment display (for ULTRA format):**
+- Can safely use stored dipole moments directly
+- Already cleaned of spurious components
+- Display format: suitable notation for complex numbers (real + imag j, or polar)
+- Use formatting helper to make output readable
+
+No additional cleaning needed during output formatting.
