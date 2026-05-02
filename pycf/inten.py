@@ -264,6 +264,10 @@ def dipole_str(
                                 )
                                 ed_mom[q + 1] += D  # order is -1, 0, 1
             # Keep all transitions, otherwise our degeneracy calculations will be wrong.
+            # Clean dipole moments to remove rounding errors before calculating strengths
+            ed_mom = [clean_complex(m) for m in ed_mom]
+            md_mom = [clean_complex(m) for m in md_mom]
+            
             # Electric and magnetic dipole strengths for -1, 0, +1 components
             S_ED_m = np.abs(ed_mom[0]) ** 2
             S_ED_0 = np.abs(ed_mom[1]) ** 2
