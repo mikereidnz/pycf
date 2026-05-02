@@ -1730,12 +1730,18 @@ def inten_plot(
     if not spectrum.groups:
         raise ValueError("Spectrum must have at least one transition group")
     
+    # Determine if absorption or emission based on first group's energy sign
+    is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
+    
     # Extract transition energies and intensities
     energies = []
     intensities = []
     for group in spectrum.groups:
         energies.append(abs(group.get('Energy', 0.0)))
-        intensities.append(group.get('f', group.get('A', 0.0)))
+        if is_absorption:
+            intensities.append(group.get('f', 0.0))
+        else:
+            intensities.append(group.get('A', 0.0))
     
     energies = np.array(energies)
     intensities = np.array(intensities)
@@ -1789,9 +1795,13 @@ def inten_plot(
                      linewidth=2, linestyles='solid', label='Experimental')
     
     # Labels and formatting
-    ax.set_xlabel('Energy (cm$^{-1}$)', fontsize=12)
-    ax.set_ylabel('Oscillator Strength (dimensionless)', fontsize=12)
-    ax.set_title(f'{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)', fontsize=13)
+    ax.set_xlabel('Energy (cm$^{-1}$)', fontsize=14)
+    if is_absorption:
+        ylabel = 'Oscillator Strength (dimensionless)'
+    else:
+        ylabel = 'A Coefficient (s$^{-1}$)'
+    ax.set_ylabel(ylabel, fontsize=14)
+    ax.set_title(f'{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)', fontsize=13, pad=20)
     ax.set_xlim(xlim)
     if ylim is not None:
         ax.set_ylim(ylim)
@@ -1799,5 +1809,26 @@ def inten_plot(
         ax.set_ylim(bottom=0)
     ax.legend(loc='upper right', fontsize=11)
     ax.grid(True, alpha=0.3)
+    
+    # Increase font size for axis tick labels
+    ax.tick_params(axis='x', labelsize=13)
+    ax.tick_params(axis='y', labelsize=13)
+    
+    # Add secondary x-axis for wavelength in nanometers
+    # Conversion: λ (nm) = 10^7 / wavenumber (cm^-1)
+    ax2 = ax.twiny()
+    # Get the energy limits and convert to wavelength
+    e_min, e_max = xlim[0], xlim[1]
+    # Avoid division by zero at very low energies
+    if e_min > 0:
+        lambda_max = 1e7 / e_min  # Lower energy = longer wavelength
+        lambda_min = 1e7 / e_max  # Higher energy = shorter wavelength
+    else:
+        lambda_min = 1e7 / e_max if e_max > 0 else 10000
+        lambda_max = 1e7 / 0.1 if e_min <= 0 else 1e7 / e_min
+    
+    ax2.set_xlim(lambda_max, lambda_min)  # Reversed to match energy axis direction
+    ax2.set_xlabel('Wavelength (nm)', fontsize=14)
+    ax2.tick_params(axis='x', labelsize=13)
     
     return fig, ax
