@@ -4112,7 +4112,7 @@ cdef class CFLMin:
         return fmin
 
 
-def e_fit(parameters, h, ex, cfl_min, **kwargs):
+def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit parameters to energy level data.
 
@@ -4137,6 +4137,9 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -4145,7 +4148,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
 
     efit = EFit(parameters, h, ex, **kwargs)
@@ -4175,7 +4178,7 @@ def e_fit(parameters, h, ex, cfl_min, **kwargs):
 
 
 
-def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
+def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit to multiple Hamiltonians simultaneously.  Typically, this would consist
     of one vector of energy levels at zero field without hyperfine or quadrupole
@@ -4208,6 +4211,9 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         the corresponding level.  In order to specify energy level differences,
         or specify energies according to their SLJM state labels, use the ExData
         interface.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -4216,7 +4222,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     summary = "==============\n"
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
 
     mhfit = MHFit(parameters, h_list, weights_list, ex_list, **kwargs)
@@ -4246,7 +4252,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
 
-def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
+def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit parameters to energy level data and spin Hamiltonian data
     simultaneously.
@@ -4284,6 +4290,9 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     svd_sym : bool, optional
         Symmeterize spin Hamiltonian parameter tensors by applying an SVD
         transformation.
@@ -4295,7 +4304,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
 
     eshfit = ESHFit(parameters, h, sh, ex, shx, weights, **kwargs)
@@ -4337,7 +4346,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
 
-def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
+def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit multiple crystal-field Hamiltonians and spin Hamiltonians
     simultaneously.  For now, this is restricted to a single spin Hamiltonian
@@ -4362,6 +4371,9 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -4370,7 +4382,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     summary = "================\n"
     summary+= "mesh_fit summary\n"
     summary+= "================\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
 
     meshfit = MESHFit(parameters, h_sh_list, **kwargs)

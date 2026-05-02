@@ -105,17 +105,27 @@ def gen_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> str:
     return s
 
 
-def gen_pycf_summary(started_at: Optional[Union[datetime, str]] = None) -> str:
+def gen_pycf_summary(started_at: Optional[Union[datetime, str]] = None, suppress_input: bool = False) -> str:
     r"""
     Read input file and add to long string. Further, print the pycf version and
     date/time.
+    
+    Parameters
+    ----------
+    started_at : datetime or str, optional
+        Starting timestamp for the fit
+    suppress_input : bool, optional
+        If True, omit the input file echo from the summary (default: False)
+        Useful when running multiple fits to reduce verbose output
     """
-    s = "\nInput file\n"
-    s += "==========\n\n"
-    s += "File: {}\n\n".format(os.path.abspath(inspect.stack()[1][1]))
-    with open(str(os.path.abspath(inspect.stack()[1][1])), "r") as f:
-        s += f.read()
-    s += "\n\n"
+    s = ""
+    if not suppress_input:
+        s = "\nInput file\n"
+        s += "==========\n\n"
+        s += "File: {}\n\n".format(os.path.abspath(inspect.stack()[1][1]))
+        with open(str(os.path.abspath(inspect.stack()[1][1])), "r") as f:
+            s += f.read()
+        s += "\n\n"
     s += gen_pycf_details(started_at)
     return s
 
