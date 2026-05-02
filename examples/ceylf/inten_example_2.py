@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-Example: Compute and display intensity spectra (Ce3+ C3 symmetry).
+Example: Compute and display intensity spectra with magnetic field (Ce3+ C3 symmetry).
 
-Demonstrates the Spectrum class and calculate_intensities() API for computing
-and summarizing electric- and magnetic-dipole intensity data.
+Demonstrates the Spectrum class with a magnetic field applied along Z.
+This example includes a magnetic field term (MZ with coefficient 1) to show
+how external fields affect the spectrum. This setup is comparable to the
+C1 magnetic field test case for verification against reference calculations.
 
 This script template shows how to:
 1. Load crystal-field and intensity tensors from SLJM output
-2. Build and diagonalize a Hamiltonian
+2. Build and diagonalize a Hamiltonian with magnetic field terms
 3. Create Spectrum objects with 1-based level ranges (Z1, Z2, ... convention)
 4. Call calculate_intensities() to compute oscillator strengths and Einstein A coefficients
 5. Print text and CSV summaries
+6. Compare results against the zero-field case
 
 NOTE: This example requires both crystal-field (*cf) and intensity (*int) SLJM data.
 The ceylf/matel/ directory only contains CF data; to run this example with real data,
@@ -83,9 +86,9 @@ def main():
         "C60": 0,
         "C63": 0,
         "C66": 0,
-        "MX": 0,
+        "MX": 1e-10,
         "MY": 0,
-        "MZ": 0,
+        "MZ": 1,
     }
 
     # Scale magnetic tensor by Bohr magneton (cm-1/T)
@@ -143,7 +146,7 @@ def main():
     
     spec_abs = Spectrum(
         hamiltonian=h,
-        name="Ground state absorption (Z1 -> Y1 + Y2)",
+        name="Ground state absorption (Z1 -> Y1 + Y2) with B-field||Z",
         i_range=[1, 2],                    # Z1 Kramers doublet (1-based)
         f_range=[7, 8, 9, 10],             # Y1+Y2 multiplet (1-based)
         intensity_tensors=intensity_tensors,
@@ -160,7 +163,7 @@ def main():
     
     spec_em = Spectrum(
         hamiltonian=h,
-        name="Emission from Y1 + Y2 -> Z1",
+        name="Emission from Y1 + Y2 -> Z1 with B-field||Z",
         i_range=[7, 8],                    # Y1+Y2 (1-based)
         f_range=[1, 2, 3, 4, 5, 6],        # Z1 and all intermediate levels (1-based)
         intensity_tensors=intensity_tensors,
