@@ -1649,6 +1649,7 @@ def fit_altp(
     dict
         Result dictionary with keys:
         - 'fitted_params': dict of fitted parameter names to values
+        - 'uncertainties': dict of parameter uncertainties (1-sigma estimates)
         - 'chi2': final chi-squared value
         - 'n_obs': number of observables (intensity groups)
         - 'n_params': number of fitted parameters
@@ -1683,6 +1684,11 @@ def fit_altp(
     fitted_altp = fitter._x_to_altp(x_opt)
     fitted_dict = {name: value for name, value in fitted_altp}
     
+    # Estimate parameter uncertainties from Hessian
+    uncertainties = _estimate_parameter_uncertainties(
+        fitter, x_opt, fmin, param_names
+    )
+    
     # Build summary
     summary = "Altp Parameter Fit\n"
     summary += "=" * 50 + "\n"
@@ -1696,15 +1702,101 @@ def fit_altp(
         initial_val = fitter.param_info[pname]["initial_value"]
         summary += f"  {pname}: {initial_val}\n"
     
-    summary += "\nFitted Altp values:\n"
+    summary += "\nFitted Altp values with uncertainties:\n"
     for pname, value in fitted_dict.items():
-        summary += f"  {pname}: {value}\n"
+        unc = uncertainties.get(pname, None)
+        if unc is not None:
+            summary += f"  {pname}: {value} ± {unc}\n"
+        else:
+            summary += f"  {pname}: {value}\n"
     
     return {
         "fitted_params": fitted_dict,
+        "uncertainties": uncertainties,
         "chi2": fmin,
         "n_obs": fitter.n_obs,
         "n_params": fitter.n_p,
         "initial_altp": {pname: fitter.param_info[pname]["initial_value"] for pname in param_names},
         "summary": summary,
     }
+
+
+def _estimate_parameter_uncertainties(
+    fitter: "AltpFit",
+    x_opt: np.ndarray,
+    fmin: float,
+    param_names: List[str],
+) -> Dict[str, Any]:
+    """
+    Estimate parameter uncertainties from the Hessian matrix.
+    
+    Uses numerical differentiation to compute the Hessian (second derivatives)
+    at the optimum. The covariance matrix is estimated as the inverse of the
+    Hessian scaled by the reduced χ² (χ²/dof).
+    
+    Parameters
+    ----------
+    fitter : AltpFit
+        The fitter object containing parameter structure
+    x_opt : np.ndarray
+        Optimal parameter vector
+    fmin : float
+        Final objective function value (chi-squared)
+    param_names : list of str
+        Parameter names
+        
+    Returns
+    -------
+    dict
+        Parameter uncertainties keyed by parameter name
+    """
+    from scipy.optimize import approx_fprime
+    
+    n_obs = fitter.n_obs
+    n_params = len(x_opt)
+    
+    # Reduced chi-squared (normalizes for dof)
+    dof = max(1, n_obs - n_params)
+    chi2_red = fmin / dof if dof > 0 else 1.0
+    
+    # Compute Hessian numerically
+    eps = np.sqrt(np.finfo(float).eps) * (1.0 + np.abs(x_opt))
+    hessian = np.zeros((n_params, n_params))
+    
+    for i in range(n_params):
+        x_plus = x_opt.copy()
+        x_plus[i] += eps[i]
+        grad_plus = approx_fprime(x_plus, fitter.objective_fn, eps)
+        
+        x_minus = x_opt.copy()
+        x_minus[i] -= eps[i]
+        grad_minus = approx_fprime(x_minus, fitter.objective_fn, eps)
+        
+        hessian[i, :] = (grad_plus - grad_minus) / (2 * eps[i])
+    
+    # Make Hessian symmetric
+    hessian = 0.5 * (hessian + hessian.T)
+    
+    # Estimate covariance from inverse Hessian
+    try:
+        cov = np.linalg.inv(hessian) * chi2_red
+        uncertainties = {}
+        
+        # Map uncertainties back to parameter names
+        idx = 0
+        for pname in param_names:
+            param_info = fitter.param_info[pname]
+            if param_info["type"] == "complex":
+                real_unc = np.sqrt(max(0, cov[idx, idx]))
+                imag_unc = np.sqrt(max(0, cov[idx + 1, idx + 1]))
+                uncertainties[pname] = (real_unc, imag_unc)
+                idx += 2
+            else:
+                unc = np.sqrt(max(0, cov[idx, idx]))
+                uncertainties[pname] = unc
+                idx += 1
+        
+        return uncertainties
+    except np.linalg.LinAlgError:
+        # Hessian is singular or near-singular
+        return {pname: None for pname in param_names}

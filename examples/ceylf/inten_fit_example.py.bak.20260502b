@@ -20,42 +20,18 @@ from pycf.import_sljm import ImportSLJM
 from pycf.inten import Spectrum, fit_altp
 
 
-def print_transitions_with_energy(label, spec):
-    """Print transition data with energies."""
+def print_intensities(label, group_data):
+    """Print intensity data for a set of groups."""
     print(f"\n{label}")
-    print("-" * 100)
-    print(f"{'Group':<8} {'Trans. Energy (cm⁻¹)':<22} {'Initial Level':<18} {'Final Level':<18} {'f value':<20}")
-    print("-" * 100)
-    for group_idx, group in enumerate(spec.groups, start=1):
-        trans_energy = group.get('Energy', 0.0)
-        e_i = group.get('e_i', 0.0)
-        e_f = group.get('e_f', 0.0)
+    print("-" * 70)
+    print(f"{'Group':<8} {'Initial State':<20} {'Final State':<20} {'f value':<15}")
+    print("-" * 70)
+    for group_idx, group in enumerate(group_data, start=1):
+        i_state = group.get('i_state', 'N/A')
+        f_state = group.get('f_state', 'N/A')
         f_value = group.get('f', 0.0)
-        print(f"{group_idx:<8} {trans_energy:<22.4f} {e_i:<18.4f} {e_f:<18.4f} {f_value:<20.6e}")
-    print("-" * 100)
-
-
-def print_parameter_uncertainties(label, result):
-    """Print fitted parameters with uncertainties."""
-    print(f"\n{label}")
-    print("-" * 80)
-    print(f"{'Parameter':<15} {'Fitted Value':<30} {'Uncertainty (1σ)':<30}")
-    print("-" * 80)
-    for pname in ["A210", "A230", "A233"]:
-        if pname in result['fitted_params']:
-            value = result['fitted_params'][pname]
-            unc = result['uncertainties'].get(pname)
-            if unc is not None:
-                if isinstance(unc, tuple):
-                    # Complex parameter: (real_unc, imag_unc)
-                    real_unc, imag_unc = unc
-                    print(f"{pname:<15} {str(value):<30} ({real_unc:.3e}, {imag_unc:.3e})")
-                else:
-                    # Real parameter
-                    print(f"{pname:<15} {str(value):<30} {unc:.3e}")
-            else:
-                print(f"{pname:<15} {str(value):<30} [unable to estimate]")
-    print("-" * 80)
+        print(f"{group_idx:<8} {i_state:<20} {f_state:<20} {f_value:.6e}")
+    print("-" * 70)
 
 
 def main():
@@ -74,7 +50,7 @@ def main():
     t_cf = ImportSLJM(str(MATEL_CF))
     t_int = ImportSLJM(str(MATEL_INT), sl_name=str(MATEL_CF))
     
-    # Build Hamiltonian with B-field (using spectroscopic Bohr magneton units)
+    # Build Hamiltonian with B-field
     coeff = {
         "EAVG": 1402.6553816211135,
         "ZETA": 626,
@@ -89,7 +65,7 @@ def main():
         "MZ": 1,
     }
     
-    mu_b = 0.466860  # Bohr magneton in spectroscopic units (cm^-1/T)
+    mu_b = 4.669202e-5
     MX = mu_b * t_cf.MAGX
     MY = mu_b * t_cf.MAGY
     MZ = mu_b * t_cf.MAGZ
@@ -99,27 +75,6 @@ def main():
                          t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ])
     h.set_coeff(coeff)
     w, z = h.diag()
-    
-    # Print Hamiltonian parameters
-    print("\nHamiltonian parameters:")
-    print("-" * 60)
-    print("Crystal field coefficients:")
-    for key in ["EAVG", "ZETA", "C20", "C40", "C43", "C60", "C63", "C66"]:
-        val = coeff.get(key, 0)
-        print(f"  {key:<10s}: {val:>20.6f}")
-    print("\nMagnetic field (Zeeman):")
-    print(f"  μ_B (Bohr magneton): {mu_b:.6e}")
-    for key in ["MX", "MY", "MZ"]:
-        val = coeff.get(key, 0)
-        print(f"  {key:<10s} coefficient: {val:>20.6e} → field component: {val * mu_b:>20.6e}")
-    print("-" * 60)
-    
-    # Print energy level structure
-    print("\nEnergy levels:")
-    print("-" * 40)
-    for i in range(1, 15):
-        print(f"  Level {i:2d}: {w[i-1]:10.4f} cm⁻¹")
-    print("-" * 40)
     
     # ======================================================================
     # STEP 1: Known Altp parameters and their target intensities
@@ -147,7 +102,7 @@ def main():
         "f_range": [7, 8, 9, 10, 11, 12, 13, 14],
         "intensity_tensors": intensity_tensors,
         "altp": known_altp,
-        "group_tol": 1e-8,
+        "group_tol": 1e-3,
         "nrefractive": 1.0,
         "md": True,
         "ed": True,
@@ -157,11 +112,13 @@ def main():
     spec_target.calculate_intensities(polarization='isotropic')
     
     target_intensities = {}
-    print_transitions_with_energy("Target transition groups:", spec_target)
-    
+    print("\nTarget transition groups:")
     for group_idx, group in enumerate(spec_target.groups, start=1):
         f_value = group.get('f', 0.0)
         target_intensities[group_idx] = f_value
+        i_label = group.get('i_label', 'N/A')
+        f_label = group.get('f_label', 'N/A')
+        print(f"  Group {group_idx}: {i_label} → {f_label}: f = {f_value:.6e}")
     
     # ======================================================================
     # STEP 2: Perturbed initial parameters (50% of known values)
@@ -184,7 +141,13 @@ def main():
     spec_initial = Spectrum(**spectrum_config)
     spec_initial.calculate_intensities(polarization='isotropic')
     
-    print_transitions_with_energy("Initial transition groups (with perturbed parameters):", spec_initial)
+    print("\nInitial transition groups (with perturbed parameters):")
+    for group_idx, group in enumerate(spec_initial.groups, start=1):
+        f_value = group.get('f', 0.0)
+        i_label = group.get('i_label', 'N/A')
+        f_label = group.get('f_label', 'N/A')
+        rel_error = abs(f_value - target_intensities[group_idx]) / target_intensities[group_idx] if target_intensities[group_idx] != 0 else 0
+        print(f"  Group {group_idx}: {i_label} → {f_label}: f = {f_value:.6e} (error: {rel_error*100:.2f}%)")
     
     # ======================================================================
     # STEP 3: Fit Altp parameters
@@ -195,8 +158,6 @@ def main():
     
     print("\nFitting parameters: A210, A230, A233")
     print("Using Nelder-Mead optimization...")
-    print(f"Number of observables (transition groups): {len(spec_target.groups)}")
-    print(f"Number of parameters: 4")
     
     result = fit_altp(
         ["A210", "A230", "A233"],
@@ -211,7 +172,9 @@ def main():
     
     fitted_altp = [[name, result['fitted_params'][name]] for name in ["A210", "A230", "A233"]]
     
-    print_parameter_uncertainties("Fitted Altp parameters with uncertainties:", result)
+    print("\nFitted Altp parameters:")
+    for name, value in fitted_altp:
+        print(f"  {name}: {value}")
     
     # ======================================================================
     # STEP 4: Final verification
@@ -224,26 +187,22 @@ def main():
     spec_final = Spectrum(**spectrum_config)
     spec_final.calculate_intensities(polarization='isotropic')
     
-    print_transitions_with_energy("Final transition groups (with fitted parameters):", spec_final)
-    
-    print("\nComparison of target vs fitted intensities:")
-    print("-" * 100)
-    print(f"{'Group':<8} {'Transition (cm⁻¹)':<20} {'Target f':<20} {'Fitted f':<20} {'Rel. Error':<15}")
-    print("-" * 100)
+    print("\nFinal transition groups (with fitted parameters):")
+    print(f"{'Group':<8} {'Target f':<18} {'Fitted f':<18} {'Rel. Error':<15}")
+    print("-" * 60)
     
     max_error = 0.0
     for group_idx, group in enumerate(spec_final.groups, start=1):
         fitted_f = group.get('f', 0.0)
         target_f = target_intensities[group_idx]
-        trans_energy = group.get('Energy', 0.0)
         rel_error = abs(fitted_f - target_f) / target_f if target_f != 0 else 0
         max_error = max(max_error, rel_error)
-        print(f"{group_idx:<8} {trans_energy:<20.4f} {target_f:<20.6e} {fitted_f:<20.6e} {rel_error*100:<14.4f}%")
+        print(f"{group_idx:<8} {target_f:<18.6e} {fitted_f:<18.6e} {rel_error*100:<14.4f}%")
     
-    print("-" * 100)
+    print("-" * 60)
     print(f"\nMaximum relative error: {max_error*100:.4f}%")
     
-    if max_error < 1e-3:
+    if max_error < 1e-4:
         print("\n✓ Fit converged successfully!")
     else:
         print("\n⚠ Fit did not converge well")
