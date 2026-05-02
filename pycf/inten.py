@@ -21,6 +21,32 @@ from pycf.constants import (
 from pycf.njsymbols import wigner_3j
 
 
+def clean_complex(value: Union[complex, float], tolerance: float = 1e-12) -> Union[complex, float]:
+    """
+    Clean up rounding errors in complex numbers by zeroing small real/imaginary parts.
+    
+    Parameters
+    ----------
+    value : complex or float
+        The complex or real number to clean
+    tolerance : float, optional
+        Threshold for zeroing components (default 1e-12)
+        
+    Returns
+    -------
+    complex or float
+        If input is complex: returns complex with small parts zeroed
+        If input is real: returns float unchanged
+    """
+    if isinstance(value, complex):
+        real = value.real if abs(value.real) > tolerance else 0.0
+        imag = value.imag if abs(value.imag) > tolerance else 0.0
+        if imag == 0.0:
+            return real
+        return complex(real, imag)
+    return value
+
+
 def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
     """
     Transform tensor matrix elements into eigenbasis previously calculated by
@@ -968,12 +994,12 @@ def _format_state_label_with_energy(label: Any, level: int, energy: float) -> st
 
 
 def _format_state_label_short(label: Any) -> str:
-    """Format a state label in short form (just the quantum numbers)."""
+    """Format a state label in short form (just the quantum numbers, no brackets)."""
     if isinstance(label, (list, tuple)):
         label_str = " ".join(str(x) for x in label)
     else:
         label_str = str(label)
-    return f"{label_str}"
+    return label_str
 
 
 def _format_inten_brief(
@@ -1099,17 +1125,17 @@ def _format_inten_verbose(
         e_i = group["e_i"]
         e_f = group["e_f"]
         
-        # Get state labels from first transition in group
+        # Get state labels from first transition in group (use transition i/f indices, not pc indices)
         if t_list:
-            initial_level = t_list[0]["pc_i"] + 1  # Convert to 1-based
-            final_level = t_list[0]["pc_f"] + 1    # Convert to 1-based
+            initial_idx = t_list[0]["i"] + 1  # Convert to 1-based (transition index)
+            final_idx = t_list[0]["f"] + 1    # Convert to 1-based (transition index)
         else:
-            initial_level = None
-            final_level = None
+            initial_idx = None
+            final_idx = None
 
-        # Format state labels with energies
-        initial_label = _format_state_label_with_energy(state_labels[initial_level - 1], initial_level, e_i) if initial_level is not None else "Unknown"
-        final_label = _format_state_label_with_energy(state_labels[final_level - 1], final_level, e_f) if final_level is not None else "Unknown"
+        # Format state labels with energies using first transition's indices
+        initial_label = _format_state_label_with_energy(state_labels[t_list[0]["i"]], initial_idx, e_i) if t_list else "Unknown"
+        final_label = _format_state_label_with_energy(state_labels[t_list[0]["f"]], final_idx, e_f) if t_list else "Unknown"
         
         energy = group["Energy"]
         g_i = group.get("g_i", 1)
@@ -1137,9 +1163,9 @@ def _format_inten_verbose(
         # Print individual transitions for this group
         lines.append("        Individual transitions:")
         if is_absorption:
-            trans_header = "        i     Initial State                      f     Final State                        S_MD_iso      f_MD           S_ED_iso      f_ED           f_Total"
+            trans_header = "        i     Initial State                 f      Final State                  S_MD_iso      f_MD           S_ED_iso      f_ED           f_Total"
         else:
-            trans_header = "        i     Initial State                      f     Final State                        S_MD_iso      A_MD           S_ED_iso      A_ED           A_Total"
+            trans_header = "        i     Initial State                 f      Final State                  S_MD_iso      A_MD           S_ED_iso      A_ED           A_Total"
         lines.append(trans_header)
         
         # List each transition
@@ -1162,9 +1188,9 @@ def _format_inten_verbose(
             A_t, f_t = A_and_f_calc(s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
             
             if is_absorption:
-                trans_line = f"        {i_1b:<2} | {i_label:<35} {f_1b:<2} | {f_label:<35} {s_md:>10.6e}  {f_MD_t:>13.6e}  {s_ed:>10.6e}  {f_ED_t:>13.6e}  {f_t:>13.6e}"
+                trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_md:>10.6e}  {f_MD_t:>13.6e}  {s_ed:>10.6e}  {f_ED_t:>13.6e}  {f_t:>13.6e}"
             else:
-                trans_line = f"        {i_1b:<2} | {i_label:<35} {f_1b:<2} | {f_label:<35} {s_md:>10.6e}  {A_MD_t:>13.6e}  {s_ed:>10.6e}  {A_ED_t:>13.6e}  {A_t:>13.6e}"
+                trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_md:>10.6e}  {A_MD_t:>13.6e}  {s_ed:>10.6e}  {A_ED_t:>13.6e}  {A_t:>13.6e}"
             
             lines.append(trans_line)
         

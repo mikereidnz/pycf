@@ -179,9 +179,6 @@ def main():
     print(f"\nAbsorption: {len(spec_abs.groups)} transition groups, total f = {spec_abs.total_f:.6e}")
     print(f"Emission:   {len(spec_em.groups)} transition groups, total A = {spec_em.total_A:.6e}")
 
-    # Print absorption summary (text format)
-    print("\n" + gen_inten_summary(spec_abs, h, format='text'))
-    
     # Print absorption summary (brief format - compact tabular)
     print("\n" + "=" * 80)
     print("Absorption - Brief format (compact tabular):")
@@ -194,9 +191,6 @@ def main():
     print("=" * 80)
     print("\n" + gen_inten_summary(spec_abs, h, format='verbose'))
 
-    # Print emission summary (text format)
-    print("\n" + gen_inten_summary(spec_em, h, format='text'))
-    
     # Print emission summary (brief format - compact tabular)
     print("\n" + "=" * 80)
     print("Emission - Brief format (compact tabular):")
