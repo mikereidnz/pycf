@@ -7,6 +7,7 @@ A rewrite of the intensity calculation to follow the old Pascal code more closel
 from dataclasses import dataclass, field
 from operator import itemgetter
 from typing import Any, Dict, List, Optional, Tuple, Union
+from uuid import uuid4
 
 import numpy as np
 from scipy.optimize import minimize
@@ -987,26 +988,34 @@ def _format_group_line(
     e_i = group["e_i"]
     e_f = group["e_f"]
     
-    # Get state labels from first transition in group
+    # Get actual level indices and state labels from first transition in group
     if t_list:
-        initial_pc_idx = t_list[0]["pc_i"]
-        final_pc_idx = t_list[0]["pc_f"]
-        initial_level = initial_pc_idx + 1  # Convert to 1-based
-        final_level = final_pc_idx + 1
+        i_level_idx = t_list[0]["i"]  # Actual level index (0-based)
+        f_level_idx = t_list[0]["f"]  # Actual level index (0-based)
+        pc_i = t_list[0]["pc_i"]  # Principal component index for SLJM state
+        pc_f = t_list[0]["pc_f"]  # Principal component index for SLJM state
+        initial_level = i_level_idx + 1  # Convert to 1-based for display
+        final_level = f_level_idx + 1
     else:
         initial_level = None
         final_level = None
+        pc_i = None
+        pc_f = None
 
     # Format state labels with energies (with bounds checking)
-    if t_list and 0 <= initial_pc_idx < len(state_labels) and 0 <= final_pc_idx < len(state_labels):
-        initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_level, e_i)
-        final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_level, e_f)
+    if t_list and pc_i is not None and pc_f is not None and 0 <= pc_i < len(state_labels) and 0 <= pc_f < len(state_labels):
+        initial_label = _format_state_label_with_energy(state_labels[pc_i], initial_level, e_i)
+        final_label = _format_state_label_with_energy(state_labels[pc_f], final_level, e_f)
     else:
         initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
         final_label = f"State {final_level}" if final_level is not None else "Unknown"
     
     energy = group["Energy"]
     g_i = group.get("g_i", 1)
+    
+    # Format energy as absolute value (for both absorption and emission)
+    abs_energy = abs(energy)
+    energy_str = f"{abs_energy:>13.6f}"
     
     # Sum dipole strengths over all transitions in group
     total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
@@ -1022,9 +1031,9 @@ def _format_group_line(
     
     # Format group line based on absorption or emission
     if is_absorption:
-        line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+        line = f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
     else:
-        line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
+        line = f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
     
     return line
 
@@ -1037,10 +1046,12 @@ def _format_transition_line(
     is_absorption: bool,
 ) -> str:
     """Format one transition line (indent + state labels + dipole strengths + f values)."""
-    i_pc_idx = trans["pc_i"]
-    f_pc_idx = trans["pc_f"]
-    i_1b = i_pc_idx + 1  # Convert to 1-based
-    f_1b = f_pc_idx + 1
+    i_level_idx = trans["i"]  # Actual level index (0-based)
+    f_level_idx = trans["f"]  # Actual level index (0-based)
+    i_pc_idx = trans["pc_i"]  # Principal component index for SLJM state
+    f_pc_idx = trans["pc_f"]  # Principal component index for SLJM state
+    i_1b = i_level_idx + 1  # Convert to 1-based for display
+    f_1b = f_level_idx + 1
     e_trans = trans["e"]
     s_ed = trans.get("S_ED_isotropic", 0.0)
     s_md = trans.get("S_MD_isotropic", 0.0)
@@ -1049,12 +1060,12 @@ def _format_transition_line(
     if 0 <= i_pc_idx < len(state_labels):
         i_label = _format_state_label_short(state_labels[i_pc_idx])
     else:
-        i_label = f"State {i_pc_idx + 1}"
+        i_label = f"State {i_1b}"
     
     if 0 <= f_pc_idx < len(state_labels):
         f_label = _format_state_label_short(state_labels[f_pc_idx])
     else:
-        f_label = f"State {f_pc_idx + 1}"
+        f_label = f"State {f_1b}"
     
     # Calculate f_ED, f_MD for this individual transition
     A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
@@ -1151,9 +1162,9 @@ def _format_inten(
 
     # Header
     if is_absorption:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
+        header = f"{'Group':<6} {'Energy':<14} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
     else:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
+        header = f"{'Group':<6} {'Energy':<14} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
     
     # Append expt columns for brief format only
     if spectrum.expt_data and format == "brief":
@@ -1161,7 +1172,7 @@ def _format_inten(
 
     lines.append(header)
     
-    sep_width = 160 if format == "brief" else 132
+    sep_width = 160 + 14 if format == "brief" else 132 + 14
     if spectrum.expt_data and format == "brief":
         sep_width += 28
     lines.append("-" * sep_width)
@@ -1673,6 +1684,7 @@ def inten_plot(
     spectrum: 'Spectrum',
     fwhm: float = 0.5,
     xlim: Optional[List[float]] = None,
+    ylim: Optional[List[float]] = None,
     npoints: int = 10000,
     figsize: Tuple[float, float] = (12, 6),
 ) -> 'Tuple[Any, Any]':
@@ -1691,6 +1703,8 @@ def inten_plot(
         Full width at half maximum of the Lorentzian (cm^-1). Default: 0.5 cm^-1.
     xlim : list of float, optional
         Energy range [E_min, E_max] for plot. If None, determined from transition energies.
+    ylim : list of float, optional
+        Intensity range [I_min, I_max] for plot. If None, auto-scaled to data.
     npoints : int, optional
         Number of points for energy grid (controls resolution). Default: 10000.
     figsize : tuple, optional
@@ -1720,13 +1734,13 @@ def inten_plot(
     energies = []
     intensities = []
     for group in spectrum.groups:
-        energies.append(group.get('Energy', 0.0))
+        energies.append(abs(group.get('Energy', 0.0)))
         intensities.append(group.get('f', group.get('A', 0.0)))
     
     energies = np.array(energies)
     intensities = np.array(intensities)
     
-    # Determine energy range
+    # Determine energy range for plotting
     if xlim is None:
         e_min, e_max = energies.min(), energies.max()
         margin = (e_max - e_min) * 0.1 if e_max > e_min else 10.0
@@ -1740,8 +1754,10 @@ def inten_plot(
     for e, inten in zip(energies, intensities):
         convoluted += inten * lorentzian_constant_height(energy_grid, e, fwhm)
     
-    # Create plot
-    fig, ax = plt.subplots(figsize=figsize)
+    # Create plot using spectrum name as figure identifier, with random suffix
+    # to allow multiple plots of same spectrum with different zoom levels
+    figure_name = f"{spectrum.name} #{str(uuid4())[:8]}"
+    fig, ax = plt.subplots(figsize=figsize, num=figure_name)
     
     # Plot convoluted spectrum
     ax.plot(energy_grid, convoluted, 'b-', linewidth=2, label='Calculated (convoluted)')
@@ -1762,7 +1778,7 @@ def inten_plot(
                     continue  # Skip malformed entries
                 
                 if 1 <= group_idx <= len(spectrum.groups):
-                    e = spectrum.groups[group_idx - 1].get('Energy', 0.0)
+                    e = abs(spectrum.groups[group_idx - 1].get('Energy', 0.0))
                     expt_energies.append(e)
                     expt_intensities.append(f_expt)
         
@@ -1777,7 +1793,10 @@ def inten_plot(
     ax.set_ylabel('Oscillator Strength (dimensionless)', fontsize=12)
     ax.set_title(f'{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)', fontsize=13)
     ax.set_xlim(xlim)
-    ax.set_ylim(bottom=0)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    else:
+        ax.set_ylim(bottom=0)
     ax.legend(loc='upper right', fontsize=11)
     ax.grid(True, alpha=0.3)
     

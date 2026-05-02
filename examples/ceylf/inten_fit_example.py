@@ -264,6 +264,7 @@ def main():
     print("BRIEF FORMAT: BEFORE FIT (fitted params from STEP 4 vs experimental data)")
     print("=" * 160)
     display_config = spectrum_config.copy()
+    display_config["name"] = "Before Fit"
     display_config["altp"] = fitted_altp
     display_config["expt_data"] = expt_data  # Show experimental data comparison
     spec_before_fit = Spectrum(**display_config)
@@ -316,6 +317,7 @@ def main():
     print("\n" + "=" * 160)
     print("BRIEF FORMAT: AFTER FIT (refitted params vs experimental data)")
     print("=" * 160)
+    display_config["name"] = "After Fit"
     display_config["altp"] = fitted_altp_expt
     display_config["expt_data"] = expt_data  # Include experimental data for comparison
     spec_after_fit = Spectrum(**display_config)
