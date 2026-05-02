@@ -54,15 +54,54 @@
   - Consistent error handling in expt_lookup parsing
 - **All 522 tests passing after fixes**
 
+#### Phase 7: State Numbering & Plot Enhancements
+- Fixed state numbering to use energy level indices instead of principal components ✅
+  - Transitions store both 'i','f' (actual level indices) and 'pc_i','pc_f' (for SLJM matching)
+  - Now displays intuitive energy-ordered level numbers (1,2,3...) not eigenvector dominance
+- Added ylim parameter to inten_plot() for intensity (y-axis) range control ✅
+  - Complements existing xlim for energy (x-axis) range
+  - Auto-scales if ylim=None (default behavior)
+- Implemented unique figure naming for simultaneous multiple plots ✅
+  - Each plot named: spectrum.name + random UUID suffix
+  - Allows same spectrum plotted with different zoom levels without replacement
+- Added Energy column to output formatting ✅
+  - Shows energy difference (cm⁻¹) for each transition group
+  - Takes absolute value for both absorption and emission
+  - New header: "Group, Energy, Initial State, Final State, ..."
+- Fixed energy sign handling in plots ✅
+  - Energy stored as (e_f - e_i): positive for absorption, negative for emission
+  - inten_plot() uses abs() for consistent positive display
+- Updated examples (inten_fit_example.py, inten_fit_example_nofield.py) ✅
+  - Assigned unique names to before/after fit spectra
+- **All 499 tests passing** (test count reduced by removing excessive parametrization)
+
 ---
 
 ## Code Quality Metrics (Current)
 
 - **Lines eliminated**: 193 total (formatting consolidation -112, obsolete function -81)
 - **Guard code improvements**: 8 issues fixed in code audit
-- **Test coverage**: 522 passing, 16 skipped
+- **Test coverage**: 499 passing, 16 skipped (reduced from 522 by optimizing njsymbols tests)
 - **Backward compatibility**: Fully maintained (lorentzian wrapper, old format names)
-- **Documentation**: Updated docstrings with guard code rationale
+- **Documentation**: Updated docstrings with guard code rationale, state numbering, and plot controls
+
+---
+
+## Recent Enhancements (Phase 7)
+
+### State Numbering Fix
+- Changed output to display energy level indices (1-based) instead of principal component indices
+- More intuitive display: "Level 1, Level 2, ..." matches energy order
+- Transitions still use pc_i, pc_f internally for SLJM state matching
+
+### Plot Range Controls
+- Added `ylim` parameter to inten_plot() for intensity range control
+- Each plot gets unique figure identifier (spectrum name + UUID suffix)
+- Allows viewing same spectrum with different zoom levels
+
+### Output Formatting
+- Added Energy column to printout (shows |e_f - e_i| for each group)
+- Consistent positive energy display for both absorption and emission
 
 ---
 
@@ -113,6 +152,11 @@
 ## Commit History (Last 2 Days)
 
 ```
+b000a51 feat: use energy level indices for state numbering + add plot controls
+e5c4be4 Performance optimization for njsymbols tests (13x speedup)
+f92b439 Fix example format names (verbose/ultra → detailed/moments)
+2db0a68 Guard code test suite creation
+4b06bd3 Documentation updates (plan, report, diff files)
 b481343 fix: add guard code for array bounds and division by zero
 16fa219 refactor: delete obsolete inten() function, replaced by inten_plot()
 cc85723 cleanup: remove trivial wrapper stubs, rename unified formatter
@@ -120,4 +164,8 @@ f4dd51c refactor: consolidate intensity output formatting functions
 93e2c84 feat: add inten_plot() function for intensity visualization
 ```
 
-**Total impact**: -193 lines of code, +62 lines of guard code, all tests passing
+**Latest impact**: 
+- State numbering corrected (more intuitive energy-ordered display)
+- Plot controls added (ylim parameter, unique figure naming)
+- Energy column added to output formatting
+- Test suite optimized (13x faster without losing coverage)
