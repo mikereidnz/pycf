@@ -42,11 +42,55 @@ Do this plot with a default fwhm (full width half maximum) of 1 cm-1.
 >>> 2.  Stick plot of the experimental data. I.e. vertical line at the calculated energy. 
 
 
+- **Intensity Plotting** ✅ (Phase completed)
+  - Renamed `lorentzian()` → `lorentzian_constant_height()` for clarity
+  - Implemented `inten_plot()` for visualization
+  - High-resolution plots (10,000 grid points, FWHM=0.5 cm⁻¹)
+  - Plots: convoluted spectrum + stick lines (calculated blue, experimental red)
+  - Y-axis: Oscillator Strength (dimensionless)
+  - PDF output for examples
+  - All 529 tests pass
+
+---
+
+## NEXT PHASE: Format Output Refactoring
+
+**Current State**: Three separate formatting functions with redundancy
+- `_format_inten_brief()` - Group summaries only
+- `_format_inten_verbose()` - Groups + individual transition lines
+- `_format_inten_ultra()` - Groups + transitions + dipole moments
+
+**Proposed Refactoring**: Single `format_inten()` function with options
+
+**Architecture**:
+- Main function: `format_inten(spectrum, format='brief', ...)` 
+- Sub-functions to reduce duplication:
+  - `_print_group_line()` - Format and return a single group line
+  - `_print_transition_line()` - Format an individual transition line
+  - `_print_dipole_moments()` - Format dipole moment data for a transition
+  
+**Logic**:
+```
+loop over groups:
+    print group line
+    if (format in ['detailed', 'moments']):
+        loop over all transition lines in group:
+            print transition line
+            if (format == 'moments'):
+                print dipole moments
+```
+
+**Benefits**:
+- Eliminate code duplication (~400 lines of redundant code)
+- Simpler maintenance and extension
+- Consistent formatting across all modes
+
 ---
 
 ## Possible Future Enhancements
 
->>> - Chi-square residuals across transition groups
+- Chi-square residuals across transition groups
 - Before/after parameter comparison
-- Using experimental rather than calculated energies. 
-- Variable line widths and/or other line shapes. 
+- Using experimental rather than calculated energies
+- Variable line widths and/or other line shapes
+- Normalization of experimental data to reference transition 

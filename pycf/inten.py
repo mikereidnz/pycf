@@ -1037,16 +1037,141 @@ def _format_complex_dipole(value: Union[complex, float]) -> str:
         return f"{value:>13.6e}"
 
 
-def _format_inten_brief(
+def _format_group_line(
+    group: Dict[str, Any],
+    group_idx: int,
+    state_labels: List[Any],
+    spectrum: Spectrum,
+    is_absorption: bool,
+) -> str:
+    """Format one group line (Group, Initial State, Final State, f_ED, f_MD, f_Total/A_Total)."""
+    t_list = group["t_list"]
+    e_i = group["e_i"]
+    e_f = group["e_f"]
+    
+    # Get state labels from first transition in group
+    if t_list:
+        initial_pc_idx = t_list[0]["pc_i"]
+        final_pc_idx = t_list[0]["pc_f"]
+        initial_level = initial_pc_idx + 1  # Convert to 1-based
+        final_level = final_pc_idx + 1
+    else:
+        initial_level = None
+        final_level = None
+
+    # Format state labels with energies
+    initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_level, e_i) if t_list else "Unknown"
+    final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_level, e_f) if t_list else "Unknown"
+    
+    energy = group["Energy"]
+    g_i = group.get("g_i", 1)
+    
+    # Sum dipole strengths over all transitions in group
+    total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
+    total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
+    
+    # Calculate f_total and A_total using the group's values
+    f_total = group.get("f", 0.0)
+    A_total = group.get("A", 0.0)
+
+    # Decompose into ED and MD components
+    A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
+    A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
+    
+    # Format group line based on absorption or emission
+    if is_absorption:
+        line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+    else:
+        line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
+    
+    return line
+
+
+def _format_transition_line(
+    trans: Dict[str, Any],
+    g_i: float,
+    state_labels: List[Any],
+    spectrum: Spectrum,
+    is_absorption: bool,
+) -> str:
+    """Format one transition line (indent + state labels + dipole strengths + f values)."""
+    i_pc_idx = trans["pc_i"]
+    f_pc_idx = trans["pc_f"]
+    i_1b = i_pc_idx + 1  # Convert to 1-based
+    f_1b = f_pc_idx + 1
+    e_trans = trans["e"]
+    s_ed = trans.get("S_ED_isotropic", 0.0)
+    s_md = trans.get("S_MD_isotropic", 0.0)
+    
+    # Get state labels using principal component indices
+    i_label = _format_state_label_short(state_labels[i_pc_idx])
+    f_label = _format_state_label_short(state_labels[f_pc_idx])
+    
+    # Calculate f_ED, f_MD for this individual transition
+    A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
+    A_MD_t, f_MD_t = A_and_f_calc(0.0, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
+    
+    # Get transition-level total (not group total)
+    A_t, f_t = A_and_f_calc(s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
+    
+    if is_absorption:
+        trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {f_ED_t:>13.6e}  {s_md:>10.6e}  {f_MD_t:>13.6e}  {f_t:>13.6e}"
+    else:
+        trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {A_ED_t:>13.6e}  {s_md:>10.6e}  {A_MD_t:>13.6e}  {A_t:>13.6e}"
+    
+    return trans_line
+
+
+def _format_dipole_moments(trans: Dict[str, Any]) -> List[str]:
+    """Return list of formatted strings for ED and MD dipole moment components."""
+    ed_m1 = clean_complex(trans.get("ed_-1", 0.0))
+    ed_0 = clean_complex(trans.get("ed_0", 0.0))
+    ed_p1 = clean_complex(trans.get("ed_+1", 0.0))
+    md_m1 = clean_complex(trans.get("md_-1", 0.0))
+    md_0 = clean_complex(trans.get("md_0", 0.0))
+    md_p1 = clean_complex(trans.get("md_+1", 0.0))
+    
+    return [
+        f"             D_ED :      -1: {_format_complex_dipole(ed_m1):>13}    0: {_format_complex_dipole(ed_0):>13}   +1: {_format_complex_dipole(ed_p1):>13}",
+        f"             D_MD :      -1: {_format_complex_dipole(md_m1):>13}    0: {_format_complex_dipole(md_0):>13}   +1: {_format_complex_dipole(md_p1):>13}",
+    ]
+
+
+def _format_inten_unified(
     spectrum: Spectrum,
     eigenvalues: np.ndarray,
     principal_components: np.ndarray,
     state_labels: List[Any],
+    format: str = "brief",
 ) -> str:
-    """Format spectrum as a brief tabular summary (one line per group).
-    When expt_data is present, appends f_Expt and χ² columns."""
+    """
+    Unified formatter for intensity output supporting brief, detailed, and moments formats.
+    
+    Parameters
+    ----------
+    spectrum : Spectrum
+        Spectrum object with computed groups.
+    eigenvalues : np.ndarray
+        Eigenvalues (not currently used but kept for API consistency).
+    principal_components : np.ndarray
+        Principal components (not currently used but kept for API consistency).
+    state_labels : List[Any]
+        State labels for formatting.
+    format : str, optional
+        Output format: 'brief' (default, one line per group), 
+        'detailed' (brief + individual transitions), 
+        'moments' (detailed + dipole moment components).
+    
+    Returns
+    -------
+    str
+        Formatted intensity output.
+    """
+    if format not in ("brief", "detailed", "moments"):
+        raise ValueError(f"Unknown format: {format}. Use 'brief', 'detailed', or 'moments'.")
+    
     lines = [f"Spectrum: {spectrum.name}"]
-    lines.append("=" * 160)
+    lines.append("=" * 160 if format == "brief" else "=" * 132)
 
     # Print Altp parameters if present
     if spectrum.altp:
@@ -1060,72 +1185,41 @@ def _format_inten_brief(
     # Determine if absorption or emission
     is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
 
-    # Build expt_data lookup (group_idx -> f_expt)
+    # Build expt_data lookup (group_idx -> f_expt) - only used in brief format
     expt_lookup = {}
-    if spectrum.expt_data:
+    if spectrum.expt_data and format == "brief":
         for expt_entry in spectrum.expt_data:
             if len(expt_entry) >= 2:
                 group_idx, f_expt = expt_entry[0], expt_entry[1]
                 expt_lookup[int(group_idx)] = f_expt
 
-    # Header: always show full state labels + ED/MD/Total, optionally add expt data columns
+    # Header
     if is_absorption:
         header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
     else:
         header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
     
-    if spectrum.expt_data:
+    # Append expt columns for brief format only
+    if spectrum.expt_data and format == "brief":
         header += f" {'f_Expt':<14} {'χ²':<14}"
 
     lines.append(header)
-    lines.append("-" * (160 + (14 + 14) if spectrum.expt_data else 0))
+    
+    sep_width = 160 if format == "brief" else 132
+    if spectrum.expt_data and format == "brief":
+        sep_width += 28
+    lines.append("-" * sep_width)
 
-    # Print each group as one line
+    # Print each group
     total_chi2 = 0.0
     for group_idx, group in enumerate(spectrum.groups, start=1):
-        t_list = group["t_list"]
-        e_i = group["e_i"]
-        e_f = group["e_f"]
+        # Print group line
+        group_line = _format_group_line(group, group_idx, state_labels, spectrum, is_absorption)
         
-        # Get state labels from first transition in group
-        if t_list:
-            initial_pc_idx = t_list[0]["pc_i"]
-            final_pc_idx = t_list[0]["pc_f"]
-            initial_level = initial_pc_idx + 1  # Convert to 1-based
-            final_level = final_pc_idx + 1    # Convert to 1-based
-        else:
-            initial_level = None
-            final_level = None
-
-        # Format state labels with energies (always use full format)
-        initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_level, e_i) if t_list else "Unknown"
-        final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_level, e_f) if t_list else "Unknown"
-        
-        energy = group["Energy"]
-        g_i = group.get("g_i", 1)
-        
-        # Sum dipole strengths over all transitions in group
-        total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
-        total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
-        
-        # Calculate f_total and A_total using the group's values
-        f_total = group.get("f", 0.0)
-        A_total = group.get("A", 0.0)
-
-        # Decompose into ED and MD components
-        A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
-        A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
-        
-        # Format group line
-        if is_absorption:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
-        else:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
-
-        # Append experimental data if present
-        if spectrum.expt_data:
+        # Append experimental data if present (brief format only)
+        if spectrum.expt_data and format == "brief":
             f_expt = expt_lookup.get(group_idx, 0.0)
-            f_calc = f_total if is_absorption else A_total
+            f_calc = group.get("f", 0.0) if is_absorption else group.get("A", 0.0)
             
             # Calculate χ² = ((calc - exp) / (calc + exp))²
             if f_calc + f_expt != 0:
@@ -1134,11 +1228,35 @@ def _format_inten_brief(
                 chi2 = 0.0
             total_chi2 += chi2
             
-            line += f"  {f_expt:>13.6e}  {chi2:>13.6e}"
+            group_line += f"  {f_expt:>13.6e}  {chi2:>13.6e}"
+        
+        lines.append(group_line)
+        
+        # Print individual transitions if in detailed or moments format
+        if format in ("detailed", "moments"):
+            lines.append("        Individual transitions:")
+            if is_absorption:
+                trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      f_ED           S_MD_iso      f_MD           f_Total"
+            else:
+                trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      A_ED           S_MD_iso      A_MD           A_Total"
+            lines.append(trans_header)
+            
+            g_i = group.get("g_i", 1)
+            t_list = group["t_list"]
+            
+            # List each transition
+            for trans in t_list:
+                trans_line = _format_transition_line(trans, g_i, state_labels, spectrum, is_absorption)
+                lines.append(trans_line)
+                
+                # Add dipole moment components if in moments format
+                if format == "moments":
+                    dipole_lines = _format_dipole_moments(trans)
+                    lines.extend(dipole_lines)
+            
+            lines.append("")  # Blank line between groups
 
-        lines.append(line)
-
-    lines.append("-" * (160 + (14 + 14) if spectrum.expt_data else 0))
+    lines.append("-" * sep_width)
     
     # Add totals
     if spectrum.groups:
@@ -1147,13 +1265,24 @@ def _format_inten_brief(
         else:
             total_line = f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}"
         
-        if spectrum.expt_data:
+        if spectrum.expt_data and format == "brief":
             total_line += f"  {'':<14} {total_chi2:>13.6e}"
         
         lines.append(total_line)
     
-    lines.append("=" * (160 + (14 + 14) if spectrum.expt_data else 0))
+    lines.append("=" * sep_width)
     return "\n".join(lines)
+
+
+def _format_inten_brief(
+    spectrum: Spectrum,
+    eigenvalues: np.ndarray,
+    principal_components: np.ndarray,
+    state_labels: List[Any],
+) -> str:
+    """Format spectrum as a brief tabular summary (one line per group).
+    When expt_data is present, appends f_Expt and χ² columns."""
+    return _format_inten_unified(spectrum, eigenvalues, principal_components, state_labels, format="brief")
 
 
 def _format_inten_verbose(
@@ -1163,122 +1292,7 @@ def _format_inten_verbose(
     state_labels: List[Any],
 ) -> str:
     """Format spectrum as verbose output (BRIEF + individual transitions for each group)."""
-    lines = [f"Spectrum: {spectrum.name}"]
-    lines.append("=" * 132)
-
-    # Print Altp parameters if present
-    if spectrum.altp:
-        lines.append("Altp (electric dipole coupling) parameters:")
-        for altp_item in spectrum.altp:
-            if isinstance(altp_item, (list, tuple)) and len(altp_item) == 2:
-                name, value = altp_item
-                lines.append(f"  {name}: {value}")
-        lines.append("")
-
-    # Determine if absorption or emission
-    is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
-
-    # Header (reordered: ED, MD, Total for consistency)
-    if is_absorption:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
-    else:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
-
-    lines.append(header)
-    lines.append("-" * 132)
-
-    # Print each group with its individual transitions
-    for group_idx, group in enumerate(spectrum.groups, start=1):
-        t_list = group["t_list"]
-        e_i = group["e_i"]
-        e_f = group["e_f"]
-        
-        # Get state labels from first transition in group (use principal component indices)
-        if t_list:
-            initial_pc_idx = t_list[0]["pc_i"]
-            final_pc_idx = t_list[0]["pc_f"]
-            initial_level = initial_pc_idx + 1  # Convert to 1-based
-            final_level = final_pc_idx + 1      # Convert to 1-based
-        else:
-            initial_level = None
-            final_level = None
-
-        # Format state labels with energies using principal component indices
-        initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_level, e_i) if t_list else "Unknown"
-        final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_level, e_f) if t_list else "Unknown"
-        
-        energy = group["Energy"]
-        g_i = group.get("g_i", 1)
-        
-        # Sum dipole strengths over all transitions in group
-        total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
-        total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
-        
-        # Calculate f_total and A_total using the group's values
-        f_total = group.get("f", 0.0)
-        A_total = group.get("A", 0.0)
-        
-        # Decompose into ED and MD components using A_and_f_calc
-        A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
-        A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
-        
-        # Format group line based on absorption or emission (reordered: ED, MD, Total)
-        if is_absorption:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
-        else:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
-
-        lines.append(line)
-        
-        # Print individual transitions for this group
-        lines.append("        Individual transitions:")
-        if is_absorption:
-            trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      f_ED           S_MD_iso      f_MD           f_Total"
-        else:
-            trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      A_ED           S_MD_iso      A_MD           A_Total"
-        lines.append(trans_header)
-        
-        # List each transition
-        for trans in t_list:
-            i_pc_idx = trans["pc_i"]
-            f_pc_idx = trans["pc_f"]
-            i_1b = i_pc_idx + 1  # Convert to 1-based
-            f_1b = f_pc_idx + 1  # Convert to 1-based
-            e_trans = trans["e"]
-            s_ed = trans.get("S_ED_isotropic", 0.0)
-            s_md = trans.get("S_MD_isotropic", 0.0)
-            
-            # Get state labels using principal component indices
-            i_label = _format_state_label_short(state_labels[i_pc_idx])
-            f_label = _format_state_label_short(state_labels[f_pc_idx])
-            
-            # Calculate f_ED, f_MD for this individual transition
-            A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
-            A_MD_t, f_MD_t = A_and_f_calc(0.0, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
-            
-            # Get transition-level total (not group total)
-            A_t, f_t = A_and_f_calc(s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
-            
-            if is_absorption:
-                trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {f_ED_t:>13.6e}  {s_md:>10.6e}  {f_MD_t:>13.6e}  {f_t:>13.6e}"
-            else:
-                trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {A_ED_t:>13.6e}  {s_md:>10.6e}  {A_MD_t:>13.6e}  {A_t:>13.6e}"
-            
-            lines.append(trans_line)
-        
-        lines.append("")  # Blank line between groups
-
-    lines.append("-" * 132)
-    
-    # Add totals
-    if spectrum.groups:
-        if is_absorption:
-            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}")
-        else:
-            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}")
-    
-    lines.append("=" * 132)
-    return "\n".join(lines)
+    return _format_inten_unified(spectrum, eigenvalues, principal_components, state_labels, format="detailed")
 
 
 def _format_inten_ultra(
@@ -1288,133 +1302,7 @@ def _format_inten_ultra(
     state_labels: List[Any],
 ) -> str:
     """Format spectrum as ultra-verbose output (VERBOSE + dipole moment components)."""
-    lines = [f"Spectrum: {spectrum.name}"]
-    lines.append("=" * 132)
-
-    # Print Altp parameters if present
-    if spectrum.altp:
-        lines.append("Altp (electric dipole coupling) parameters:")
-        for altp_item in spectrum.altp:
-            if isinstance(altp_item, (list, tuple)) and len(altp_item) == 2:
-                name, value = altp_item
-                lines.append(f"  {name}: {value}")
-        lines.append("")
-
-    # Determine if absorption or emission
-    is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
-
-    # Header (same as VERBOSE - ED, MD, Total order)
-    if is_absorption:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
-    else:
-        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
-
-    lines.append(header)
-    lines.append("-" * 132)
-
-    # Print each group with its individual transitions and dipole moments
-    for group_idx, group in enumerate(spectrum.groups, start=1):
-        t_list = group["t_list"]
-        e_i = group["e_i"]
-        e_f = group["e_f"]
-        
-        # Get state labels from first transition in group (use principal component indices)
-        if t_list:
-            initial_pc_idx = t_list[0]["pc_i"]
-            final_pc_idx = t_list[0]["pc_f"]
-            initial_idx = initial_pc_idx + 1  # Convert to 1-based
-            final_idx = final_pc_idx + 1      # Convert to 1-based
-        else:
-            initial_idx = None
-            final_idx = None
-
-        # Format state labels with energies using principal component indices
-        initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_idx, e_i) if t_list else "Unknown"
-        final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_idx, e_f) if t_list else "Unknown"
-        
-        energy = group["Energy"]
-        g_i = group.get("g_i", 1)
-        
-        # Sum dipole strengths over all transitions in group
-        total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
-        total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
-        
-        # Calculate f_total and A_total using the group's values
-        f_total = group.get("f", 0.0)
-        A_total = group.get("A", 0.0)
-        
-        # Decompose into ED and MD components using A_and_f_calc
-        A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
-        A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
-        
-        # Format group line based on absorption or emission (ED, MD, Total order)
-        if is_absorption:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
-        else:
-            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
-
-        lines.append(line)
-        
-        # Print individual transitions for this group
-        lines.append("        Individual transitions:")
-        if is_absorption:
-            trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      f_ED           S_MD_iso      f_MD           f_Total"
-        else:
-            trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      A_ED           S_MD_iso      A_MD           A_Total"
-        lines.append(trans_header)
-        
-        # List each transition with dipole moments
-        for trans in t_list:
-            i_pc_idx = trans["pc_i"]
-            f_pc_idx = trans["pc_f"]
-            i_1b = i_pc_idx + 1  # Convert to 1-based
-            f_1b = f_pc_idx + 1  # Convert to 1-based
-            e_trans = trans["e"]
-            s_ed = trans.get("S_ED_isotropic", 0.0)
-            s_md = trans.get("S_MD_isotropic", 0.0)
-            
-            # Get state labels using principal component indices
-            i_label = _format_state_label_short(state_labels[i_pc_idx])
-            f_label = _format_state_label_short(state_labels[f_pc_idx])
-            
-            # Calculate f_ED, f_MD for this individual transition
-            A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
-            A_MD_t, f_MD_t = A_and_f_calc(0.0, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
-            
-            # Get transition-level total (not group total)
-            A_t, f_t = A_and_f_calc(s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
-            
-            if is_absorption:
-                trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {f_ED_t:>13.6e}  {s_md:>10.6e}  {f_MD_t:>13.6e}  {f_t:>13.6e}"
-            else:
-                trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {A_ED_t:>13.6e}  {s_md:>10.6e}  {A_MD_t:>13.6e}  {A_t:>13.6e}"
-            
-            lines.append(trans_line)
-            
-            # Add dipole moment components
-            ed_m1 = clean_complex(trans.get("ed_-1", 0.0))
-            ed_0 = clean_complex(trans.get("ed_0", 0.0))
-            ed_p1 = clean_complex(trans.get("ed_+1", 0.0))
-            md_m1 = clean_complex(trans.get("md_-1", 0.0))
-            md_0 = clean_complex(trans.get("md_0", 0.0))
-            md_p1 = clean_complex(trans.get("md_+1", 0.0))
-            
-            lines.append(f"             D_ED :      -1: {_format_complex_dipole(ed_m1):>13}    0: {_format_complex_dipole(ed_0):>13}   +1: {_format_complex_dipole(ed_p1):>13}")
-            lines.append(f"             D_MD :      -1: {_format_complex_dipole(md_m1):>13}    0: {_format_complex_dipole(md_0):>13}   +1: {_format_complex_dipole(md_p1):>13}")
-        
-        lines.append("")  # Blank line between groups
-
-    lines.append("-" * 132)
-    
-    # Add totals
-    if spectrum.groups:
-        if is_absorption:
-            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}")
-        else:
-            lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}")
-    
-    lines.append("=" * 132)
-    return "\n".join(lines)
+    return _format_inten_unified(spectrum, eigenvalues, principal_components, state_labels, format="moments")
 
 
 def _format_inten_csv(
