@@ -228,7 +228,7 @@ def main():
     
     print("\nComparison of target vs fitted intensities:")
     print("-" * 100)
-    print(f"{'Group':<8} {'Transition (cm⁻¹)':<20} {'Target f':<20} {'Fitted f':<20} {'Rel. Error':<15}")
+    print(f"{'Group':<8} {'Transition (cm⁻¹)':<20} {'Fitted f':<20} {'Target f':<20} {'Rel. Error':<15}")
     print("-" * 100)
     
     max_error = 0.0
@@ -238,7 +238,7 @@ def main():
         trans_energy = group.get('Energy', 0.0)
         rel_error = abs(fitted_f - target_f) / target_f if target_f != 0 else 0
         max_error = max(max_error, rel_error)
-        print(f"{group_idx:<8} {trans_energy:<20.4f} {target_f:<20.6e} {fitted_f:<20.6e} {rel_error*100:<14.4f}%")
+        print(f"{group_idx:<8} {trans_energy:<20.4f} {fitted_f:<20.6e} {target_f:<20.6e} {rel_error*100:<14.4f}%")
     
     print("-" * 100)
     print(f"\nMaximum relative error: {max_error*100:.4f}%")
@@ -249,33 +249,78 @@ def main():
         print("\n⚠ Fit did not converge well")
     
     # ======================================================================
+    # Create experimental data for STEP 5
+    # ======================================================================
+    np.random.seed(42)
+    expt_data = []
+    for group_idx in sorted(target_intensities.keys()):
+        f_target = target_intensities[group_idx]
+        # For BEFORE FIT, use target intensities as "experimental" values
+        # (in real scenarios, these would be measured values)
+        expt_data.append([group_idx, f_target])
+    
+    # --- BRIEF FORMAT BEFORE FIT (fitted parameters from STEP 4 vs experimental data) ---
+    print("\n" + "=" * 160)
+    print("BRIEF FORMAT: BEFORE FIT (fitted params from STEP 4 vs experimental data)")
+    print("=" * 160)
+    display_config = spectrum_config.copy()
+    display_config["altp"] = fitted_altp
+    display_config["expt_data"] = expt_data  # Show experimental data comparison
+    spec_before_fit = Spectrum(**display_config)
+    spec_before_fit.calculate_intensities(polarization='isotropic')
+    print(gen_inten_summary(spec_before_fit, h, format='brief'))
+    
+    # ======================================================================
     # STEP 5: Demonstrate experimental data integration
     # ======================================================================
     print("\n" + "=" * 70)
-    print("STEP 5: VIEWING WITH EXPERIMENTAL DATA")
+    print("STEP 5: EXPERIMENTAL DATA FITTING")
     print("=" * 70)
     
-    # Create synthetic experimental data (with small random noise)
+    # Generate experimental data with 5% noise for fitting
     np.random.seed(42)
-    expt_data = []
-    for group_idx, group in enumerate(spec_final.groups, start=1):
-        f_calc = group.get('f', 0.0)
-        # Add 5% random noise to calculated values as "experimental"
-        f_expt = f_calc * (1.0 + 0.05 * (np.random.random() - 0.5))
-        expt_data.append([group_idx, f_calc, f_expt])
+    expt_data_noisy = []
+    expt_target_intensities = {}
+    for group_idx in sorted(target_intensities.keys()):
+        f_target = target_intensities[group_idx]
+        # Add 5% random noise to create synthetic experimental data
+        f_expt = f_target * (1.0 + 0.05 * (np.random.random() - 0.5))
+        expt_data_noisy.append([group_idx, f_target, f_expt])
+        expt_target_intensities[group_idx] = f_expt
     
     print("\nExperimental data (with 5% noise):")
-    print(expt_data)
+    print(expt_data_noisy)
     
-    # Create new spectrum with experimental data for display
-    spectrum_config["expt_data"] = expt_data
-    spec_with_expt = Spectrum(**spectrum_config)
-    spec_with_expt.calculate_intensities(polarization='isotropic')
+    # --- Fit to experimental data ---
+    print("\n" + "=" * 70)
+    print("FITTING TO EXPERIMENTAL DATA")
+    print("=" * 70)
     
+    print(f"Fitting to {len(expt_target_intensities)} experimental data points...")
+    result_expt = fit_altp(
+        ["A210", "A230", "A233"],
+        h,
+        spectrum_config,
+        expt_target_intensities,
+        method='Nelder-Mead',
+        options={'maxiter': 5000, 'xatol': 1e-8, 'fatol': 1e-10}
+    )
+    
+    print(f"\nFit converged with χ² = {result_expt['chi2']:.6e}")
+    fitted_altp_expt = [[name, result_expt['fitted_params'][name]] for name in ["A210", "A230", "A233"]]
+    print("\nFitted Altp parameters from experimental data:")
+    for name, value in fitted_altp_expt:
+        print(f"  {name}: {value}")
+    
+    # --- BRIEF FORMAT AFTER FIT (new fitted parameters with experimental data) ---
     print("\n" + "=" * 160)
-    print("BRIEF FORMAT WITH EXPERIMENTAL DATA")
+    print("BRIEF FORMAT: AFTER FIT (refitted params vs experimental data)")
     print("=" * 160)
-    print(gen_inten_summary(spec_with_expt, h, format='brief'))
+    display_config["altp"] = fitted_altp_expt
+    display_config["expt_data"] = expt_data  # Include experimental data for comparison
+    spec_after_fit = Spectrum(**display_config)
+    spec_after_fit.calculate_intensities(polarization='isotropic')
+    print(gen_inten_summary(spec_after_fit, h, format='brief'))
 
 
 if __name__ == "__main__":

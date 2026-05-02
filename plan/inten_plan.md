@@ -7,40 +7,46 @@
 - **Altp Parameter Fitting**: Working implementation with uncertainty estimation (commits 17b5c3e, 378b1f3, 2610221)
   - `fit_altp()` with scipy.optimize.minimize
   - Hessian-based parameter uncertainties
-  - Two example files: magnetic field and zero-field cases
   - All 529 tests pass
+
+- **Experimental Data Integration with BRIEF Output** ✅ (Phase completed)
+  - Enhanced BRIEF format with f_Expt and χ² columns
+  - χ² formula: `((calc - exp) / (calc + exp))²`
+  - Per-group χ² with total aggregation
+  - Spectrum.expt_data field added: list of [group_idx, f_expt] pairs
+  - Two working examples with before/after fitting demonstration
+    - Magnetic field: 1 initial → 8 final states (8 transition groups)
+    - Zero-field: 2 initial → 6 final state groups (degenerate states)
+  - BEFORE FIT shows perfect baseline agreement (target intensities)
+  - AFTER FIT shows improved fit to synthetic noisy experimental data
 
 ---
 
-## CURRENT PHASE: Experimental Data Integration with BRIEF Output
+## CURRENT PHASE: Planning Plotting Output
 
-### Next Task: Integrate Experimental Values into BRIEF Line
+**Goal**: Add simple plotting capability to visualize:
+- Chi-square residuals across transition groups
+- Before/after parameter comparison
+- Intensity comparison (calculated vs experimental)
 
-**Goal**: Enhance BRIEF output to include experimental intensity values alongside calculated values
+**User notes for planning**:
+>>> My main aim is to create the Intensity comparison. 
 
-**Required output format** (for each group line):
-```
-Calculated_f  Experimental_f  χ² (residual metric)
-```
+>>>  inten_plot()
 
-**Details needed**:
-1. How experimental values are provided (spectrum object method? external dict?)
->>> At this point I think an external list would be OK: 
-  [ [i1, f1, expt1],
-    [i2, f2, expt]]
-2. Which χ² function to use (e.g., `((calc - exp) / (calc + exp))²` or simple relative error?)
->>> the `((calc - exp) / (calc + exp))²` function. 
-3. Whether to aggregate χ² across all groups or show per-group
->>> list for each group, with a total at the bottom. 
+>>> 1. Plot of the calculated f (or A) convoluted with the lorentzian() funtion given in the inten.pyt file. 
+I suggest renaming this lorentzian_constant_height() to make it clear that it preserves the height not the area. 
+The only place it is used is in the inten() function, which inten_plot() will supercede. 
+Do this plot with a default fwhm (full width half maximum) of 1 cm-1. 
 
-**Examples**: 
-- No magnetic field: 6 transition groups, 2 initial states
-- With magnetic field: 8 transition groups, 1 initial state
->>> Yes, do both examples. 
+>>> 2.  Stick plot of the experimental data. I.e. vertical line at the calculated energy. 
+
+
 ---
 
 ## Possible Future Enhancements
 
->>> 1. To make this useful for testing I will need to be able to specify that the experimental data should be normalized to a particular transition. Usually a pure magnetic dipole transition. 
-
->>> 2. Then I want to plot the spectrum and the experimental data. 
+>>> - Chi-square residuals across transition groups
+- Before/after parameter comparison
+- Using experimental rather than calculated energies. 
+- Variable line widths and/or other line shapes. 

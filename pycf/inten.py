@@ -555,9 +555,11 @@ def boltzmann_factor(e: float, t: float) -> float:
     return ans
 
 
-def lorentzian(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[float, np.ndarray]:
+def lorentzian_constant_height(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[float, np.ndarray]:
     """
-    Calculate Lorentzian line shape.
+    Calculate Lorentzian line shape (constant height).
+
+    This Lorentzian preserves peak height (not area) regardless of fwhm.
 
     Parameters
     ----------
@@ -582,6 +584,11 @@ def lorentzian(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[flo
         raise ValueError(f"fwhm must be positive (got {fwhm})")
     gamma_sq = (fwhm / 2) ** 2
     return gamma_sq / ((x - x0) ** 2 + gamma_sq)
+
+
+def lorentzian(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[float, np.ndarray]:
+    """Deprecated: use lorentzian_constant_height() instead."""
+    return lorentzian_constant_height(x, x0, fwhm)
 
 
 def inten(
@@ -655,7 +662,7 @@ def inten(
         # Calculate the individual line intensities.
         line_inten[i] = boltzmann_factor(tr["ei"] - min_energy, T) * tr[polarization]
         # Calculate the cumulative curve intensity.
-        curve_inten += line_inten[i] * lorentzian(curve_energies, line_energies[i], linewidth)
+        curve_inten += line_inten[i] * lorentzian_constant_height(curve_energies, line_energies[i], linewidth)
     return (line_energies, line_inten, curve_energies, curve_inten)
 
 
@@ -1036,7 +1043,8 @@ def _format_inten_brief(
     principal_components: np.ndarray,
     state_labels: List[Any],
 ) -> str:
-    """Format spectrum as a brief tabular summary (one line per group)."""
+    """Format spectrum as a brief tabular summary (one line per group).
+    When expt_data is present, appends f_Expt and χ² columns."""
     lines = [f"Spectrum: {spectrum.name}"]
     lines.append("=" * 160)
 
@@ -1056,24 +1064,21 @@ def _format_inten_brief(
     expt_lookup = {}
     if spectrum.expt_data:
         for expt_entry in spectrum.expt_data:
-            if len(expt_entry) >= 3:
-                group_idx, f_calc, f_expt = expt_entry[0], expt_entry[1], expt_entry[2]
+            if len(expt_entry) >= 2:
+                group_idx, f_expt = expt_entry[0], expt_entry[1]
                 expt_lookup[int(group_idx)] = f_expt
 
-    # Header (includes experimental data if available)
-    if spectrum.expt_data:
-        if is_absorption:
-            header = f"{'Group':<6} {'Initial State':<40} {'Final State':<40} {'f_Calc':<14} {'f_Expt':<14} {'χ²':<14}"
-        else:
-            header = f"{'Group':<6} {'Initial State':<40} {'Final State':<40} {'A_Calc':<14} {'A_Expt':<14} {'χ²':<14}"
+    # Header: always show full state labels + ED/MD/Total, optionally add expt data columns
+    if is_absorption:
+        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
     else:
-        if is_absorption:
-            header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
-        else:
-            header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
+        header = f"{'Group':<6} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
+    
+    if spectrum.expt_data:
+        header += f" {'f_Expt':<14} {'χ²':<14}"
 
     lines.append(header)
-    lines.append("-" * 160)
+    lines.append("-" * (160 + (14 + 14) if spectrum.expt_data else 0))
 
     # Print each group as one line
     total_chi2 = 0.0
@@ -1084,19 +1089,17 @@ def _format_inten_brief(
         
         # Get state labels from first transition in group
         if t_list:
-            initial_level = t_list[0]["pc_i"] + 1  # Convert to 1-based
-            final_level = t_list[0]["pc_f"] + 1    # Convert to 1-based
+            initial_pc_idx = t_list[0]["pc_i"]
+            final_pc_idx = t_list[0]["pc_f"]
+            initial_level = initial_pc_idx + 1  # Convert to 1-based
+            final_level = final_pc_idx + 1    # Convert to 1-based
         else:
             initial_level = None
             final_level = None
 
-        # Format state labels with energies (shorter format when expt data present)
-        if spectrum.expt_data:
-            initial_label = f"Z{initial_level}" if initial_level is not None else "Unknown"
-            final_label = f"Z{final_level}" if final_level is not None else "Unknown"
-        else:
-            initial_label = _format_state_label_with_energy(state_labels[initial_level - 1], initial_level, e_i) if initial_level is not None else "Unknown"
-            final_label = _format_state_label_with_energy(state_labels[final_level - 1], final_level, e_f) if final_level is not None else "Unknown"
+        # Format state labels with energies (always use full format)
+        initial_label = _format_state_label_with_energy(state_labels[initial_pc_idx], initial_level, e_i) if t_list else "Unknown"
+        final_label = _format_state_label_with_energy(state_labels[final_pc_idx], final_level, e_f) if t_list else "Unknown"
         
         energy = group["Energy"]
         g_i = group.get("g_i", 1)
@@ -1109,8 +1112,18 @@ def _format_inten_brief(
         f_total = group.get("f", 0.0)
         A_total = group.get("A", 0.0)
 
+        # Decompose into ED and MD components
+        A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
+        A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
+        
+        # Format group line
+        if is_absorption:
+            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+        else:
+            line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
+
+        # Append experimental data if present
         if spectrum.expt_data:
-            # Format with experimental data
             f_expt = expt_lookup.get(group_idx, 0.0)
             f_calc = f_total if is_absorption else A_total
             
@@ -1121,36 +1134,25 @@ def _format_inten_brief(
                 chi2 = 0.0
             total_chi2 += chi2
             
-            if is_absorption:
-                line = f"{group_idx:<6} {initial_label:<40} {final_label:<40} {f_calc:>13.6e}  {f_expt:>13.6e}  {chi2:>13.6e}"
-            else:
-                line = f"{group_idx:<6} {initial_label:<40} {final_label:<40} {A_total:>13.6e}  {f_expt:>13.6e}  {chi2:>13.6e}"
-        else:
-            # Original format without experimental data
-            # Decompose into ED and MD components using A_and_f_calc
-            A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
-            A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
-            
-            if is_absorption:
-                line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
-            else:
-                line = f"{group_idx:<6} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
+            line += f"  {f_expt:>13.6e}  {chi2:>13.6e}"
 
         lines.append(line)
 
-    lines.append("-" * 160)
+    lines.append("-" * (160 + (14 + 14) if spectrum.expt_data else 0))
     
     # Add totals
     if spectrum.groups:
-        if spectrum.expt_data:
-            lines.append(f"{'TOTAL':<6} {'':<40} {'':<40} {'':<14} {'':<14} {total_chi2:>13.6e}")
+        if is_absorption:
+            total_line = f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}"
         else:
-            if is_absorption:
-                lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}")
-            else:
-                lines.append(f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}")
+            total_line = f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}"
+        
+        if spectrum.expt_data:
+            total_line += f"  {'':<14} {total_chi2:>13.6e}"
+        
+        lines.append(total_line)
     
-    lines.append("=" * 160)
+    lines.append("=" * (160 + (14 + 14) if spectrum.expt_data else 0))
     return "\n".join(lines)
 
 
@@ -1846,3 +1848,113 @@ def _estimate_parameter_uncertainties(
     except np.linalg.LinAlgError:
         # Hessian is singular or near-singular
         return {pname: None for pname in param_names}
+
+
+def inten_plot(
+    spectrum: 'Spectrum',
+    fwhm: float = 0.5,
+    xlim: Optional[List[float]] = None,
+    npoints: int = 10000,
+    figsize: Tuple[float, float] = (12, 6),
+) -> 'Tuple[Any, Any]':
+    """
+    Plot calculated and experimental intensities.
+
+    Creates a plot with:
+    - Calculated intensities convoluted with a Lorentzian line shape
+    - Experimental data as vertical stick lines
+
+    Parameters
+    ----------
+    spectrum : Spectrum
+        Spectrum object containing transition groups with energies and intensities.
+    fwhm : float, optional
+        Full width at half maximum of the Lorentzian (cm^-1). Default: 0.5 cm^-1.
+    xlim : list of float, optional
+        Energy range [E_min, E_max] for plot. If None, determined from transition energies.
+    npoints : int, optional
+        Number of points for energy grid (controls resolution). Default: 10000.
+    figsize : tuple, optional
+        Figure size (width, height) in inches. Default: (12, 6).
+
+    Returns
+    -------
+    tuple
+        (fig, ax) matplotlib figure and axes objects.
+
+    Raises
+    ------
+    ValueError
+        If spectrum has no groups or matplotlib cannot be imported.
+    ImportError
+        If matplotlib is not installed.
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        raise ImportError("matplotlib is required for inten_plot(). Install with: pip install matplotlib")
+    
+    if not spectrum.groups:
+        raise ValueError("Spectrum must have at least one transition group")
+    
+    # Extract transition energies and intensities
+    energies = []
+    intensities = []
+    for group in spectrum.groups:
+        energies.append(group.get('Energy', 0.0))
+        intensities.append(group.get('f', group.get('A', 0.0)))
+    
+    energies = np.array(energies)
+    intensities = np.array(intensities)
+    
+    # Determine energy range
+    if xlim is None:
+        e_min, e_max = energies.min(), energies.max()
+        margin = (e_max - e_min) * 0.1 if e_max > e_min else 10.0
+        xlim = [e_min - margin, e_max + margin]
+    
+    # Generate energy grid for convolution (fine step size for smooth curve)
+    energy_grid = np.linspace(xlim[0], xlim[1], npoints)
+    
+    # Convolute with Lorentzian
+    convoluted = np.zeros(npoints)
+    for e, inten in zip(energies, intensities):
+        convoluted += inten * lorentzian_constant_height(energy_grid, e, fwhm)
+    
+    # Create plot
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Plot convoluted spectrum
+    ax.plot(energy_grid, convoluted, 'b-', linewidth=2, label='Calculated (convoluted)')
+    
+    # Plot stick spectrum for calculated
+    ax.vlines(energies, 0, intensities, colors='blue', alpha=0.5, linewidth=1, linestyles='solid')
+    
+    # If experimental data available, plot as stick lines
+    if spectrum.expt_data:
+        expt_energies = []
+        expt_intensities = []
+        for expt_entry in spectrum.expt_data:
+            if len(expt_entry) >= 2:
+                group_idx, f_expt = expt_entry[0], expt_entry[1]
+                if 1 <= group_idx <= len(spectrum.groups):
+                    e = spectrum.groups[group_idx - 1].get('Energy', 0.0)
+                    expt_energies.append(e)
+                    expt_intensities.append(f_expt)
+        
+        if expt_energies:
+            expt_energies = np.array(expt_energies)
+            expt_intensities = np.array(expt_intensities)
+            ax.vlines(expt_energies, 0, expt_intensities, colors='red', alpha=0.8, 
+                     linewidth=2, linestyles='solid', label='Experimental')
+    
+    # Labels and formatting
+    ax.set_xlabel('Energy (cm$^{-1}$)', fontsize=12)
+    ax.set_ylabel('Oscillator Strength (dimensionless)', fontsize=12)
+    ax.set_title(f'{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)', fontsize=13)
+    ax.set_xlim(xlim)
+    ax.set_ylim(bottom=0)
+    ax.legend(loc='upper right', fontsize=11)
+    ax.grid(True, alpha=0.3)
+    
+    return fig, ax
