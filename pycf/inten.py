@@ -946,32 +946,9 @@ def _format_inten_text(
     return "\n".join(lines)
 
 
-def _format_state_label_with_energy(label: Any, level: int, energy: float, label_key: Optional[str] = None) -> str:
-    """Format a state label with 1-based level index and energy."""
-    if label_key:
-        # Use formatted label with label_key
-        try:
-            label_str = _format_state_label_short(label, label_key)
-            # Remove pipes and closing bracket: |2F 5, -5> becomes 2F 5, -5
-            if label_str.startswith("|"):
-                label_str = label_str[1:]
-            if label_str.endswith(">"):
-                label_str = label_str[:-1]
-        except Exception:
-            label_str = " ".join(str(x) for x in label) if isinstance(label, (list, tuple)) else str(label)
-    else:
-        # Simple formatting without label_key
-        if isinstance(label, (list, tuple)):
-            label_str = " ".join(str(x) for x in label)
-        else:
-            label_str = str(label)
-    
-    return f"{level}: |{label_str} > (E = {energy:12.6f} cm-1)"
-
-
-def _format_state_label_short(label: Any, label_key: Optional[str] = None) -> str:
+def _format_state_label_content(label: Any, label_key: Optional[str] = None) -> str:
     """
-    Format a state label in short form using label_key convention if provided.
+    Format state label content (without pipes or brackets).
     
     Parameters
     ----------
@@ -981,10 +958,15 @@ def _format_state_label_short(label: Any, label_key: Optional[str] = None) -> st
         Label key specifying quantum number types (S, L, J, M, etc.).
         If provided, formats with proper L->term letter conversion.
         If None, returns space-separated quantum numbers.
+    
+    Returns
+    -------
+    str
+        Formatted label content without decorative pipes or brackets.
     """
     if label_key:
         try:
-            label_str = "|"
+            label_str = ""
             for i, l in enumerate(label):
                 if i < len(label_key):
                     if label_key[i] == "S":
@@ -994,8 +976,8 @@ def _format_state_label_short(label: Any, label_key: Optional[str] = None) -> st
                     elif label_key[i] == "J":
                         label_str += "{: >2d},".format(l)
                     elif label_key[i] == "M":
-                        # M is last element, add closing >
-                        label_str += "{: >3d}>".format(l)
+                        # M is last element
+                        label_str += "{: >3d}".format(l)
                     elif label_key[i] == "X":
                         label_str += "{:d},".format(l)
                     elif label_key[i] == "F":
@@ -1010,25 +992,39 @@ def _format_state_label_short(label: Any, label_key: Optional[str] = None) -> st
                         if i < len(label_key) - 1:
                             label_str += "{: >3d},".format(l)
                         else:
-                            label_str += "{: >3d}>".format(l)
+                            label_str += "{: >3d}".format(l)
                 else:
-                    # Beyond label_key length, format and close
-                    label_str += "{: >3d}>".format(l)
+                    # Beyond label_key length, format normally
+                    label_str += "{: >3d}".format(l)
             return label_str
         except Exception:
             # Fallback to simple format if something goes wrong
             if isinstance(label, (list, tuple)):
-                label_str = " ".join(str(x) for x in label)
+                return " ".join(str(x) for x in label)
             else:
-                label_str = str(label)
-            return f"| {label_str} >"
+                return str(label)
     else:
         # No label_key, use simple formatting
         if isinstance(label, (list, tuple)):
-            label_str = " ".join(str(x) for x in label)
+            return " ".join(str(x) for x in label)
         else:
-            label_str = str(label)
-        return f"| {label_str} >"
+            return str(label)
+
+
+def _format_state_label_short(label: Any, label_key: Optional[str] = None) -> str:
+    """
+    Format a state label in short form using label_key convention if provided.
+    
+    Returns formatted label with pipes and brackets: |2F 5, -5>
+    """
+    content = _format_state_label_content(label, label_key)
+    return f"|{content}>"
+
+
+def _format_state_label_with_energy(label: Any, level: int, energy: float, label_key: Optional[str] = None) -> str:
+    """Format a state label with 1-based level index and energy."""
+    content = _format_state_label_content(label, label_key)
+    return f"{level}: |{content}> (E = {energy:12.6f} cm-1)"
 
 
 def _format_complex_dipole(value: Union[complex, float]) -> str:
