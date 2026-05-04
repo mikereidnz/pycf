@@ -718,6 +718,11 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
         an ExData object.
     nstates : int, optional
         The number of constituent states to display for mixed states.
+    max_levels : int, optional
+        Maximum number of energy levels to display in the output (display only;
+        does not affect chi2 statistics or other calculations). Useful for systems
+        with hundreds of levels where only the first N are of interest.
+        Default: None (display all levels).
     chi2 : float, optional
         The final chi2 value of the fit.
     ndof : int, optional
@@ -744,6 +749,12 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
         nstates = 2
     else:
         nstates = kwargs["nstates"]
+    
+    # Handle max_levels parameter (display only, not for statistics)
+    max_levels = kwargs.get("max_levels", None)
+    if max_levels is not None and max_levels < 1:
+        raise ValueError("max_levels must be >= 1 if specified")
+    
     if "ex" in kwargs:
         ex = kwargs["ex"]
         if isinstance(ex, np.ndarray):
@@ -822,7 +833,9 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
         heading += " \n"
     s += uline_char(heading)
     ii = 0
-    for i in range(len(z)):
+    # Determine the number of levels to display
+    n_display = len(z) if max_levels is None else min(len(z), max_levels)
+    for i in range(n_display):
         line = "{0:<6}".format(i + 1)
         # Add mu and n columns if calculated
         if mu_values is not None:

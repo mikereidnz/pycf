@@ -703,25 +703,42 @@ cdef class Hamiltonian:
         r"""
         Generate an energy level summary resulting from a diagonalization.
 
-        Returns
-        -------
-        ex : np.ndarray, optional
-            A 2 by m array, specifying the experimental energy levels, with m the
-            number of available experimental levels.  The first column specifies the
-            index of the corresponding entry in the complete eigenvalue vector, and
-            the second column contains the energy level values.
+        Parameters
+        ----------
+        ex : np.ndarray or ExData, optional
+            Experimental energy level data to display alongside calculated levels.
+            Can be either a 2-column array [level_index, energy] or an ExData object.
+            Shows experimental values and differences for each level; displays "--"
+            for levels without assigned data.
         nstates : int, optional
             The number of constituent states to display for mixed states.
+            Default: 2.
+        max_levels : int, optional
+            Maximum number of energy levels to display (display only; does not affect
+            fitting statistics). Useful for systems with many levels where only the
+            first N are of interest. Default: None (display all levels).
         chi2 : float, optional
             The final chi2 value of the fit.
         ndof : int, optional
             The number of degrees of freedom of the fit; that is, the number of
-            observables minus the number of parameters.
+            observables minus the number of parameters. Required with chi2 to compute sigma.
         weighting : float, optional
-            The weighting applied to during the chi2 fit.  This needs to be
-            provided if ndof is set.
+            The weighting applied during the chi2 fit. Must be provided if ndof is set.
         e_shift : bool, optional
-            Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero.
+            Shift entire eigenvalue spectrum so that the first eigenvalue is zero.
+        minimum_q : int, optional
+            Smallest non-zero q value in the crystal field expansion. If set on the
+            Hamiltonian instance, it is automatically passed and adds mu/n columns
+            to the output.
+        half_integer_states : bool, optional
+            Whether m values are half-integers (for f-electrons). Automatically passed
+            from Hamiltonian instance if set.
+
+        Returns
+        -------
+        str
+            Formatted energy level summary with state composition, calculated energies,
+            and optionally experimental data and fit statistics.
         """
         if self.diag_run:
             if "h_label" not in kwargs and self.label is not None:
