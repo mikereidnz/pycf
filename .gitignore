@@ -33,3 +33,4 @@ tests/logs/
 
 # One-off example-script test reports
 examples_test_results.txt
+/tmp
