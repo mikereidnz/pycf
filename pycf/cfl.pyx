@@ -1576,26 +1576,20 @@ cdef class ExData(object):
 
             for k in key:
                 if k == 'A' or k == 'D':
-                    if 'AS' in key or 'DS' in key or 'AMu' in key or 'DMu' in key:
-                        raise ValueError("Mixed data types are not supported; use either " \
-                                "(A/D), (AS/DS), or (AMu/DMu).")
+                    if 'AS' in key or 'DS' in key:
+                        raise ValueError("Mixed data types are not supported; use either (A/D) or (AS/DS). " \
+                                "For marker-column mu/n data, use 'A' or 'D' with label_key='MuN'.")
                     self.sl_index = 0
                 else:
                     if 'A' in key or 'D' in key:
-                        raise ValueError("Mixed data types are not supported; use either " \
-                                "(A/D), (AS/DS), or (AMu/DMu).")
+                        raise ValueError("Mixed data types are not supported; use either (A/D) or (AS/DS). " \
+                                "For marker-column mu/n data, use 'A' or 'D' with label_key='MuN'.")
                     elif 'AS' in key or 'DS' in key:
-                        if 'AMu' in key or 'DMu' in key:
-                            raise ValueError("Cannot mix state label types; use either " \
-                                    "(AS/DS) or (AMu/DMu).")
                         # SLJM-based state labels
                         if type(label_key) != str:
                             raise TypeError("The label_key argument must be of type str and is " \
                                     "mandatory for state label indices.")
                         self.sl_index = 1
-                    elif 'AMu' in key or 'DMu' in key:
-                        # mu/n-based data: don't use state label hashes
-                        self.sl_index = 0
                     else:
                         # Other state label types (shouldn't reach here currently)
                         if type(label_key) != str:
@@ -1603,9 +1597,9 @@ cdef class ExData(object):
                                     "mandatory for state label indices.")
                         self.sl_index = 1
 
-                if k not in ['A', 'D', 'AS', 'DS', 'AMu', 'DMu']:
-                    raise ValueError("Invalid key argument; allowed options are 'A', 'D', " \
-                            "'AS', 'DS', 'AMu', and 'DMu'.")
+                if k not in ['A', 'D', 'AS', 'DS']:
+                    raise ValueError("Invalid key argument; allowed options are 'A', 'D', 'AS', and 'DS'. " \
+                            "For marker-column mu/n data, use 'A' or 'D' with label_key='MuN'.")
         if isinstance(data, np.ndarray):
             if not data.shape[1] == 2:
                 raise ValueError("Incorrect ex data shape; expected a two column array.")
@@ -1687,51 +1681,117 @@ cdef class ExData(object):
                     self.n_a = 0
                     self.la = np.zeros(0)
             
-            # Handle mu/n-based data (sl_index=0)
-            elif 'AMu' in key or 'DMu' in key:
-                if 'AMu' in key:
-                    # Store raw (mu, n) data without conversion
-                    if data[key.index('AMu')].shape[1] != 3:
-                        raise ValueError("AMu data must have 3 columns: (mu, n, energy).")
-                    self.n_a = len(data[key.index('AMu')])
-                    self.mu_n_abs = np.ascontiguousarray(data[key.index('AMu')][:, :2], dtype=np.float64)
-                    self.has_mu_n = True
-
-                if 'DMu' in key:
-                    # Store raw (mu, n) data for initial and final states
-                    if data[key.index('DMu')].shape[1] != 5:
-                        raise ValueError("DMu data must have 5 columns: (mu_i, n_i, mu_f, n_f, energy_diff).")
-                    self.n_d = len(data[key.index('DMu')])
-                    self.mu_n_diff = np.ascontiguousarray(data[key.index('DMu')][:, :4], dtype=np.float64)
-                    self.has_mu_n = True
-
-                if len(key) == 2:
-                    # Both abs. and diff. levels present; energies and weights
-                    # are stacked with all abs. values before the diff. values.
-                    self.e = np.ascontiguousarray(np.hstack((data[key.index('AMu')][:, 2],
-                        data[key.index('DMu')][:, 4])), dtype=np.float64)
-                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('AMu')],
-                        weights[key.index('DMu')])), dtype=np.float64)
-                    # Initialize la, ild, fld for mixed case; will be filled by conversion
+            # Handle marker-column mu/n data with label_key="MuN"
+            elif label_key == "MuN":
+                # Marker-column format: first column is "mu" or "lev" string
+                self.has_mu_n = True
+                
+                if 'A' in key:
+                    a_idx = key.index('A')
+                    a_data = data[a_idx]
+                    
+                    if a_data.shape[1] < 3:
+                        raise ValueError("A data with label_key='MuN' must have at least 3 columns "
+                                       "(marker, col, energy).")
+                    
+                    self.n_a = len(a_data)
+                    self.a_states = np.zeros(self.n_a, dtype=object)  # Store markers
                     self.la = np.zeros(self.n_a, dtype=np.int32)
+                    
+                    # Separate mu and lev rows
+                    mu_rows = []
+                    for i in range(self.n_a):
+                        marker = str(a_data[i, 0])
+                        if marker not in ("mu", "lev"):
+                            raise ValueError(f"Invalid marker '{marker}' in row {i}; must be 'mu' or 'lev'.")
+                        self.a_states[i] = marker
+                        
+                        if marker == "mu":
+                            if a_data.shape[1] != 4:
+                                raise ValueError(f"'mu' row {i} must have 4 columns: (marker, mu, n, energy).")
+                            mu_rows.append(i)
+                        elif marker == "lev":
+                            # Convert 1-based level to 0-based index
+                            level = int(a_data[i, 1])
+                            if level < 1:
+                                raise ValueError(f"'lev' row {i}: level must be >= 1 (1-based), got {level}")
+                            self.la[i] = level - 1
+                    
+                    # Store mu/n data for rows that have it
+                    if mu_rows:
+                        self.mu_n_abs = np.ascontiguousarray(
+                            a_data[mu_rows, 1:3], dtype=np.float64
+                        )
+                    else:
+                        self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
+                
+                if 'D' in key:
+                    d_idx = key.index('D')
+                    d_data = data[d_idx]
+                    
+                    if d_data.shape[1] < 4:
+                        raise ValueError("D data with label_key='MuN' must have at least 4 columns "
+                                       "(marker, col1, col2, energy).")
+                    
+                    self.n_d = len(d_data)
+                    self.id_states = np.zeros(self.n_d, dtype=object)  # Store markers
                     self.ild = np.zeros(self.n_d, dtype=np.int32)
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
-
-                elif key[0] == 'AMu':
-                    self.e = np.ascontiguousarray(data[key.index('AMu')][:, 2], dtype=np.float64)
-                    self.w = np.ascontiguousarray(weights[key.index('AMu')], dtype=np.float64)
+                    
+                    # Separate mu and lev rows
+                    mu_rows = []
+                    for i in range(self.n_d):
+                        marker = str(d_data[i, 0])
+                        if marker not in ("mu", "lev"):
+                            raise ValueError(f"Invalid marker '{marker}' in row {i}; must be 'mu' or 'lev'.")
+                        self.id_states[i] = marker
+                        
+                        if marker == "mu":
+                            if d_data.shape[1] != 6:
+                                raise ValueError(f"'mu' row {i} must have 6 columns: "
+                                               "(marker, mu_i, n_i, mu_f, n_f, energy).")
+                            mu_rows.append(i)
+                        elif marker == "lev":
+                            if d_data.shape[1] != 4:
+                                raise ValueError(f"'lev' row {i} must have 4 columns: "
+                                               "(marker, level_i, level_f, energy).")
+                            # Convert 1-based levels to 0-based indices
+                            level_i = int(d_data[i, 1])
+                            level_f = int(d_data[i, 2])
+                            if level_i < 1 or level_f < 1:
+                                raise ValueError(f"'lev' row {i}: levels must be >= 1 (1-based)")
+                            self.ild[i] = level_i - 1
+                            self.fld[i] = level_f - 1
+                    
+                    # Store mu/n data for rows that have it
+                    if mu_rows:
+                        self.mu_n_diff = np.ascontiguousarray(
+                            d_data[mu_rows, 1:5], dtype=np.float64
+                        )
+                    else:
+                        self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
+                
+                # Stack energies and weights
+                if len(key) == 2:
+                    self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, -1],
+                        data[key.index('D')][:, -1])), dtype=np.float64)
+                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('A')],
+                        weights[key.index('D')])), dtype=np.float64)
+                elif key[0] == 'A':
+                    self.e = np.ascontiguousarray(data[key.index('A')][:, -1], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('A')], dtype=np.float64)
                     self.n_d = 0
-                    # Initialize la; will be filled by mu_n_to_level conversion
-                    self.la = np.zeros(self.n_a, dtype=np.int32)
-
-                elif key[0] == 'DMu':
-                    self.e = np.ascontiguousarray(data[key.index('DMu')][:, 4], dtype=np.float64)
-                    self.w = np.ascontiguousarray(weights[key.index('DMu')], dtype=np.float64)
+                    self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
+                elif key[0] == 'D':
+                    self.e = np.ascontiguousarray(data[key.index('D')][:, -1], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('D')], dtype=np.float64)
                     self.n_a = 0
                     self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
-                    # Initialize ild and fld; will be filled by mu_n_to_level conversion
-                    self.ild = np.zeros(self.n_d, dtype=np.int32)
-                    self.fld = np.zeros(self.n_d, dtype=np.int32)
+            elif 'AMu' in key or 'DMu' in key:
+                # Old AMu/DMu format is no longer supported
+                raise ValueError("The AMu/DMu format is deprecated. Use 'A' or 'D' mode with "
+                               "label_key='MuN' and marker columns ('mu'/'lev') instead. "
+                               "Example: exdata = cfl.ExData((mu_data, diff_data), ('A', 'D'), label_key='MuN')")
             else:
                 if 'A' in key:
                     if data[key.index('A')].shape[1] != 2:

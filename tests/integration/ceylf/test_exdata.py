@@ -78,31 +78,36 @@ def test_exdata(data_sel) -> None:
         exdata = cfl.ExData((ex_asl, ex_dsl), ("AS", "DS"), label_key="SLJM")
     elif data_sel == "mu":
         print("data_sel is mu")
-        # Folded magnetic quantum number (mu, n) energy level data.
+        # Folded magnetic quantum number (mu, n) and absolute level energy data.
+        # Marker column indicates format:
+        #   "mu": [mu, n, energy] - folded magnetic quantum number with ordinal index
+        #   "lev": [level, energy] - absolute level index (1-based)
+        # 
         # mu: folded magnetic quantum number (determined by minimum_q and m value)
         # n: ordinal index ranking states with the same mu by energy (n=1 is lowest)
-        # Format: [mu, n, energy]
         # 
         # These values were extracted from h.gen_summary() output with minimum_q=2
         # and half_integer_states=True (since Ce:YLF has f-electrons with half-integer m values).
         # Note: The m values in the state labels are stored as doubled integers
         # (e.g., -5, -3, -1, 1, 3, 5 representing -5/2, -3/2, -1/2, 1/2, 3/2, 5/2).
-        ex_amu = np.array(
+        ex_a = np.array(
             [
-                [1, 1, 0],          # level 1: mu=1, n=1, energy=0
-                [1, 3, 216],        # level 3: mu=1, n=3, energy=216
-                [1, 7, 2216.10],    # level 7: mu=1, n=7, energy=2216.10
-                [1, 8, 2312.80],    # level 8: mu=1, n=8, energy=2312.80
-            ]
+                ["mu", 1, 1, 0],        # mu=1, n=1, energy=0
+                ["mu", 1, 3, 216],      # mu=1, n=3, energy=216
+                ["mu", 1, 7, 2216.10],  # mu=1, n=7, energy=2216.10
+                ["mu", 1, 8, 2312.80],  # mu=1, n=8, energy=2312.80
+            ],
+            dtype=object
         )
-        # For differences: [mu_initial, n_initial, mu_final, n_final, energy_diff]
-        ex_dmu = np.array(
+        # For differences: [marker, mu_initial, n_initial, mu_final, n_final, energy_diff]
+        ex_d = np.array(
             [
-                [1, 8, 1, 12, 116.0],    # transition from level 8 (mu=1,n=8) to level 12 (mu=1,n=12): energy diff = 116.0
-                [1, 12, 1, 14, 729.0],   # transition from level 12 (mu=1,n=12) to level 14 (mu=1,n=14): energy diff = 729.0
-            ]
+                ["mu", 1, 8, 1, 12, 116.0],    # transition from level 8 (mu=1,n=8) to level 12 (mu=1,n=12): energy diff = 116.0
+                ["mu", 1, 12, 1, 14, 729.0],   # transition from level 12 (mu=1,n=12) to level 14 (mu=1,n=14): energy diff = 729.0
+            ],
+            dtype=object
         )
-        exdata = cfl.ExData((ex_amu, ex_dmu), ("AMu", "DMu"), label_key="MuN")
+        exdata = cfl.ExData((ex_a, ex_d), ("A", "D"), label_key="MuN")
     else:
         raise ValueError("Invalid data_sel selection")
     cfl_min = cfl.CFLMin("nlopt_bobyqa", xtol=1e-6)
