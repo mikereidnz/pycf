@@ -2175,15 +2175,10 @@ cdef class EFit(object):
                     self.h, self.ex.mu_n_abs, self.h.minimum_q, self.h.half_integer_states
                 )
                 
-                # CRITICAL: Sort level indices and reorder energies to match
-                # mu_n_to_level returns indices in user-provided order, which may not be ascending
-                # When ex_parse_abs sorts by eigenstate index, energies must stay with their eigenstates
-                sort_order = np.argsort(level_indices)
-                sorted_level_indices = level_indices[sort_order]
-                self.ex.la = np.ascontiguousarray(sorted_level_indices - 1, dtype=np.int32)
-                
-                # Reorder energies to match sorted eigenstate indices
-                self.ex.e[: self.ex.n_a] = self.ex.e[: self.ex.n_a][sort_order]
+                # Note: mu_n_to_level returns indices in user-provided order (not necessarily ascending).
+                # We keep them in user order here, and let ex_parse_abs sort both indices and energies
+                # together, which maintains the energy-eigenstate pairing.
+                self.ex.la = np.ascontiguousarray(level_indices - 1, dtype=np.int32)
             
             # Convert difference mu/n data to level indices
             if self.ex.n_d > 0 and self.ex.mu_n_diff is not None and len(self.ex.mu_n_diff) > 0:
@@ -2197,17 +2192,11 @@ cdef class EFit(object):
                     self.h, mu_n_final, self.h.minimum_q, self.h.half_integer_states
                 )
                 
-                # CRITICAL: For difference data, sort by PAIR (initial, final) to maintain level-pair association
-                # This ensures difference energies stay with their corresponding level pairs
-                pair_sort_order = np.lexsort((final_levels, initial_levels))
-                
-                self.ex.ild = np.ascontiguousarray(initial_levels[pair_sort_order] - 1, dtype=np.int32)
-                self.ex.fld = np.ascontiguousarray(final_levels[pair_sort_order] - 1, dtype=np.int32)
-                
-                # Reorder difference energies to match sorted level pairs
-                self.ex.e[self.ex.n_a : self.ex.n_a + self.ex.n_d] = (
-                    self.ex.e[self.ex.n_a : self.ex.n_a + self.ex.n_d][pair_sort_order]
-                )
+                # Note: mu_n_to_level returns indices in user-provided order.
+                # We keep them paired as-is here, and let ex_parse_diff handle sorting
+                # which will maintain the energy-level-pair association.
+                self.ex.ild = np.ascontiguousarray(initial_levels - 1, dtype=np.int32)
+                self.ex.fld = np.ascontiguousarray(final_levels - 1, dtype=np.int32)
         
         self.n_obs = self.ex.n_obs
 
