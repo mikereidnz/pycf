@@ -444,6 +444,48 @@ def gen_edata_summary(edata: EData, **kwargs: Any) -> str:
     return edata.to_str(**kwargs)
 
 
+def calc_mu(m: int, minimum_q: int, half_integer_states: bool = False) -> int:
+    r"""
+    Calculate the folded magnetic quantum number (crystal quantum number).
+    
+    The folded magnetic quantum number mu wraps the magnetic quantum number m
+    into a fundamental domain determined by the smallest non-zero q value in
+    the crystal-field tensor expansion. This provides a robust identifier for
+    state blocks that can be mixed by C_kq tensor terms.
+    
+    Parameters
+    ----------
+    m : int
+        Magnetic quantum number from the principal eigenvector component.
+    minimum_q : int
+        Smallest non-zero q value across all C_kq tensors in Hamiltonian.
+        Typical values: 2 (for C20, C22), 4 (for C40, C44), etc.
+    half_integer_states : bool, optional
+        If False (default): m values are actual integers (e.g., m ∈ {-3, -1, 1, 3} for J=3/2)
+        and minimum_q is used as-is.
+        If True: m values are half-integers stored as doubled integers (e.g., m ∈ {-3, -1, 1, 3}
+        representing m ∈ {-3/2, -1/2, 1/2, 3/2}) and minimum_q must be doubled for folding.
+    
+    Returns
+    -------
+    mu : int
+        Folded magnetic quantum number in range [0, minimum_q // 2].
+    """
+    # Adjust minimum_q based on how m values are stored:
+    # If half_integer_states=False: m values are actual integers, use minimum_q as-is
+    # If half_integer_states=True: m values are half-integers (stored doubled), double minimum_q
+    min_q_eff = minimum_q * 2 if half_integer_states else minimum_q
+    
+    # Fold m into fundamental domain: |m| % min_q_eff
+    mu = abs(m) % min_q_eff
+    
+    # Fold back if in upper half of period
+    if mu > min_q_eff // 2:
+        mu = min_q_eff - mu
+    
+    return mu
+
+
 def gen_e_summary(
     w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
 ) -> str:
@@ -482,6 +524,15 @@ def gen_e_summary(
         The weighting applied during the chi2 fit.  This should be set if ndof is set.
     e_shift : bool, optional
         Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero.
+    minimum_q : int, optional
+        Smallest non-zero q value across all C_kq tensors in the Hamiltonian.
+        If provided, add mu (folded magnetic quantum number) and n (ordinal index
+        within each mu group) columns to the output table. Typical values: 2 for
+        C20/C22 terms, 4 for C40/C44 terms, etc.
+    half_integer_states : bool, optional
+        If False (default): m values are actual integers, and minimum_q is used as-is.
+        If True: m values are half-integers stored as doubled integers, and minimum_q
+        is automatically doubled for folding. Only used if minimum_q is provided.
     """
 
     def fmt_label(li, labels):
@@ -537,12 +588,51 @@ def gen_e_summary(
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]
+    
+    # Calculate mu and n if minimum_q is provided
+    mu_values = None
+    n_values = None
+    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
+        minimum_q = kwargs["minimum_q"]
+        half_integer = kwargs.get("half_integer_states", False)
+        
+        # Extract m values from principal component of each eigenvector
+        m_values = []
+        for i in range(len(z)):
+            # Principal component is the largest amplitude in eigenvector i
+            principal_idx = sort_list[i][0]
+            m = labels[principal_idx][-1]  # m is the last element in the label
+            m_values.append(m)
+        
+        # Calculate mu for each eigenvector
+        mu_values = [calc_mu(m, minimum_q, half_integer) for m in m_values]
+        
+        # Calculate n (ordinal index within each mu group), sorted by energy
+        n_values = [0] * len(mu_values)
+        mu_groups = {}
+        for i in range(len(mu_values)):
+            mu = mu_values[i]
+            if mu not in mu_groups:
+                mu_groups[mu] = []
+            mu_groups[mu].append((w[i], i))  # (energy, index)
+        
+        # Sort each group by energy and assign n values
+        for mu, group in mu_groups.items():
+            group.sort(key=lambda x: x[0])  # Sort by energy
+            for n, (_, idx) in enumerate(group, start=1):
+                n_values[idx] = n
+    
     heading = (
         "Lev.  "
         + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4))
         * nstates
         + "       Theory"
     )
+    
+    # Insert mu and n columns if calculated
+    if mu_values is not None:
+        # Modify heading to include mu and n columns after "Lev."
+        heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4)) * nstates + "       Theory"
     if ex.size != 0:
         heading += "     Experiment    Difference\n"
     else:
@@ -551,6 +641,9 @@ def gen_e_summary(
     ii = 0
     for i in range(len(z)):
         line = "{0:<6}".format(i + 1)
+        # Add mu and n columns if calculated
+        if mu_values is not None:
+            line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
         N = np.sum(np.abs(z[:, i]) ** 2)
         for j in range(nstates):
             si = sort_list[i][j]

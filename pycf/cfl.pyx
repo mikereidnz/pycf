@@ -459,6 +459,8 @@ cdef class Hamiltonian:
     cdef public np.ndarray z
     cdef public object h_cap
     cdef public object label
+    cdef public object minimum_q
+    cdef public object half_integer_states
     cdef int diag_run
     def __cinit__(self, tensors, *, label=None):
 
@@ -482,6 +484,8 @@ cdef class Hamiltonian:
         if label is not None and not isinstance(label, str):
             raise TypeError("Hamiltonian label must be a str or None")
         self.label = label
+        self.minimum_q = None
+        self.half_integer_states = False
 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function.
@@ -684,6 +688,11 @@ cdef class Hamiltonian:
         if self.diag_run:
             if "h_label" not in kwargs and self.label is not None:
                 kwargs["h_label"] = self.label
+            # Pass minimum_q and half_integer_states if set on Hamiltonian
+            if self.minimum_q is not None and "minimum_q" not in kwargs:
+                kwargs["minimum_q"] = self.minimum_q
+            if "half_integer_states" not in kwargs:
+                kwargs["half_integer_states"] = self.half_integer_states
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
                     self.tensors[0].states.label_key, **kwargs)
         else:
