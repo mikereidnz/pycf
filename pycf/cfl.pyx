@@ -1511,6 +1511,9 @@ cdef class ExData(object):
     cdef public np.ndarray mu_n_abs
     cdef public np.ndarray mu_n_diff
     cdef public bint has_mu_n
+    # Tracking for marker-column mixed mu/lev data
+    cdef public list mu_row_indices
+    cdef public list mu_row_indices_d
     def __init__(self, data, key=None, label_key=None, weights=None):
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
 
@@ -1518,6 +1521,8 @@ cdef class ExData(object):
         self.has_mu_n = False
         self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
         self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
+        self.mu_row_indices = []
+        self.mu_row_indices_d = []
 
         if not (isinstance(data, np.ndarray) or isinstance(data, tuple)):
             raise TypeError("The ex data argument must either be of type np.ndarray or " \
@@ -1700,6 +1705,7 @@ cdef class ExData(object):
                     
                     # Separate mu and lev rows
                     mu_rows = []
+                    self.mu_row_indices = []  # Track original row indices for mu rows
                     for i in range(self.n_a):
                         marker = str(a_data[i, 0])
                         if marker not in ("mu", "lev"):
@@ -1710,6 +1716,7 @@ cdef class ExData(object):
                             if a_data.shape[1] != 4:
                                 raise ValueError(f"'mu' row {i} must have 4 columns: (marker, mu, n, energy).")
                             mu_rows.append(i)
+                            self.mu_row_indices.append(i)
                         elif marker == "lev":
                             # Convert 1-based level to 0-based index
                             level = int(a_data[i, 1])
@@ -1740,6 +1747,7 @@ cdef class ExData(object):
                     
                     # Separate mu and lev rows
                     mu_rows = []
+                    self.mu_row_indices_d = []  # Track original row indices for mu rows
                     for i in range(self.n_d):
                         marker = str(d_data[i, 0])
                         if marker not in ("mu", "lev"):
@@ -1751,6 +1759,7 @@ cdef class ExData(object):
                                 raise ValueError(f"'mu' row {i} must have 6 columns: "
                                                "(marker, mu_i, n_i, mu_f, n_f, energy).")
                             mu_rows.append(i)
+                            self.mu_row_indices_d.append(i)
                         elif marker == "lev":
                             if d_data.shape[1] != 4:
                                 raise ValueError(f"'lev' row {i} must have 4 columns: "
@@ -2238,7 +2247,14 @@ cdef class EFit(object):
                 # Note: mu_n_to_level returns indices in user-provided order (not necessarily ascending).
                 # We keep them in user order here, and let ex_parse_abs sort both indices and energies
                 # together, which maintains the energy-eigenstate pairing.
-                self.ex.la = np.ascontiguousarray(level_indices - 1, dtype=np.int32)
+                
+                # For mixed marker-column data, merge mu results back into ex.la at the correct positions
+                if hasattr(self.ex, 'mu_row_indices') and len(self.ex.mu_row_indices) > 0:
+                    for i, row_idx in enumerate(self.ex.mu_row_indices):
+                        self.ex.la[row_idx] = level_indices[i] - 1
+                else:
+                    # Pure mu data: replace entire ex.la
+                    self.ex.la = np.ascontiguousarray(level_indices - 1, dtype=np.int32)
             
             # Convert difference mu/n data to level indices
             if self.ex.n_d > 0 and self.ex.mu_n_diff is not None and len(self.ex.mu_n_diff) > 0:
@@ -2255,8 +2271,16 @@ cdef class EFit(object):
                 # Note: mu_n_to_level returns indices in user-provided order.
                 # We keep them paired as-is here, and let ex_parse_diff handle sorting
                 # which will maintain the energy-level-pair association.
-                self.ex.ild = np.ascontiguousarray(initial_levels - 1, dtype=np.int32)
-                self.ex.fld = np.ascontiguousarray(final_levels - 1, dtype=np.int32)
+                
+                # For mixed marker-column data, merge mu results back into ex.ild/fld at the correct positions
+                if hasattr(self.ex, 'mu_row_indices_d') and len(self.ex.mu_row_indices_d) > 0:
+                    for i, row_idx in enumerate(self.ex.mu_row_indices_d):
+                        self.ex.ild[row_idx] = initial_levels[i] - 1
+                        self.ex.fld[row_idx] = final_levels[i] - 1
+                else:
+                    # Pure mu data: replace entire ild/fld
+                    self.ex.ild = np.ascontiguousarray(initial_levels - 1, dtype=np.int32)
+                    self.ex.fld = np.ascontiguousarray(final_levels - 1, dtype=np.int32)
         
         self.n_obs = self.ex.n_obs
 
