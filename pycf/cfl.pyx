@@ -1485,10 +1485,20 @@ cdef class ExData(object):
                         if 'AMu' in key or 'DMu' in key:
                             raise ValueError("Cannot mix state label types; use either " \
                                     "(AS/DS) or (AMu/DMu).")
-                    elif type(label_key) != str:
-                        raise TypeError("The label_key argument must be of type str and is " \
-                                "mandatory for state label indices.")
-                    self.sl_index = 1
+                        # SLJM-based state labels
+                        if type(label_key) != str:
+                            raise TypeError("The label_key argument must be of type str and is " \
+                                    "mandatory for state label indices.")
+                        self.sl_index = 1
+                    elif 'AMu' in key or 'DMu' in key:
+                        # mu/n-based data: don't use state label hashes
+                        self.sl_index = 0
+                    else:
+                        # Other state label types (shouldn't reach here currently)
+                        if type(label_key) != str:
+                            raise TypeError("The label_key argument must be of type str and is " \
+                                    "mandatory for state label indices.")
+                        self.sl_index = 1
 
                 if k not in ['A', 'D', 'AS', 'DS', 'AMu', 'DMu']:
                     raise ValueError("Invalid key argument; allowed options are 'A', 'D', " \
@@ -1554,6 +1564,28 @@ cdef class ExData(object):
                     self.ildh = np.ascontiguousarray(ildh, dtype=np.int32)
                     self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
 
+                if len(key) == 2:
+                    # Both abs. and diff. levels present; energies and weights
+                    # are stacked with all abs. values before the diff. values.
+                    if 'AS' in key:
+                        self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
+                            data[key.index('DS')][:, 2*ll])), dtype=np.float64)
+                        self.w = np.ascontiguousarray(np.hstack((weights[key.index('AS')],
+                            weights[key.index('DS')])), dtype=np.float64)
+
+                elif key[0] == 'AS':
+                    self.e = np.ascontiguousarray(data[key.index('AS')][:, ll], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('AS')], dtype=np.float64)
+                    self.n_d = 0
+
+                elif key[0] == 'DS':
+                    self.e = np.ascontiguousarray(data[key.index('DS')][:, 2*ll], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
+                    self.n_a = 0
+                    self.la = np.zeros(0)
+            
+            # Handle mu/n-based data (sl_index=0)
+            elif 'AMu' in key or 'DMu' in key:
                 if 'AMu' in key:
                     # Store raw (mu, n) data without conversion
                     if data[key.index('AMu')].shape[1] != 3:
@@ -1573,38 +1605,30 @@ cdef class ExData(object):
                 if len(key) == 2:
                     # Both abs. and diff. levels present; energies and weights
                     # are stacked with all abs. values before the diff. values.
-                    if 'AS' in key:
-                        self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
-                            data[key.index('DS')][:, 2*ll])), dtype=np.float64)
-                        self.w = np.ascontiguousarray(np.hstack((weights[key.index('AS')],
-                            weights[key.index('DS')])), dtype=np.float64)
-                    elif 'AMu' in key:
-                        self.e = np.ascontiguousarray(np.hstack((data[key.index('AMu')][:, 2],
-                            data[key.index('DMu')][:, 4])), dtype=np.float64)
-                        self.w = np.ascontiguousarray(np.hstack((weights[key.index('AMu')],
-                            weights[key.index('DMu')])), dtype=np.float64)
-
-                elif key[0] == 'AS':
-                    self.e = np.ascontiguousarray(data[key.index('AS')][:, ll], dtype=np.float64)
-                    self.w = np.ascontiguousarray(weights[key.index('AS')], dtype=np.float64)
-                    self.n_d = 0
+                    self.e = np.ascontiguousarray(np.hstack((data[key.index('AMu')][:, 2],
+                        data[key.index('DMu')][:, 4])), dtype=np.float64)
+                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('AMu')],
+                        weights[key.index('DMu')])), dtype=np.float64)
+                    # Initialize la, ild, fld for mixed case; will be filled by conversion
+                    self.la = np.zeros(self.n_a, dtype=np.int32)
+                    self.ild = np.zeros(self.n_d, dtype=np.int32)
+                    self.fld = np.zeros(self.n_d, dtype=np.int32)
 
                 elif key[0] == 'AMu':
                     self.e = np.ascontiguousarray(data[key.index('AMu')][:, 2], dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('AMu')], dtype=np.float64)
                     self.n_d = 0
-
-                elif key[0] == 'DS':
-                    self.e = np.ascontiguousarray(data[key.index('DS')][:, 2*ll], dtype=np.float64)
-                    self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
-                    self.n_a = 0
-                    self.la = np.zeros(0)
+                    # Initialize la; will be filled by mu_n_to_level conversion
+                    self.la = np.zeros(self.n_a, dtype=np.int32)
 
                 elif key[0] == 'DMu':
                     self.e = np.ascontiguousarray(data[key.index('DMu')][:, 4], dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('DMu')], dtype=np.float64)
                     self.n_a = 0
                     self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
+                    # Initialize ild and fld; will be filled by mu_n_to_level conversion
+                    self.ild = np.zeros(self.n_d, dtype=np.int32)
+                    self.fld = np.zeros(self.n_d, dtype=np.int32)
             else:
                 if 'A' in key:
                     if data[key.index('A')].shape[1] != 2:
@@ -2024,6 +2048,33 @@ cdef class EFit(object):
             self.ex = ExData(ex)
         else:
             self.ex = ex
+        
+        # Convert mu/n data to level indices if present
+        if self.ex.has_mu_n:
+            from pycf.cfl_util import mu_n_to_level
+            
+            # Convert absolute mu/n data to level indices
+            if self.ex.n_a > 0 and self.ex.mu_n_abs is not None and len(self.ex.mu_n_abs) > 0:
+                level_indices = mu_n_to_level(
+                    self.h, self.ex.mu_n_abs, self.h.minimum_q, self.h.half_integer_states
+                )
+                self.ex.la = np.ascontiguousarray(level_indices - 1, dtype=np.int32)
+            
+            # Convert difference mu/n data to level indices
+            if self.ex.n_d > 0 and self.ex.mu_n_diff is not None and len(self.ex.mu_n_diff) > 0:
+                mu_n_initial = self.ex.mu_n_diff[:, :2]
+                mu_n_final = self.ex.mu_n_diff[:, 2:4]
+                
+                initial_levels = mu_n_to_level(
+                    self.h, mu_n_initial, self.h.minimum_q, self.h.half_integer_states
+                )
+                final_levels = mu_n_to_level(
+                    self.h, mu_n_final, self.h.minimum_q, self.h.half_integer_states
+                )
+                
+                self.ex.ild = np.ascontiguousarray(initial_levels - 1, dtype=np.int32)
+                self.ex.fld = np.ascontiguousarray(final_levels - 1, dtype=np.int32)
+        
         self.n_obs = self.ex.n_obs
 
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:

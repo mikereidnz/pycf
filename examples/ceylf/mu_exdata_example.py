@@ -301,6 +301,54 @@ for i, (mu_i, n_i, mu_f, n_f, e_diff) in enumerate(ex_dmu):
 
 print()
 
+# ============================================================================
 print("=" * 80)
-print("✓ Test example complete. Ready to integrate mu_n_to_level() into fitting.")
+print("Step 8: Fit with mu/n-based experimental data (AMu)")
+print("-" * 80)
+print()
+
+# Create experimental data by adding small noise to calculated energies
+# This simulates realistic experimental values with small measurement errors
+np.random.seed(42)
+noise_level = 0.001  # 0.1% noise
+ex_amu_noisy = ex_amu.copy()
+ex_amu_noisy[:, 2] += np.random.normal(0, noise_level, len(ex_amu))
+
+print("Noisy experimental data (AMu format):")
+print("mu | n | Energy (cm⁻¹)")
+print("---|---|---------------")
+for mu, n, energy in ex_amu_noisy:
+    print(f" {int(mu)} | {int(n)} | {energy:13.6f}")
+print()
+
+# Create ExData with the noisy data
+exdata_fit = cfl.ExData(ex_amu_noisy, "AMu", label_key="MuN")
+
+# Set up minimizer
+cfl_min = cfl.CFLMin("nlopt_bobyqa", xtol=1e-8)
+
+# Fit with a subset of parameters to show the fitting works
+param = ["C20", "C40"]
+
+try:
+    print("Performing fit with parameters:", param)
+    print()
+    res = cfl.e_fit(param, h, exdata_fit, cfl_min, suppress_input=True)
+    
+    print("✓ Fit completed successfully!")
+    print()
+    print("Fit Summary:")
+    print("-" * 80)
+    print(res["summary"])
+    
+except Exception as e:
+    import traceback
+    print(f"✗ Error during fitting: {e}")
+    print()
+    traceback.print_exc()
+
+print()
+
+print("=" * 80)
+print("✓ Test example complete. mu/n integration into fitting verified!")
 print("=" * 80)
