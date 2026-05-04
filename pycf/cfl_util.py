@@ -622,6 +622,11 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
     largest component in the original basis. This works well for weakly-mixing
     crystal fields. For strongly-mixing systems, custom matching logic may be needed.
     
+    **Important:** The (mu, n) → level index mapping is data-dependent and must be
+    recomputed after every ``h.diag()`` call, since the eigenvector matrix changes when
+    parameters change. Caching would produce stale results. The conversion is performed
+    at fitting initialization time in :class:`cfl.EFit` and is negligible in cost.
+    
     The conversion is performed at the time of fitting initialization in :class:`cfl.EFit`.
     Once converted to level indices, the fitting proceeds using the standard
     energy-level comparison workflow.
