@@ -239,6 +239,68 @@ except Exception as e:
 
 print()
 
+# ============================================================================
+print("=" * 80)
+print("Step 7: Display results as if from a fit (calculated vs input)")
+print("-" * 80)
+print()
+
+# Build a comparison table showing calculated energy levels with their mu/n assignment
+# vs the input data provided
+print("Calculated Energy Levels with mu/n Assignment:")
+print("Level | mu | n  | Energy (cm⁻¹)")
+print("------|----|----|---------------")
+
+# Get labels once (convert to array for easier indexing)
+labels_array = np.array(h.tensors[0].states.labels, dtype=np.int32)
+
+from pycf.cfl_util import calc_mu
+
+# Precompute mu/n for all levels
+mu_n_all = []
+for level_idx in range(len(w)):
+    row_idx = level_idx
+    abs_row = np.abs(z[row_idx, :])
+    pc_idx = np.argmax(abs_row)
+    m_value = int(labels_array[pc_idx, 3])
+    mu_calc = calc_mu(m_value, h.minimum_q, h.half_integer_states)
+    mu_n_all.append(mu_calc)
+
+# Now display with n ordinal indices
+for level_idx in range(1, min(15, len(w) + 1)):  # Show first 14 levels
+    mu_this = mu_n_all[level_idx - 1]
+    
+    # Count which n this is within its mu group
+    n_count = 0
+    for check_level in range(1, level_idx + 1):
+        mu_check = mu_n_all[check_level - 1]
+        if mu_check == mu_this:
+            n_count += 1
+    
+    print(f"{level_idx:5d} | {int(mu_this):2d} | {n_count:2d}  | {w[level_idx - 1]:13.6f}")
+
+print()
+print("Input ExData (AMu - Absolute energies):")
+print("mu | n | Energy (cm⁻¹) | Matched Level")
+print("---|---|---------------|---------------")
+for i, (mu, n, energy) in enumerate(ex_amu):
+    matched_level = level_indices_amu[i]
+    match_symbol = "✓" if abs(w[matched_level - 1] - energy) < 0.001 else "✗"
+    print(f" {int(mu)} | {int(n)} | {energy:13.6f} | {matched_level:2d} {match_symbol}")
+
+print()
+print("Input ExData (DMu - Energy differences):")
+print("mu_i | n_i | mu_f | n_f | Δ Energy (cm⁻¹) | Matched Transition")
+print("-----|-----|------|-----|-----------------|-------------------")
+for i, (mu_i, n_i, mu_f, n_f, e_diff) in enumerate(ex_dmu):
+    i_level = initial_levels[i]
+    f_level = final_levels[i]
+    calc_diff = w[f_level - 1] - w[i_level - 1]
+    match_symbol = "✓" if abs(calc_diff - e_diff) < 0.001 else "✗"
+    print(f"  {int(mu_i)} |  {int(n_i)} |   {int(mu_f)} |  {int(n_f)} | {e_diff:15.6f} | ({i_level:2d}→{f_level:2d}) {match_symbol}")
+
+print()
+
 print("=" * 80)
 print("✓ Test example complete. Ready to integrate mu_n_to_level() into fitting.")
 print("=" * 80)
