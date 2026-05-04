@@ -2051,6 +2051,19 @@ cdef class EFit(object):
         
         # Convert mu/n data to level indices if present
         if self.ex.has_mu_n:
+            # Validate required parameters for mu/n fitting
+            if self.h.minimum_q is None:
+                raise ValueError(
+                    "Hamiltonian.minimum_q must be set before fitting with AMu/DMu data. "
+                    "Set it to the smallest non-zero q value in your expansion "
+                    "(typically 2 for C20/C22 terms).")
+            if not isinstance(self.h.half_integer_states, bool):
+                raise ValueError(
+                    "Hamiltonian.half_integer_states must be explicitly set to True or False "
+                    "before fitting with AMu/DMu data. "
+                    "Use True if m values are half-integers (e.g., f-electrons with J=5/2), "
+                    "False if m values are integers.")
+            
             from pycf.cfl_util import mu_n_to_level
             
             # Convert absolute mu/n data to level indices

@@ -572,7 +572,17 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
     if z is None:
         raise ValueError("Hamiltonian must be diagonalized (call h.diag() first)")
     
+    if z.ndim != 2:
+        raise ValueError(
+            f"Eigenvector matrix must be 2D, got shape {z.shape}. "
+            "This should not happen with a properly diagonalized Hamiltonian.")
+    
     n_states = len(state_labels)
+    
+    if z.shape[0] != n_states:
+        raise ValueError(
+            f"Eigenvector matrix has {z.shape[0]} rows but state labels has {n_states} entries. "
+            "Hamiltonian must be properly initialized.")
     
     # For each eigenstate, compute its (mu, n) and track level indices
     mu_to_levels: Dict[int, List[int]] = {}
