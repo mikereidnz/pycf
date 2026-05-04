@@ -4345,6 +4345,10 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     coefficients when they are set also determines whether they are fit as real
     or complex parameters.
 
+    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    index mode in ExData), it will be automatically diagonalized before fitting.
+    This ensures that eigenvector references in mu/n indices are valid.
+
     Parameters
     ----------
     parameters : list
@@ -4383,6 +4387,10 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     summary+= "=============\n"
     summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
+
+    # Auto-diagonalize if not already done (needed for mu/n index mode)
+    if h.w is None or np.sum(np.abs(h.w)) == 0:
+        h.diag()
 
     efit = EFit(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
@@ -4435,6 +4443,9 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     coefficients when they are set also determines whether they are fit as real
     or complex parameters, thus they must be consistent among each Hamiltonian.
 
+    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    index mode in ExData), it will be automatically diagonalized before fitting.
+
     Parameters
     ----------
     parameters : list
@@ -4474,6 +4485,11 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     summary+= "==============\n"
     summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
+
+    # Auto-diagonalize all Hamiltonians if not already done (needed for mu/n index mode)
+    for h in h_list:
+        if h.w is None or np.sum(np.abs(h.w)) == 0:
+            h.diag()
 
     mhfit = MHFit(parameters, h_list, weights_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
@@ -4520,6 +4536,9 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
     used as initial estimates for the parameters to-be-fit.  The type of
     coefficients when they are set also determines whether they are fit as real
     or complex parameters.
+
+    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    index mode in ExData), it will be automatically diagonalized before fitting.
 
 
     Parameters
@@ -4571,6 +4590,10 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
     summary+= "===============\n"
     summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
+
+    # Auto-diagonalize if not already done (needed for mu/n index mode)
+    if h.w is None or np.sum(np.abs(h.w)) == 0:
+        h.diag()
 
     eshfit = ESHFit(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
@@ -4633,6 +4656,9 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
     fit as real or complex parameter, thus they must be consistent among each
     Hamiltonian.
 
+    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    index mode in ExData), it will be automatically diagonalized before fitting.
+
     Parameters
     ----------
     parameters : list
@@ -4663,6 +4689,12 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
     summary+= "================\n"
     summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
+
+    # Auto-diagonalize all Hamiltonians if not already done (needed for mu/n index mode)
+    for h_sh_dict in h_sh_list:
+        h = h_sh_dict['h']
+        if h.w is None or np.sum(np.abs(h.w)) == 0:
+            h.diag()
 
     meshfit = MESHFit(parameters, h_sh_list, **kwargs)
     (x, fmin) = meshfit.fit(cfl_min)
