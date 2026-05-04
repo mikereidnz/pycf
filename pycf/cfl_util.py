@@ -656,7 +656,8 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
             "Hamiltonian must be properly initialized.")
     
     # For each eigenstate, compute its (mu, n) and track level indices
-    mu_to_levels: Dict[int, List[int]] = {}
+    # Store as (energy, level_index) tuples so we can sort by energy
+    mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
     
     for state_idx in range(n_states):
         # Find principal component
@@ -670,10 +671,14 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
         # Compute mu
         mu = calc_mu(m_value, minimum_q, half_integer_states)
         
-        # Track level indices for this mu (level indices are 1-based)
+        # Track (energy, level_index) pairs for this mu so we can sort by energy
         if mu not in mu_to_levels:
             mu_to_levels[mu] = []
-        mu_to_levels[mu].append(state_idx + 1)
+        mu_to_levels[mu].append((h.w[state_idx], state_idx + 1))
+    
+    # Sort each mu group by energy
+    for mu in mu_to_levels:
+        mu_to_levels[mu].sort(key=lambda x: x[0])
     
     # Match requested (mu, n) to level indices
     level_indices = np.zeros(len(mu_n_array), dtype=np.int32)
@@ -687,7 +692,8 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
                 f"No state found with (mu, n) = ({mu_req}, {n_req}). "
                 f"Available: {available}")
         
-        level_indices[i] = mu_to_levels[mu_req][n_req - 1]
+        # Get the level index (2nd element of tuple) for the n-th state in this mu group
+        level_indices[i] = mu_to_levels[mu_req][n_req - 1][1]
     
     return level_indices
 
