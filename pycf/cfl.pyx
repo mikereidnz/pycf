@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # filename = pycfl.pyx
 #cython: c_string_encoding=ascii
 #cython: embedsignature=True
@@ -431,6 +432,43 @@ cdef class Hamiltonian:
 
     Hamiltonians are iterable, returning the Tensor objects from which it is composed.
 
+    **Parameters for (mu, n) fitting format:**
+
+    For fitting with experimental data in (mu, n) format (see :class:`ExData`),
+    two optional parameters control the mu/n conversion:
+
+    - ``minimum_q``: The smallest non-zero q value in your crystal field expansion.
+      Common values are 2 (for C20, C22) or 4 (for higher-order terms).
+      **REQUIRED** if using (mu, n) experimental data format. Defaults to ``None``.
+
+    - ``half_integer_states``: Set to ``True`` if your system has half-integer 
+      magnetic quantum numbers m stored as doubled integers (e.g., ±1, ±3, ±5
+      representing ±1/2, ±3/2, ±5/2). Use ``True`` for f-electrons and other systems
+      with J = 5/2, 7/2, etc. Set to ``False`` for integer m values. 
+      Defaults to ``False``.
+
+    **When to use (mu, n) format:**
+
+    The (mu, n) parametrization is useful when symmetry is reduced and magnetic 
+    quantum numbers become ambiguous. Example: Ce:YLF (f-electrons) where magnetic 
+    decoherence mixes |m⟩ states and only folded combinations have physical meaning.
+
+    **Example usage:**
+
+    .. code-block:: python
+
+        import pycf
+        
+        # For f-electron system (Ce:YLF)
+        h = pycf.cfl.Hamiltonian(tensors)
+        h.minimum_q = 2              # C20, C22 terms
+        h.half_integer_states = True # f-electrons: m = ±1/2, ±3/2, ±5/2
+        
+        # For d-electron system (Er:YSO with integer m)
+        h2 = pycf.cfl.Hamiltonian(tensors2)
+        h2.minimum_q = 4              # Higher-order expansion
+        h2.half_integer_states = False # integer m values
+
     Parameters
     ----------
     tensors : list
@@ -697,6 +735,54 @@ cdef class Hamiltonian:
                     self.tensors[0].states.label_key, **kwargs)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
+
+    def validate_mu_parameters(self) -> None:
+        r"""
+        Validate that mu/n fitting parameters are correctly configured.
+
+        This method checks that `minimum_q` and `half_integer_states` are properly
+        set before attempting to use (mu, n) experimental data format. Call this
+        before creating an :class:`EFit` with mu/n data to catch configuration
+        errors early with clear guidance.
+
+        Raises
+        ------
+        ValueError
+            If `minimum_q` is None (not set).
+        TypeError
+            If `half_integer_states` is not a bool.
+
+        Examples
+        --------
+        Validate before fitting with (mu, n) data:
+
+        .. code-block:: python
+
+            h = pycf.cfl.Hamiltonian(tensors)
+            h.minimum_q = 2              # Required: set smallest non-zero q
+            h.half_integer_states = True # f-electrons use True, d-electrons use False
+            h.set_coeff(coefficients)
+            h.diag()
+
+            # Optional: validate before using mu/n data
+            h.validate_mu_parameters()
+
+            # Now safe to fit with (mu, n) format
+            exdata = pycf.cfl.ExData((mu_n_pairs, energies),
+                                    key=('mu', 'n', 'energy'))
+            fit = pycf.cfl.EFit(h, exdata)
+        """
+        if self.minimum_q is None:
+            raise ValueError(
+                "Hamiltonian.minimum_q must be set before using (mu, n) fitting format. "
+                "Set it to the smallest non-zero q value in your crystal field expansion "
+                "(typically 2 for C20, C22 terms or 4 for higher-order expansions)."
+            )
+        if not isinstance(self.half_integer_states, bool):
+            raise TypeError(
+                f"Hamiltonian.half_integer_states must be a bool, got {type(self.half_integer_states).__name__}. "
+                "Set to True for f-electrons (half-integer m values) or False for integer m values."
+            )
 
 
 cpdef zeeman_sh_coeff(v, t):

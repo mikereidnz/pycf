@@ -180,6 +180,48 @@ def process_tensor(tensor, scale: float) -> Tensor:
     return result
 ```
 
+### Parameter Validation for (mu, n) Fitting
+
+When adding or modifying code that uses the (mu, n) experimental data format
+for fitting, ensure proper validation of `Hamiltonian` parameters:
+
+**Required parameters for (mu, n) fitting:**
+
+- `h.minimum_q` (int): Smallest non-zero q in crystal field expansion (typically 2)
+- `h.half_integer_states` (bool): Whether m values are half-integers stored as doubled integers
+
+**Validation checklist:**
+
+1. In `Hamiltonian` class initialization:
+   - `minimum_q` defaults to `None` (no default value — must be explicitly set)
+   - `half_integer_states` defaults to `False` (reasonable default for integer m)
+
+2. In fitting code (`EFit.__init__`):
+   ```python
+   if self.h.minimum_q is None:
+       raise ValueError("Hamiltonian.minimum_q must be set before fitting with (mu, n) data...")
+   if not isinstance(self.h.half_integer_states, bool):
+       raise ValueError("Hamiltonian.half_integer_states must be a bool...")
+   ```
+
+3. In conversion functions (`mu_n_to_level`):
+   - Validate eigenvector matrix shape matches state labels
+   - Provide clear error messages if (mu, n) pairs don't exist in spectrum
+
+**User guidance:**
+
+- Always set `minimum_q` and `half_integer_states` explicitly before using (mu, n) format
+- For f-electrons (J=5/2, 7/2): use `half_integer_states=True`
+- For d-electrons with integer m: use `half_integer_states=False`
+- See EXAMPLES.md section "Using (mu, n) Format for Low-Symmetry Crystal Fields" for workflow
+
+**Related code:**
+
+- `pycf/cfl_util.py::mu_n_to_level()` — Conversion implementation and detailed documentation
+- `pycf/cfl.pyx::Hamiltonian` — Parameter definition
+- `pycf/cfl.pyx::EFit.__init__()` — Validation enforcement
+- `tests/integration/ceylf/test_exdata.py` — Test examples
+
 ### Legacy modules
 
 Some files are kept for backwards compatibility but are not actively

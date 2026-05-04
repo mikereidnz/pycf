@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Filename = cfl_util.py
 """
 Utility functions for crystal field calculations and data presentation.
@@ -534,31 +535,96 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
     
     This function computes mu/n for all eigenstates of the Hamiltonian and matches
     user-provided (mu, n) pairs to their corresponding level indices (1-based).
+    The (mu, n) parametrization is useful for systems with low-symmetry crystal fields
+    where magnetic quantum numbers m are "folded" into an effective parameter mu based
+    on the minimum q-value in the expansion (typically q=2 for C20/C22 terms).
+    
+    **Understanding mu and n:**
+    
+    - ``mu``: Folded magnetic quantum number, computed as ``mu = m * sign(q_min)`` 
+      where ``q_min`` is the smallest non-zero q in your expansion.
+    - ``n``: Ordinal index (1, 2, 3, ...) of eigenstates grouped by their mu value.
+      The n-th eigenstate within a mu group.
+    
+    **Half-integer m values:**
+    
+    For systems with half-integer m (e.g., f-electrons with J=5/2), m values are stored
+    as doubled integers (±1, ±3, ±5 representing ±1/2, ±3/2, ±5/2). Set ``half_integer_states=True``
+    in these cases. The effective q used for folding is then ``q_min * 2``.
+    
+    **Usage Example:**
+    
+    For Ce:YLF (f-electrons, J=5/2, m ∈ {-5/2, -3/2, -1/2, 1/2, 3/2, 5/2}):
+    
+    .. code-block:: python
+    
+        import numpy as np
+        import pycf
+        
+        # Setup Hamiltonian with Ce:YLF crystal field
+        importer = pycf.ImportSLJM(...)  # Load from SLJM format
+        h = pycf.cfl.Hamiltonian(importer.tensors)
+        h.minimum_q = 2                  # C20, C22 lowest terms
+        h.half_integer_states = True     # f-electrons have half-integer m
+        h.set_coeff(coeffs)
+        h.diag()
+        
+        # Map experimental data to levels
+        mu_n_pairs = np.array([
+            [2, 1],   # 1st eigenstate with mu=+2 (corresponds to m=±5/2)
+            [2, 2],   # 2nd eigenstate with mu=+2
+            [0, 1],   # 1st eigenstate with mu=0 (m=±1/2)
+        ], dtype=np.int32)
+        
+        level_indices = pycf.cfl_util.mu_n_to_level(
+            h, mu_n_pairs, minimum_q=2, half_integer_states=True
+        )
+        # Returns: [1, 2, 5] (1-based level indices)
     
     Parameters
     ----------
     h : Hamiltonian
         Diagonalized Hamiltonian with current coefficients. Must have:
-        - h.z (eigenvector matrix, shape n_states x n_basis)
-        - h.tensors[0].states.labels (basis state SLJM labels, shape n_basis x 4)
+        - ``h.z``: eigenvector matrix, shape ``(n_states, n_basis)``
+        - ``h.tensors[0].states.labels``: basis state SLJM labels, 
+          shape ``(n_basis, 4)`` where each row is [S, L, J, M]
     mu_n_array : ndarray
-        Array of (mu, n) pairs, shape (N, 2), with mu in column 0, n in column 1.
-        mu values are folded magnetic quantum numbers, n values are ordinal
-        indices within each mu group (1-based).
+        Array of (mu, n) pairs to convert, shape ``(N, 2)`` with dtype ``int32``.
+        - Column 0: mu values (folded magnetic quantum numbers)
+        - Column 1: n values (ordinal indices, 1-based)
     minimum_q : int
-        Smallest non-zero q in the Hamiltonian expansion (for mu calculation).
+        Smallest non-zero q value in the Hamiltonian expansion. Common values:
+        - ``2``: For C20, C22 (most common)
+        - ``4``: For C40, C44, C60, C64 expansions
+        - ``6``: For very high-order expansions
     half_integer_states : bool
-        Whether m quantum numbers are half-integers stored as doubled integers.
+        Whether the system has half-integer m quantum numbers (stored as doubled integers).
+        - ``True``: f-electrons (J=5/2, d=7/2, etc.) with m ∈ {..., -3/2, -1/2, 1/2, 3/2, ...}
+        - ``False``: Integer m values (p, d-electrons in certain cases) with m ∈ {..., -1, 0, 1, ...}
     
     Returns
     -------
     ndarray
-        Array of level indices (1-based), shape (N,).
+        Array of level indices (1-based), shape ``(N,)`` with dtype ``int32``.
+        Index ``i`` in the returned array is the eigenstate level number
+        corresponding to ``mu_n_array[i, :]``.
         
     Raises
     ------
     ValueError
-        If any (mu, n) pair is not found in the current Hamiltonian.
+        - If any (mu, n) pair is not found in the current eigenstate spectrum
+        - If ``h.z`` is not 2D (Hamiltonian not properly diagonalized)
+        - If eigenvector matrix dimensions don't match state labels
+    
+    Notes
+    -----
+    The principal component method is used: each eigenstate is matched to its
+    largest component in the original basis. This works well for weakly-mixing
+    crystal fields. For strongly-mixing systems, custom matching logic may be needed.
+    
+    The conversion is performed at the time of fitting initialization in :class:`cfl.EFit`.
+    Once converted to level indices, the fitting proceeds using the standard
+    energy-level comparison workflow.
     """
     # Get basis state labels
     if not h.tensors or not h.tensors[0].states:
