@@ -528,6 +528,75 @@ def calc_mu(m: int, minimum_q: int, half_integer_states: bool = False) -> int:
     return mu
 
 
+def get_eigenstate_mu_n(eigenstate_idx: int, z: np.ndarray, labels: List[Any],
+                        w: np.ndarray, minimum_q: int, half_integer_states: bool) -> Tuple[int, int]:
+    r"""
+    Calculate (mu, n) quantum numbers for a single eigenstate.
+    
+    This is the SINGLE SOURCE OF TRUTH for computing mu/n values.
+    Used by both mu_n_to_level() and gen_e_summary_trunc().
+    
+    Parameters
+    ----------
+    eigenstate_idx : int
+        Index of the eigenstate (0-based).
+    z : np.ndarray
+        Shape (n_basis_states, n_eigenstates). Each column is an eigenvector.
+    labels : list
+        SLJM labels for each basis state.
+    w : np.ndarray
+        Eigenvalues (energies).
+    minimum_q : int
+        Smallest non-zero q in crystal field expansion.
+    half_integer_states : bool
+        If True, m values are half-integers stored as doubled integers.
+        
+    Returns
+    -------
+    tuple
+        (mu, n) where:
+        - mu: folded magnetic quantum number (0 to minimum_q)
+        - n: ordinal index within mu group, sorted by energy (1-based)
+    """
+    # Extract m from principal component of this eigenstate
+    col = z[:, eigenstate_idx]
+    abs_col = np.abs(col)
+    pc_idx = np.argmax(abs_col)
+    m_value = int(labels[pc_idx][-1])  # m is last element in label
+    
+    # Compute mu from m
+    mu = calc_mu(m_value, minimum_q, half_integer_states)
+    
+    # Compute n: count how many eigenstates with same mu have energy <= this eigenstate
+    # Need to group all eigenstates by mu and sort by energy
+    n_eigenstates = z.shape[1]
+    mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
+    
+    for idx in range(n_eigenstates):
+        col = z[:, idx]
+        abs_col = np.abs(col)
+        pc_idx_temp = np.argmax(abs_col)
+        m_temp = int(labels[pc_idx_temp][-1])
+        mu_temp = calc_mu(m_temp, minimum_q, half_integer_states)
+        
+        if mu_temp not in mu_to_levels:
+            mu_to_levels[mu_temp] = []
+        mu_to_levels[mu_temp].append((w[idx], idx))
+    
+    # Sort each mu group by energy
+    for mu_key in mu_to_levels:
+        mu_to_levels[mu_key].sort(key=lambda x: x[0])
+    
+    # Find the ordinal position (n) of this eigenstate in its mu group
+    n = None
+    for rank, (energy, idx) in enumerate(mu_to_levels[mu], start=1):
+        if idx == eigenstate_idx:
+            n = rank
+            break
+    
+    return mu, n
+
+
 def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
                   half_integer_states: bool) -> np.ndarray:
     r"""
@@ -655,28 +724,19 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
             f"Eigenvector matrix has {z.shape[0]} rows but state labels has {n_states} entries. "
             "Hamiltonian must be properly initialized.")
     
-    # For each eigenstate, compute its (mu, n) and track level indices
-    # Store as (energy, level_index) tuples so we can sort by energy
+    # Use get_eigenstate_mu_n to compute (mu, n) for each eigenstate
+    # This builds the grouping needed to find requested (mu, n) pairs
+    n_eigenstates = z.shape[1]
     mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
     
-    for state_idx in range(n_states):
-        # Find principal component
-        row = z[state_idx, :]
-        abs_row = np.abs(row)
-        pc_idx = np.argmax(abs_row)
-        
-        # Extract m from principal component SLJM labels
-        m_value = int(state_labels[pc_idx, 3])
-        
-        # Compute mu
-        mu = calc_mu(m_value, minimum_q, half_integer_states)
-        
-        # Track (energy, level_index) pairs for this mu so we can sort by energy
+    for eigenstate_idx in range(n_eigenstates):
+        mu, n = get_eigenstate_mu_n(eigenstate_idx, z, state_labels_list, h.w, minimum_q, half_integer_states)
         if mu not in mu_to_levels:
             mu_to_levels[mu] = []
-        mu_to_levels[mu].append((h.w[state_idx], state_idx + 1))
+        # Store (energy, level_index) for later sorting if needed
+        mu_to_levels[mu].append((h.w[eigenstate_idx], eigenstate_idx + 1))
     
-    # Sort each mu group by energy
+    # Sort each mu group by energy (already done in get_eigenstate_mu_n, but good to be explicit)
     for mu in mu_to_levels:
         mu_to_levels[mu].sort(key=lambda x: x[0])
     
@@ -960,31 +1020,13 @@ def gen_e_summary_trunc(
         minimum_q = kwargs["minimum_q"]
         half_integer = kwargs.get("half_integer_states", False)
         
-        # Extract m values from principal component of each eigenvector
-        m_values = []
-        for i in range(len(z)):
-            # Principal component is the largest amplitude in eigenvector i
-            principal_idx = sort_list[i][0]
-            m = labels[principal_idx][-1]  # m is the last element in the label
-            m_values.append(m)
-        
-        # Calculate mu for each eigenvector
-        mu_values = [calc_mu(m, minimum_q, half_integer) for m in m_values]
-        
-        # Calculate n (ordinal index within each mu group, sorted by energy)
-        # Group eigenvectors by mu value
-        from collections import defaultdict
-        mu_groups: Dict[int, List[Tuple[float, int]]] = defaultdict(list)
-        for i in range(len(z)):
-            mu_groups[mu_values[i]].append((w[i], i))
-        
-        # Sort each group by energy and assign ordinal indices
-        n_values = [0] * len(z)
-        for mu, group in mu_groups.items():
-            # Sort by energy (first element of tuple)
-            sorted_group = sorted(group, key=lambda x: x[0])
-            for n, (_, idx) in enumerate(sorted_group, start=1):
-                n_values[idx] = n
+        # Use get_eigenstate_mu_n to compute (mu, n) for each eigenstate
+        mu_values = [None] * len(z)
+        n_values = [None] * len(z)
+        for eigenstate_idx in range(len(z)):
+            mu, n = get_eigenstate_mu_n(eigenstate_idx, z, labels, w, minimum_q, half_integer)
+            mu_values[eigenstate_idx] = mu
+            n_values[eigenstate_idx] = n
     if ex.n_a != 0:
         if ex.n_d != 0:
             s += uline_char("Absolute energy levels:\n")
