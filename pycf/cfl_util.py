@@ -1027,12 +1027,42 @@ def gen_e_summary_trunc(
     if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
         minimum_q = kwargs["minimum_q"]
         half_integer = kwargs.get("half_integer_states", False)
+        labels_list = list(labels) if not isinstance(labels, list) else labels
         
-        # Use get_eigenstate_mu_n to compute (mu, n) for each eigenstate
+        # Build mu grouping once (O(n) instead of O(n²))
+        mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
+        for idx in range(len(z)):
+            col = z[:, idx]
+            abs_col = np.abs(col)
+            pc_idx = np.argmax(abs_col)
+            m_value = int(labels_list[pc_idx][-1])
+            mu = calc_mu(m_value, minimum_q, half_integer)
+            
+            if mu not in mu_to_levels:
+                mu_to_levels[mu] = []
+            mu_to_levels[mu].append((w[idx], idx))
+        
+        # Sort each mu group by energy
+        for mu_key in mu_to_levels:
+            mu_to_levels[mu_key].sort(key=lambda x: x[0])
+        
+        # Now compute (mu, n) for each eigenstate
         mu_values = [None] * len(z)
         n_values = [None] * len(z)
         for eigenstate_idx in range(len(z)):
-            mu, n = get_eigenstate_mu_n(eigenstate_idx, z, labels, w, minimum_q, half_integer)
+            col = z[:, eigenstate_idx]
+            abs_col = np.abs(col)
+            pc_idx = np.argmax(abs_col)
+            m_value = int(labels_list[pc_idx][-1])
+            mu = calc_mu(m_value, minimum_q, half_integer)
+            
+            # Find n: ordinal position in this mu group
+            n = None
+            for rank, (energy, idx) in enumerate(mu_to_levels[mu], start=1):
+                if idx == eigenstate_idx:
+                    n = rank
+                    break
+            
             mu_values[eigenstate_idx] = mu
             n_values[eigenstate_idx] = n
     if ex.n_a != 0:
