@@ -686,6 +686,16 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
     s += "====================\n"
     if "h_label" in kwargs and kwargs["h_label"] is not None:
         s += "Hamiltonian: {}\n".format(kwargs["h_label"])
+    
+    # Print mu/n parameters if they've been set
+    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
+        minimum_q = kwargs["minimum_q"]
+        half_integer = kwargs.get("half_integer_states", False)
+        s += "Parameters: minimum_q={}, half_integer_states={}\n".format(minimum_q, half_integer)
+        s += "(m values are {} for f-electrons)\n".format(
+            "half-integers" if half_integer else "doubled integers"
+        )
+    
     s += "\n"
     sort_list = []
     for i in range(len(z)):
