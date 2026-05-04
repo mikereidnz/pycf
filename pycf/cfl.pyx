@@ -4367,6 +4367,15 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Maximum number of energy levels to display in the fit summary output.
+        Useful for systems with hundreds of levels where only the first N are of interest.
+        Does not affect fitting calculations. Default: None (display all levels).
+    nstates : int, optional
+        Number of constituent states to display for mixed states in the summary.
+        Default: 2.
+    **kwargs : optional
+        Additional keyword arguments passed to EFit (e.g., fitting-specific options).
     """
     started_at = datetime.now()
     summary = "=============\n"
@@ -4388,16 +4397,21 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     ndof = max(efit.n_obs - efit.n_p_real, 1)
 
     if efit.ex.n_d != 0:
-        summary += h.gen_summary() + "\n\n"
+        summary += h.gen_summary(**kwargs) + "\n\n"
         # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
         summary_kwargs = {"ex": efit.ex, "name": "Fitted energy levels", "chi2": efit.chi2[0], "ndof": ndof, "weighting": 1}
         if h.minimum_q is not None:
             summary_kwargs["minimum_q"] = h.minimum_q
             summary_kwargs["half_integer_states"] = h.half_integer_states
+        # Merge display kwargs if provided
+        if "max_levels" in kwargs:
+            summary_kwargs["max_levels"] = kwargs["max_levels"]
+        if "nstates" in kwargs:
+            summary_kwargs["nstates"] = kwargs["nstates"]
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
                 h.tensors[0].states.label_key, **summary_kwargs)
     else:
-        summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1)
+        summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **kwargs)
 
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
@@ -4445,6 +4459,14 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Maximum number of energy levels to display in fit summary output for each
+        Hamiltonian. Default: None (display all levels).
+    nstates : int, optional
+        Number of constituent states to display for mixed states in the summary.
+        Default: 2.
+    **kwargs : optional
+        Additional keyword arguments passed to MHFit.
     """
     started_at = datetime.now()
     summary = "==============\n"
@@ -4464,7 +4486,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     h = mhfit.h_list[0]
     h.update_coeff(x)
     (w, z) = h.diag()
-    summary += h.gen_summary() + "\n\n"
+    summary += h.gen_summary(**kwargs) + "\n\n"
     for i,h in enumerate(mhfit.h_list):
         h.update_coeff(x)
         (w, z) = h.diag()
@@ -4475,6 +4497,11 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         if h.minimum_q is not None:
             summary_kwargs["minimum_q"] = h.minimum_q
             summary_kwargs["half_integer_states"] = h.half_integer_states
+        # Merge display kwargs if provided
+        if "max_levels" in kwargs:
+            summary_kwargs["max_levels"] = kwargs["max_levels"]
+        if "nstates" in kwargs:
+            summary_kwargs["nstates"] = kwargs["nstates"]
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **summary_kwargs)
 
         summary += "\n"
@@ -4531,6 +4558,12 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Limit the number of displayed energy levels in the summary output.
+        Useful for systems with many levels; does not affect fitting statistics.
+    nstates : int, optional
+        Limit the number of displayed spin states in the summary output.
+        Does not affect fitting statistics.
     """
     started_at = datetime.now()
     summary = "===============\n"
@@ -4558,17 +4591,22 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
     sh_param = sh.calc_param(h, svd_sym=svd)
 
     if eshfit.ex.n_d != 0:
-        summary += h.gen_summary() + "\n\n"
+        summary += h.gen_summary(**kwargs) + "\n\n"
         # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
         summary_kwargs = {"ex": eshfit.ex, "name": "Fitted energy levels", "chi2": eshfit.chi2[0], "ndof": ndof, "weighting": eshfit.weights['energy']}
         if h.minimum_q is not None:
             summary_kwargs["minimum_q"] = h.minimum_q
             summary_kwargs["half_integer_states"] = h.half_integer_states
+        # Merge display kwargs if provided
+        if "max_levels" in kwargs:
+            summary_kwargs["max_levels"] = kwargs["max_levels"]
+        if "nstates" in kwargs:
+            summary_kwargs["nstates"] = kwargs["nstates"]
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
                 h.tensors[0].states.label_key, **summary_kwargs)
     else:
         summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
-                weighting=eshfit.weights['energy'])
+                weighting=eshfit.weights['energy'], **kwargs)
 
     #summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
     #        weighting=eshfit.weights['energy'])
@@ -4612,6 +4650,12 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Limit the number of displayed energy levels in the summary output.
+        Useful for systems with many levels; does not affect fitting statistics.
+    nstates : int, optional
+        Limit the number of displayed spin states in the summary output.
+        Does not affect fitting statistics.
     """
     started_at = datetime.now()
     summary = "================\n"
@@ -4633,7 +4677,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(meshfit.n_obs - meshfit.n_p_real, 1)
 
-    summary += h.gen_summary()
+    summary += h.gen_summary(**kwargs)
     summary += "\n"
 
     chi2_offset = 0
@@ -4647,6 +4691,11 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
         if h.minimum_q is not None:
             summary_kwargs["minimum_q"] = h.minimum_q
             summary_kwargs["half_integer_states"] = h.half_integer_states
+        # Merge display kwargs if provided
+        if "max_levels" in kwargs:
+            summary_kwargs["max_levels"] = kwargs["max_levels"]
+        if "nstates" in kwargs:
+            summary_kwargs["nstates"] = kwargs["nstates"]
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
                 h.tensors[0].states.label_key, **summary_kwargs)
         chi2_offset += 1
