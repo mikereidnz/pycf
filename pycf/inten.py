@@ -21,6 +21,7 @@ from pycf.constants import (
     SPEED_OF_LIGHT,
 )
 from pycf.njsymbols import wigner_3j
+from pycf.cfl_util import format_state_label, L2term
 
 
 def clean_complex(value: Union[complex, float], tolerance: float = 1e-12) -> Union[complex, float]:
@@ -945,22 +946,89 @@ def _format_inten_text(
     return "\n".join(lines)
 
 
-def _format_state_label_with_energy(label: Any, level: int, energy: float) -> str:
+def _format_state_label_with_energy(label: Any, level: int, energy: float, label_key: Optional[str] = None) -> str:
     """Format a state label with 1-based level index and energy."""
-    if isinstance(label, (list, tuple)):
-        label_str = " ".join(str(x) for x in label)
+    if label_key:
+        # Use formatted label with label_key
+        try:
+            label_str = _format_state_label_short(label, label_key)
+            # Remove pipes and closing bracket: |2F 5, -5> becomes 2F 5, -5
+            if label_str.startswith("|"):
+                label_str = label_str[1:]
+            if label_str.endswith(">"):
+                label_str = label_str[:-1]
+        except Exception:
+            label_str = " ".join(str(x) for x in label) if isinstance(label, (list, tuple)) else str(label)
     else:
-        label_str = str(label)
-    return f"{level}: | {label_str} > (E = {energy:12.6f} cm-1)"
+        # Simple formatting without label_key
+        if isinstance(label, (list, tuple)):
+            label_str = " ".join(str(x) for x in label)
+        else:
+            label_str = str(label)
+    
+    return f"{level}: |{label_str} > (E = {energy:12.6f} cm-1)"
 
 
-def _format_state_label_short(label: Any) -> str:
-    """Format a state label in short form (just the quantum numbers, no brackets)."""
-    if isinstance(label, (list, tuple)):
-        label_str = " ".join(str(x) for x in label)
+def _format_state_label_short(label: Any, label_key: Optional[str] = None) -> str:
+    """
+    Format a state label in short form using label_key convention if provided.
+    
+    Parameters
+    ----------
+    label : tuple or list
+        State label (tuple of quantum numbers)
+    label_key : str, optional
+        Label key specifying quantum number types (S, L, J, M, etc.).
+        If provided, formats with proper L->term letter conversion.
+        If None, returns space-separated quantum numbers.
+    """
+    if label_key:
+        try:
+            label_str = "|"
+            for i, l in enumerate(label):
+                if i < len(label_key):
+                    if label_key[i] == "S":
+                        label_str += "{:d}".format(l)
+                    elif label_key[i] == "L":
+                        label_str += L2term(l)
+                    elif label_key[i] == "J":
+                        label_str += "{: >2d},".format(l)
+                    elif label_key[i] == "M":
+                        # M is last element, add closing >
+                        label_str += "{: >3d}>".format(l)
+                    elif label_key[i] == "X":
+                        label_str += "{:d},".format(l)
+                    elif label_key[i] == "F":
+                        if l:
+                            label_str += "(2F)"
+                        else:
+                            label_str += "    "
+                    elif label_key[i] == "T":
+                        label_str += "{:d},".format(l)
+                    else:
+                        # Other types - use default formatting
+                        if i < len(label_key) - 1:
+                            label_str += "{: >3d},".format(l)
+                        else:
+                            label_str += "{: >3d}>".format(l)
+                else:
+                    # Beyond label_key length, format and close
+                    label_str += "{: >3d}>".format(l)
+            return label_str
+        except Exception:
+            # Fallback to simple format if something goes wrong
+            if isinstance(label, (list, tuple)):
+                label_str = " ".join(str(x) for x in label)
+            else:
+                label_str = str(label)
+            return f"| {label_str} >"
     else:
-        label_str = str(label)
-    return label_str
+        # No label_key, use simple formatting
+        if isinstance(label, (list, tuple)):
+            label_str = " ".join(str(x) for x in label)
+        else:
+            label_str = str(label)
+        return f"| {label_str} >"
 
 
 def _format_complex_dipole(value: Union[complex, float]) -> str:
@@ -1004,8 +1072,14 @@ def _format_group_line(
 
     # Format state labels with energies (with bounds checking)
     if t_list and pc_i is not None and pc_f is not None and 0 <= pc_i < len(state_labels) and 0 <= pc_f < len(state_labels):
-        initial_label = _format_state_label_with_energy(state_labels[pc_i], initial_level, e_i)
-        final_label = _format_state_label_with_energy(state_labels[pc_f], final_level, e_f)
+        label_key = None
+        if spectrum.hamiltonian and spectrum.hamiltonian.tensors and spectrum.hamiltonian.tensors[0]:
+            try:
+                label_key = spectrum.hamiltonian.tensors[0].states.label_key
+            except (AttributeError, IndexError):
+                pass
+        initial_label = _format_state_label_with_energy(state_labels[pc_i], initial_level, e_i, label_key)
+        final_label = _format_state_label_with_energy(state_labels[pc_f], final_level, e_f, label_key)
     else:
         initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
         final_label = f"State {final_level}" if final_level is not None else "Unknown"
@@ -1057,13 +1131,20 @@ def _format_transition_line(
     s_md = trans.get("S_MD_isotropic", 0.0)
     
     # Get state labels using principal component indices (with bounds checking)
+    label_key = None
+    if spectrum.hamiltonian and spectrum.hamiltonian.tensors and spectrum.hamiltonian.tensors[0]:
+        try:
+            label_key = spectrum.hamiltonian.tensors[0].states.label_key
+        except (AttributeError, IndexError):
+            pass
+    
     if 0 <= i_pc_idx < len(state_labels):
-        i_label = _format_state_label_short(state_labels[i_pc_idx])
+        i_label = _format_state_label_short(state_labels[i_pc_idx], label_key)
     else:
         i_label = f"State {i_1b}"
     
     if 0 <= f_pc_idx < len(state_labels):
-        f_label = _format_state_label_short(state_labels[f_pc_idx])
+        f_label = _format_state_label_short(state_labels[f_pc_idx], label_key)
     else:
         f_label = f"State {f_1b}"
     

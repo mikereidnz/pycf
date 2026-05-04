@@ -4174,9 +4174,13 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
 
     if efit.ex.n_d != 0:
         summary += h.gen_summary() + "\n\n"
+        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
+        summary_kwargs = {"ex": efit.ex, "name": "Fitted energy levels", "chi2": efit.chi2[0], "ndof": ndof, "weighting": 1}
+        if h.minimum_q is not None:
+            summary_kwargs["minimum_q"] = h.minimum_q
+            summary_kwargs["half_integer_states"] = h.half_integer_states
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
-                h.tensors[0].states.label_key, ex=efit.ex, name="Fitted energy " \
-                "levels", chi2=efit.chi2[0], ndof=ndof, weighting=1)
+                h.tensors[0].states.label_key, **summary_kwargs)
     else:
         summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1)
 
@@ -4251,8 +4255,12 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
-        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key,
-                ex=mhfit.ex_list[i], name=name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
+        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
+        summary_kwargs = {"ex": mhfit.ex_list[i], "name": name, "chi2": mhfit.chi2[i], "ndof": ndof, "weighting": mhfit.weights_list[i]}
+        if h.minimum_q is not None:
+            summary_kwargs["minimum_q"] = h.minimum_q
+            summary_kwargs["half_integer_states"] = h.half_integer_states
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **summary_kwargs)
 
         summary += "\n"
 
@@ -4336,10 +4344,13 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
 
     if eshfit.ex.n_d != 0:
         summary += h.gen_summary() + "\n\n"
+        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
+        summary_kwargs = {"ex": eshfit.ex, "name": "Fitted energy levels", "chi2": eshfit.chi2[0], "ndof": ndof, "weighting": eshfit.weights['energy']}
+        if h.minimum_q is not None:
+            summary_kwargs["minimum_q"] = h.minimum_q
+            summary_kwargs["half_integer_states"] = h.half_integer_states
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
-                h.tensors[0].states.label_key, ex=eshfit.ex, name="Fitted " \
-                "energy levels", chi2=eshfit.chi2[0], ndof=ndof,
-                weighting=eshfit.weights['energy'])
+                h.tensors[0].states.label_key, **summary_kwargs)
     else:
         summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
                 weighting=eshfit.weights['energy'])
@@ -4416,9 +4427,13 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
+        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
+        summary_kwargs = {"ex": meshfit.ex_list[i], "name": name, "chi2": meshfit.chi2[chi2_offset], "ndof": ndof, "weighting": meshfit.weights_list[i]['energy']}
+        if h.minimum_q is not None:
+            summary_kwargs["minimum_q"] = h.minimum_q
+            summary_kwargs["half_integer_states"] = h.half_integer_states
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
-                h.tensors[0].states.label_key, ex=meshfit.ex_list[i], name=name,
-                chi2=meshfit.chi2[chi2_offset], ndof=ndof, weighting=meshfit.weights_list[i]['energy'])
+                h.tensors[0].states.label_key, **summary_kwargs)
         chi2_offset += 1
         summary += "\n"
 

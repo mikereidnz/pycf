@@ -85,6 +85,47 @@ def L2term(i: int) -> str:
         raise ValueError("Unsupported L quantum number: {}.".format(i))
 
 
+def format_state_label(li: int, labels: List[Any], label_key: str) -> str:
+    """
+    Format a single state label using the label_key convention.
+    
+    Parameters
+    ----------
+    li : int
+        Index into the labels list
+    labels : list
+        List of state labels (each is a tuple/list of quantum numbers)
+    label_key : str
+        String specifying the format: positions determine which quantum numbers
+        are S, L, J, M, I, T, F, X. E.g., "SLJM" means labels[li] = (S, L, J, M)
+    
+    Returns
+    -------
+    str
+        Formatted label string like "|2F 7,  1>" or "|1,5D 4, -2>"
+    """
+    label = "|"
+    for i, l in enumerate(labels[li]):
+        if label_key[i] == "X":
+            label += "{:d},".format(l)
+        elif label_key[i] == "F":
+            if l:
+                label += "(2F)"
+            else:
+                label += "    "
+        elif label_key[i] == "S":
+            label += "{:d}".format(l)
+        elif label_key[i] == "L":
+            label += L2term(l)
+        elif label_key[i] == "J":
+            label += "{: >2d},".format(l)
+        elif i < len(label_key) - 1:
+            label += "{: >3d},".format(l)
+        else:
+            label += "{: >3d}>".format(l)
+    return label
+
+
 def fmt_timestamp(timestamp: Optional[Union[datetime, str]] = None) -> str:
     if timestamp is None:
         timestamp = datetime.now()
@@ -535,28 +576,6 @@ def gen_e_summary(
         is automatically doubled for folding. Only used if minimum_q is provided.
     """
 
-    def fmt_label(li, labels):
-        label = "|"
-        for i, l in enumerate(labels[li]):
-            if label_key[i] == "X":
-                label += "{:d},".format(l)
-            elif label_key[i] == "F":
-                if l:
-                    label += "(2F)"
-                else:
-                    label += "    "
-            elif label_key[i] == "S":
-                label += "{:d}".format(l)
-            elif label_key[i] == "L":
-                label += L2term(l)
-            elif label_key[i] == "J":
-                label += "{: >2d},".format(l)
-            elif i < len(label_key) - 1:
-                label += "{: >3d},".format(l)
-            else:
-                label += "{: >3d}>".format(l)
-        return label
-
     if "nstates" not in kwargs:
         nstates = 2
     else:
@@ -624,7 +643,7 @@ def gen_e_summary(
     
     heading = (
         "Lev.  "
-        + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4))
+        + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4))
         * nstates
         + "       Theory"
     )
@@ -632,7 +651,7 @@ def gen_e_summary(
     # Insert mu and n columns if calculated
     if mu_values is not None:
         # Modify heading to include mu and n columns after "Lev."
-        heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4)) * nstates + "       Theory"
+        heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4)) * nstates + "       Theory"
     if ex.size != 0:
         heading += "     Experiment    Difference\n"
     else:
@@ -648,7 +667,7 @@ def gen_e_summary(
         for j in range(nstates):
             si = sort_list[i][j]
             line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, fmt_label(si, labels)
+                z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
             )
         s += line + " {: >12.4f}".format(w[i])
         if ex.size != 0:
@@ -724,29 +743,15 @@ def gen_e_summary_trunc(
         be shown.  See Chapter 15 (page 780) of Numerical Recipes, 3rd edition.
     weighting : float, optional
         The weighting applied during the chi2 fit.  This should be set if ndof is set.
+    minimum_q : int, optional
+        Smallest non-zero q value across all C_kq tensors in the Hamiltonian.
+        If provided, add mu (folded magnetic quantum number) and n (ordinal index
+        within each mu group) columns to the output table.
+    half_integer_states : bool, optional
+        If False (default): m values are actual integers, and minimum_q is used as-is.
+        If True: m values are half-integers stored as doubled integers, and minimum_q
+        is automatically doubled for folding. Only used if minimum_q is provided.
     """
-
-    def fmt_label(li, labels):
-        label = "|"
-        for i, l in enumerate(labels[li]):
-            if label_key[i] == "X":
-                label += "{:d},".format(l)
-            elif label_key[i] == "F":
-                if l:
-                    label += "(2F)"
-                else:
-                    label += "    "
-            elif label_key[i] == "S":
-                label += "{:d}".format(l)
-            elif label_key[i] == "L":
-                label += L2term(l)
-            elif label_key[i] == "J":
-                label += "{: >2d},".format(l)
-            elif i < len(label_key) - 1:
-                label += "{: >3d},".format(l)
-            else:
-                label += "{: >3d}>".format(l)
-        return label
 
     if "nstates" not in kwargs:
         nstates = 2
@@ -759,27 +764,65 @@ def gen_e_summary_trunc(
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]
-    # Absolute energy level summary.
+    
+    # Calculate mu and n if minimum_q is provided
+    mu_values = None
+    n_values = None
+    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
+        minimum_q = kwargs["minimum_q"]
+        half_integer = kwargs.get("half_integer_states", False)
+        
+        # Extract m values from principal component of each eigenvector
+        m_values = []
+        for i in range(len(z)):
+            # Principal component is the largest amplitude in eigenvector i
+            principal_idx = sort_list[i][0]
+            m = labels[principal_idx][-1]  # m is the last element in the label
+            m_values.append(m)
+        
+        # Calculate mu for each eigenvector
+        mu_values = [calc_mu(m, minimum_q, half_integer) for m in m_values]
+        
+        # Calculate n (ordinal index within each mu group, sorted by energy)
+        # Group eigenvectors by mu value
+        from collections import defaultdict
+        mu_groups: Dict[int, List[Tuple[float, int]]] = defaultdict(list)
+        for i in range(len(z)):
+            mu_groups[mu_values[i]].append((w[i], i))
+        
+        # Sort each group by energy and assign ordinal indices
+        n_values = [0] * len(z)
+        for mu, group in mu_groups.items():
+            # Sort by energy (first element of tuple)
+            sorted_group = sorted(group, key=lambda x: x[0])
+            for n, (_, idx) in enumerate(sorted_group, start=1):
+                n_values[idx] = n
     if ex.n_a != 0:
         if ex.n_d != 0:
             s += uline_char("Absolute energy levels:\n")
         exa = ex_parse_abs(ex, z, labels)
         heading = (
             "Lev.  "
-            + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4))
+            + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4))
             * nstates
             + "       Theory"
         )
+        # Insert mu and n columns if calculated
+        if mu_values is not None:
+            heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4)) * nstates + "       Theory"
         heading += "     Experiment    Difference\n"
         s += uline_char(heading)
         for ii in range(ex.n_a):
             i = int(exa[ii, 0])
             line = "{0:<6}".format(i + 1)
+            # Add mu and n columns if calculated
+            if mu_values is not None:
+                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
             N = np.sum(np.abs(z[:, i]) ** 2)
             for j in range(nstates):
                 si = sort_list[i][j]
                 line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, fmt_label(si, labels)
+                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
                 )
             s += line + " {: >12.4f}".format(w[i])
             s += "   {: >12.4f}  {: >12.4f}".format(exa[ii, 1], exa[ii, 1] - w[i]) + "\n"
@@ -791,30 +834,39 @@ def gen_e_summary_trunc(
         exd = ex_parse_diff(ex, z, labels)
         heading = (
             "Lev.  "
-            + ("Percentage                 " + "State" + " " * (len(fmt_label(0, labels)) - 4))
+            + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4))
             * nstates
             + "    Th. diff."
         )
+        # Insert mu and n columns if calculated
+        if mu_values is not None:
+            heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4)) * nstates + "    Th. diff."
         heading += "     Exp. diff.    Diff. diff.\n"
         s += uline_char(heading)
         for ii in range(ex.n_d):
             i = int(exd[ii, 0])
             line = "{0:<6}".format(i + 1)
+            # Add mu and n columns if calculated
+            if mu_values is not None:
+                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
             N = np.sum(np.abs(z[:, i]) ** 2)
             for j in range(nstates):
                 si = sort_list[i][j]
                 line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, fmt_label(si, labels)
+                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
                 )
             s += line + "\n"
             tmp_w = w[i]
             i = int(exd[ii, 1])
             line = "{0:<6}".format(i + 1)
+            # Add mu and n columns if calculated
+            if mu_values is not None:
+                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
             N = np.sum(np.abs(z[:, i]) ** 2)
             for j in range(nstates):
                 si = sort_list[i][j]
                 line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, fmt_label(si, labels)
+                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
                 )
             tmp_w = w[i] - tmp_w
             s += line + " {: >12.4g}".format(tmp_w)
