@@ -36,7 +36,7 @@ def test_exdata(data_sel) -> None:
     
     # Set mu/n parameters for this Hamiltonian
     h.minimum_q = 2
-    h.half_integer_states = False
+    h.half_integer_states = True
     
     w, z = h.diag()
     w = w - np.min(w)
@@ -84,7 +84,9 @@ def test_exdata(data_sel) -> None:
         # Format: [mu, n, energy]
         # 
         # These values were extracted from h.gen_summary() output with minimum_q=2
-        # and half_integer_states=False, matching the sl_diff test data.
+        # and half_integer_states=True (since Ce:YLF has f-electrons with half-integer m values).
+        # Note: The m values in the state labels are stored as doubled integers
+        # (e.g., -5, -3, -1, 1, 3, 5 representing -5/2, -3/2, -1/2, 1/2, 3/2, 5/2).
         ex_amu = np.array(
             [
                 [1, 1, 0],          # level 1: mu=1, n=1, energy=0

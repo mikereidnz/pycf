@@ -686,16 +686,6 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
     s += "====================\n"
     if "h_label" in kwargs and kwargs["h_label"] is not None:
         s += "Hamiltonian: {}\n".format(kwargs["h_label"])
-    
-    # Print mu/n parameters if they've been set
-    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
-        minimum_q = kwargs["minimum_q"]
-        half_integer = kwargs.get("half_integer_states", False)
-        s += "Parameters: minimum_q={}, half_integer_states={}\n".format(minimum_q, half_integer)
-        s += "(m values are {} for f-electrons)\n".format(
-            "half-integers" if half_integer else "doubled integers"
-        )
-    
     s += "\n"
     sort_list = []
     for i in range(len(z)):
@@ -772,7 +762,12 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
                 s += "         --            --\n"
         else:
             s += "\n"
-    s += "Label key: {}\n".format(label_key)
+    s += "Label key: {}".format(label_key)
+    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
+        minimum_q = kwargs["minimum_q"]
+        half_integer = kwargs.get("half_integer_states", False)
+        s += ", minimum_q={}, half_integer_states={}".format(minimum_q, half_integer)
+    s += "\n"
     if "chi2" in kwargs:
         s += "weighted chi2 = {:.4f}\n".format(kwargs["chi2"])
         if "ndof" in kwargs:
@@ -965,7 +960,12 @@ def gen_e_summary_trunc(
             s += line + " {: >12.4g}".format(tmp_w)
             s += "   {: >12.4g}  {: >12.4g}".format(exd[ii, 2], exd[ii, 2] - tmp_w) + "\n"
         s += "\n"
-    s += "Label key: {}\n".format(label_key)
+    s += "Label key: {}".format(label_key)
+    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
+        minimum_q = kwargs["minimum_q"]
+        half_integer = kwargs.get("half_integer_states", False)
+        s += ", minimum_q={}, half_integer_states={}".format(minimum_q, half_integer)
+    s += "\n"
     if "chi2" in kwargs:
         s += "weighted chi2 = {:.4f}\n".format(kwargs["chi2"])
         if "ndof" in kwargs:
