@@ -724,19 +724,27 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
             f"Eigenvector matrix has {z.shape[0]} rows but state labels has {n_states} entries. "
             "Hamiltonian must be properly initialized.")
     
-    # Use get_eigenstate_mu_n to compute (mu, n) for each eigenstate
-    # This builds the grouping needed to find requested (mu, n) pairs
+    # Build mu grouping once (O(n) instead of O(n²))
+    # Step 1: Compute mu for each eigenstate (not n, just mu - we'll compute n after sorting)
     n_eigenstates = z.shape[1]
     mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
     
     for eigenstate_idx in range(n_eigenstates):
-        mu, n = get_eigenstate_mu_n(eigenstate_idx, z, state_labels_list, h.w, minimum_q, half_integer_states)
+        # Extract m from principal component
+        col = z[:, eigenstate_idx]
+        abs_col = np.abs(col)
+        pc_idx = np.argmax(abs_col)
+        m_value = int(state_labels_list[pc_idx][-1])
+        
+        # Compute mu from m
+        mu = calc_mu(m_value, minimum_q, half_integer_states)
+        
+        # Group by mu, storing (energy, eigenstate_index)
         if mu not in mu_to_levels:
             mu_to_levels[mu] = []
-        # Store (energy, level_index) for later sorting if needed
         mu_to_levels[mu].append((h.w[eigenstate_idx], eigenstate_idx + 1))
     
-    # Sort each mu group by energy (already done in get_eigenstate_mu_n, but good to be explicit)
+    # Step 2: Sort each mu group by energy
     for mu in mu_to_levels:
         mu_to_levels[mu].sort(key=lambda x: x[0])
     
