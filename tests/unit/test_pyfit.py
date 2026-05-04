@@ -80,7 +80,7 @@ def test_pyfit_lm_finds_minimum_for_linear_problem():
     efit = _make_efit(diag, ex)
     py = PyFit(efit)
 
-    res = py.fit_(method="lm")
+    res = py.fit(method="lm")
     assert res.success or res.status > 0
     assert res.x[0] == pytest.approx(0.7, rel=1e-6)
     assert py.chi2(res.x) == pytest.approx(0.0, abs=1e-18)
@@ -101,7 +101,7 @@ def test_pyfit_works_with_mhfit():
     chi2_eval = float(mhfit.eval({}).sum())
     assert chi2_py == pytest.approx(chi2_eval, rel=1e-12)
 
-    res = py.fit_(method="lm")
+    res = py.fit(method="lm")
     # observed both data sets satisfy 0.7 * diag exactly.
     assert res.x[0] == pytest.approx(0.7, rel=1e-6)
 
@@ -132,7 +132,7 @@ def test_pyfit_bounds_with_trf():
     py = PyFit(efit)
 
     # Force x to stay >= 0.9; the optimum is then on the boundary.
-    res = py.fit_(method="trf", bounds=([0.9], [2.0]))
+    res = py.fit(method="trf", bounds=([0.9], [2.0]))
     assert res.x[0] == pytest.approx(0.9, abs=1e-6)
 
 
@@ -162,7 +162,7 @@ def test_pyfit_fit_with_pycf_jacobian():
     efit = _make_efit(diag, ex)
     py = PyFit(efit)
 
-    res = py.fit_(method="lm", jac="pycf")
+    res = py.fit(method="lm", jac="pycf")
     assert res.x[0] == pytest.approx(0.7, rel=1e-6)
     assert py.chi2(res.x) == pytest.approx(0.0, abs=1e-18)
     assert py.last_result is res
@@ -176,7 +176,7 @@ def test_pyfit_covariance_matches_underlying_fit():
     efit = _make_efit(diag, ex)
     py = PyFit(efit)
 
-    res = py.fit_(method="lm")
+    res = py.fit(method="lm")
     cov_py, sigma_py, _ = py.covariance()
     cov_ref, sigma_ref, _ = efit.covariance(x=res.x)
     np.testing.assert_allclose(cov_py, cov_ref, rtol=1e-8, atol=1e-12)
@@ -190,7 +190,7 @@ def test_pyfit_stderr_shape_and_positive():
     efit = _make_efit(diag, ex)
     py = PyFit(efit)
 
-    py.fit_(method="lm")
+    py.fit(method="lm")
     sigma = py.stderr()
     assert sigma.shape == (py.n_p_real,)
     assert np.all(sigma >= 0.0)

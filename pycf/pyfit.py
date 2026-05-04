@@ -24,7 +24,7 @@ Example
 -------
 >>> from pycf.pyfit import PyFit
 >>> py = PyFit(efit)         # efit is an EFit or MHFit
->>> result = py.fit(method='lm')
+>>> result = py.fit(method='lm')  # Run the fit with SciPy
 >>> result.x                 # final parameter vector
 >>> py.chi2(result.x)        # matches efit.eval(...) at the same x
 """
@@ -45,7 +45,7 @@ class PyFit:
 
     Parameters
     ----------
-    fit
+    efit
         An :class:`pycf.cfl.EFit` or :class:`pycf.cfl.MHFit` instance.
         The wrapper does not modify the underlying object's persistent
         state during evaluation: parameter perturbations are applied
@@ -54,35 +54,35 @@ class PyFit:
 
     Attributes
     ----------
-    fit
-        The wrapped fit object.
+    efit
+        The wrapped EFit or MHFit object.
     x0 : numpy.ndarray
         A copy of the initial parameter vector at construction time.
-        ``len(x0) == fit.n_p_real``.
+        ``len(x0) == efit.n_p_real``.
     """
 
-    def __init__(self, fit: Any) -> None:
-        if not hasattr(fit, "n_p_real") or not hasattr(fit, "x0"):
+    def __init__(self, efit: Any) -> None:
+        if not hasattr(efit, "n_p_real") or not hasattr(efit, "x0"):
             raise TypeError(
                 "PyFit requires an EFit or MHFit instance "
                 "(missing 'n_p_real' or 'x0')."
             )
-        if not hasattr(fit, "get_edata"):
+        if not hasattr(efit, "get_edata"):
             raise TypeError(
                 "PyFit requires the fit to expose get_edata(); upgrade "
                 "to a recent pycf with the Hamiltonian data accessors."
             )
-        self.fit = fit
-        self.x0 = np.asarray(fit.x0, dtype=np.float64).copy()
+        self.efit = efit
+        self.x0 = np.asarray(efit.x0, dtype=np.float64).copy()
         # The most recent scipy.optimize.OptimizeResult, populated by
-        # :meth:`fit_`.  Used by :meth:`covariance` and :meth:`stderr`
+        # :meth:`fit`.  Used by :meth:`covariance` and :meth:`stderr`
         # when no explicit ``x`` is supplied.
         self.last_result: Any = None
 
     @property
     def n_p_real(self) -> int:
         """Number of real-valued fit parameters."""
-        return int(self.fit.n_p_real)
+        return int(self.efit.n_p_real)
 
     def residuals(self, x: np.ndarray) -> np.ndarray:
         r"""Return the weighted residual vector at parameter point ``x``.
@@ -105,8 +105,8 @@ class PyFit:
             One-dimensional float64 array of length ``n_obs_total``.
         """
         x = np.asarray(x, dtype=np.float64)
-        with _temporary_x(self.fit, x):
-            edata = self.fit.get_edata()
+        with _temporary_x(self.efit, x):
+            edata = self.efit.get_edata()
         return np.asarray(edata.arr["wresidual"], dtype=np.float64)
 
     def chi2(self, x: np.ndarray) -> float:
@@ -130,7 +130,7 @@ class PyFit:
         x : array_like
             Parameter vector of length ``n_p_real``.
         **fd_kwargs
-            Forwarded to ``fit.fd_jacobian`` (``delta``, ``rel_delta``,
+            Forwarded to ``efit.fd_jacobian`` (``delta``, ``rel_delta``,
             ``atol``, ``check_swaps``).
 
         Returns
@@ -139,16 +139,16 @@ class PyFit:
         """
         x = np.asarray(x, dtype=np.float64)
         # fd_jacobian internally restores parameter state on exit.
-        J_E = np.asarray(self.fit.fd_jacobian(x, **fd_kwargs),
+        J_E = np.asarray(self.efit.fd_jacobian(x, **fd_kwargs),
                          dtype=np.float64)
         # Weight rows by sqrt(w_i) so that J matches d(residuals)/dx.
-        with _temporary_x(self.fit, x):
-            edata = self.fit.get_edata()
+        with _temporary_x(self.efit, x):
+            edata = self.efit.get_edata()
         weights = np.asarray(edata.arr["weight"], dtype=np.float64)
         sqrtw = np.sqrt(np.maximum(weights, 0.0))
         return sqrtw[:, None] * J_E
 
-    def fit_(
+    def fit(
         self,
         x0: Optional[np.ndarray] = None,
         *,
@@ -158,9 +158,6 @@ class PyFit:
         **kwargs: Any,
     ) -> Any:
         """Run :func:`scipy.optimize.least_squares` on :meth:`residuals`.
-
-        The trailing underscore in the method name avoids a clash with
-        the ``fit`` attribute (the wrapped EFit/MHFit instance).
 
         Parameters
         ----------
@@ -178,7 +175,7 @@ class PyFit:
             via SciPy (``'2-point'``).  Pass the string ``'pycf'`` to
             use :meth:`jacobian` (pycf's own central-difference helper
             with the same step convention as
-            ``fit.covariance()``), or any callable returning shape
+            ``efit.covariance()``), or any callable returning shape
             ``(n_obs, n_p_real)``.
         **kwargs
             Any other keyword argument accepted by
@@ -227,9 +224,9 @@ class PyFit:
     ) -> Any:
         r"""Variance-covariance matrix of the fit parameters.
 
-        Delegates to ``self.fit.covariance(...)`` (which builds
+        Delegates to ``self.efit.covariance(...)`` (which builds
         :math:`(J_E^T W J_E)^+` and applies the requested scale).  If
-        ``x`` is omitted and a previous :meth:`fit_` call has populated
+        ``x`` is omitted and a previous :meth:`fit` call has populated
         :attr:`last_result`, the optimum from that result is used.
 
         Parameters
@@ -237,11 +234,11 @@ class PyFit:
         x : array_like, optional
             Parameter vector at which to evaluate.  Defaults to
             ``self.last_result.x`` if available, else the underlying
-            fit's current ``x0``.
+            efit's current ``x0``.
         scale : {"reduced_chi2", "unscaled"}, optional
             Forwarded to :py:meth:`pycf.cfl.EFit.covariance`.
         **fd_kwargs
-            Forwarded to ``fit.fd_jacobian`` when an FD Jacobian is
+            Forwarded to ``efit.fd_jacobian`` when an FD Jacobian is
             recomputed.
 
         Returns
@@ -254,7 +251,7 @@ class PyFit:
         """
         if x is None and self.last_result is not None:
             x = np.asarray(self.last_result.x, dtype=np.float64)
-        return self.fit.covariance(x=x, scale=scale, **fd_kwargs)
+        return self.efit.covariance(x=x, scale=scale, **fd_kwargs)
 
     def stderr(
         self,
