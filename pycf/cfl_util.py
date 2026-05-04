@@ -527,8 +527,91 @@ def calc_mu(m: int, minimum_q: int, half_integer_states: bool = False) -> int:
     return mu
 
 
-def gen_e_summary(
-    w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
+def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
+                  half_integer_states: bool) -> np.ndarray:
+    r"""
+    Convert (mu, n) state pairs to energy level indices for a given Hamiltonian.
+    
+    This function computes mu/n for all eigenstates of the Hamiltonian and matches
+    user-provided (mu, n) pairs to their corresponding level indices (1-based).
+    
+    Parameters
+    ----------
+    h : Hamiltonian
+        Diagonalized Hamiltonian with current coefficients. Must have:
+        - h.z (eigenvector matrix, shape n_states x n_basis)
+        - h.tensors[0].states.labels (basis state SLJM labels, shape n_basis x 4)
+    mu_n_array : ndarray
+        Array of (mu, n) pairs, shape (N, 2), with mu in column 0, n in column 1.
+        mu values are folded magnetic quantum numbers, n values are ordinal
+        indices within each mu group (1-based).
+    minimum_q : int
+        Smallest non-zero q in the Hamiltonian expansion (for mu calculation).
+    half_integer_states : bool
+        Whether m quantum numbers are half-integers stored as doubled integers.
+    
+    Returns
+    -------
+    ndarray
+        Array of level indices (1-based), shape (N,).
+        
+    Raises
+    ------
+    ValueError
+        If any (mu, n) pair is not found in the current Hamiltonian.
+    """
+    # Get basis state labels
+    if not h.tensors or not h.tensors[0].states:
+        raise ValueError("Hamiltonian must have state labels (SLJM format)")
+    
+    state_labels_list = h.tensors[0].states.labels
+    state_labels = np.array(state_labels_list, dtype=np.int32)
+    
+    # Get eigenvectors
+    z = h.z
+    if z is None:
+        raise ValueError("Hamiltonian must be diagonalized (call h.diag() first)")
+    
+    n_states = len(state_labels)
+    
+    # For each eigenstate, compute its (mu, n) and track level indices
+    mu_to_levels: Dict[int, List[int]] = {}
+    
+    for state_idx in range(n_states):
+        # Find principal component
+        row = z[state_idx, :]
+        abs_row = np.abs(row)
+        pc_idx = np.argmax(abs_row)
+        
+        # Extract m from principal component SLJM labels
+        m_value = int(state_labels[pc_idx, 3])
+        
+        # Compute mu
+        mu = calc_mu(m_value, minimum_q, half_integer_states)
+        
+        # Track level indices for this mu (level indices are 1-based)
+        if mu not in mu_to_levels:
+            mu_to_levels[mu] = []
+        mu_to_levels[mu].append(state_idx + 1)
+    
+    # Match requested (mu, n) to level indices
+    level_indices = np.zeros(len(mu_n_array), dtype=np.int32)
+    for i in range(len(mu_n_array)):
+        mu_req = int(mu_n_array[i, 0])
+        n_req = int(mu_n_array[i, 1])
+        
+        if mu_req not in mu_to_levels or n_req > len(mu_to_levels[mu_req]):
+            available = sorted([(m, len(lvls)) for m, lvls in mu_to_levels.items()])
+            raise ValueError(
+                f"No state found with (mu, n) = ({mu_req}, {n_req}). "
+                f"Available: {available}")
+        
+        level_indices[i] = mu_to_levels[mu_req][n_req - 1]
+    
+    return level_indices
+
+
+def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
 ) -> str:
     r"""
     Generate energy level summary given eigenvalues and eigenvectors.

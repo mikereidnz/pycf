@@ -1404,8 +1404,17 @@ cdef class ExData(object):
     cdef public np.ndarray lah
     cdef public np.ndarray ildh
     cdef public np.ndarray fldh
+    # Storage for AMu/DMu raw data (not converted to level indices)
+    cdef public np.ndarray mu_n_abs
+    cdef public np.ndarray mu_n_diff
+    cdef public bint has_mu_n
     def __init__(self, data, key=None, label_key=None, weights=None):
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
+
+        # Initialize mu_n attributes
+        self.has_mu_n = False
+        self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
+        self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
 
         if not (isinstance(data, np.ndarray) or isinstance(data, tuple)):
             raise TypeError("The ex data argument must either be of type np.ndarray or " \
@@ -1414,8 +1423,12 @@ cdef class ExData(object):
             if isinstance(data, np.ndarray):
                 weights = np.ones(data.shape[0], dtype=np.float64)
             else:
-                weights = (np.ones(data[0].shape[0], dtype=np.float64),
-                        np.ones(data[1].shape[0], dtype=np.float64))
+                # Handle both 1-element and 2-element tuples
+                if len(data) == 1:
+                    weights = (np.ones(data[0].shape[0], dtype=np.float64),)
+                else:
+                    weights = (np.ones(data[0].shape[0], dtype=np.float64),
+                            np.ones(data[1].shape[0], dtype=np.float64))
         else:
             if isinstance(weights, np.ndarray):
                 if data.shape[0] != len(weights):
@@ -1430,25 +1443,22 @@ cdef class ExData(object):
         if isinstance(data, tuple):
             if key is None:
                 raise ValueError("Missing key argument; this must be specified if data is a tuple.")
-            elif len(data) != 2:
-                raise ValueError("The data argument can at most contain two elements; " \
-                        "one absolute energy array and one difference energy array.")
+            elif len(data) < 1 or len(data) > 2:
+                raise ValueError("The data argument must contain 1 or 2 elements.")
             elif not all(isinstance(e, np.ndarray) for e in data):
                 raise TypeError("Elements of the data tuple must be of type np.ndarray.")
             elif not isinstance(key, tuple):
-                raise TypeError("If the data argument is a tuple with two " \
-                        "elements the key argument must also be a tuple with two elements.")
-            elif len(key) != 2:
-                raise ValueError("The key tuple must be the same length as the data tuple.")
+                raise TypeError("If the data argument is a tuple, the key argument must also be a tuple.")
+            elif len(key) != len(data):
+                raise ValueError("The key tuple must have the same length as the data tuple.")
             elif not all(isinstance(k, str) for k in key):
                 raise TypeError("Elements of the key tuple must be of type str.")
             elif not isinstance(weights, tuple):
                 raise TypeError("Weights must be of type tuple if data is specified as a tuple")
             elif not all(isinstance(e, np.ndarray) for e in weights):
                 raise TypeError("Elements of the weights tuple must be of type np.ndarray.")
-            elif len(weights) != 2:
-                raise ValueError("The weights argument can at most contain two elements; " \
-                        "one for the absolute energy array and one for the difference energy array.")
+            elif len(weights) != len(data):
+                raise ValueError("The weights argument must have the same length as the data tuple.")
         if key is not None:
             if not isinstance(key, tuple):
                 # A single key is provided; we therefore make both data and key
@@ -1463,21 +1473,26 @@ cdef class ExData(object):
 
             for k in key:
                 if k == 'A' or k == 'D':
-                    if 'AS' in key or 'DS' in key:
-                        raise ValueError("Mixed index and state level indices are " \
-                                "not supported; use either A and D, or AS and DS.")
+                    if 'AS' in key or 'DS' in key or 'AMu' in key or 'DMu' in key:
+                        raise ValueError("Mixed data types are not supported; use either " \
+                                "(A/D), (AS/DS), or (AMu/DMu).")
                     self.sl_index = 0
                 else:
                     if 'A' in key or 'D' in key:
-                        raise ValueError("Mixed index and state level indices are " \
-                                "not supported; use either A and D, or AS and DS.")
+                        raise ValueError("Mixed data types are not supported; use either " \
+                                "(A/D), (AS/DS), or (AMu/DMu).")
+                    elif 'AS' in key or 'DS' in key:
+                        if 'AMu' in key or 'DMu' in key:
+                            raise ValueError("Cannot mix state label types; use either " \
+                                    "(AS/DS) or (AMu/DMu).")
                     elif type(label_key) != str:
                         raise TypeError("The label_key argument must be of type str and is " \
                                 "mandatory for state label indices.")
                     self.sl_index = 1
 
-                if k not in ['A', 'D', 'AS', 'DS']:
-                    raise ValueError("Invalid key argument; allowed options are 'A', 'D', 'AS', and 'DS'.")
+                if k not in ['A', 'D', 'AS', 'DS', 'AMu', 'DMu']:
+                    raise ValueError("Invalid key argument; allowed options are 'A', 'D', " \
+                            "'AS', 'DS', 'AMu', and 'DMu'.")
         if isinstance(data, np.ndarray):
             if not data.shape[1] == 2:
                 raise ValueError("Incorrect ex data shape; expected a two column array.")
@@ -1539,17 +1554,44 @@ cdef class ExData(object):
                     self.ildh = np.ascontiguousarray(ildh, dtype=np.int32)
                     self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
 
+                if 'AMu' in key:
+                    # Store raw (mu, n) data without conversion
+                    if data[key.index('AMu')].shape[1] != 3:
+                        raise ValueError("AMu data must have 3 columns: (mu, n, energy).")
+                    self.n_a = len(data[key.index('AMu')])
+                    self.mu_n_abs = np.ascontiguousarray(data[key.index('AMu')][:, :2], dtype=np.float64)
+                    self.has_mu_n = True
+
+                if 'DMu' in key:
+                    # Store raw (mu, n) data for initial and final states
+                    if data[key.index('DMu')].shape[1] != 5:
+                        raise ValueError("DMu data must have 5 columns: (mu_i, n_i, mu_f, n_f, energy_diff).")
+                    self.n_d = len(data[key.index('DMu')])
+                    self.mu_n_diff = np.ascontiguousarray(data[key.index('DMu')][:, :4], dtype=np.float64)
+                    self.has_mu_n = True
+
                 if len(key) == 2:
                     # Both abs. and diff. levels present; energies and weights
                     # are stacked with all abs. values before the diff. values.
-                    self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
-                        data[key.index('DS')][:, 2*ll])), dtype=np.float64)
-                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('AS')],
-                        weights[key.index('DS')])), dtype=np.float64)
+                    if 'AS' in key:
+                        self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
+                            data[key.index('DS')][:, 2*ll])), dtype=np.float64)
+                        self.w = np.ascontiguousarray(np.hstack((weights[key.index('AS')],
+                            weights[key.index('DS')])), dtype=np.float64)
+                    elif 'AMu' in key:
+                        self.e = np.ascontiguousarray(np.hstack((data[key.index('AMu')][:, 2],
+                            data[key.index('DMu')][:, 4])), dtype=np.float64)
+                        self.w = np.ascontiguousarray(np.hstack((weights[key.index('AMu')],
+                            weights[key.index('DMu')])), dtype=np.float64)
 
                 elif key[0] == 'AS':
                     self.e = np.ascontiguousarray(data[key.index('AS')][:, ll], dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('AS')], dtype=np.float64)
+                    self.n_d = 0
+
+                elif key[0] == 'AMu':
+                    self.e = np.ascontiguousarray(data[key.index('AMu')][:, 2], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('AMu')], dtype=np.float64)
                     self.n_d = 0
 
                 elif key[0] == 'DS':
@@ -1557,6 +1599,12 @@ cdef class ExData(object):
                     self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
                     self.n_a = 0
                     self.la = np.zeros(0)
+
+                elif key[0] == 'DMu':
+                    self.e = np.ascontiguousarray(data[key.index('DMu')][:, 4], dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('DMu')], dtype=np.float64)
+                    self.n_a = 0
+                    self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
             else:
                 if 'A' in key:
                     if data[key.index('A')].shape[1] != 2:
