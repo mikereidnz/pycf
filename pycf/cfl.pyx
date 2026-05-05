@@ -2229,6 +2229,60 @@ def _covariance_impl(fit_obj, x=None, *, jacobian=None,
     return cov, sigma, edata
 
 
+cdef void _update_exdata_mu_n_indices(ex, h, bint skip_diag=False):
+    """Shared helper: update ex.la and ex.ild/ex.fld for mu_n markers.
+    
+    Recomputes eigenstate indices dynamically using mu_n_to_level, ensuring
+    fit and display use the same mapping. Used by both EFit and MHFit trampolines.
+    
+    Parameters
+    ----------
+    ex : ExData
+        Experimental data object with mu_n markers.
+    h : Hamiltonian
+        Hamiltonian instance with current coefficients.
+    skip_diag : bool
+        If True, assume h.diag() has already been called.
+    """
+    from .cfl_util import mu_n_to_level
+    
+    if not ex.has_mu_n:
+        return
+    has_a_mu = ex.mu_n_abs.shape[0] > 0
+    has_d_mu = (hasattr(ex, 'mu_n_diff')
+                and ex.mu_n_diff is not None
+                and ex.mu_n_diff.shape[0] > 0)
+    if not (has_a_mu or has_d_mu):
+        return
+    
+    if not skip_diag:
+        h.diag()
+    
+    if has_a_mu:
+        levels_1based = mu_n_to_level(
+            h, ex.mu_n_abs,
+            h.minimum_q,
+            h.half_integer_states,
+        )
+        for k, row in enumerate(ex.mu_row_indices):
+            ex.la[row] = int(levels_1based[k]) - 1
+    
+    if has_d_mu:
+        ini_levels = mu_n_to_level(
+            h, ex.mu_n_diff[:, :2],
+            h.minimum_q,
+            h.half_integer_states,
+        )
+        fin_levels = mu_n_to_level(
+            h, ex.mu_n_diff[:, 2:4],
+            h.minimum_q,
+            h.half_integer_states,
+        )
+        for k, row in enumerate(ex.mu_row_indices_d):
+            ex.ild[row] = int(ini_levels[k]) - 1
+            ex.fld[row] = int(fin_levels[k]) - 1
+
+
 cdef double mu_n_efit_obj_trampoline(
     size_t n, double *x, double *grad, void *data
 ) noexcept with gil:
@@ -2260,7 +2314,7 @@ cdef double mu_n_efit_obj_trampoline(
         efit.h.set_coeff(efit.coeff)
 
         efit.h.diag()
-        efit._update_la_for_mu_n(skip_diag=True)
+        _update_exdata_mu_n_indices(efit.ex, efit.h, skip_diag=True)
 
         ex = efit.ex
         eval_arr = np.asarray(efit.h.w, dtype=np.float64).ravel()
@@ -2286,6 +2340,86 @@ cdef double mu_n_efit_obj_trampoline(
                     return float('inf')
                 diff = abs(eval_arr[fld_idx] - eval_arr[ild_idx]) - e_arr[i + ex.n_a]
                 chisq += w_arr[i + ex.n_a] * diff * diff
+        return chisq
+    except BaseException:
+        import traceback
+        traceback.print_exc()
+        return float('inf')
+
+
+cdef double mu_n_mhfit_obj_trampoline(const double *x, void *data) with gil:
+    """
+    Python wrapper objective for multi-Hamiltonian fits with marker-column mu/n data.
+    
+    For each Hamiltonian, updates its ExData's dynamic mu/n mappings before
+    computing the combined chi² across all Hamiltonians. Called by CFLMin minimizer
+    instead of cfl.mhfit_obj when any ex_list[i].has_mu_n == True.
+    
+    Parameters:
+    -----------
+    x : const double *
+        Real-valued parameter vector (complex parameters stored as [re, im]).
+    data : void *
+        Pointer to MHFit instance (Python object).
+    
+    Returns:
+    --------
+    chi2 : double
+        Sum of squared, weighted residuals across all Hamiltonians.
+    """
+    cdef Py_ssize_t i, n_evals, la_idx, ild_idx, fld_idx
+    cdef double diff, chisq = 0.0
+    cdef np.ndarray eval_arr, e_arr, w_arr, la_arr, ild_arr, fld_arr
+    
+    try:
+        mhfit = <object>data
+        x_arr = np.asarray(<double[:mhfit.n_p_real]>x)
+        
+        # Update all Hamiltonians' coefficients
+        new_coeff = _x_to_coeff_dict(mhfit, x_arr)
+        mhfit.coeff.update(new_coeff)
+        
+        # For each Hamiltonian:
+        #   1. Set coefficients and diagonalize
+        #   2. Update ExData mu/n mapping
+        #   3. Accumulate chi²
+        for i in range(mhfit.n_h):
+            h = mhfit.h_list[i]
+            ex = mhfit.ex_list[i]
+            
+            # Set this H's coefficients and diagonalize
+            h.set_coeff({p: mhfit.coeff[p] for p in mhfit.h_param_list[i]})
+            h.diag()
+            
+            # Update dynamic mu/n indices for this H
+            _update_exdata_mu_n_indices(ex, h, skip_diag=True)
+            
+            # Compute chi² contribution for this H (same as mu_n_efit_obj_trampoline)
+            eval_arr = np.asarray(h.w, dtype=np.float64).ravel()
+            e_arr = np.asarray(ex.e, dtype=np.float64)
+            w_arr = np.asarray(ex.w, dtype=np.float64)
+            la_arr = np.asarray(ex.la).astype(np.int64, copy=False)
+            n_evals = eval_arr.shape[0]
+            
+            for j in range(ex.n_a):
+                la_idx = <Py_ssize_t>la_arr[j]
+                if la_idx < 0 or la_idx >= n_evals:
+                    return float('inf')
+                diff = eval_arr[la_idx] - e_arr[j]
+                chisq += w_arr[j] * diff * diff
+            
+            if ex.n_d > 0:
+                ild_arr = np.asarray(ex.ild).astype(np.int64, copy=False)
+                fld_arr = np.asarray(ex.fld).astype(np.int64, copy=False)
+                for j in range(ex.n_d):
+                    ild_idx = <Py_ssize_t>ild_arr[j]
+                    fld_idx = <Py_ssize_t>fld_arr[j]
+                    if (ild_idx < 0 or ild_idx >= n_evals
+                            or fld_idx < 0 or fld_idx >= n_evals):
+                        return float('inf')
+                    diff = abs(eval_arr[fld_idx] - eval_arr[ild_idx]) - e_arr[j + ex.n_a]
+                    chisq += w_arr[j + ex.n_a] * diff * diff
+        
         return chisq
     except BaseException:
         import traceback
@@ -2534,67 +2668,15 @@ cdef class EFit(object):
                 ri += 1
 
         chi2 = np.ascontiguousarray(np.zeros(1, dtype=np.float64))
-        self._update_la_for_mu_n()
+        _update_exdata_mu_n_indices(self.ex, self.h)
         cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
         self.chi2 = chi2
 
         return(params, fmin)
 
     def _update_la_for_mu_n(self, skip_diag=False):
-        r"""
-        Refresh ``self.ex.la`` for marker-column (mu/n) rows using the
-        current Hamiltonian.
-
-        This calls :py:func:`pycf.cfl_util.mu_n_to_level` -- the SAME
-        function used by the display path via ``ex_parse_abs`` -- so
-        that fit residuals and printed energy summaries always agree on
-        which eigenstate corresponds to each ``(mu, n)`` marker.
-
-        Must be called after any change to the Hamiltonian's
-        coefficients and before any C function that reads
-        ``ex.la`` (e.g. ``efit_chi2``). Has no effect if ``ex`` has no
-        marker-column entries.
-
-        Parameters
-        ----------
-        skip_diag : bool, optional
-            If True, assume ``self.h.diag()`` has already been called
-            and ``self.h.w`` / ``self.h.evect`` are current. Default
-            False (this method calls ``self.h.diag()`` itself).
-        """
-        if not self.ex.has_mu_n:
-            return
-        has_a_mu = self.ex.mu_n_abs.shape[0] > 0
-        has_d_mu = (hasattr(self.ex, 'mu_n_diff')
-                    and self.ex.mu_n_diff is not None
-                    and self.ex.mu_n_diff.shape[0] > 0)
-        if not (has_a_mu or has_d_mu):
-            return
-        from .cfl_util import mu_n_to_level
-        if not skip_diag:
-            self.h.diag()
-        if has_a_mu:
-            levels_1based = mu_n_to_level(
-                self.h, self.ex.mu_n_abs,
-                self.h.minimum_q,
-                self.h.half_integer_states,
-            )
-            for k, row in enumerate(self.ex.mu_row_indices):
-                self.ex.la[row] = int(levels_1based[k]) - 1
-        if has_d_mu:
-            ini_levels = mu_n_to_level(
-                self.h, self.ex.mu_n_diff[:, :2],
-                self.h.minimum_q,
-                self.h.half_integer_states,
-            )
-            fin_levels = mu_n_to_level(
-                self.h, self.ex.mu_n_diff[:, 2:4],
-                self.h.minimum_q,
-                self.h.half_integer_states,
-            )
-            for k, row in enumerate(self.ex.mu_row_indices_d):
-                self.ex.ild[row] = int(ini_levels[k]) - 1
-                self.ex.fld[row] = int(fin_levels[k]) - 1
+        r"""Deprecated: use _update_exdata_mu_n_indices directly."""
+        _update_exdata_mu_n_indices(self.ex, self.h, skip_diag=skip_diag)
 
     @cython.boundscheck(False)
     def eval(self, coeff):
@@ -2615,7 +2697,7 @@ cdef class EFit(object):
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
 
         chi2 = np.ascontiguousarray(np.zeros(1, dtype=np.float64))
-        self._update_la_for_mu_n()
+        _update_exdata_mu_n_indices(self.ex, self.h)
         with nogil:
             cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
 
@@ -3060,6 +3142,13 @@ cdef class MHFit(object):
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.nls_f_cap = PyCapsule_New(<void *>&cfl.mhfit_nls, "pycfl.NlsObjF", NULL)
+        
+        # If any Hamiltonian uses marker-column mu/n data, swap to Python wrapper.
+        # The wrapper updates dynamic mu/n indices per Hamiltonian before calling
+        # the C objective. (Non-mu/n fits use C objective directly.)
+        has_mu_n = any(ex.has_mu_n for ex in self.ex_list)
+        if has_mu_n:
+            self.obj_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_obj_trampoline, "pycfl.MinObjF", NULL)
 
     def __dealloc__(self):
         if self.ha != NULL:
