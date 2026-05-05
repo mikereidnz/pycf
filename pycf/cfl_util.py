@@ -946,11 +946,8 @@ def gen_e_summary(
             if "half_integer_states" in kwargs:
                 ex_kwargs["half_integer_states"] = kwargs["half_integer_states"]
             ex = ex_parse_abs(ex, z, labels, **ex_kwargs)
-            # For marker-column data, skip sorting (user order is important)
-            # For regular data, convert to 0-based indexing only (already sorted by ex_parse_abs)
-            if not (hasattr(ex, 'mu_n_abs') or (hasattr(kwargs["ex"], 'mu_n_abs'))):
-                ex = ex[np.argsort(ex[:, 0]), :]
-            ex[:, 0] = ex[:, 0] - 1
+            # ex_parse_abs already returns 0-based indices (sorted for regular data,
+            # in user-specified order for marker-column data). Do not subtract or sort here.
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError(
                 "e_summary: ex input data contains duplicate entries in the index column."
