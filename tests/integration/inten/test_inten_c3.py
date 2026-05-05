@@ -189,12 +189,12 @@ def test_inten_c3() -> None:
         )
         for line in group["t_list"]:
             print("\t", line["i"], line["f"], line["e"], line["isotropic"])
-        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i-1])
+        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i - 1])
         assert group["f"] == pytest.approx(
-            pascal_f[i-1], rel=tolerance
+            pascal_f[i - 1], rel=tolerance
         ), f'Group {i} oscillator strength \
         {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
-    
+
     # Print raw transition data
     print("\nPrint raw transition data")
     print("lrange", [i_range, f_range])
@@ -280,9 +280,9 @@ def test_inten_c3() -> None:
         )
         for line in group["t_list"]:
             print("\t", line["i"], line["f"], line["e"], line["isotropic"])
-        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i-1])
+        print("\tA:", group["A"], "f:", group["f"], "Compare to Pascal f:", pascal_f[i - 1])
         assert group["f"] == pytest.approx(
-            pascal_f[i-1], rel=tolerance
+            pascal_f[i - 1], rel=tolerance
         ), f'Group {i} oscillator strength \
         {group["f"]} differs from Pascal calculation {pascal_f[i-1]} by more than the tolerance of {tolerance}'
     # Now do emission from Y1 and Y2 to Z

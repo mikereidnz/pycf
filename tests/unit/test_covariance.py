@@ -29,9 +29,7 @@ def _make_efit():
     tb = _diag_tensor("B", diag_b)
     h = cfl.Hamiltonian([ta, tb])
     h.set_coeff({"A": 1.0, "B": 1.0})
-    ex = cfl.ExData(np.array([
-        [1, 0.0], [2, 1.5], [3, 2.5], [4, 3.5]
-    ]))
+    ex = cfl.ExData(np.array([[1, 0.0], [2, 1.5], [3, 2.5], [4, 3.5]]))
     return cfl.EFit(["A", "B"], h, ex)
 
 

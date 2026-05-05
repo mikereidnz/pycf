@@ -9,9 +9,10 @@ Tests for guard code added during Phase 5-6 refactoring:
 - Empty spectrum validation
 """
 
-import pytest
+from unittest.mock import Mock
+
 import numpy as np
-from unittest.mock import Mock, patch
+import pytest
 
 from pycf.inten import A_and_f_calc
 
@@ -25,7 +26,7 @@ class TestAandFCalcGuardCode:
         S_MD = 0.0
         energy = 500.0
         g_i = 4.0
-        
+
         A, f = A_and_f_calc(S_ED, S_MD, energy, g_i)
         assert np.isfinite(A)
         assert np.isfinite(f)
@@ -38,7 +39,7 @@ class TestAandFCalcGuardCode:
         S_MD = 0.0
         energy = 500.0
         g_i = 0.0  # Invalid: would cause 1/g_i
-        
+
         with pytest.raises(ValueError, match="g_i must be positive"):
             A_and_f_calc(S_ED, S_MD, energy, g_i)
 
@@ -48,7 +49,7 @@ class TestAandFCalcGuardCode:
         S_MD = 0.0
         energy = 500.0
         g_i = -1.0  # Invalid: negative degeneracy
-        
+
         with pytest.raises(ValueError, match="g_i must be positive"):
             A_and_f_calc(S_ED, S_MD, energy, g_i)
 
@@ -57,22 +58,23 @@ class TestAandFCalcGuardCode:
         S_ED = 1e-20
         S_MD = 0.0
         energy = 500.0
-        
+
         for g_i in [0.1, 1.0, 2.5, 10.0]:
             A, f = A_and_f_calc(S_ED, S_MD, energy, g_i)
             assert np.isfinite(A), f"A not finite for g_i={g_i}"
             assert np.isfinite(f), f"f not finite for g_i={g_i}"
 
+
 class TestFormatGroupLineGuardCode:
     """Test guard code for state label access in _format_group_line.
-    
+
     Note: These are integration-level tests; _format_group_line has guard code
     for array bounds checking on state_labels access.
     """
 
     def test_formatting_guard_code_note(self):
         """Note: _format_group_line and _format_transition_line have guard code.
-        
+
         Guard code patterns used:
         - state_labels[idx] wrapped with bounds check
         - Fallback to "State N" format if index out of range
@@ -83,7 +85,7 @@ class TestFormatGroupLineGuardCode:
 
 class TestExptDataTypeConversion:
     """Test type conversion safety in expt_data handling.
-    
+
     The guard code converts float group indices to int and skips malformed entries.
     """
 
@@ -92,7 +94,7 @@ class TestExptDataTypeConversion:
         # Mock spectrum with expt_data containing float indices
         spectrum = Mock()
         spectrum.expt_data = [[0.0, 1.5e-20], [1.0, 2.5e-20]]
-        
+
         # Simulate the guard code conversion pattern
         expt_lookup = {}
         for entry in spectrum.expt_data:
@@ -103,7 +105,7 @@ class TestExptDataTypeConversion:
             except (ValueError, TypeError, IndexError):
                 # Skip malformed entries
                 pass
-        
+
         # Should have converted successfully
         assert 0 in expt_lookup
         assert 1 in expt_lookup
@@ -114,13 +116,13 @@ class TestExptDataTypeConversion:
         """expt_data parsing should skip malformed entries silently."""
         spectrum = Mock()
         spectrum.expt_data = [
-            [0, 1.5e-20],           # Valid
-            ["invalid", 2.0e-20],   # Invalid group_idx
-            [1, "invalid"],         # Invalid f_expt
-            [2],                    # Too few elements
-            [3, 4, 5],              # Valid indices (tuple unpacking)
+            [0, 1.5e-20],  # Valid
+            ["invalid", 2.0e-20],  # Invalid group_idx
+            [1, "invalid"],  # Invalid f_expt
+            [2],  # Too few elements
+            [3, 4, 5],  # Valid indices (tuple unpacking)
         ]
-        
+
         expt_lookup = {}
         for entry in spectrum.expt_data:
             try:
@@ -131,7 +133,7 @@ class TestExptDataTypeConversion:
                 expt_lookup[group_idx] = f_expt
             except (ValueError, TypeError, IndexError):
                 pass
-        
+
         # Should have only valid entries
         assert 0 in expt_lookup
         assert 1 not in expt_lookup  # Failed to convert "invalid" to float
@@ -142,7 +144,7 @@ class TestExptDataTypeConversion:
         """expt_data with out-of-range indices are handled when formatting."""
         spectrum = Mock()
         spectrum.expt_data = [[0, 1.5e-20], [999, 2.5e-20]]
-        
+
         # Parse to lookup dict
         expt_lookup = {}
         for entry in spectrum.expt_data:
@@ -152,14 +154,14 @@ class TestExptDataTypeConversion:
                 expt_lookup[group_idx] = f_expt
             except (ValueError, TypeError, IndexError):
                 pass
-        
+
         # Formatting code checks if group_idx exists before accessing
         num_groups = 1
         safe_expt = {}
         for group_idx, f_expt in expt_lookup.items():
             if 0 <= group_idx < num_groups:
                 safe_expt[group_idx] = f_expt
-        
+
         # Out-of-range entry should be skipped
         assert 999 not in safe_expt
         assert 0 in safe_expt
@@ -172,11 +174,11 @@ class TestEmptySpectrumValidation:
         """Spectrum with empty groups should be caught before processing."""
         spectrum = Mock()
         spectrum.groups = []
-        
+
         # Guard code should raise before attempting iteration
         has_groups = len(spectrum.groups) > 0
         assert not has_groups
-        
+
         # Upstream code should validate this
         if not has_groups:
             # This simulates the guard code check
@@ -187,6 +189,6 @@ class TestEmptySpectrumValidation:
         """Spectrum with groups should pass validation."""
         spectrum = Mock()
         spectrum.groups = [Mock(), Mock()]
-        
+
         has_groups = len(spectrum.groups) > 0
         assert has_groups

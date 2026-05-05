@@ -346,15 +346,15 @@ See `examples/ceylf/mu_exdata_example.py` for a complete workflow.
 
     import pycf
     import numpy as np
-    
+
     # Load crystal field data
     importer = pycf.ImportSLJM(...)
     h = pycf.cfl.Hamiltonian(importer.tensors)
-    
+
     # Set mu/n parameters (REQUIRED for this format)
     h.minimum_q = 2              # C20, C22 expansion
     h.half_integer_states = True # Ce has f-electrons (J=5/2)
-    
+
     # Create experimental data in (mu, n) format
     mu_n_data = np.array([
         [2, 1],    # 1st state with mu=+2
@@ -363,13 +363,13 @@ See `examples/ceylf/mu_exdata_example.py` for a complete workflow.
         [-2, 1],   # 1st state with mu=-2
     ], dtype=np.int32)
     experimental_energies = np.array([0.0, 45.2, 156.8, 234.5])
-    
+
     exdata = pycf.cfl.ExData(
         (mu_n_data, experimental_energies),
         key=('mu', 'n', 'energy'),
         label_key='mu'
     )
-    
+
     # Fit using (mu, n) format
     fit = pycf.cfl.EFit(h, exdata)
     fit.fit_cmplx(coefficients)

@@ -44,7 +44,7 @@ def test_fd_jacobian_diagonal_real_params():
     ex_arr = np.array([[1, 0.0], [2, 0.0], [3, 0.0], [4, 0.0]])
     ex = cfl.ExData(ex_arr)
     fit, _ = _make_efit(diag_a, diag_b, ex)
-    e0 = (diag_a + diag_b)
+    e0 = diag_a + diag_b
     order = np.argsort(e0)
     A_sorted = diag_a[order]
     B_sorted = diag_b[order]

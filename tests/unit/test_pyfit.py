@@ -90,8 +90,10 @@ def test_pyfit_works_with_mhfit():
     """PyFit handles MHFit (multi-Hamiltonian) just like EFit."""
     h0 = _diag_tensor("EAVG", [0.0, 5.0])
     h1 = _diag_tensor("EAVG", [0.0, 7.0])
-    H0 = cfl.Hamiltonian([h0]); H0.set_coeff({"EAVG": 1.0})
-    H1 = cfl.Hamiltonian([h1]); H1.set_coeff({"EAVG": 1.0})
+    H0 = cfl.Hamiltonian([h0])
+    H0.set_coeff({"EAVG": 1.0})
+    H1 = cfl.Hamiltonian([h1])
+    H1.set_coeff({"EAVG": 1.0})
     ex0 = cfl.ExData(np.array([[1, 0.0], [2, 3.5]]))
     ex1 = cfl.ExData(np.array([[1, 0.0], [2, 4.9]]))
     mhfit = cfl.MHFit(["EAVG"], [H0, H1], [1.0, 1.0], [ex0, ex1])

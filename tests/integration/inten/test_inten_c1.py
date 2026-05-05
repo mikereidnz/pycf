@@ -6,9 +6,6 @@
 # A small magnetic field is applied along X to achieve C1 symmetry.
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 import pycf
 import pycf.cfl as cfl
 from pycf.cfl_util import *

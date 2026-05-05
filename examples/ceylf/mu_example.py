@@ -19,23 +19,23 @@ from pycf.import_sljm import ImportSLJM
 t = ImportSLJM("matel/f1cf")
 
 # Create Hamiltonian
-h = cfl.Hamiltonian([t.EAVG, t.C20, t.C22, t.C40, t.C42, t.C44, t.C60, t.C62, 
-                     t.C64, t.ZETA], 
-                    label="Eu3+ in LiYF4")
+h = cfl.Hamiltonian(
+    [t.EAVG, t.C20, t.C22, t.C40, t.C42, t.C44, t.C60, t.C62, t.C64, t.ZETA], label="Eu3+ in LiYF4"
+)
 
 # Set crystal-field coefficients (example values)
 # Note: q=0 tensors (C20, C40, C60) are set to zero to isolate the mu/n effect
 coeff = {
-    'EAVG': 64186,
-    'C20': -551,
-    'C22': 0,
-    'C40': 1360,
-    'C42': 0,
-    'C44': 345,
-    'C60': -850,
-    'C62': 0,
-    'C64': 1250,
-    'ZETA': 1340,
+    "EAVG": 64186,
+    "C20": -551,
+    "C22": 0,
+    "C40": 1360,
+    "C42": 0,
+    "C44": 345,
+    "C60": -850,
+    "C62": 0,
+    "C64": 1250,
+    "ZETA": 1340,
 }
 h.set_coeff(coeff)
 

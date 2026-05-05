@@ -64,11 +64,13 @@ print()
 # Create some example experimental data using mu/n format
 # Based on the summary above, ALL states have mu=1, so we can only use (1, n) pairs
 # Use actual calculated energies to verify the conversion
-ex_amu = np.array([
-    [1, 1, 0.0],        # mu=1, n=1: level 1, energy 0.0 cm⁻¹
-    [1, 3, 212.323869], # mu=1, n=3: level 3, energy 212.3239 cm⁻¹
-    [1, 5, 412.918602], # mu=1, n=5: level 5, energy 412.9186 cm⁻¹
-])
+ex_amu = np.array(
+    [
+        [1, 1, 0.0],  # mu=1, n=1: level 1, energy 0.0 cm⁻¹
+        [1, 3, 212.323869],  # mu=1, n=3: level 3, energy 212.3239 cm⁻¹
+        [1, 5, 412.918602],  # mu=1, n=5: level 5, energy 412.9186 cm⁻¹
+    ]
+)
 
 print("Example AMu data:")
 print(ex_amu)
@@ -95,10 +97,12 @@ print()
 
 # Create difference format data: transitions between states
 # All states have mu=1, so transitions are between states with the same mu
-ex_dmu = np.array([
-    [1, 1, 1, 3, 212.323869],   # Transition from (mu=1,n=1) to (mu=1,n=3): 212.3239 cm⁻¹
-    [1, 3, 1, 5, 200.594733],   # Transition from (mu=1,n=3) to (mu=1,n=5): 200.5947 cm⁻¹
-])
+ex_dmu = np.array(
+    [
+        [1, 1, 1, 3, 212.323869],  # Transition from (mu=1,n=1) to (mu=1,n=3): 212.3239 cm⁻¹
+        [1, 3, 1, 5, 200.594733],  # Transition from (mu=1,n=3) to (mu=1,n=5): 200.5947 cm⁻¹
+    ]
+)
 
 print("Example DMu data:")
 print(ex_dmu)
@@ -122,11 +126,7 @@ print("-" * 80)
 print()
 
 try:
-    exdata_mixed = cfl.ExData(
-        (ex_amu, ex_dmu),
-        ("AMu", "DMu"),
-        label_key="MuN"
-    )
+    exdata_mixed = cfl.ExData((ex_amu, ex_dmu), ("AMu", "DMu"), label_key="MuN")
     print("✓ ExData created successfully with mixed AMu and DMu")
     print(f"  - has_mu_n: {exdata_mixed.has_mu_n}")
     print(f"  - mu_n_abs shape: {exdata_mixed.mu_n_abs.shape}")
@@ -162,24 +162,19 @@ print()
 try:
     # For AMu data: extract the (mu, n) pairs from ExData
     mu_n_pairs_amu = exdata_amu.mu_n_abs
-    
+
     # Convert to level indices (1-based)
-    level_indices_amu = mu_n_to_level(
-        h,
-        mu_n_pairs_amu,
-        h.minimum_q,
-        h.half_integer_states
-    )
-    
+    level_indices_amu = mu_n_to_level(h, mu_n_pairs_amu, h.minimum_q, h.half_integer_states)
+
     print("AMu conversion:")
     print(f"  Input (mu, n) pairs:\n{mu_n_pairs_amu}")
     print(f"  Output level indices: {level_indices_amu}")
-    
+
     # Verify that the level indices match the energy values in our test data
     energies_from_levels = w[level_indices_amu - 1]  # Convert to 0-based
     print(f"  Energies from level indices: {energies_from_levels}")
     print(f"  Expected energies (from AMu): {ex_amu[:, 2]}")
-    
+
     # Check if conversion is correct (within tolerance)
     tol = 1e-3
     if np.allclose(energies_from_levels, ex_amu[:, 2], atol=tol):
@@ -190,6 +185,7 @@ try:
 
 except Exception as e:
     import traceback
+
     print(f"✗ Error converting AMu to level indices: {e}")
     traceback.print_exc()
 
@@ -199,41 +195,32 @@ try:
     # For DMu data: we need to convert pairs of (mu, n) indices
     mu_n_pairs_dmu_initial = exdata_dmu.mu_n_diff[:, :2]
     mu_n_pairs_dmu_final = exdata_dmu.mu_n_diff[:, 2:4]
-    
+
     # Convert to level indices
-    initial_levels = mu_n_to_level(
-        h,
-        mu_n_pairs_dmu_initial,
-        h.minimum_q,
-        h.half_integer_states
-    )
-    final_levels = mu_n_to_level(
-        h,
-        mu_n_pairs_dmu_final,
-        h.minimum_q,
-        h.half_integer_states
-    )
-    
+    initial_levels = mu_n_to_level(h, mu_n_pairs_dmu_initial, h.minimum_q, h.half_integer_states)
+    final_levels = mu_n_to_level(h, mu_n_pairs_dmu_final, h.minimum_q, h.half_integer_states)
+
     print("DMu conversion:")
     print(f"  Initial states (mu, n):\n{mu_n_pairs_dmu_initial}")
     print(f"  Initial level indices: {initial_levels}")
     print(f"  Final states (mu, n):\n{mu_n_pairs_dmu_final}")
     print(f"  Final level indices: {final_levels}")
-    
+
     # Verify energy differences
     energy_diffs_computed = w[final_levels - 1] - w[initial_levels - 1]
     print(f"  Computed energy differences: {energy_diffs_computed}")
     print(f"  Expected energy differences (from DMu): {ex_dmu[:, 4]}")
-    
+
     tol = 1e-3
     if np.allclose(energy_diffs_computed, ex_dmu[:, 4], atol=tol):
         print(f"  ✓ Conversion verified! Energy differences match within tolerance {tol}")
     else:
         print(f"  ⚠ Energy differences don't match exactly:")
         print(f"    Differences: {energy_diffs_computed - ex_dmu[:, 4]}")
-        
+
 except Exception as e:
     import traceback
+
     print(f"✗ Error converting DMu to level indices: {e}")
     traceback.print_exc()
 
@@ -269,14 +256,14 @@ for level_idx in range(len(w)):
 # Now display with n ordinal indices
 for level_idx in range(1, min(15, len(w) + 1)):  # Show first 14 levels
     mu_this = mu_n_all[level_idx - 1]
-    
+
     # Count which n this is within its mu group
     n_count = 0
     for check_level in range(1, level_idx + 1):
         mu_check = mu_n_all[check_level - 1]
         if mu_check == mu_this:
             n_count += 1
-    
+
     print(f"{level_idx:5d} | {int(mu_this):2d} | {n_count:2d}  | {w[level_idx - 1]:13.6f}")
 
 print()
@@ -297,7 +284,9 @@ for i, (mu_i, n_i, mu_f, n_f, e_diff) in enumerate(ex_dmu):
     f_level = final_levels[i]
     calc_diff = w[f_level - 1] - w[i_level - 1]
     match_symbol = "✓" if abs(calc_diff - e_diff) < 0.001 else "✗"
-    print(f"  {int(mu_i)} |  {int(n_i)} |   {int(mu_f)} |  {int(n_f)} | {e_diff:15.6f} | ({i_level:2d}→{f_level:2d}) {match_symbol}")
+    print(
+        f"  {int(mu_i)} |  {int(n_i)} |   {int(mu_f)} |  {int(n_f)} | {e_diff:15.6f} | ({i_level:2d}→{f_level:2d}) {match_symbol}"
+    )
 
 print()
 
@@ -334,15 +323,16 @@ try:
     print("Performing fit with parameters:", param)
     print()
     res = cfl.e_fit(param, h, exdata_fit, cfl_min, suppress_input=True)
-    
+
     print("✓ Fit completed successfully!")
     print()
     print("Fit Summary:")
     print("-" * 80)
     print(res["summary"])
-    
+
 except Exception as e:
     import traceback
+
     print(f"✗ Error during fitting: {e}")
     print()
     traceback.print_exc()

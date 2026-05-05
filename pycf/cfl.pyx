@@ -441,16 +441,16 @@ cdef class Hamiltonian:
       Common values are 2 (for C20, C22) or 4 (for higher-order terms).
       **REQUIRED** if using (mu, n) experimental data format. Defaults to ``None``.
 
-    - ``half_integer_states``: Set to ``True`` if your system has half-integer 
+    - ``half_integer_states``: Set to ``True`` if your system has half-integer
       magnetic quantum numbers m stored as doubled integers (e.g., ±1, ±3, ±5
       representing ±1/2, ±3/2, ±5/2). Use ``True`` for f-electrons and other systems
-      with J = 5/2, 7/2, etc. Set to ``False`` for integer m values. 
+      with J = 5/2, 7/2, etc. Set to ``False`` for integer m values.
       Defaults to ``False``.
 
     **When to use (mu, n) format:**
 
-    The (mu, n) parametrization is useful when symmetry is reduced and magnetic 
-    quantum numbers become ambiguous. Example: Ce:YLF (f-electrons) where magnetic 
+    The (mu, n) parametrization is useful when symmetry is reduced and magnetic
+    quantum numbers become ambiguous. Example: Ce:YLF (f-electrons) where magnetic
     decoherence mixes |m⟩ states and only folded combinations have physical meaning.
 
     **Example usage:**
@@ -458,12 +458,12 @@ cdef class Hamiltonian:
     .. code-block:: python
 
         import pycf
-        
+
         # For f-electron system (Ce:YLF)
         h = pycf.cfl.Hamiltonian(tensors)
         h.minimum_q = 2              # C20, C22 terms
         h.half_integer_states = True # f-electrons: m = ±1/2, ±3/2, ±5/2
-        
+
         # For d-electron system (Er:YSO with integer m)
         h2 = pycf.cfl.Hamiltonian(tensors2)
         h2.minimum_q = 4              # Higher-order expansion
@@ -1527,7 +1527,7 @@ cdef class ExData(object):
         if not (isinstance(data, (np.ndarray, tuple, list))):
             raise TypeError("The ex data argument must either be of type np.ndarray, tuple, or list, " \
                     "not %s." % type(data))
-        
+
         # Convert single list to array with warning if rows have inconsistent length
         if isinstance(data, list) and not all(isinstance(item, str) for item in data):
             # It's a list of lists/rows, not a list of strings
@@ -1551,7 +1551,7 @@ cdef class ExData(object):
                 # Convert lists to get length (works for both lists and arrays)
                 def get_len(x):
                     return len(x) if isinstance(x, list) else x.shape[0]
-                
+
                 if len(data) == 1:
                     weights = (np.ones(get_len(data[0]), dtype=np.float64),)
                 else:
@@ -1607,7 +1607,7 @@ cdef class ExData(object):
                         raise ValueError("All data arrays must be two dimensional.")
                 else:
                     raise ValueError("Data must be numpy arrays or lists.")
-            
+
             # Convert lists to numpy arrays (warn on inconsistent rows, no padding here)
             # BUT: Don't convert yet if this is marker-column mu/n format (it has special handling)
             if label_key != "MuN":
@@ -1736,16 +1736,16 @@ cdef class ExData(object):
                     self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
                     self.n_a = 0
                     self.la = np.zeros(0)
-            
+
             # Handle marker-column mu/n data with label_key="MuN"
             elif label_key == "MuN":
                 # Marker-column format: first column is "mu" or "lev" string
                 self.has_mu_n = True
-                
+
                 if 'A' in key:
                     a_idx = key.index('A')
                     a_data = data[a_idx]
-                    
+
                     # Convert list to numpy array if needed (before processing)
                     if isinstance(a_data, list):
                         # Find max width across all rows
@@ -1756,15 +1756,15 @@ cdef class ExData(object):
                         data = list(data)
                         data[a_idx] = a_data
                         data = tuple(data)
-                    
+
                     if a_data.shape[1] < 3:
                         raise ValueError("A data with label_key='MuN' must have at least 3 columns "
                                        "(marker, col, energy).")
-                    
+
                     self.n_a = len(a_data)
                     self.a_states = np.zeros(self.n_a, dtype=object)  # Store markers
                     self.la = np.zeros(self.n_a, dtype=np.int32)
-                    
+
                     # Separate mu and lev rows
                     mu_rows = []
                     self.mu_row_indices = []  # Track original row indices for mu rows
@@ -1773,7 +1773,7 @@ cdef class ExData(object):
                         if marker not in ("mu", "lev"):
                             raise ValueError(f"Invalid marker '{marker}' in row {i}; must be 'mu' or 'lev'.")
                         self.a_states[i] = marker
-                        
+
                         if marker == "mu":
                             if a_data.shape[1] < 4:
                                 raise ValueError(f"'mu' row {i} must have at least 4 columns: (marker, mu, n, energy).")
@@ -1787,7 +1787,7 @@ cdef class ExData(object):
                             if level < 1:
                                 raise ValueError(f"'lev' row {i}: level must be >= 1 (1-based), got {level}")
                             self.la[i] = level - 1
-                    
+
                     # Store mu/n data for rows that have it
                     if mu_rows:
                         self.mu_n_abs = np.ascontiguousarray(
@@ -1795,11 +1795,11 @@ cdef class ExData(object):
                         )
                     else:
                         self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
-                
+
                 if 'D' in key:
                     d_idx = key.index('D')
                     d_data = data[d_idx]
-                    
+
                     # Convert list to numpy array if needed (before processing)
                     if isinstance(d_data, list):
                         # Find max width across all rows
@@ -1810,16 +1810,16 @@ cdef class ExData(object):
                         data = list(data)
                         data[d_idx] = d_data
                         data = tuple(data)
-                    
+
                     if d_data.shape[1] < 4:
                         raise ValueError("D data with label_key='MuN' must have at least 4 columns "
                                        "(marker, col1, col2, energy).")
-                    
+
                     self.n_d = len(d_data)
                     self.id_states = np.zeros(self.n_d, dtype=object)  # Store markers
                     self.ild = np.zeros(self.n_d, dtype=np.int32)
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
-                    
+
                     # Separate mu and lev rows
                     mu_rows = []
                     self.mu_row_indices_d = []  # Track original row indices for mu rows
@@ -1828,7 +1828,7 @@ cdef class ExData(object):
                         if marker not in ("mu", "lev"):
                             raise ValueError(f"Invalid marker '{marker}' in row {i}; must be 'mu' or 'lev'.")
                         self.id_states[i] = marker
-                        
+
                         if marker == "mu":
                             if d_data.shape[1] < 6:
                                 raise ValueError(f"'mu' row {i} must have at least 6 columns: "
@@ -1846,7 +1846,7 @@ cdef class ExData(object):
                                 raise ValueError(f"'lev' row {i}: levels must be >= 1 (1-based)")
                             self.ild[i] = level_i - 1
                             self.fld[i] = level_f - 1
-                    
+
                     # Store mu/n data for rows that have it
                     if mu_rows:
                         self.mu_n_diff = np.ascontiguousarray(
@@ -1854,7 +1854,7 @@ cdef class ExData(object):
                         )
                     else:
                         self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
-                
+
                 # Stack energies and weights
                 if len(key) == 2:
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, -1],
@@ -2295,7 +2295,7 @@ cdef class EFit(object):
             self.ex = ExData(ex)
         else:
             self.ex = ex
-        
+
         # Convert mu/n data to level indices if present
         if self.ex.has_mu_n:
             # Validate required parameters for mu/n fitting
@@ -2310,19 +2310,19 @@ cdef class EFit(object):
                     "before fitting with AMu/DMu data. "
                     "Use True if m values are half-integers (e.g., f-electrons with J=5/2), "
                     "False if m values are integers.")
-            
+
             from pycf.cfl_util import mu_n_to_level
-            
+
             # Convert absolute mu/n data to level indices
             if self.ex.n_a > 0 and self.ex.mu_n_abs is not None and len(self.ex.mu_n_abs) > 0:
                 level_indices = mu_n_to_level(
                     self.h, self.ex.mu_n_abs, self.h.minimum_q, self.h.half_integer_states
                 )
-                
+
                 # Note: mu_n_to_level returns indices in user-provided order (not necessarily ascending).
                 # We keep them in user order here, and let ex_parse_abs sort both indices and energies
                 # together, which maintains the energy-eigenstate pairing.
-                
+
                 # For mixed marker-column data, merge mu results back into ex.la at the correct positions
                 if hasattr(self.ex, 'mu_row_indices') and len(self.ex.mu_row_indices) > 0:
                     for i, row_idx in enumerate(self.ex.mu_row_indices):
@@ -2330,23 +2330,23 @@ cdef class EFit(object):
                 else:
                     # Pure mu data: replace entire ex.la
                     self.ex.la = np.ascontiguousarray(level_indices - 1, dtype=np.int32)
-            
+
             # Convert difference mu/n data to level indices
             if self.ex.n_d > 0 and self.ex.mu_n_diff is not None and len(self.ex.mu_n_diff) > 0:
                 mu_n_initial = self.ex.mu_n_diff[:, :2]
                 mu_n_final = self.ex.mu_n_diff[:, 2:4]
-                
+
                 initial_levels = mu_n_to_level(
                     self.h, mu_n_initial, self.h.minimum_q, self.h.half_integer_states
                 )
                 final_levels = mu_n_to_level(
                     self.h, mu_n_final, self.h.minimum_q, self.h.half_integer_states
                 )
-                
+
                 # Note: mu_n_to_level returns indices in user-provided order.
                 # We keep them paired as-is here, and let ex_parse_diff handle sorting
                 # which will maintain the energy-level-pair association.
-                
+
                 # For mixed marker-column data, merge mu results back into ex.ild/fld at the correct positions
                 if hasattr(self.ex, 'mu_row_indices_d') and len(self.ex.mu_row_indices_d) > 0:
                     for i, row_idx in enumerate(self.ex.mu_row_indices_d):
@@ -2356,7 +2356,7 @@ cdef class EFit(object):
                     # Pure mu data: replace entire ild/fld
                     self.ex.ild = np.ascontiguousarray(initial_levels - 1, dtype=np.int32)
                     self.ex.fld = np.ascontiguousarray(final_levels - 1, dtype=np.int32)
-        
+
         self.n_obs = self.ex.n_obs
 
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
@@ -4511,7 +4511,7 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     coefficients when they are set also determines whether they are fit as real
     or complex parameters.
 
-    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n
     index mode in ExData), it will be automatically diagonalized before fitting.
     This ensures that eigenvector references in mu/n indices are valid.
 
@@ -4609,7 +4609,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     coefficients when they are set also determines whether they are fit as real
     or complex parameters, thus they must be consistent among each Hamiltonian.
 
-    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n
     index mode in ExData), it will be automatically diagonalized before fitting.
 
     Parameters
@@ -4703,7 +4703,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
     coefficients when they are set also determines whether they are fit as real
     or complex parameters.
 
-    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n
     index mode in ExData), it will be automatically diagonalized before fitting.
 
 
@@ -4822,7 +4822,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
     fit as real or complex parameter, thus they must be consistent among each
     Hamiltonian.
 
-    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n 
+    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n
     index mode in ExData), it will be automatically diagonalized before fitting.
 
     Parameters

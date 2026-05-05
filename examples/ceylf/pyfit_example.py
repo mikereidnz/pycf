@@ -47,15 +47,11 @@ coeff = {
     "C64": -1743.1424 + 692.8662j,
 }
 
-h = cfl.Hamiltonian(
-    [t.EAVG, t.ZETA, t.C20, t.C40, t.C44, t.C60, t.C64], label="Ce:YLF"
-)
+h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C44, t.C60, t.C64], label="Ce:YLF")
 h.set_coeff(coeff)
 
 # Absolute energies used by data_sel == "abs" in exdata_example.py.
-ex = np.array(
-    [[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]]
-)
+ex = np.array([[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]])
 exdata = cfl.ExData(ex, "A")
 
 # Fit the energy zero-point alongside the four real crystal-field

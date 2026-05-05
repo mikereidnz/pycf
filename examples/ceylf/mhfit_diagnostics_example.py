@@ -44,9 +44,7 @@ h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C44, t.C60, t.C64])
 h.set_coeff(coeff)
 h.label = "Ce:YLF crystal field"
 
-exdata = np.array(
-    [[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]]
-)
+exdata = np.array([[2, 0], [3, 216], [8, 2216], [9, 2312.8], [12, 2428.8], [14, 3157.8]])
 
 cfl_min = cfl.CFLMin("gsl_nls", niter=1)
 param = ["EAVG", "C20", "C40", "C44"]

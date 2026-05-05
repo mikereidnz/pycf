@@ -34,11 +34,7 @@ def _make_fit_data(diag_vals, ex_data, params=("EAVG",), label=None):
 def test_get_edata_absolute_only():
     # 4 levels with eigenvalues 0,10,20,30 — already sorted.
     diag = np.array([0.0, 10.0, 20.0, 30.0])
-    ex_arr = np.array(
-        [[1, 0.0],
-         [2, 11.0],
-         [4, 31.0]]
-    )
+    ex_arr = np.array([[1, 0.0], [2, 11.0], [4, 31.0]])
     ex = cfl.ExData(ex_arr)
     fit, _h = _make_fit_data(diag, ex, label="Ground")
 
@@ -60,11 +56,7 @@ def test_get_edata_absolute_only():
 def test_get_edata_difference_only():
     diag = np.array([0.0, 5.0, 12.0, 20.0])
     # Differences: 2-1, 3-1, 4-2 expected = 5, 12, 15.
-    diff = np.array(
-        [[1, 2, 5.5],
-         [1, 3, 12.0],
-         [2, 4, 15.5]]
-    )
+    diff = np.array([[1, 2, 5.5], [1, 3, 12.0], [2, 4, 15.5]])
     ex = cfl.ExData(diff, key="D")
     fit, _h = _make_fit_data(diag, ex)
 
@@ -131,8 +123,7 @@ def test_get_edata_state_label_absolute():
     diag = np.array([0.0, 5.0])
     # State-label-indexed AS data triggers sl_index==1 inside ExData.
     # Rows are [L, J, 2M, e_obs]; matches the basis labels [[0,0,0],[0,0,2]].
-    abs_sl = np.array([[0, 0, 0, 0.0],
-                       [0, 0, 2, 5.0]], dtype=np.float64)
+    abs_sl = np.array([[0, 0, 0, 0.0], [0, 0, 2, 5.0]], dtype=np.float64)
     ex = cfl.ExData(abs_sl, key="AS", label_key="LJM")
     fit, _h = _make_fit_data(diag, ex)
 
@@ -149,8 +140,7 @@ def test_get_edata_state_label_difference():
     # 3 basis states with labels [0,0,0], [0,0,2], [0,0,4]; observe the
     # 0->2M=4 transition (12.0) and the 2M=2 -> 2M=4 transition (7.0).
     diff_sl = np.array(
-        [[0, 0, 0, 0, 0, 4, 12.0],
-         [0, 0, 2, 0, 0, 4, 7.0]],
+        [[0, 0, 0, 0, 0, 4, 12.0], [0, 0, 2, 0, 0, 4, 7.0]],
         dtype=np.float64,
     )
     ex = cfl.ExData(diff_sl, key="DS", label_key="LJM")
@@ -167,8 +157,7 @@ def test_get_edata_state_label_difference():
 def test_get_edata_state_label_mixed_as_ds():
     """Mixed AS+DS ExData: both row kinds populated correctly."""
     diag = np.array([0.0, 5.0, 12.0])
-    abs_sl = np.array([[0, 0, 0, 0.0],
-                       [0, 0, 4, 12.5]], dtype=np.float64)
+    abs_sl = np.array([[0, 0, 0, 0.0], [0, 0, 4, 12.5]], dtype=np.float64)
     diff_sl = np.array([[0, 0, 0, 0, 0, 2, 5.5]], dtype=np.float64)
     ex = cfl.ExData((abs_sl, diff_sl), key=("AS", "DS"), label_key="LJM")
     fit, _h = _make_fit_data(diag, ex)

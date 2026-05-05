@@ -13,10 +13,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pycf.polarization import polarization_vector, stokes_from_jones, quarter_wave_plate
-from pycf.inten import Spectrum
-from pycf.import_sljm import ImportSLJM
 import pycf.cfl as cfl
+from pycf.import_sljm import ImportSLJM
+from pycf.inten import Spectrum
+from pycf.polarization import polarization_vector, quarter_wave_plate, stokes_from_jones
 
 
 def test_sigma_plus_has_positive_S3():
@@ -48,63 +48,91 @@ def test_qwp_converts_45_linear_to_circular():
 
 def test_spectrum_validation_empty_name():
     """Spectrum should reject empty name."""
+
     class DummyH:
-        def diag(self): return None, None
-    
+        def diag(self):
+            return None, None
+
     with pytest.raises(ValueError, match="name must be non-empty"):
         Spectrum(hamiltonian=DummyH(), name="", i_range=[1], f_range=[2], intensity_tensors=[1])
 
 
 def test_spectrum_validation_invalid_i_range():
     """Spectrum should reject empty i_range."""
+
     class DummyH:
-        def diag(self): return None, None
-    
+        def diag(self):
+            return None, None
+
     with pytest.raises(ValueError, match="i_range must be non-empty"):
         Spectrum(hamiltonian=DummyH(), name="test", i_range=[], f_range=[2], intensity_tensors=[1])
 
 
 def test_spectrum_validation_invalid_f_range():
     """Spectrum should reject empty f_range."""
+
     class DummyH:
-        def diag(self): return None, None
-    
+        def diag(self):
+            return None, None
+
     with pytest.raises(ValueError, match="f_range must be non-empty"):
         Spectrum(hamiltonian=DummyH(), name="test", i_range=[1], f_range=[], intensity_tensors=[1])
 
 
 def test_spectrum_validation_empty_tensors():
     """Spectrum should reject empty intensity_tensors list."""
+
     class DummyH:
-        def diag(self): return None, None
-    
+        def diag(self):
+            return None, None
+
     with pytest.raises(ValueError, match="intensity_tensors must be non-empty"):
         Spectrum(hamiltonian=DummyH(), name="test", i_range=[1], f_range=[2], intensity_tensors=[])
 
 
 def test_spectrum_validation_invalid_group_tol():
     """Spectrum should reject non-positive group_tol."""
+
     class DummyH:
-        def diag(self): return None, None
+        def diag(self):
+            return None, None
 
     with pytest.raises(ValueError, match="group_tol must be positive"):
-        Spectrum(hamiltonian=DummyH(), name="test", i_range=[1], f_range=[2], intensity_tensors=[1], group_tol=-0.1)
+        Spectrum(
+            hamiltonian=DummyH(),
+            name="test",
+            i_range=[1],
+            f_range=[2],
+            intensity_tensors=[1],
+            group_tol=-0.1,
+        )
 
 
 def test_spectrum_validation_invalid_nrefractive():
     """Spectrum should reject non-positive nrefractive."""
+
     class DummyH:
-        def diag(self): return None, None
+        def diag(self):
+            return None, None
 
     with pytest.raises(ValueError, match="nrefractive must be positive"):
-        Spectrum(hamiltonian=DummyH(), name="test", i_range=[1], f_range=[2], intensity_tensors=[1], nrefractive=-1.0)
+        Spectrum(
+            hamiltonian=DummyH(),
+            name="test",
+            i_range=[1],
+            f_range=[2],
+            intensity_tensors=[1],
+            nrefractive=-1.0,
+        )
 
 
 def test_spectrum_calculate_intensities_with_c3_data():
     """Test calculate_intensities() with C3 example data (absorption spectrum)."""
     # Load C3 data (same as in integration test)
     MATEL_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1cf"
-    INTEN_BASE = Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1int"
+    INTEN_BASE = (
+        Path(__file__).resolve().parent.parent / "integration" / "inten" / "matel" / "f1int"
+    )
 
     t = ImportSLJM(MATEL_BASE)
     t_int = ImportSLJM(INTEN_BASE, sl_name=MATEL_BASE)
@@ -139,8 +167,8 @@ def test_spectrum_calculate_intensities_with_c3_data():
     spectrum = Spectrum(
         hamiltonian=h,
         name="absorption",
-        i_range=[1, 2],           # Z1 Kramers doublet (1-based)
-        f_range=[7, 8, 9, 10],    # Y1+Y2 multiplet (1-based)
+        i_range=[1, 2],  # Z1 Kramers doublet (1-based)
+        f_range=[7, 8, 9, 10],  # Y1+Y2 multiplet (1-based)
         intensity_tensors=tensors,
         group_tol=1e-3,
     )
@@ -159,11 +187,11 @@ def test_spectrum_calculate_intensities_with_c3_data():
         assert all(k in group for k in required_keys)
         assert group["f"] >= 0, f"Oscillator strength should be non-negative, got {group['f']}"
         assert group["A"] >= 0, f"A coefficient should be non-negative, got {group['A']}"
-    
+
     # Verify total f and A are computed
     assert spectrum.total_f > 0, "Total oscillator strength should be positive"
     assert spectrum.total_A >= 0, "Total A coefficient should be non-negative"
-    
+
     # Verify totals match sum of groups
     assert spectrum.total_f == pytest.approx(sum(g["f"] for g in groups))
     assert spectrum.total_A == pytest.approx(sum(g["A"] for g in groups))
@@ -171,8 +199,10 @@ def test_spectrum_calculate_intensities_with_c3_data():
 
 def test_spectrum_set_altp():
     """Test set_altp() method for updating Altp parameters."""
+
     class DummyH:
-        def diag(self): return None, None
+        def diag(self):
+            return None, None
 
     spectrum = Spectrum(
         hamiltonian=DummyH(),
@@ -180,13 +210,13 @@ def test_spectrum_set_altp():
         i_range=[1],
         f_range=[2],
         intensity_tensors=[1],
-        altp=[["A210", 1e-10]]
+        altp=[["A210", 1e-10]],
     )
-    
+
     assert spectrum.altp == [["A210", 1e-10]]
-    
+
     # Update Altp
     new_altp = [["A210", 2e-10], ["A230", -1e-10]]
     spectrum.set_altp(new_altp)
-    
+
     assert spectrum.altp == new_altp

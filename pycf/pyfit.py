@@ -64,8 +64,7 @@ class PyFit:
     def __init__(self, efit: Any) -> None:
         if not hasattr(efit, "n_p_real") or not hasattr(efit, "x0"):
             raise TypeError(
-                "PyFit requires an EFit or MHFit instance "
-                "(missing 'n_p_real' or 'x0')."
+                "PyFit requires an EFit or MHFit instance " "(missing 'n_p_real' or 'x0')."
             )
         if not hasattr(efit, "get_edata"):
             raise TypeError(
@@ -139,8 +138,7 @@ class PyFit:
         """
         x = np.asarray(x, dtype=np.float64)
         # fd_jacobian internally restores parameter state on exit.
-        J_E = np.asarray(self.efit.fd_jacobian(x, **fd_kwargs),
-                         dtype=np.float64)
+        J_E = np.asarray(self.efit.fd_jacobian(x, **fd_kwargs), dtype=np.float64)
         # Weight rows by sqrt(w_i) so that J matches d(residuals)/dx.
         with _temporary_x(self.efit, x):
             edata = self.efit.get_edata()

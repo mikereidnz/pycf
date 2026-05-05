@@ -12,29 +12,23 @@ from uuid import uuid4
 import numpy as np
 from scipy.optimize import minimize
 
-from pycf.constants import (
-    BOLTZMANN_CM_INVERSE,
-    ELECTRON_MASS,
-    ELEMENTARY_CHARGE,
-    EPSILON_0,
-    HBAR,
-    SPEED_OF_LIGHT,
-)
+from pycf.cfl_util import L2term
+from pycf.constants import (BOLTZMANN_CM_INVERSE, ELECTRON_MASS,
+                            ELEMENTARY_CHARGE, EPSILON_0, HBAR, SPEED_OF_LIGHT)
 from pycf.njsymbols import wigner_3j
-from pycf.cfl_util import format_state_label, L2term
 
 
 def clean_complex(value: Union[complex, float], tolerance: float = 1e-12) -> Union[complex, float]:
     """
     Clean up rounding errors in complex numbers by zeroing small real/imaginary parts.
-    
+
     Parameters
     ----------
     value : complex or float
         The complex or real number to clean
     tolerance : float, optional
         Threshold for zeroing components (default 1e-12)
-        
+
     Returns
     -------
     complex or float
@@ -190,11 +184,11 @@ def dipole_str(
     hbar = 1.0545903e-27  # erg-sec
     me = 9.109553e-28  # gm
     md_prefac = -(e * hbar) / (2 * me * clight)
-    
+
     # Convert 1-based user input to 0-based internal indices
     i_range = [i - 1 for i in i_range]
     f_range = [i - 1 for i in f_range]
-    
+
     w = E
     z = V
     # Validate eigenvector dimensions
@@ -268,9 +262,9 @@ def dipole_str(
                                 ed_mom[q + 1] += D  # order is -1, 0, 1
             # Keep all transitions, otherwise our degeneracy calculations will be wrong.
             # Clean dipole moments to remove rounding errors before calculating strengths
-            ed_mom = [clean_complex(m) for m in ed_mom]
-            md_mom = [clean_complex(m) for m in md_mom]
-            
+            ed_mom = [clean_complex(m) for m in ed_mom]  # type: ignore[misc]
+            md_mom = [clean_complex(m) for m in md_mom]  # type: ignore[misc]
+
             # Electric and magnetic dipole strengths for -1, 0, +1 components
             S_ED_m = np.abs(ed_mom[0]) ** 2
             S_ED_0 = np.abs(ed_mom[1]) ** 2
@@ -458,7 +452,7 @@ def A_and_f_calc(
         Einstein A coefficient for the transition (s^-1).
     f : float
         Oscillator strength (dimensionless).
-    
+
     Raises
     ------
     ValueError
@@ -467,7 +461,7 @@ def A_and_f_calc(
     # Validate degeneracy
     if g_i <= 0:
         raise ValueError(f"Initial state degeneracy g_i must be positive (got {g_i})")
-    
+
     # Constants, in SI units
     melectron = ELECTRON_MASS
     echarge = ELEMENTARY_CHARGE
@@ -566,7 +560,9 @@ def boltzmann_factor(e: float, t: float) -> float:
     return ans
 
 
-def lorentzian_constant_height(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[float, np.ndarray]:
+def lorentzian_constant_height(
+    x: Union[float, np.ndarray], x0: float, fwhm: float
+) -> Union[float, np.ndarray]:
     """
     Calculate Lorentzian line shape (constant height).
 
@@ -600,7 +596,6 @@ def lorentzian_constant_height(x: Union[float, np.ndarray], x0: float, fwhm: flo
 def lorentzian(x: Union[float, np.ndarray], x0: float, fwhm: float) -> Union[float, np.ndarray]:
     """Deprecated: use lorentzian_constant_height() instead."""
     return lorentzian_constant_height(x, x0, fwhm)
-
 
 
 @dataclass
@@ -672,13 +667,13 @@ class Spectrum:
     nrefractive: float = 1.0
     md: bool = True
     ed: bool = False
-    
+
     # Mutable Altp parameters (can be changed via set_altp)
     altp: Optional[List[Any]] = field(default=None)
-    
+
     # Experimental data (optional): list of [group_idx, f_calc, f_expt]
     expt_data: Optional[List[List[float]]] = field(default=None)
-    
+
     # Computed fields
     transformed_tensors: Dict[str, Any] = field(default_factory=dict, init=False)
     dipole_strengths: List[Dict[str, Any]] = field(default_factory=list, init=False)
@@ -713,7 +708,7 @@ class Spectrum:
         """
         Compute intensity data for this spectrum.
 
-        Orchestrates: vtrans (basis transformation) → dipole_str (compute dipole strengths) → 
+        Orchestrates: vtrans (basis transformation) → dipole_str (compute dipole strengths) →
         group_transitions (group by level pair) → add_oscillator_strengths_and_A_coefficients.
 
         Parameters
@@ -752,7 +747,8 @@ class Spectrum:
         # Validate eigenvectors
         if not isinstance(z, np.ndarray) or z.ndim != 2:
             raise ValueError(
-                f"Hamiltonian eigenvectors must be 2D (got shape {z.shape if hasattr(z, 'shape') else 'unknown'})"
+                "Hamiltonian eigenvectors must be 2D (got shape "
+                f"{z.shape if hasattr(z, 'shape') else 'unknown'})"
             )
 
         # Transform intensity tensors to eigenbasis
@@ -789,7 +785,8 @@ class Spectrum:
                 if (group["Energy"] > 0) != first_direction:
                     raise ValueError(
                         "Spectrum contains mixed absorption and emission groups. "
-                        "Each Spectrum must be purely absorption (Energy > 0) or purely emission (Energy < 0)."
+                        "Each Spectrum must be purely absorption (Energy > 0) or "
+                        "purely emission (Energy < 0)."
                     )
 
         return self.groups
@@ -835,7 +832,11 @@ def gen_inten_summary(
 
     # Use cached eigenvalues and principal components (computed during calculate_intensities)
     w = spectrum.eigenvalues if spectrum.eigenvalues is not None else hamiltonian.diag()[0]
-    pc = spectrum.principal_components if spectrum.principal_components is not None else np.argmax(np.abs(hamiltonian.diag()[1]), axis=0)
+    pc = (
+        spectrum.principal_components
+        if spectrum.principal_components is not None
+        else np.argmax(np.abs(hamiltonian.diag()[1]), axis=0)
+    )
 
     if format == "text":
         return _format_inten_text(spectrum, w, pc, state_labels)
@@ -844,8 +845,9 @@ def gen_inten_summary(
     elif format == "csv":
         return _format_inten_csv(spectrum, w, pc, state_labels)
     else:
-        raise ValueError(f"Unknown format: {format}. Use 'text', 'brief', 'detailed', 'moments', or 'csv'.")
-
+        raise ValueError(
+            f"Unknown format: {format}. Use 'text', 'brief', 'detailed', 'moments', or 'csv'."
+        )
 
 
 def _format_inten_text(
@@ -889,17 +891,17 @@ def _format_inten_text(
             initial_label = state_labels[initial_level]
         else:
             initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
-        
+
         if final_level is not None and 0 <= final_level < len(state_labels):
             final_label = state_labels[final_level]
         else:
             final_label = f"State {final_level}" if final_level is not None else "Unknown"
-        
+
         if isinstance(initial_label, (list, tuple)):
             initial_label_str = " ".join(str(x) for x in initial_label)
         else:
             initial_label_str = str(initial_label)
-            
+
         if isinstance(final_label, (list, tuple)):
             final_label_str = " ".join(str(x) for x in final_label)
         else:
@@ -908,10 +910,10 @@ def _format_inten_text(
         direction = "->" if energy > 0 else "<-"
 
         lines.append("")
+        lines.append(f"Transition {group_idx}: {initial_label_str} {direction} {final_label_str}")
         lines.append(
-            f"Transition {group_idx}: {initial_label_str} {direction} {final_label_str}"
+            f"  Initial state: {initial_label_str:30s} E = {e_i:12.6f} cm-1 (g={int(g_i)})"
         )
-        lines.append(f"  Initial state: {initial_label_str:30s} E = {e_i:12.6f} cm-1 (g={int(g_i)})")
         lines.append(f"  Final state:   {final_label_str:30s} E = {e_f:12.6f} cm-1 (g={int(g_f)})")
         lines.append(f"  Transition energy: {energy:12.6f} cm-1")
 
@@ -924,14 +926,16 @@ def _format_inten_text(
             if A > 0:
                 lifetime_s = 1.0 / A
                 lifetime_ms = lifetime_s * 1e3
-                lines.append(f"  Lifetime:                   {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)")
+                lines.append(
+                    f"  Lifetime:                   {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)"
+                )
 
     # Add totals summary (f for absorption, A for emission)
     lines.append("")
     if spectrum.groups:
         # Determine if absorption (Energy > 0) or emission (Energy < 0)
         is_absorption = spectrum.groups[0]["Energy"] > 0
-        
+
         if is_absorption:
             if spectrum.total_f > 0:
                 lines.append(f"Total oscillator strength (f): {spectrum.total_f:.6e}")
@@ -940,8 +944,10 @@ def _format_inten_text(
                 lines.append(f"Total A coefficient:          {spectrum.total_A:.6e} s-1")
                 lifetime_s = 1.0 / spectrum.total_A
                 lifetime_ms = lifetime_s * 1e3
-                lines.append(f"Lifetime (from total A):      {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)")
-    
+                lines.append(
+                    f"Lifetime (from total A):      {lifetime_s:.6e} s ({lifetime_ms:.6e} ms)"
+                )
+
     lines.append("=" * 80)
     return "\n".join(lines)
 
@@ -949,7 +955,7 @@ def _format_inten_text(
 def _format_state_label_content(label: Any, label_key: Optional[str] = None) -> str:
     """
     Format state label content (without pipes or brackets).
-    
+
     Parameters
     ----------
     label : tuple or list
@@ -958,7 +964,7 @@ def _format_state_label_content(label: Any, label_key: Optional[str] = None) -> 
         Label key specifying quantum number types (S, L, J, M, etc.).
         If provided, formats with proper L->term letter conversion.
         If None, returns space-separated quantum numbers.
-    
+
     Returns
     -------
     str
@@ -1014,14 +1020,16 @@ def _format_state_label_content(label: Any, label_key: Optional[str] = None) -> 
 def _format_state_label_short(label: Any, label_key: Optional[str] = None) -> str:
     """
     Format a state label in short form using label_key convention if provided.
-    
+
     Returns formatted label with pipes and brackets: |2F 5, -5>
     """
     content = _format_state_label_content(label, label_key)
     return f"|{content}>"
 
 
-def _format_state_label_with_energy(label: Any, level: int, energy: float, label_key: Optional[str] = None) -> str:
+def _format_state_label_with_energy(
+    label: Any, level: int, energy: float, label_key: Optional[str] = None
+) -> str:
     """Format a state label with 1-based level index and energy."""
     content = _format_state_label_content(label, label_key)
     return f"{level}: |{content}> (E = {energy:12.6f} cm-1)"
@@ -1051,7 +1059,7 @@ def _format_group_line(
     t_list = group["t_list"]
     e_i = group["e_i"]
     e_f = group["e_f"]
-    
+
     # Get actual level indices and state labels from first transition in group
     if t_list:
         i_level_idx = t_list[0]["i"]  # Actual level index (0-based)
@@ -1067,30 +1075,44 @@ def _format_group_line(
         pc_f = None
 
     # Format state labels with energies (with bounds checking)
-    if t_list and pc_i is not None and pc_f is not None and 0 <= pc_i < len(state_labels) and 0 <= pc_f < len(state_labels):
+    if (
+        t_list
+        and pc_i is not None
+        and pc_f is not None
+        and 0 <= pc_i < len(state_labels)
+        and 0 <= pc_f < len(state_labels)
+    ):
         label_key = None
-        if spectrum.hamiltonian and spectrum.hamiltonian.tensors and spectrum.hamiltonian.tensors[0]:
+        if (
+            spectrum.hamiltonian
+            and spectrum.hamiltonian.tensors
+            and spectrum.hamiltonian.tensors[0]
+        ):
             try:
                 label_key = spectrum.hamiltonian.tensors[0].states.label_key
             except (AttributeError, IndexError):
                 pass
-        initial_label = _format_state_label_with_energy(state_labels[pc_i], initial_level, e_i, label_key)
-        final_label = _format_state_label_with_energy(state_labels[pc_f], final_level, e_f, label_key)
+        initial_label = _format_state_label_with_energy(
+            state_labels[pc_i], initial_level, e_i, label_key
+        )
+        final_label = _format_state_label_with_energy(
+            state_labels[pc_f], final_level, e_f, label_key
+        )
     else:
         initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
         final_label = f"State {final_level}" if final_level is not None else "Unknown"
-    
+
     energy = group["Energy"]
     g_i = group.get("g_i", 1)
-    
+
     # Format energy as absolute value (for both absorption and emission)
     abs_energy = abs(energy)
     energy_str = f"{abs_energy:>13.6f}"
-    
+
     # Sum dipole strengths over all transitions in group
     total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
     total_S_MD = sum(t.get("S_MD_isotropic", 0.0) for t in t_list)
-    
+
     # Calculate f_total and A_total using the group's values
     f_total = group.get("f", 0.0)
     A_total = group.get("A", 0.0)
@@ -1098,13 +1120,19 @@ def _format_group_line(
     # Decompose into ED and MD components
     A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
     A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
-    
+
     # Format group line based on absorption or emission
     if is_absorption:
-        line = f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} {f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+        line = (
+            f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} "
+            f"{f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+        )
     else:
-        line = f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} {A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
-    
+        line = (
+            f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} "
+            f"{A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
+        )
+
     return line
 
 
@@ -1125,7 +1153,7 @@ def _format_transition_line(
     e_trans = trans["e"]
     s_ed = trans.get("S_ED_isotropic", 0.0)
     s_md = trans.get("S_MD_isotropic", 0.0)
-    
+
     # Get state labels using principal component indices (with bounds checking)
     label_key = None
     if spectrum.hamiltonian and spectrum.hamiltonian.tensors and spectrum.hamiltonian.tensors[0]:
@@ -1133,29 +1161,37 @@ def _format_transition_line(
             label_key = spectrum.hamiltonian.tensors[0].states.label_key
         except (AttributeError, IndexError):
             pass
-    
+
     if 0 <= i_pc_idx < len(state_labels):
         i_label = _format_state_label_short(state_labels[i_pc_idx], label_key)
     else:
         i_label = f"State {i_1b}"
-    
+
     if 0 <= f_pc_idx < len(state_labels):
         f_label = _format_state_label_short(state_labels[f_pc_idx], label_key)
     else:
         f_label = f"State {f_1b}"
-    
+
     # Calculate f_ED, f_MD for this individual transition
     A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
     A_MD_t, f_MD_t = A_and_f_calc(0.0, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
-    
+
     # Get transition-level total (not group total)
     A_t, f_t = A_and_f_calc(s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
-    
+
     if is_absorption:
-        trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {f_ED_t:>13.6e}  {s_md:>10.6e}  {f_MD_t:>13.6e}  {f_t:>13.6e}"
+        trans_line = (
+            f"        {i_1b:<4} | {i_label} >                    \t"
+            f"{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  "
+            f"{f_ED_t:>13.6e}  {s_md:>10.6e}  {f_MD_t:>13.6e}  {f_t:>13.6e}"
+        )
     else:
-        trans_line = f"        {i_1b:<4} | {i_label} >                    \t{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  {A_ED_t:>13.6e}  {s_md:>10.6e}  {A_MD_t:>13.6e}  {A_t:>13.6e}"
-    
+        trans_line = (
+            f"        {i_1b:<4} | {i_label} >                    \t"
+            f"{f_1b:<4} | {f_label} >                  {s_ed:>10.6e}  "
+            f"{A_ED_t:>13.6e}  {s_md:>10.6e}  {A_MD_t:>13.6e}  {A_t:>13.6e}"
+        )
+
     return trans_line
 
 
@@ -1167,10 +1203,16 @@ def _format_dipole_moments(trans: Dict[str, Any]) -> List[str]:
     md_m1 = clean_complex(trans.get("md_-1", 0.0))
     md_0 = clean_complex(trans.get("md_0", 0.0))
     md_p1 = clean_complex(trans.get("md_+1", 0.0))
-    
+
     return [
-        f"             D_ED :      -1: {_format_complex_dipole(ed_m1):>13}    0: {_format_complex_dipole(ed_0):>13}   +1: {_format_complex_dipole(ed_p1):>13}",
-        f"             D_MD :      -1: {_format_complex_dipole(md_m1):>13}    0: {_format_complex_dipole(md_0):>13}   +1: {_format_complex_dipole(md_p1):>13}",
+        (
+            f"             D_ED :      -1: {_format_complex_dipole(ed_m1):>13}    "
+            f"0: {_format_complex_dipole(ed_0):>13}   +1: {_format_complex_dipole(ed_p1):>13}"
+        ),
+        (
+            f"             D_MD :      -1: {_format_complex_dipole(md_m1):>13}    "
+            f"0: {_format_complex_dipole(md_0):>13}   +1: {_format_complex_dipole(md_p1):>13}"
+        ),
     ]
 
 
@@ -1183,7 +1225,7 @@ def _format_inten(
 ) -> str:
     """
     Unified formatter for intensity output supporting brief, detailed, and moments formats.
-    
+
     Parameters
     ----------
     spectrum : Spectrum
@@ -1195,10 +1237,10 @@ def _format_inten(
     state_labels : List[Any]
         State labels for formatting.
     format : str, optional
-        Output format: 'brief' (default, one line per group), 
-        'detailed' (brief + individual transitions), 
+        Output format: 'brief' (default, one line per group),
+        'detailed' (brief + individual transitions),
         'moments' (detailed + dipole moment components).
-    
+
     Returns
     -------
     str
@@ -1206,7 +1248,7 @@ def _format_inten(
     """
     if format not in ("brief", "detailed", "moments"):
         raise ValueError(f"Unknown format: {format}. Use 'brief', 'detailed', or 'moments'.")
-    
+
     lines = [f"Spectrum: {spectrum.name}"]
     lines.append("=" * 160 if format == "brief" else "=" * 132)
 
@@ -1232,23 +1274,29 @@ def _format_inten(
             if len(expt_entry) >= 2:
                 try:
                     group_idx = int(expt_entry[0])  # Convert to int with validation
-                    f_expt = float(expt_entry[1])   # Convert to float with validation
+                    f_expt = float(expt_entry[1])  # Convert to float with validation
                     expt_lookup[group_idx] = f_expt
                 except (ValueError, TypeError):
                     continue  # Skip malformed entries silently
 
     # Header
     if is_absorption:
-        header = f"{'Group':<6} {'Energy':<14} {'Initial State':<50} {'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
+        header = (
+            f"{'Group':<6} {'Energy':<14} {'Initial State':<50} "
+            f"{'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
+        )
     else:
-        header = f"{'Group':<6} {'Energy':<14} {'Initial State':<50} {'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
-    
+        header = (
+            f"{'Group':<6} {'Energy':<14} {'Initial State':<50} "
+            f"{'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
+        )
+
     # Append expt columns for brief format only
     if spectrum.expt_data and format == "brief":
         header += f" {'f_Expt':<14} {'χ²':<14}"
 
     lines.append(header)
-    
+
     sep_width = 160 + 14 if format == "brief" else 132 + 14
     if spectrum.expt_data and format == "brief":
         sep_width += 28
@@ -1259,61 +1307,75 @@ def _format_inten(
     for group_idx, group in enumerate(spectrum.groups, start=1):
         # Print group line
         group_line = _format_group_line(group, group_idx, state_labels, spectrum, is_absorption)
-        
+
         # Append experimental data if present (brief format only)
         if spectrum.expt_data and format == "brief":
             f_expt = expt_lookup.get(group_idx, 0.0)
             f_calc = group.get("f", 0.0) if is_absorption else group.get("A", 0.0)
-            
+
             # Calculate χ² = ((calc - exp) / (calc + exp))²
             if f_calc + f_expt != 0:
                 chi2 = ((f_calc - f_expt) / (f_calc + f_expt)) ** 2
             else:
                 chi2 = 0.0
             total_chi2 += chi2
-            
+
             group_line += f"  {f_expt:>13.6e}  {chi2:>13.6e}"
-        
+
         lines.append(group_line)
-        
+
         # Print individual transitions if in detailed or moments format
         if format in ("detailed", "moments"):
             lines.append("        Individual transitions:")
             if is_absorption:
-                trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      f_ED           S_MD_iso      f_MD           f_Total"
+                trans_header = (
+                    "        i     Initial State                 f      "
+                    "Final State                  S_ED_iso      f_ED           "
+                    "S_MD_iso      f_MD           f_Total"
+                )
             else:
-                trans_header = "        i     Initial State                 f      Final State                  S_ED_iso      A_ED           S_MD_iso      A_MD           A_Total"
+                trans_header = (
+                    "        i     Initial State                 f      "
+                    "Final State                  S_ED_iso      A_ED           "
+                    "S_MD_iso      A_MD           A_Total"
+                )
             lines.append(trans_header)
-            
+
             g_i = group.get("g_i", 1)
             t_list = group["t_list"]
-            
+
             # List each transition
             for trans in t_list:
-                trans_line = _format_transition_line(trans, g_i, state_labels, spectrum, is_absorption)
+                trans_line = _format_transition_line(
+                    trans, g_i, state_labels, spectrum, is_absorption
+                )
                 lines.append(trans_line)
-                
+
                 # Add dipole moment components if in moments format
                 if format == "moments":
                     dipole_lines = _format_dipole_moments(trans)
                     lines.extend(dipole_lines)
-            
+
             lines.append("")  # Blank line between groups
 
     lines.append("-" * sep_width)
-    
+
     # Add totals
     if spectrum.groups:
         if is_absorption:
-            total_line = f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}"
+            total_line = (
+                f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}"
+            )
         else:
-            total_line = f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}"
-        
+            total_line = (
+                f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}"
+            )
+
         if spectrum.expt_data and format == "brief":
             total_line += f"  {'':<14} {total_chi2:>13.6e}"
-        
+
         lines.append(total_line)
-    
+
     lines.append("=" * sep_width)
     return "\n".join(lines)
 
@@ -1355,7 +1417,7 @@ def _format_inten_csv(
             initial_label = state_labels[initial_level]
         else:
             initial_label = f"State {initial_level}" if initial_level is not None else "Unknown"
-        
+
         if final_level is not None and 0 <= final_level < len(state_labels):
             final_label = state_labels[final_level]
         else:
@@ -1364,7 +1426,7 @@ def _format_inten_csv(
             initial_label_str = " ".join(str(x) for x in initial_label)
         else:
             initial_label_str = str(initial_label)
-            
+
         if isinstance(final_label, (list, tuple)):
             final_label_str = " ".join(str(x) for x in final_label)
         else:
@@ -1386,9 +1448,10 @@ def _format_inten_csv(
 # ALTP PARAMETER FITTING
 # ============================================================================
 
+
 class AltpFit:
     """Fit Altp parameters to match target intensity data."""
-    
+
     def __init__(
         self,
         param_names: List[str],
@@ -1400,7 +1463,7 @@ class AltpFit:
     ):
         """
         Initialize Altp fitting context.
-        
+
         Parameters
         ----------
         param_names : list of str
@@ -1408,7 +1471,7 @@ class AltpFit:
         hamiltonian : cfl.Hamiltonian
             The crystal-field Hamiltonian
         spectrum_config : dict
-            Configuration for creating Spectrum (name, i_range, f_range, 
+            Configuration for creating Spectrum (name, i_range, f_range,
             intensity_tensors, altp, nrefractive, md, ed)
         target_intensities : dict
             Target intensity values keyed by group index (group_idx -> f or A value).
@@ -1422,28 +1485,28 @@ class AltpFit:
         self.target_intensities = target_intensities
         self.weights = weights
         self.n_obs = len(target_intensities)
-        
+
         # Build parameter info: track which are complex, indices in flat vector
         self.param_info = self._build_param_info()
         self.n_p = self._count_flat_params()
         self.initial_x = self._extract_initial_params()
-        
+
     def _build_param_info(self) -> Dict[str, Dict[str, Any]]:
         """Build parameter tracking dict for complex/real parameters."""
         info = {}
         flat_idx = 0
-        
+
         # Get initial Altp to determine types
         altp = self.spectrum_config.get("altp", [])
         altp_dict = {name: value for name, value in altp} if altp else {}
-        
+
         for pname in self.param_names:
             if pname not in altp_dict:
                 raise ValueError(f"Parameter {pname} not found in Altp list")
-            
+
             value = altp_dict[pname]
             is_complex = isinstance(value, complex)
-            
+
             if is_complex:
                 info[pname] = {
                     "type": "complex",
@@ -1459,9 +1522,9 @@ class AltpFit:
                     "initial_value": value,
                 }
                 flat_idx += 1
-        
+
         return info
-    
+
     def _count_flat_params(self) -> int:
         """Count total flat parameters (real + 2*complex)."""
         count = 0
@@ -1471,7 +1534,7 @@ class AltpFit:
             else:
                 count += 1
         return count
-    
+
     def _extract_initial_params(self) -> np.ndarray:
         """Extract initial parameter vector from current Altp."""
         x = np.zeros(self.n_p)
@@ -1483,7 +1546,7 @@ class AltpFit:
             else:
                 x[info["index"]] = info["initial_value"]
         return x
-    
+
     def _x_to_altp(self, x: np.ndarray) -> List[List[Any]]:
         """Convert flat parameter vector to Altp list format."""
         altp = []
@@ -1495,11 +1558,11 @@ class AltpFit:
                 value = float(x[info["index"]])
             altp.append([pname, value])
         return altp
-    
+
     def _compute_grouped_intensities(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Compute intensities for a given Altp parameter vector.
-        
+
         Returns
         -------
         computed_f : np.ndarray
@@ -1509,61 +1572,61 @@ class AltpFit:
         """
         # Convert x to Altp
         altp = self._x_to_altp(x)
-        
+
         # Update Spectrum config with new Altp
         config = dict(self.spectrum_config)
         config["altp"] = altp
-        
+
         # Create and compute Spectrum (non-mutating)
         try:
             spec = Spectrum(**config)
-            spec.calculate_intensities(polarization='isotropic')
-            
+            spec.calculate_intensities(polarization="isotropic")
+
             # Extract f/A values per group, sorted by group index
             computed = {}
             for group_idx, group in enumerate(spec.groups, start=1):
                 # Get f or A based on absorption/emission
                 energy = group["Energy"]
                 computed[group_idx] = group.get("f", 0.0) if energy > 0 else group.get("A", 0.0)
-            
+
             # Sort by group index to match target_intensities order
             indices = sorted(computed.keys())
             values = np.array([computed[i] for i in indices])
             return values, np.array(indices)
-        except Exception as e:
+        except Exception:
             # If computation fails, return NaN (bad fit)
             return np.full(self.n_obs, np.nan), np.arange(1, self.n_obs + 1)
-    
+
     def compute_residual(self, x: np.ndarray) -> float:
         """
         Compute symmetric residual for objective function.
-        
+
         χ² = Σ w_i * abs((computed_i - target_i) / (computed_i + target_i))²
-        
+
         This is symmetric and robust to scaling.
         """
         computed, _ = self._compute_grouped_intensities(x)
-        
+
         # Handle NaN values from failed computations
         if np.any(np.isnan(computed)):
             return 1e10
-        
+
         # Get target values in sorted order
         target_indices = sorted(self.target_intensities.keys())
         target_vals = np.array([self.target_intensities[i] for i in target_indices])
-        
+
         # Compute symmetric residual
         epsilon = 1e-20  # Avoid division by zero
         denominator = np.abs(computed) + np.abs(target_vals) + epsilon
         residuals = (computed - target_vals) / denominator
-        
+
         # Apply weights
         if self.weights is not None:
             residuals = residuals * np.sqrt(self.weights)
-        
-        chi2 = np.sum(residuals ** 2)
+
+        chi2 = np.sum(residuals**2)
         return float(chi2)
-    
+
     def objective_fn(self, x: np.ndarray) -> float:
         """Objective function for minimizer."""
         return self.compute_residual(x)
@@ -1580,7 +1643,7 @@ def fit_altp(
 ) -> Dict[str, Any]:
     """
     Fit Altp parameters to match target intensity data.
-    
+
     Parameters
     ----------
     param_names : list of str
@@ -1588,7 +1651,7 @@ def fit_altp(
     hamiltonian : cfl.Hamiltonian
         The crystal-field Hamiltonian
     spectrum_config : dict
-        Configuration for creating Spectrum (name, i_range, f_range, 
+        Configuration for creating Spectrum (name, i_range, f_range,
         intensity_tensors, altp, nrefractive, md, ed)
     target_intensities : dict
         Target intensity values keyed by group index (group_idx -> f or A value)
@@ -1598,7 +1661,7 @@ def fit_altp(
         Per-group weights (default: equal weights)
     **kwargs
         Additional options passed to minimizer (e.g., method='Nelder-Mead', options={...})
-        
+
     Returns
     -------
     dict
@@ -1620,30 +1683,23 @@ def fit_altp(
         weights=weights,
         **kwargs,
     )
-    
+
     # Minimize using scipy
-    method = kwargs.get('method', 'Nelder-Mead')
-    options = kwargs.get('options', {})
-    
-    result = minimize(
-        fitter.objective_fn,
-        fitter.initial_x,
-        method=method,
-        options=options
-    )
-    
+    method = kwargs.get("method", "Nelder-Mead")
+    options = kwargs.get("options", {})
+
+    result = minimize(fitter.objective_fn, fitter.initial_x, method=method, options=options)
+
     x_opt = result.x
     fmin = result.fun
-    
+
     # Reconstruct fitted Altp
     fitted_altp = fitter._x_to_altp(x_opt)
     fitted_dict = {name: value for name, value in fitted_altp}
-    
+
     # Estimate parameter uncertainties from Hessian
-    uncertainties = _estimate_parameter_uncertainties(
-        fitter, x_opt, fmin, param_names
-    )
-    
+    uncertainties = _estimate_parameter_uncertainties(fitter, x_opt, fmin, param_names)
+
     # Build summary
     summary = "Altp Parameter Fit\n"
     summary += "=" * 50 + "\n"
@@ -1651,12 +1707,12 @@ def fit_altp(
     summary += f"Number of observations: {fitter.n_obs}\n"
     summary += f"Number of parameters: {fitter.n_p}\n"
     summary += f"Final χ²: {fmin:.6e}\n\n"
-    
+
     summary += "Initial Altp values:\n"
     for pname in param_names:
         initial_val = fitter.param_info[pname]["initial_value"]
         summary += f"  {pname}: {initial_val}\n"
-    
+
     summary += "\nFitted Altp values with uncertainties:\n"
     for pname, value in fitted_dict.items():
         unc = uncertainties.get(pname, None)
@@ -1664,7 +1720,7 @@ def fit_altp(
             summary += f"  {pname}: {value} ± {unc}\n"
         else:
             summary += f"  {pname}: {value}\n"
-    
+
     return {
         "fitted_params": fitted_dict,
         "uncertainties": uncertainties,
@@ -1684,11 +1740,11 @@ def _estimate_parameter_uncertainties(
 ) -> Dict[str, Any]:
     """
     Estimate parameter uncertainties from the Hessian matrix.
-    
+
     Uses numerical differentiation to compute the Hessian (second derivatives)
     at the optimum. The covariance matrix is estimated as the inverse of the
     Hessian scaled by the reduced χ² (χ²/dof).
-    
+
     Parameters
     ----------
     fitter : AltpFit
@@ -1699,44 +1755,44 @@ def _estimate_parameter_uncertainties(
         Final objective function value (chi-squared)
     param_names : list of str
         Parameter names
-        
+
     Returns
     -------
     dict
         Parameter uncertainties keyed by parameter name
     """
     from scipy.optimize import approx_fprime
-    
+
     n_obs = fitter.n_obs
     n_params = len(x_opt)
-    
+
     # Reduced chi-squared (normalizes for dof)
     dof = max(1, n_obs - n_params)
     chi2_red = fmin / dof if dof > 0 else 1.0
-    
+
     # Compute Hessian numerically
     eps = np.sqrt(np.finfo(float).eps) * (1.0 + np.abs(x_opt))
     hessian = np.zeros((n_params, n_params))
-    
+
     for i in range(n_params):
         x_plus = x_opt.copy()
         x_plus[i] += eps[i]
         grad_plus = approx_fprime(x_plus, fitter.objective_fn, eps)
-        
+
         x_minus = x_opt.copy()
         x_minus[i] -= eps[i]
         grad_minus = approx_fprime(x_minus, fitter.objective_fn, eps)
-        
+
         hessian[i, :] = (grad_plus - grad_minus) / (2 * eps[i])
-    
+
     # Make Hessian symmetric
     hessian = 0.5 * (hessian + hessian.T)
-    
+
     # Estimate covariance from inverse Hessian
     try:
         cov = np.linalg.inv(hessian) * chi2_red
         uncertainties = {}
-        
+
         # Map uncertainties back to parameter names
         idx = 0
         for pname in param_names:
@@ -1750,7 +1806,7 @@ def _estimate_parameter_uncertainties(
                 unc = np.sqrt(max(0, cov[idx, idx]))
                 uncertainties[pname] = unc
                 idx += 1
-        
+
         return uncertainties
     except np.linalg.LinAlgError:
         # Hessian is singular or near-singular
@@ -1758,13 +1814,13 @@ def _estimate_parameter_uncertainties(
 
 
 def inten_plot(
-    spectrum: 'Spectrum',
+    spectrum: "Spectrum",
     fwhm: float = 0.5,
     xlim: Optional[List[float]] = None,
     ylim: Optional[List[float]] = None,
     npoints: int = 10000,
     figsize: Tuple[float, float] = (12, 6),
-) -> 'Tuple[Any, Any]':
+) -> "Tuple[Any, Any]":
     """
     Plot calculated and experimental intensities.
 
@@ -1802,52 +1858,54 @@ def inten_plot(
     try:
         import matplotlib.pyplot as plt
     except ImportError:
-        raise ImportError("matplotlib is required for inten_plot(). Install with: pip install matplotlib")
-    
+        raise ImportError(
+            "matplotlib is required for inten_plot(). Install with: pip install matplotlib"
+        )
+
     if not spectrum.groups:
         raise ValueError("Spectrum must have at least one transition group")
-    
+
     # Determine if absorption or emission based on first group's energy sign
     is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
-    
+
     # Extract transition energies and intensities
     energies = []
     intensities = []
     for group in spectrum.groups:
-        energies.append(abs(group.get('Energy', 0.0)))
+        energies.append(abs(group.get("Energy", 0.0)))
         if is_absorption:
-            intensities.append(group.get('f', 0.0))
+            intensities.append(group.get("f", 0.0))
         else:
-            intensities.append(group.get('A', 0.0))
-    
+            intensities.append(group.get("A", 0.0))
+
     energies = np.array(energies)
     intensities = np.array(intensities)
-    
+
     # Determine energy range for plotting
     if xlim is None:
-        e_min, e_max = energies.min(), energies.max()
+        e_min, e_max = float(energies.min()), float(energies.max())
         margin = (e_max - e_min) * 0.1 if e_max > e_min else 10.0
         xlim = [e_min - margin, e_max + margin]
-    
+
     # Generate energy grid for convolution (fine step size for smooth curve)
-    energy_grid = np.linspace(xlim[0], xlim[1], npoints)
-    
+    energy_grid = np.linspace(xlim_list[0], xlim_list[1], npoints)
+
     # Convolute with Lorentzian
     convoluted = np.zeros(npoints)
     for e, inten in zip(energies, intensities):
         convoluted += inten * lorentzian_constant_height(energy_grid, e, fwhm)
-    
+
     # Create plot using spectrum name as figure identifier, with random suffix
     # to allow multiple plots of same spectrum with different zoom levels
     figure_name = f"{spectrum.name} #{str(uuid4())[:8]}"
     fig, ax = plt.subplots(figsize=figsize, num=figure_name)
-    
+
     # Plot convoluted spectrum
-    ax.plot(energy_grid, convoluted, 'b-', linewidth=2, label='Calculated (convoluted)')
-    
+    ax.plot(energy_grid, convoluted, "b-", linewidth=2, label="Calculated (convoluted)")
+
     # Plot stick spectrum for calculated
-    ax.vlines(energies, 0, intensities, colors='blue', alpha=0.5, linewidth=1, linestyles='solid')
-    
+    ax.vlines(energies, 0, intensities, colors="blue", alpha=0.5, linewidth=1, linestyles="solid")
+
     # If experimental data available, plot as stick lines
     if spectrum.expt_data:
         expt_energies = []
@@ -1856,41 +1914,51 @@ def inten_plot(
             if len(expt_entry) >= 2:
                 try:
                     group_idx = int(expt_entry[0])  # Convert to int with validation
-                    f_expt = float(expt_entry[1])   # Convert to float with validation
+                    f_expt = float(expt_entry[1])  # Convert to float with validation
                 except (ValueError, TypeError):
                     continue  # Skip malformed entries
-                
+
                 if 1 <= group_idx <= len(spectrum.groups):
-                    e = abs(spectrum.groups[group_idx - 1].get('Energy', 0.0))
+                    e = abs(spectrum.groups[group_idx - 1].get("Energy", 0.0))
                     expt_energies.append(e)
                     expt_intensities.append(f_expt)
-        
+
         if expt_energies:
-            expt_energies = np.array(expt_energies)
-            expt_intensities = np.array(expt_intensities)
-            ax.vlines(expt_energies, 0, expt_intensities, colors='red', alpha=0.8, 
-                     linewidth=2, linestyles='solid', label='Experimental')
-    
+            expt_energies_arr = np.array(expt_energies)
+            expt_intensities_arr = np.array(expt_intensities)
+            ax.vlines(
+                expt_energies_arr,
+                0,
+                expt_intensities_arr,
+                colors="red",
+                alpha=0.8,
+                linewidth=2,
+                linestyles="solid",
+                label="Experimental",
+            )
+
     # Labels and formatting
-    ax.set_xlabel('Energy (cm$^{-1}$)', fontsize=14)
+    ax.set_xlabel("Energy (cm$^{-1}$)", fontsize=14)
     if is_absorption:
-        ylabel = 'Oscillator Strength (dimensionless)'
+        ylabel = "Oscillator Strength (dimensionless)"
     else:
-        ylabel = 'A Coefficient (s$^{-1}$)'
+        ylabel = "A Coefficient (s$^{-1}$)"
     ax.set_ylabel(ylabel, fontsize=14)
-    ax.set_title(f'{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)', fontsize=13, pad=20)
-    ax.set_xlim(xlim)
+    ax.set_title(
+        f"{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)", fontsize=13, pad=20
+    )
+    ax.set_xlim(tuple(xlim) if xlim is not None else None)
     if ylim is not None:
-        ax.set_ylim(ylim)
+        ax.set_ylim(tuple(ylim))
     else:
         ax.set_ylim(bottom=0)
-    ax.legend(loc='upper right', fontsize=11)
+    ax.legend(loc="upper right", fontsize=11)
     ax.grid(True, alpha=0.3)
-    
+
     # Increase font size for axis tick labels
-    ax.tick_params(axis='x', labelsize=13)
-    ax.tick_params(axis='y', labelsize=13)
-    
+    ax.tick_params(axis="x", labelsize=13)
+    ax.tick_params(axis="y", labelsize=13)
+
     # Add secondary x-axis for wavelength in nanometers
     # Conversion: λ (nm) = 10^7 / wavenumber (cm^-1)
     ax2 = ax.twiny()
@@ -1903,9 +1971,9 @@ def inten_plot(
     else:
         lambda_min = 1e7 / e_max if e_max > 0 else 10000
         lambda_max = 1e7 / 0.1 if e_min <= 0 else 1e7 / e_min
-    
+
     ax2.set_xlim(lambda_max, lambda_min)  # Reversed to match energy axis direction
-    ax2.set_xlabel('Wavelength (nm)', fontsize=14)
-    ax2.tick_params(axis='x', labelsize=13)
-    
+    ax2.set_xlabel("Wavelength (nm)", fontsize=14)
+    ax2.tick_params(axis="x", labelsize=13)
+
     return fig, ax

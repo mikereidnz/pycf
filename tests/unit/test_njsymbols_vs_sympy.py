@@ -167,7 +167,7 @@ def test_wigner_6j_textbook_values(args, expected):
 @pytest.mark.parametrize("j2", [0, 1, 2])
 def test_wigner_6j_integer_sweep_vs_sympy(j1, j2):
     """Sweep (j3, j4, j5, j6) for given (j1, j2); compare to sympy.
-    
+
     Note: Limited to j3=[0,1,2] only to avoid excessive test time.
     Symmetry tests ensure broader coverage of the underlying code.
     """
@@ -209,7 +209,7 @@ def test_wigner_6j_column_permutation_symmetry():
 @pytest.mark.parametrize("j2", [0, 1])
 def test_wigner_9j_integer_sweep_vs_sympy(j1, j2):
     """Sweep over a subset of 9j arguments; compare to sympy.
-    
+
     Note: Limited parametrization (j1=[0,1,2], j2=[0,1]) to keep test time reasonable.
     Comprehensive coverage is provided by symmetry tests and sympy validation.
     """

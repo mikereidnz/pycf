@@ -20,46 +20,51 @@ For a complete working example, see test_inten_c3.py in the test suite.
 """
 
 from pathlib import Path
+
 import numpy as np
 
 import pycf
-from pycf.inten import Spectrum, gen_inten_summary
-from pycf.import_sljm import ImportSLJM
-from pycf.cfl_util import gen_e_summary
 import pycf.cfl as cfl
+from pycf.cfl_util import gen_e_summary
+from pycf.import_sljm import ImportSLJM
+from pycf.inten import Spectrum, gen_inten_summary
 
 
 def main():
     """Main intensity calculation example."""
-    
+
     print("\nIntensity Spectrum Example (Ce3+ C3 Symmetry)")
     print("=" * 80)
-    
+
     # Paths to SLJM data
     # NOTE: You need both CF (*cf) and intensity (*int) tensor sets
     script_dir = Path(__file__).resolve().parent
-    
+
     # For demonstration, we'll use the test data location
-    test_inten_dir = Path(__file__).resolve().parent.parent.parent / "tests" / "integration" / "inten" / "matel"
+    test_inten_dir = (
+        Path(__file__).resolve().parent.parent.parent / "tests" / "integration" / "inten" / "matel"
+    )
     # In the test matel directory, f1cf.txt, f1cf.mi_, f1cf.st_ are CF tensors
     # and f1int.txt, f1int.mi_, f1int.st_ are intensity tensors
     # ImportSLJM takes the base name without suffix
     MATEL_CF = test_inten_dir / "f1cf"
     MATEL_INT = test_inten_dir / "f1int"
-    
+
     # Check if base files exist (ImportSLJM expects .txt, .mi_, .st_ suffix)
-    cf_files_exist = any([
-        (test_inten_dir / f"f1cf{ext}").exists() for ext in [".txt", ".mi_", ".st_"]
-    ])
-    int_files_exist = any([
-        (test_inten_dir / f"f1int{ext}").exists() for ext in [".txt", ".mi_", ".st_"]
-    ])
-    
+    cf_files_exist = any(
+        [(test_inten_dir / f"f1cf{ext}").exists() for ext in [".txt", ".mi_", ".st_"]]
+    )
+    int_files_exist = any(
+        [(test_inten_dir / f"f1int{ext}").exists() for ext in [".txt", ".mi_", ".st_"]]
+    )
+
     if not cf_files_exist:
         print(f"Error: CF tensor data not found in {test_inten_dir}")
-        print("Please ensure SLJM matrix element files (f1cf.txt, f1cf.mi_, f1cf.st_) are available.")
+        print(
+            "Please ensure SLJM matrix element files (f1cf.txt, f1cf.mi_, f1cf.st_) are available."
+        )
         return
-    
+
     if not int_files_exist:
         print(f"Error: Intensity tensor data not found in {test_inten_dir}")
         print("Please ensure intensity SLJM files (f1int.txt, f1int.mi_, f1int.st_) are available.")
@@ -98,12 +103,23 @@ def main():
     MZ.name = "MZ"
 
     # Build and diagonalize Hamiltonian
-    h = cfl.Hamiltonian([
-        t_cf.EAVG, t_cf.ZETA, t_cf.C20, t_cf.C40, t_cf.C43,
-        t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ
-    ])
+    h = cfl.Hamiltonian(
+        [
+            t_cf.EAVG,
+            t_cf.ZETA,
+            t_cf.C20,
+            t_cf.C40,
+            t_cf.C43,
+            t_cf.C60,
+            t_cf.C63,
+            t_cf.C66,
+            MX,
+            MY,
+            MZ,
+        ]
+    )
     h.set_coeff(coeff)
-    
+
     # Fit EAVG to match test (fitting is a no-op in dry_run mode)
     ex = np.array([[2, 0], [4, 1], [6, 2]])
     weights = np.ones(len(ex))
@@ -128,10 +144,10 @@ def main():
     # Prepare list of intensity tensors
     # Must match test_inten_c3.py: M11, M10, U20, U21, U22
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
-    
+
     # Electric dipole coupling parameters (exact same as test_inten_c3.py)
     altp = [["A210", 1e-10], ["A230", -1e-10], ["A233", 1e-10 + 2e-10j]]
-    
+
     print(f"\nAltp (electric dipole coupling) parameters:")
     for name, value in altp:
         print(f"  {name}: {value}")
@@ -140,35 +156,35 @@ def main():
     # Define Spectrum 1: Ground state absorption (Z1 -> Y1+Y2) with MD+ED
     # i_range and f_range use 1-based indexing (Z1=1, Z2=2, ..., Y1=7, Y2=8, ...)
     # =========================================================================
-    
+
     spec_abs = Spectrum(
         hamiltonian=h,
         name="Ground state absorption (Z1 -> Y1 + Y2)",
-        i_range=[1, 2],                    # Z1 Kramers doublet (1-based)
-        f_range=[7, 8, 9, 10],             # Y1+Y2 multiplet (1-based)
+        i_range=[1, 2],  # Z1 Kramers doublet (1-based)
+        f_range=[7, 8, 9, 10],  # Y1+Y2 multiplet (1-based)
         intensity_tensors=intensity_tensors,
         altp=altp,
         group_tol=1e-3,
         nrefractive=1.0,
-        md=True,             # Magnetic dipole (default in test)
-        ed=True,             # Electric dipole with Altp
+        md=True,  # Magnetic dipole (default in test)
+        ed=True,  # Electric dipole with Altp
     )
 
     # =========================================================================
     # Define Spectrum 2: Emission from Y1+Y2 to Z1 (MD+ED, same as absorption)
     # =========================================================================
-    
+
     spec_em = Spectrum(
         hamiltonian=h,
         name="Emission from Y1 + Y2 -> Z1",
-        i_range=[7, 8],                    # Y1+Y2 (1-based)
-        f_range=[1, 2, 3, 4, 5, 6],        # Z1 and all intermediate levels (1-based)
+        i_range=[7, 8],  # Y1+Y2 (1-based)
+        f_range=[1, 2, 3, 4, 5, 6],  # Z1 and all intermediate levels (1-based)
         intensity_tensors=intensity_tensors,
         altp=altp,
         group_tol=1e-3,
         nrefractive=1.0,
-        md=True,             # Magnetic dipole (default in test)
-        ed=True,             # Electric dipole with Altp (same as absorption)
+        md=True,  # Magnetic dipole (default in test)
+        ed=True,  # Electric dipole with Altp (same as absorption)
     )
 
     # =========================================================================
@@ -177,48 +193,50 @@ def main():
     print("\n" + "=" * 80)
     print("Computing intensity spectra...")
     print("=" * 80)
-    
-    spec_abs.calculate_intensities(polarization='isotropic')
-    spec_em.calculate_intensities(polarization='isotropic')
-    
-    print(f"\nAbsorption: {len(spec_abs.groups)} transition groups, total f = {spec_abs.total_f:.6e}")
+
+    spec_abs.calculate_intensities(polarization="isotropic")
+    spec_em.calculate_intensities(polarization="isotropic")
+
+    print(
+        f"\nAbsorption: {len(spec_abs.groups)} transition groups, total f = {spec_abs.total_f:.6e}"
+    )
     print(f"Emission:   {len(spec_em.groups)} transition groups, total A = {spec_em.total_A:.6e}")
 
     # Print absorption summary (brief format - compact tabular)
     print("\n" + "=" * 80)
     print("Absorption - Brief format (compact tabular):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_abs, h, format='brief'))
-    
+    print("\n" + gen_inten_summary(spec_abs, h, format="brief"))
+
     # Print absorption summary (verbose format - BRIEF + individual transitions)
     print("\n" + "=" * 80)
     print("Absorption - Verbose format (BRIEF + individual transitions):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_abs, h, format='detailed'))
-    
+    print("\n" + gen_inten_summary(spec_abs, h, format="detailed"))
+
     # Print absorption summary (ultra format - VERBOSE + dipole moments)
     print("\n" + "=" * 80)
     print("Absorption - Ultra format (VERBOSE + dipole moments):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_abs, h, format='moments'))
+    print("\n" + gen_inten_summary(spec_abs, h, format="moments"))
 
     # Print emission summary (brief format - compact tabular)
     print("\n" + "=" * 80)
     print("Emission - Brief format (compact tabular):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_em, h, format='brief'))
-    
+    print("\n" + gen_inten_summary(spec_em, h, format="brief"))
+
     # Print emission summary (verbose format - BRIEF + individual transitions)
     print("\n" + "=" * 80)
     print("Emission - Verbose format (BRIEF + individual transitions):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_em, h, format='detailed'))
-    
+    print("\n" + gen_inten_summary(spec_em, h, format="detailed"))
+
     # Print emission summary (ultra format - VERBOSE + dipole moments)
     print("\n" + "=" * 80)
     print("Emission - Ultra format (VERBOSE + dipole moments):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_em, h, format='moments'))
+    print("\n" + gen_inten_summary(spec_em, h, format="moments"))
 
     # =========================================================================
     # Export to CSV for spreadsheet import/analysis
@@ -227,10 +245,10 @@ def main():
     em_csv_path = script_dir / "inten_emission.csv"
 
     with open(abs_csv_path, "w") as f:
-        f.write(gen_inten_summary(spec_abs, h, format='csv'))
+        f.write(gen_inten_summary(spec_abs, h, format="csv"))
 
     with open(em_csv_path, "w") as f:
-        f.write(gen_inten_summary(spec_em, h, format='csv'))
+        f.write(gen_inten_summary(spec_em, h, format="csv"))
 
     print(f"\nCSV files written:")
     print(f"  {abs_csv_path}")

@@ -33,11 +33,11 @@ def test_exdata(data_sel) -> None:
     }
     h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C44, t.C60, t.C64])
     h.set_coeff(coeff)
-    
+
     # Set mu/n parameters for this Hamiltonian
     h.minimum_q = 2
     h.half_integer_states = True
-    
+
     w, z = h.diag()
     w = w - np.min(w)
     # print(h.gen_summary())
@@ -82,26 +82,40 @@ def test_exdata(data_sel) -> None:
         # Marker column indicates format:
         #   "mu": (marker, mu, n, energy) - folded magnetic quantum number with ordinal index
         #   "lev": (marker, level, energy) - absolute level index (1-based)
-        # 
+        #
         # mu: folded magnetic quantum number (determined by minimum_q and m value)
         # n: ordinal index ranking states with the same mu by energy (n=1 is lowest)
-        # 
+        #
         # These values were extracted from h.gen_summary() output with minimum_q=2
         # and half_integer_states=True (since Ce:YLF has f-electrons with half-integer m values).
         # Note: The m values in the state labels are stored as doubled integers
         # (e.g., -5, -3, -1, 1, 3, 5 representing -5/2, -3/2, -1/2, 1/2, 3/2, 5/2).
-        # 
+        #
         # Using list format (no manual padding needed - parser handles it):
         ex_a = [
-            ["mu", 1, 1, 0],        # mu=1, n=1, energy=0
-            ["mu", 1, 3, 216],      # mu=1, n=3, energy=216
+            ["mu", 1, 1, 0],  # mu=1, n=1, energy=0
+            ["mu", 1, 3, 216],  # mu=1, n=3, energy=216
             ["mu", 1, 7, 2216.10],  # mu=1, n=7, energy=2216.10
             ["mu", 1, 8, 2312.80],  # mu=1, n=8, energy=2312.80
         ]
         # For differences: (marker, mu_initial, n_initial, mu_final, n_final, energy_diff)
         ex_d = [
-            ["mu", 1, 8, 1, 12, 116.0],    # transition from level 8 (mu=1,n=8) to level 12 (mu=1,n=12): energy diff = 116.0
-            ["mu", 1, 12, 1, 14, 729.0],   # transition from level 12 (mu=1,n=12) to level 14 (mu=1,n=14): energy diff = 729.0
+            [
+                "mu",
+                1,
+                8,
+                1,
+                12,
+                116.0,
+            ],  # transition from level 8 (mu=1,n=8) to level 12 (mu=1,n=12): energy diff = 116.0
+            [
+                "mu",
+                1,
+                12,
+                1,
+                14,
+                729.0,
+            ],  # transition from level 12 (mu=1,n=12) to level 14 (mu=1,n=14): energy diff = 729.0
         ]
         exdata = cfl.ExData((ex_a, ex_d), ("A", "D"), label_key="MuN")
     else:
@@ -120,11 +134,11 @@ def test_exdata(data_sel) -> None:
     }
     # uncomment this line to deliberately make it crash:
     # expected_coeff['EAVG'] = 0
-    
+
     # For mu data, use looser tolerance since different data subset may converge differently
     # mu test uses levels [1,3,7,8] plus differences, which is a subset that produces different optimization landscape
     tolerance = 1e-2 if data_sel != "mu" else 0.6
-    
+
     for label, value in fit_coeff.items():
         print(label, value, " should be equal to ", expected_coeff[label])
         assert value == pytest.approx(expected_coeff[label], rel=tolerance)

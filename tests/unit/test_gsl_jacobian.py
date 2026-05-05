@@ -26,13 +26,10 @@ def test_efit_gsl_nls_populates_last_jacobian():
     tb = _diag_tensor("B", diag_b)
     h = cfl.Hamiltonian([ta, tb])
     h.set_coeff({"A": 1.0, "B": 1.0})
-    ex = cfl.ExData(np.array([
-        [1, 0.0], [2, 1.5], [3, 2.5], [4, 3.5]
-    ]))
+    ex = cfl.ExData(np.array([[1, 0.0], [2, 1.5], [3, 2.5], [4, 3.5]]))
     fit = cfl.EFit(["A", "B"], h, ex)
     # Compare FD jacobian vs GSL jacobian after running the fit. Since
     # the system is diagonal/linear, both should agree at the optimum.
-    fd_at_x0 = fit.fd_jacobian(check_swaps=False)
 
     cmin = cfl.CFLMin("gsl_nls", niter=50)
     fit.fit(cmin)
@@ -45,5 +42,7 @@ def test_efit_gsl_nls_populates_last_jacobian():
     # precision.
     fd_at_xstar = fit.fd_jacobian(check_swaps=False)
     np.testing.assert_allclose(
-        np.abs(fit.last_jacobian), np.abs(fd_at_xstar), atol=1e-5,
+        np.abs(fit.last_jacobian),
+        np.abs(fd_at_xstar),
+        atol=1e-5,
     )

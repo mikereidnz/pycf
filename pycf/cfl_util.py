@@ -32,12 +32,16 @@ import inspect
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+if TYPE_CHECKING:
+    import pycf.cfl as cfl
+
 try:
-    from pycf.__version__ import __build_comment__, __build_timestamp__, __version__
+    from pycf.__version__ import (__build_comment__, __build_timestamp__,
+                                  __version__)
 except ImportError as e:
     logging.warning("Could not import build metadata from pycf.__version__: %s", e)
     __version__ = "unknown"
@@ -89,7 +93,7 @@ def L2term(i: int) -> str:
 def format_state_label(li: int, labels: List[Any], label_key: str) -> str:
     """
     Format a single state label using the label_key convention.
-    
+
     Parameters
     ----------
     li : int
@@ -99,7 +103,7 @@ def format_state_label(li: int, labels: List[Any], label_key: str) -> str:
     label_key : str
         String specifying the format: positions determine which quantum numbers
         are S, L, J, M, I, T, F, X. E.g., "SLJM" means labels[li] = (S, L, J, M)
-    
+
     Returns
     -------
     str
@@ -147,11 +151,13 @@ def gen_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> str:
     return s
 
 
-def gen_pycf_summary(started_at: Optional[Union[datetime, str]] = None, suppress_input: bool = False) -> str:
+def gen_pycf_summary(
+    started_at: Optional[Union[datetime, str]] = None, suppress_input: bool = False
+) -> str:
     r"""
     Read input file and add to long string. Further, print the pycf version and
     date/time.
-    
+
     Parameters
     ----------
     started_at : datetime or str, optional
@@ -378,13 +384,9 @@ class EData:
         if not isinstance(arr, np.ndarray):
             raise TypeError("EData requires a NumPy structured array")
         if arr.dtype != self.DTYPE:
-            raise TypeError(
-                f"EData expects dtype matching EData.DTYPE; got {arr.dtype!r}"
-            )
+            raise TypeError(f"EData expects dtype matching EData.DTYPE; got {arr.dtype!r}")
         if arr.ndim != 1:
-            raise ValueError(
-                f"EData expects a 1-D structured array; got ndim={arr.ndim}"
-            )
+            raise ValueError(f"EData expects a 1-D structured array; got ndim={arr.ndim}")
         self.arr = arr
 
     @classmethod
@@ -489,12 +491,12 @@ def gen_edata_summary(edata: EData, **kwargs: Any) -> str:
 def calc_mu(m: int, minimum_q: int, half_integer_states: bool = False) -> int:
     r"""
     Calculate the folded magnetic quantum number (crystal quantum number).
-    
+
     The folded magnetic quantum number mu wraps the magnetic quantum number m
     into a fundamental domain determined by the smallest non-zero q value in
     the crystal-field tensor expansion. This provides a robust identifier for
     state blocks that can be mixed by C_kq tensor terms.
-    
+
     Parameters
     ----------
     m : int
@@ -507,7 +509,7 @@ def calc_mu(m: int, minimum_q: int, half_integer_states: bool = False) -> int:
         and minimum_q is used as-is.
         If True: m values are half-integers stored as doubled integers (e.g., m ∈ {-3, -1, 1, 3}
         representing m ∈ {-3/2, -1/2, 1/2, 3/2}) and minimum_q must be doubled for folding.
-    
+
     Returns
     -------
     mu : int
@@ -517,25 +519,31 @@ def calc_mu(m: int, minimum_q: int, half_integer_states: bool = False) -> int:
     # If half_integer_states=False: m values are actual integers, use minimum_q as-is
     # If half_integer_states=True: m values are half-integers (stored doubled), double minimum_q
     min_q_eff = minimum_q * 2 if half_integer_states else minimum_q
-    
+
     # Fold m into fundamental domain: |m| % min_q_eff
     mu = abs(m) % min_q_eff
-    
+
     # Fold back if in upper half of period
     if mu > min_q_eff // 2:
         mu = min_q_eff - mu
-    
+
     return mu
 
 
-def get_eigenstate_mu_n(eigenstate_idx: int, z: np.ndarray, labels: List[Any],
-                        w: np.ndarray, minimum_q: int, half_integer_states: bool) -> Tuple[int, int]:
+def get_eigenstate_mu_n(
+    eigenstate_idx: int,
+    z: np.ndarray,
+    labels: List[Any],
+    w: np.ndarray,
+    minimum_q: int,
+    half_integer_states: bool,
+) -> Tuple[int, int]:
     r"""
     Calculate (mu, n) quantum numbers for a single eigenstate.
-    
+
     This is the SINGLE SOURCE OF TRUTH for computing mu/n values.
     Used by both mu_n_to_level() and gen_e_summary_trunc().
-    
+
     Parameters
     ----------
     eigenstate_idx : int
@@ -550,7 +558,7 @@ def get_eigenstate_mu_n(eigenstate_idx: int, z: np.ndarray, labels: List[Any],
         Smallest non-zero q in crystal field expansion.
     half_integer_states : bool
         If True, m values are half-integers stored as doubled integers.
-        
+
     Returns
     -------
     tuple
@@ -563,73 +571,74 @@ def get_eigenstate_mu_n(eigenstate_idx: int, z: np.ndarray, labels: List[Any],
     abs_col = np.abs(col)
     pc_idx = np.argmax(abs_col)
     m_value = int(labels[pc_idx][-1])  # m is last element in label
-    
+
     # Compute mu from m
     mu = calc_mu(m_value, minimum_q, half_integer_states)
-    
+
     # Compute n: count how many eigenstates with same mu have energy <= this eigenstate
     # Need to group all eigenstates by mu and sort by energy
     n_eigenstates = z.shape[1]
     mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
-    
+
     for idx in range(n_eigenstates):
         col = z[:, idx]
         abs_col = np.abs(col)
         pc_idx_temp = np.argmax(abs_col)
         m_temp = int(labels[pc_idx_temp][-1])
         mu_temp = calc_mu(m_temp, minimum_q, half_integer_states)
-        
+
         if mu_temp not in mu_to_levels:
             mu_to_levels[mu_temp] = []
         mu_to_levels[mu_temp].append((w[idx], idx))
-    
+
     # Sort each mu group by energy
     for mu_key in mu_to_levels:
         mu_to_levels[mu_key].sort(key=lambda x: x[0])
-    
+
     # Find the ordinal position (n) of this eigenstate in its mu group
-    n = None
+    n: int | None = None
     for rank, (energy, idx) in enumerate(mu_to_levels[mu], start=1):
         if idx == eigenstate_idx:
             n = rank
             break
-    
-    return mu, n
+
+    return mu, n  # type: ignore[return-value]
 
 
-def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
-                  half_integer_states: bool) -> np.ndarray:
+def mu_n_to_level(
+    h: "cfl.Hamiltonian", mu_n_array: np.ndarray, minimum_q: int, half_integer_states: bool
+) -> np.ndarray:
     r"""
     Convert (mu, n) state pairs to energy level indices for a given Hamiltonian.
-    
+
     This function computes mu/n for all eigenstates of the Hamiltonian and matches
     user-provided (mu, n) pairs to their corresponding level indices (1-based).
     The (mu, n) parametrization is useful for systems with low-symmetry crystal fields
     where magnetic quantum numbers m are "folded" into an effective parameter mu based
     on the minimum q-value in the expansion (typically q=2 for C20/C22 terms).
-    
+
     **Understanding mu and n:**
-    
-    - ``mu``: Folded magnetic quantum number, computed as ``mu = m * sign(q_min)`` 
+
+    - ``mu``: Folded magnetic quantum number, computed as ``mu = m * sign(q_min)``
       where ``q_min`` is the smallest non-zero q in your expansion.
     - ``n``: Ordinal index (1, 2, 3, ...) of eigenstates grouped by their mu value.
       The n-th eigenstate within a mu group.
-    
+
     **Half-integer m values:**
-    
+
     For systems with half-integer m (e.g., f-electrons with J=5/2), m values are stored
     as doubled integers (±1, ±3, ±5 representing ±1/2, ±3/2, ±5/2). Set ``half_integer_states=True``
     in these cases. The effective q used for folding is then ``q_min * 2``.
-    
+
     **Usage Example:**
-    
+
     For Ce:YLF (f-electrons, J=5/2, m ∈ {-5/2, -3/2, -1/2, 1/2, 3/2, 5/2}):
-    
+
     .. code-block:: python
-    
+
         import numpy as np
         import pycf
-        
+
         # Setup Hamiltonian with Ce:YLF crystal field
         importer = pycf.ImportSLJM(...)  # Load from SLJM format
         h = pycf.cfl.Hamiltonian(importer.tensors)
@@ -637,25 +646,25 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
         h.half_integer_states = True     # f-electrons have half-integer m
         h.set_coeff(coeffs)
         h.diag()
-        
+
         # Map experimental data to levels
         mu_n_pairs = np.array([
             [2, 1],   # 1st eigenstate with mu=+2 (corresponds to m=±5/2)
             [2, 2],   # 2nd eigenstate with mu=+2
             [0, 1],   # 1st eigenstate with mu=0 (m=±1/2)
         ], dtype=np.int32)
-        
+
         level_indices = pycf.cfl_util.mu_n_to_level(
             h, mu_n_pairs, minimum_q=2, half_integer_states=True
         )
         # Returns: [1, 2, 5] (1-based level indices)
-    
+
     Parameters
     ----------
     h : Hamiltonian
         Diagonalized Hamiltonian with current coefficients. Must have:
         - ``h.z``: eigenvector matrix, shape ``(n_states, n_basis)``
-        - ``h.tensors[0].states.labels``: basis state SLJM labels, 
+        - ``h.tensors[0].states.labels``: basis state SLJM labels,
           shape ``(n_basis, 4)`` where each row is [S, L, J, M]
     mu_n_array : ndarray
         Array of (mu, n) pairs to convert, shape ``(N, 2)`` with dtype ``int32``.
@@ -667,35 +676,38 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
         - ``4``: For C40, C44, C60, C64 expansions
         - ``6``: For very high-order expansions
     half_integer_states : bool
-        Whether the system has half-integer m quantum numbers (stored as doubled integers).
-        - ``True``: f-electrons (J=5/2, d=7/2, etc.) with m ∈ {..., -3/2, -1/2, 1/2, 3/2, ...}
-        - ``False``: Integer m values (p, d-electrons in certain cases) with m ∈ {..., -1, 0, 1, ...}
-    
+        Whether the system has half-integer m quantum numbers (stored as doubled
+        integers).
+         - ``True``: f-electrons (J=5/2, d=7/2, etc.) with m ∈ {..., -3/2,
+           -1/2, 1/2, 3/2, ...}
+           - ``False``: Integer m values (p, d-electrons in certain cases)
+             with m ∈ {..., -1, 0, 1, ...}
+
     Returns
     -------
     ndarray
         Array of level indices (1-based), shape ``(N,)`` with dtype ``int32``.
         Index ``i`` in the returned array is the eigenstate level number
         corresponding to ``mu_n_array[i, :]``.
-        
+
     Raises
     ------
     ValueError
         - If any (mu, n) pair is not found in the current eigenstate spectrum
         - If ``h.z`` is not 2D (Hamiltonian not properly diagonalized)
         - If eigenvector matrix dimensions don't match state labels
-    
+
     Notes
     -----
     The principal component method is used: each eigenstate is matched to its
     largest component in the original basis. This works well for weakly-mixing
     crystal fields. For strongly-mixing systems, custom matching logic may be needed.
-    
+
     **Important:** The (mu, n) → level index mapping is data-dependent and must be
     recomputed after every ``h.diag()`` call, since the eigenvector matrix changes when
     parameters change. Caching would produce stale results. The conversion is performed
     at fitting initialization time in :class:`cfl.EFit` and is negligible in cost.
-    
+
     The conversion is performed at the time of fitting initialization in :class:`cfl.EFit`.
     Once converted to level indices, the fitting proceeds using the standard
     energy-level comparison workflow.
@@ -703,70 +715,73 @@ def mu_n_to_level(h: 'cfl.Hamiltonian', mu_n_array: np.ndarray, minimum_q: int,
     # Get basis state labels
     if not h.tensors or not h.tensors[0].states:
         raise ValueError("Hamiltonian must have state labels (SLJM format)")
-    
+
     state_labels_list = h.tensors[0].states.labels
     state_labels = np.array(state_labels_list, dtype=np.int32)
-    
+
     # Get eigenvectors
     z = h.z
     if z is None:
         raise ValueError("Hamiltonian must be diagonalized (call h.diag() first)")
-    
+
     if z.ndim != 2:
         raise ValueError(
             f"Eigenvector matrix must be 2D, got shape {z.shape}. "
-            "This should not happen with a properly diagonalized Hamiltonian.")
-    
+            "This should not happen with a properly diagonalized Hamiltonian."
+        )
+
     n_states = len(state_labels)
-    
+
     if z.shape[0] != n_states:
         raise ValueError(
             f"Eigenvector matrix has {z.shape[0]} rows but state labels has {n_states} entries. "
-            "Hamiltonian must be properly initialized.")
-    
+            "Hamiltonian must be properly initialized."
+        )
+
     # Build mu grouping once (O(n) instead of O(n²))
     # Step 1: Compute mu for each eigenstate (not n, just mu - we'll compute n after sorting)
     n_eigenstates = z.shape[1]
     mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
-    
+
     for eigenstate_idx in range(n_eigenstates):
         # Extract m from principal component
         col = z[:, eigenstate_idx]
         abs_col = np.abs(col)
         pc_idx = np.argmax(abs_col)
         m_value = int(state_labels_list[pc_idx][-1])
-        
+
         # Compute mu from m
         mu = calc_mu(m_value, minimum_q, half_integer_states)
-        
+
         # Group by mu, storing (energy, eigenstate_index)
         if mu not in mu_to_levels:
             mu_to_levels[mu] = []
         mu_to_levels[mu].append((h.w[eigenstate_idx], eigenstate_idx + 1))
-    
+
     # Step 2: Sort each mu group by energy
     for mu in mu_to_levels:
         mu_to_levels[mu].sort(key=lambda x: x[0])
-    
+
     # Match requested (mu, n) to level indices
     level_indices = np.zeros(len(mu_n_array), dtype=np.int32)
     for i in range(len(mu_n_array)):
         mu_req = int(mu_n_array[i, 0])
         n_req = int(mu_n_array[i, 1])
-        
+
         if mu_req not in mu_to_levels or n_req > len(mu_to_levels[mu_req]):
             available = sorted([(m, len(lvls)) for m, lvls in mu_to_levels.items()])
             raise ValueError(
-                f"No state found with (mu, n) = ({mu_req}, {n_req}). "
-                f"Available: {available}")
-        
+                f"No state found with (mu, n) = ({mu_req}, {n_req}). " f"Available: {available}"
+            )
+
         # Get the level index (2nd element of tuple) for the n-th state in this mu group
         level_indices[i] = mu_to_levels[mu_req][n_req - 1][1]
-    
+
     return level_indices
 
 
-def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
+def gen_e_summary(
+    w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
 ) -> str:
     r"""
     Generate energy level summary given eigenvalues and eigenvectors.
@@ -823,12 +838,12 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
         nstates = 2
     else:
         nstates = kwargs["nstates"]
-    
+
     # Handle max_levels parameter (display only, not for statistics)
     max_levels = kwargs.get("max_levels", None)
     if max_levels is not None and max_levels < 1:
         raise ValueError("max_levels must be >= 1 if specified")
-    
+
     if "ex" in kwargs:
         ex = kwargs["ex"]
         if isinstance(ex, np.ndarray):
@@ -856,14 +871,14 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]
-    
+
     # Calculate mu and n if minimum_q is provided
     mu_values = None
     n_values = None
     if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
         minimum_q = kwargs["minimum_q"]
         half_integer = kwargs.get("half_integer_states", False)
-        
+
         # Extract m values from principal component of each eigenvector
         m_values = []
         for i in range(len(z)):
@@ -871,36 +886,49 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
             principal_idx = sort_list[i][0]
             m = labels[principal_idx][-1]  # m is the last element in the label
             m_values.append(m)
-        
+
         # Calculate mu for each eigenvector
         mu_values = [calc_mu(m, minimum_q, half_integer) for m in m_values]
-        
+
         # Calculate n (ordinal index within each mu group), sorted by energy
         n_values = [0] * len(mu_values)
-        mu_groups = {}
+        mu_groups: Dict[int, List[Tuple[float, int]]] = {}
         for i in range(len(mu_values)):
             mu = mu_values[i]
             if mu not in mu_groups:
                 mu_groups[mu] = []
             mu_groups[mu].append((w[i], i))  # (energy, index)
-        
+
         # Sort each group by energy and assign n values
         for mu, group in mu_groups.items():
             group.sort(key=lambda x: x[0])  # Sort by energy
             for n, (_, idx) in enumerate(group, start=1):
                 n_values[idx] = n
-    
+
     heading = (
         "Lev.  "
-        + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4))
+        + (
+            "Percentage                 "
+            + "State"
+            + " " * (len(format_state_label(0, labels, label_key)) - 4)
+        )
         * nstates
         + "       Theory"
     )
-    
+
     # Insert mu and n columns if calculated
     if mu_values is not None:
         # Modify heading to include mu and n columns after "Lev."
-        heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4)) * nstates + "       Theory"
+        heading = (
+            "Lev.  mu   n     "
+            + (
+                "Percentage                 "
+                + "State"
+                + " " * (len(format_state_label(0, labels, label_key)) - 4)
+            )
+            * nstates
+            + "       Theory"
+        )
     if ex.size != 0:
         heading += "     Experiment    Difference\n"
     else:
@@ -913,12 +941,15 @@ def gen_e_summary(w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: st
         line = "{0:<6}".format(i + 1)
         # Add mu and n columns if calculated
         if mu_values is not None:
-            line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
+            line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
         N = np.sum(np.abs(z[:, i]) ** 2)
         for j in range(nstates):
             si = sort_list[i][j]
             line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
+                z[si, i],
+                np.abs(z[si, i]) ** 2 / N,
+                si + 1,
+                format_state_label(si, labels, label_key),
             )
         s += line + " {: >12.4f}".format(w[i])
         if ex.size != 0:
@@ -1020,7 +1051,7 @@ def gen_e_summary_trunc(
     sort_list = []
     for i in range(len(z)):
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]
-    
+
     # Calculate mu and n if minimum_q is provided
     mu_values = None
     n_values = None
@@ -1028,7 +1059,7 @@ def gen_e_summary_trunc(
         minimum_q = kwargs["minimum_q"]
         half_integer = kwargs.get("half_integer_states", False)
         labels_list = list(labels) if not isinstance(labels, list) else labels
-        
+
         # Build mu grouping once (O(n) instead of O(n²))
         mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
         for idx in range(len(z)):
@@ -1037,15 +1068,15 @@ def gen_e_summary_trunc(
             pc_idx = np.argmax(abs_col)
             m_value = int(labels_list[pc_idx][-1])
             mu = calc_mu(m_value, minimum_q, half_integer)
-            
+
             if mu not in mu_to_levels:
                 mu_to_levels[mu] = []
             mu_to_levels[mu].append((w[idx], idx))
-        
+
         # Sort each mu group by energy
         for mu_key in mu_to_levels:
             mu_to_levels[mu_key].sort(key=lambda x: x[0])
-        
+
         # Now compute (mu, n) for each eigenstate
         mu_values = [None] * len(z)
         n_values = [None] * len(z)
@@ -1055,29 +1086,42 @@ def gen_e_summary_trunc(
             pc_idx = np.argmax(abs_col)
             m_value = int(labels_list[pc_idx][-1])
             mu = calc_mu(m_value, minimum_q, half_integer)
-            
+
             # Find n: ordinal position in this mu group
             n = None
             for rank, (energy, idx) in enumerate(mu_to_levels[mu], start=1):
                 if idx == eigenstate_idx:
                     n = rank
                     break
-            
-            mu_values[eigenstate_idx] = mu
-            n_values[eigenstate_idx] = n
+
+            mu_values[eigenstate_idx] = mu  # type: ignore[index]
+            n_values[eigenstate_idx] = n  # type: ignore[index, assignment]
     if ex.n_a != 0:
         if ex.n_d != 0:
             s += uline_char("Absolute energy levels:\n")
         exa = ex_parse_abs(ex, z, labels)
         heading = (
             "Lev.  "
-            + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4))
+            + (
+                "Percentage                 "
+                + "State"
+                + " " * (len(format_state_label(0, labels, label_key)) - 4)
+            )
             * nstates
             + "       Theory"
         )
         # Insert mu and n columns if calculated
         if mu_values is not None:
-            heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4)) * nstates + "       Theory"
+            heading = (
+                "Lev.  mu   n     "
+                + (
+                    "Percentage                 "
+                    + "State"
+                    + " " * (len(format_state_label(0, labels, label_key)) - 4)
+                )
+                * nstates
+                + "       Theory"
+            )
         heading += "     Experiment    Difference\n"
         s += uline_char(heading)
         for ii in range(ex.n_a):
@@ -1085,12 +1129,15 @@ def gen_e_summary_trunc(
             line = "{0:<6}".format(i + 1)
             # Add mu and n columns if calculated
             if mu_values is not None:
-                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
+                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
             N = np.sum(np.abs(z[:, i]) ** 2)
             for j in range(nstates):
                 si = sort_list[i][j]
                 line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
+                    z[si, i],
+                    np.abs(z[si, i]) ** 2 / N,
+                    si + 1,
+                    format_state_label(si, labels, label_key),
                 )
             s += line + " {: >12.4f}".format(w[i])
             s += "   {: >12.4f}  {: >12.4f}".format(exa[ii, 1], exa[ii, 1] - w[i]) + "\n"
@@ -1102,13 +1149,26 @@ def gen_e_summary_trunc(
         exd = ex_parse_diff(ex, z, labels)
         heading = (
             "Lev.  "
-            + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4))
+            + (
+                "Percentage                 "
+                + "State"
+                + " " * (len(format_state_label(0, labels, label_key)) - 4)
+            )
             * nstates
             + "    Th. diff."
         )
         # Insert mu and n columns if calculated
         if mu_values is not None:
-            heading = "Lev.  mu   n     " + ("Percentage                 " + "State" + " " * (len(format_state_label(0, labels, label_key)) - 4)) * nstates + "    Th. diff."
+            heading = (
+                "Lev.  mu   n     "
+                + (
+                    "Percentage                 "
+                    + "State"
+                    + " " * (len(format_state_label(0, labels, label_key)) - 4)
+                )
+                * nstates
+                + "    Th. diff."
+            )
         heading += "     Exp. diff.    Diff. diff.\n"
         s += uline_char(heading)
         for ii in range(ex.n_d):
@@ -1116,12 +1176,15 @@ def gen_e_summary_trunc(
             line = "{0:<6}".format(i + 1)
             # Add mu and n columns if calculated
             if mu_values is not None:
-                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
+                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
             N = np.sum(np.abs(z[:, i]) ** 2)
             for j in range(nstates):
                 si = sort_list[i][j]
                 line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
+                    z[si, i],
+                    np.abs(z[si, i]) ** 2 / N,
+                    si + 1,
+                    format_state_label(si, labels, label_key),
                 )
             s += line + "\n"
             tmp_w = w[i]
@@ -1129,12 +1192,15 @@ def gen_e_summary_trunc(
             line = "{0:<6}".format(i + 1)
             # Add mu and n columns if calculated
             if mu_values is not None:
-                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])
+                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
             N = np.sum(np.abs(z[:, i]) ** 2)
             for j in range(nstates):
                 si = sort_list[i][j]
                 line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i], np.abs(z[si, i]) ** 2 / N, si + 1, format_state_label(si, labels, label_key)
+                    z[si, i],
+                    np.abs(z[si, i]) ** 2 / N,
+                    si + 1,
+                    format_state_label(si, labels, label_key),
                 )
             tmp_w = w[i] - tmp_w
             s += line + " {: >12.4g}".format(tmp_w)
