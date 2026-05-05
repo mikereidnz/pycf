@@ -1524,9 +1524,25 @@ cdef class ExData(object):
         self.mu_row_indices = []
         self.mu_row_indices_d = []
 
-        if not (isinstance(data, np.ndarray) or isinstance(data, tuple)):
-            raise TypeError("The ex data argument must either be of type np.ndarray or " \
-                    "tuple, not %s." % type(data))
+        if not (isinstance(data, (np.ndarray, tuple, list))):
+            raise TypeError("The ex data argument must either be of type np.ndarray, tuple, or list, " \
+                    "not %s." % type(data))
+        
+        # Convert single list to array with warning if rows have inconsistent length
+        if isinstance(data, list) and not all(isinstance(item, str) for item in data):
+            # It's a list of lists/rows, not a list of strings
+            # Check row consistency and warn if inconsistent
+            if data:
+                row_lengths = [len(row) if isinstance(row, (list, tuple)) else 1 for row in data]
+                if len(set(row_lengths)) > 1:
+                    import warnings
+                    warnings.warn(
+                        f"Data list has inconsistent row lengths {sorted(set(row_lengths))}. "
+                        "This will likely cause an error during processing. "
+                        "Please use consistent row lengths.",
+                        UserWarning
+                    )
+            data = np.array(data, dtype=object)
         if weights is None:
             if isinstance(data, np.ndarray):
                 weights = np.ones(data.shape[0], dtype=np.float64)
@@ -1591,6 +1607,29 @@ cdef class ExData(object):
                         raise ValueError("All data arrays must be two dimensional.")
                 else:
                     raise ValueError("Data must be numpy arrays or lists.")
+            
+            # Convert lists to numpy arrays (for all data types, not just marker-column)
+            converted_data = []
+            for i, d in enumerate(data):
+                if isinstance(d, list):
+                    # Check if rows have consistent length
+                    if d:
+                        row_lengths = [len(row) if isinstance(row, (list, tuple)) else 1 for row in d]
+                        if len(set(row_lengths)) > 1:
+                            import warnings
+                            warnings.warn(
+                                f"Data[{i}]: list of lists has inconsistent row lengths {sorted(set(row_lengths))}. "
+                                "Converting to numpy array. Row lengths should be consistent for cleaner data entry. "
+                                "Shorter rows will be padded with None.",
+                                UserWarning
+                            )
+                            # Pad rows to max length
+                            max_len = max(row_lengths)
+                            d = [list(row) + [None] * (max_len - len(row)) for row in d]
+                    # Convert to numpy array
+                    d = np.array(d, dtype=object)
+                converted_data.append(d)
+            data = tuple(converted_data)
 
             for k in key:
                 if k == 'A' or k == 'D':
