@@ -1819,7 +1819,7 @@ def _estimate_parameter_uncertainties(
         return {pname: None for pname in param_names}
 
 
-def inten_plot(
+def inten_plot(  # pragma: no cover
     spectrum: "Spectrum",
     fwhm: float = 0.5,
     xlim: Optional[Tuple[float, float]] = None,
