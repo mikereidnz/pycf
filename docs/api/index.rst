@@ -138,7 +138,7 @@ Intensity
 
    pycf.inten.dipole_str
    pycf.inten.group_transitions
-   pycf.inten.inten
+   pycf.inten.Spectrum
 
 Parameters
 ----------
