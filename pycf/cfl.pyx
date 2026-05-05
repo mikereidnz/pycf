@@ -1517,6 +1517,8 @@ cdef class ExData(object):
     # Tracking for marker-column mixed mu/lev data
     cdef public list mu_row_indices
     cdef public list mu_row_indices_d
+    cdef public np.ndarray _a_energies_marker
+    cdef public np.ndarray _d_energies_marker
     def __init__(self, data, key=None, label_key=None, weights=None):
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
 
@@ -1526,6 +1528,8 @@ cdef class ExData(object):
         self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
         self.mu_row_indices = []
         self.mu_row_indices_d = []
+        self._a_energies_marker = np.zeros(0, dtype=np.float64)
+        self._d_energies_marker = np.zeros(0, dtype=np.float64)
 
         if not (isinstance(data, (np.ndarray, tuple, list))):
             raise TypeError("The ex data argument must either be of type np.ndarray, tuple, or list, " \
@@ -1767,6 +1771,7 @@ cdef class ExData(object):
                     self.n_a = len(a_data)
                     self.a_states = np.zeros(self.n_a, dtype=object)  # Store markers
                     self.la = np.zeros(self.n_a, dtype=np.int32)
+                    a_energies = np.zeros(self.n_a, dtype=np.float64)
 
                     # Separate mu and lev rows
                     mu_rows = []
@@ -1782,6 +1787,7 @@ cdef class ExData(object):
                                 raise ValueError(f"'mu' row {i} must have at least 4 columns: (marker, mu, n, energy).")
                             mu_rows.append(i)
                             self.mu_row_indices.append(i)
+                            a_energies[i] = float(a_data[i, 3])
                         elif marker == "lev":
                             if a_data.shape[1] < 3:
                                 raise ValueError(f"'lev' row {i} must have at least 3 columns: (marker, level, energy).")
@@ -1790,6 +1796,8 @@ cdef class ExData(object):
                             if level < 1:
                                 raise ValueError(f"'lev' row {i}: level must be >= 1 (1-based), got {level}")
                             self.la[i] = level - 1
+                            a_energies[i] = float(a_data[i, 2])
+                    self._a_energies_marker = a_energies
 
                     # Store mu/n data for rows that have it
                     if mu_rows:
@@ -1822,6 +1830,7 @@ cdef class ExData(object):
                     self.id_states = np.zeros(self.n_d, dtype=object)  # Store markers
                     self.ild = np.zeros(self.n_d, dtype=np.int32)
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
+                    d_energies = np.zeros(self.n_d, dtype=np.float64)
 
                     # Separate mu and lev rows
                     mu_rows = []
@@ -1838,6 +1847,7 @@ cdef class ExData(object):
                                                "(marker, mu_i, n_i, mu_f, n_f, energy).")
                             mu_rows.append(i)
                             self.mu_row_indices_d.append(i)
+                            d_energies[i] = float(d_data[i, 5])
                         elif marker == "lev":
                             if d_data.shape[1] < 4:
                                 raise ValueError(f"'lev' row {i} must have at least 4 columns: "
@@ -1849,6 +1859,8 @@ cdef class ExData(object):
                                 raise ValueError(f"'lev' row {i}: levels must be >= 1 (1-based)")
                             self.ild[i] = level_i - 1
                             self.fld[i] = level_f - 1
+                            d_energies[i] = float(d_data[i, 3])
+                    self._d_energies_marker = d_energies
 
                     # Store mu/n data for rows that have it
                     if mu_rows:
@@ -1860,17 +1872,17 @@ cdef class ExData(object):
 
                 # Stack energies and weights
                 if len(key) == 2:
-                    self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, -1],
-                        data[key.index('D')][:, -1])), dtype=np.float64)
+                    self.e = np.ascontiguousarray(np.hstack((self._a_energies_marker,
+                        self._d_energies_marker)), dtype=np.float64)
                     self.w = np.ascontiguousarray(np.hstack((weights[key.index('A')],
                         weights[key.index('D')])), dtype=np.float64)
                 elif key[0] == 'A':
-                    self.e = np.ascontiguousarray(data[key.index('A')][:, -1], dtype=np.float64)
+                    self.e = np.ascontiguousarray(self._a_energies_marker, dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('A')], dtype=np.float64)
                     self.n_d = 0
                     self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
                 elif key[0] == 'D':
-                    self.e = np.ascontiguousarray(data[key.index('D')][:, -1], dtype=np.float64)
+                    self.e = np.ascontiguousarray(self._d_energies_marker, dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('D')], dtype=np.float64)
                     self.n_a = 0
                     self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
