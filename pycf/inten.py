@@ -13,8 +13,14 @@ import numpy as np
 from scipy.optimize import minimize
 
 from pycf.cfl_util import L2term
-from pycf.constants import (BOLTZMANN_CM_INVERSE, ELECTRON_MASS,
-                            ELEMENTARY_CHARGE, EPSILON_0, HBAR, SPEED_OF_LIGHT)
+from pycf.constants import (
+    BOLTZMANN_CM_INVERSE,
+    ELECTRON_MASS,
+    ELEMENTARY_CHARGE,
+    EPSILON_0,
+    HBAR,
+    SPEED_OF_LIGHT,
+)
 from pycf.njsymbols import wigner_3j
 
 
@@ -1816,8 +1822,8 @@ def _estimate_parameter_uncertainties(
 def inten_plot(
     spectrum: "Spectrum",
     fwhm: float = 0.5,
-    xlim: Optional[List[float]] = None,
-    ylim: Optional[List[float]] = None,
+    xlim: Optional[Tuple[float, float]] = None,
+    ylim: Optional[Tuple[float, float]] = None,
     npoints: int = 10000,
     figsize: Tuple[float, float] = (12, 6),
 ) -> "Tuple[Any, Any]":
@@ -1869,8 +1875,8 @@ def inten_plot(
     is_absorption = spectrum.groups[0]["Energy"] > 0 if spectrum.groups else True
 
     # Extract transition energies and intensities
-    energies = []
-    intensities = []
+    energies: list[float] = []
+    intensities: list[float] = []
     for group in spectrum.groups:
         energies.append(abs(group.get("Energy", 0.0)))
         if is_absorption:
@@ -1878,21 +1884,21 @@ def inten_plot(
         else:
             intensities.append(group.get("A", 0.0))
 
-    energies = np.array(energies)
-    intensities = np.array(intensities)
+    energies_arr = np.array(energies)
+    intensities_arr = np.array(intensities)
 
     # Determine energy range for plotting
     if xlim is None:
-        e_min, e_max = float(energies.min()), float(energies.max())
+        e_min, e_max = float(energies_arr.min()), float(energies_arr.max())
         margin = (e_max - e_min) * 0.1 if e_max > e_min else 10.0
-        xlim = [e_min - margin, e_max + margin]
+        xlim = (e_min - margin, e_max + margin)
 
     # Generate energy grid for convolution (fine step size for smooth curve)
-    energy_grid = np.linspace(xlim_list[0], xlim_list[1], npoints)
+    energy_grid = np.linspace(xlim[0], xlim[1], npoints)
 
     # Convolute with Lorentzian
     convoluted = np.zeros(npoints)
-    for e, inten in zip(energies, intensities):
+    for e, inten in zip(energies_arr, intensities_arr):
         convoluted += inten * lorentzian_constant_height(energy_grid, e, fwhm)
 
     # Create plot using spectrum name as figure identifier, with random suffix
@@ -1904,7 +1910,9 @@ def inten_plot(
     ax.plot(energy_grid, convoluted, "b-", linewidth=2, label="Calculated (convoluted)")
 
     # Plot stick spectrum for calculated
-    ax.vlines(energies, 0, intensities, colors="blue", alpha=0.5, linewidth=1, linestyles="solid")
+    ax.vlines(
+        energies_arr, 0, intensities_arr, colors="blue", alpha=0.5, linewidth=1, linestyles="solid"
+    )
 
     # If experimental data available, plot as stick lines
     if spectrum.expt_data:
@@ -1947,9 +1955,9 @@ def inten_plot(
     ax.set_title(
         f"{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)", fontsize=13, pad=20
     )
-    ax.set_xlim(tuple(xlim) if xlim is not None else None)
+    ax.set_xlim(xlim)
     if ylim is not None:
-        ax.set_ylim(tuple(ylim))
+        ax.set_ylim(ylim)
     else:
         ax.set_ylim(bottom=0)
     ax.legend(loc="upper right", fontsize=11)
@@ -1963,6 +1971,7 @@ def inten_plot(
     # Conversion: λ (nm) = 10^7 / wavenumber (cm^-1)
     ax2 = ax.twiny()
     # Get the energy limits and convert to wavelength
+    assert xlim is not None, "xlim should be set by this point"
     e_min, e_max = xlim[0], xlim[1]
     # Avoid division by zero at very low energies
     if e_min > 0:

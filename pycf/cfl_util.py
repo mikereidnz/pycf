@@ -40,8 +40,7 @@ if TYPE_CHECKING:
     import pycf.cfl as cfl
 
 try:
-    from pycf.__version__ import (__build_comment__, __build_timestamp__,
-                                  __version__)
+    from pycf.__version__ import __build_comment__, __build_timestamp__, __version__
 except ImportError as e:
     logging.warning("Could not import build metadata from pycf.__version__: %s", e)
     __version__ = "unknown"
@@ -677,11 +676,9 @@ def mu_n_to_level(
         - ``6``: For very high-order expansions
     half_integer_states : bool
         Whether the system has half-integer m quantum numbers (stored as doubled
-        integers).
-         - ``True``: f-electrons (J=5/2, d=7/2, etc.) with m ∈ {..., -3/2,
-           -1/2, 1/2, 3/2, ...}
-           - ``False``: Integer m values (p, d-electrons in certain cases)
-             with m ∈ {..., -1, 0, 1, ...}
+        integers). Set to ``True`` for f-electrons (J=5/2, d=7/2, etc.) with m ∈
+        {..., -3/2, -1/2, 1/2, 3/2, ...}, or ``False`` for integer m values
+        (p, d-electrons) with m ∈ {..., -1, 0, 1, ...}.
 
     Returns
     -------
@@ -1094,8 +1091,8 @@ def gen_e_summary_trunc(
                     n = rank
                     break
 
-            mu_values[eigenstate_idx] = mu  # type: ignore[index]
-            n_values[eigenstate_idx] = n  # type: ignore[index, assignment]
+            mu_values[eigenstate_idx] = mu  # type: ignore[index,call-overload]
+            n_values[eigenstate_idx] = n  # type: ignore[index,assignment,call-overload]
     if ex.n_a != 0:
         if ex.n_d != 0:
             s += uline_char("Absolute energy levels:\n")
