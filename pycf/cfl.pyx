@@ -1608,28 +1608,27 @@ cdef class ExData(object):
                 else:
                     raise ValueError("Data must be numpy arrays or lists.")
             
-            # Convert lists to numpy arrays (for all data types, not just marker-column)
-            converted_data = []
-            for i, d in enumerate(data):
-                if isinstance(d, list):
-                    # Check if rows have consistent length
-                    if d:
-                        row_lengths = [len(row) if isinstance(row, (list, tuple)) else 1 for row in d]
-                        if len(set(row_lengths)) > 1:
-                            import warnings
-                            warnings.warn(
-                                f"Data[{i}]: list of lists has inconsistent row lengths {sorted(set(row_lengths))}. "
-                                "Converting to numpy array. Row lengths should be consistent for cleaner data entry. "
-                                "Shorter rows will be padded with None.",
-                                UserWarning
-                            )
-                            # Pad rows to max length
-                            max_len = max(row_lengths)
-                            d = [list(row) + [None] * (max_len - len(row)) for row in d]
-                    # Convert to numpy array
-                    d = np.array(d, dtype=object)
-                converted_data.append(d)
-            data = tuple(converted_data)
+            # Convert lists to numpy arrays (warn on inconsistent rows, no padding here)
+            # BUT: Don't convert yet if this is marker-column mu/n format (it has special handling)
+            if label_key != "MuN":
+                converted_data = []
+                for i, d in enumerate(data):
+                    if isinstance(d, list):
+                        # Check if rows have consistent length - warn but don't pad
+                        if d:
+                            row_lengths = [len(row) if isinstance(row, (list, tuple)) else 1 for row in d]
+                            if len(set(row_lengths)) > 1:
+                                import warnings
+                                warnings.warn(
+                                    f"Data[{i}]: list of lists has inconsistent row lengths {sorted(set(row_lengths))}. "
+                                    "This may cause errors depending on the data format. "
+                                    "Please use consistent row lengths.",
+                                    UserWarning
+                                )
+                        # Convert to numpy array
+                        d = np.array(d, dtype=object)
+                    converted_data.append(d)
+                data = tuple(converted_data)
 
             for k in key:
                 if k == 'A' or k == 'D':
