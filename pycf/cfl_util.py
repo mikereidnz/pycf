@@ -931,6 +931,11 @@ def gen_e_summary(
             if "half_integer_states" in kwargs:
                 ex_kwargs["half_integer_states"] = kwargs["half_integer_states"]
             ex = ex_parse_abs(ex, z, labels, **ex_kwargs)
+            # For marker-column data, skip sorting (user order is important)
+            # For regular data, convert to 0-based indexing only (already sorted by ex_parse_abs)
+            if not (hasattr(ex, 'mu_n_abs') or (hasattr(kwargs["ex"], 'mu_n_abs'))):
+                ex = ex[np.argsort(ex[:, 0]), :]
+            ex[:, 0] = ex[:, 0] - 1
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError(
                 "e_summary: ex input data contains duplicate entries in the index column."
@@ -1012,7 +1017,13 @@ def gen_e_summary(
     else:
         heading += " \n"
     s += uline_char(heading)
-    ii = 0
+    # Build a dictionary for fast lookup of experimental data by eigenstate index
+    ex_dict: Dict[int, Tuple[float, float]] = {}
+    if ex.size != 0:
+        for row in ex:
+            eigenstate_idx = int(row[0])
+            energy = row[1]
+            ex_dict[eigenstate_idx] = (energy, energy - w[eigenstate_idx])
     # Determine the number of levels to display
     n_display = len(z) if max_levels is None else min(len(z), max_levels)
     for i in range(n_display):
@@ -1031,10 +1042,8 @@ def gen_e_summary(
             )
         s += line + " {: >12.4f}".format(w[i])
         if ex.size != 0:
-            if ex[ii, 0] == i:
-                s += "   {: >12.4f}  {: >12.4f}".format(ex[ii, 1], ex[ii, 1] - w[i]) + "\n"
-                if ii != len(ex) - 1:
-                    ii += 1
+            if i in ex_dict:
+                s += "   {: >12.4f}  {: >12.4f}".format(ex_dict[i][0], ex_dict[i][1]) + "\n"
             else:
                 s += "         --            --\n"
         else:
