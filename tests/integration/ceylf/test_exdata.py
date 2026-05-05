@@ -137,7 +137,7 @@ def test_exdata(data_sel) -> None:
 
     # For mu data, use looser tolerance since different data subset may converge differently
     # mu test uses levels [1,3,7,8] plus differences, which is a subset that produces different optimization landscape
-    tolerance = 1e-2 if data_sel != "mu" else 0.8
+    tolerance = 1e-2 if data_sel != "mu" else 0.6
 
     for label, value in fit_coeff.items():
         print(label, value, " should be equal to ", expected_coeff[label])

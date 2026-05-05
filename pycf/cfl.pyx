@@ -2562,18 +2562,39 @@ cdef class EFit(object):
             and ``self.h.w`` / ``self.h.evect`` are current. Default
             False (this method calls ``self.h.diag()`` itself).
         """
-        if not self.ex.has_mu_n or self.ex.mu_n_abs.shape[0] == 0:
+        if not self.ex.has_mu_n:
+            return
+        has_a_mu = self.ex.mu_n_abs.shape[0] > 0
+        has_d_mu = (hasattr(self.ex, 'mu_n_diff')
+                    and self.ex.mu_n_diff is not None
+                    and self.ex.mu_n_diff.shape[0] > 0)
+        if not (has_a_mu or has_d_mu):
             return
         from .cfl_util import mu_n_to_level
         if not skip_diag:
             self.h.diag()
-        levels_1based = mu_n_to_level(
-            self.h, self.ex.mu_n_abs,
-            self.h.minimum_q,
-            self.h.half_integer_states,
-        )
-        for k, row in enumerate(self.ex.mu_row_indices):
-            self.ex.la[row] = int(levels_1based[k]) - 1
+        if has_a_mu:
+            levels_1based = mu_n_to_level(
+                self.h, self.ex.mu_n_abs,
+                self.h.minimum_q,
+                self.h.half_integer_states,
+            )
+            for k, row in enumerate(self.ex.mu_row_indices):
+                self.ex.la[row] = int(levels_1based[k]) - 1
+        if has_d_mu:
+            ini_levels = mu_n_to_level(
+                self.h, self.ex.mu_n_diff[:, :2],
+                self.h.minimum_q,
+                self.h.half_integer_states,
+            )
+            fin_levels = mu_n_to_level(
+                self.h, self.ex.mu_n_diff[:, 2:4],
+                self.h.minimum_q,
+                self.h.half_integer_states,
+            )
+            for k, row in enumerate(self.ex.mu_row_indices_d):
+                self.ex.ild[row] = int(ini_levels[k]) - 1
+                self.ex.fld[row] = int(fin_levels[k]) - 1
 
     @cython.boundscheck(False)
     def eval(self, coeff):
