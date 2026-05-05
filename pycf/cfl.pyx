@@ -748,6 +748,9 @@ cdef class Hamiltonian:
                 kwargs["minimum_q"] = self.minimum_q
             if "half_integer_states" not in kwargs:
                 kwargs["half_integer_states"] = self.half_integer_states
+            # Pass Hamiltonian for mu/n marker-column data processing
+            if "h" not in kwargs:
+                kwargs["h"] = self
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
                     self.tensors[0].states.label_key, **kwargs)
         else:
@@ -2311,51 +2314,12 @@ cdef class EFit(object):
                     "Use True if m values are half-integers (e.g., f-electrons with J=5/2), "
                     "False if m values are integers.")
 
-            from pycf.cfl_util import mu_n_to_level
-
-            # Convert absolute mu/n data to level indices
-            if self.ex.n_a > 0 and self.ex.mu_n_abs is not None and len(self.ex.mu_n_abs) > 0:
-                level_indices = mu_n_to_level(
-                    self.h, self.ex.mu_n_abs, self.h.minimum_q, self.h.half_integer_states
-                )
-
-                # Note: mu_n_to_level returns indices in user-provided order (not necessarily ascending).
-                # We keep them in user order here, and let ex_parse_abs sort both indices and energies
-                # together, which maintains the energy-eigenstate pairing.
-
-                # For mixed marker-column data, merge mu results back into ex.la at the correct positions
-                if hasattr(self.ex, 'mu_row_indices') and len(self.ex.mu_row_indices) > 0:
-                    for i, row_idx in enumerate(self.ex.mu_row_indices):
-                        self.ex.la[row_idx] = level_indices[i] - 1
-                else:
-                    # Pure mu data: replace entire ex.la
-                    self.ex.la = np.ascontiguousarray(level_indices - 1, dtype=np.int32)
-
-            # Convert difference mu/n data to level indices
-            if self.ex.n_d > 0 and self.ex.mu_n_diff is not None and len(self.ex.mu_n_diff) > 0:
-                mu_n_initial = self.ex.mu_n_diff[:, :2]
-                mu_n_final = self.ex.mu_n_diff[:, 2:4]
-
-                initial_levels = mu_n_to_level(
-                    self.h, mu_n_initial, self.h.minimum_q, self.h.half_integer_states
-                )
-                final_levels = mu_n_to_level(
-                    self.h, mu_n_final, self.h.minimum_q, self.h.half_integer_states
-                )
-
-                # Note: mu_n_to_level returns indices in user-provided order.
-                # We keep them paired as-is here, and let ex_parse_diff handle sorting
-                # which will maintain the energy-level-pair association.
-
-                # For mixed marker-column data, merge mu results back into ex.ild/fld at the correct positions
-                if hasattr(self.ex, 'mu_row_indices_d') and len(self.ex.mu_row_indices_d) > 0:
-                    for i, row_idx in enumerate(self.ex.mu_row_indices_d):
-                        self.ex.ild[row_idx] = initial_levels[i] - 1
-                        self.ex.fld[row_idx] = final_levels[i] - 1
-                else:
-                    # Pure mu data: replace entire ild/fld
-                    self.ex.ild = np.ascontiguousarray(initial_levels - 1, dtype=np.int32)
-                    self.ex.fld = np.ascontiguousarray(final_levels - 1, dtype=np.int32)
+        # Note: mu/n conversion no longer happens here. Instead, it's computed dynamically
+        # in ex_parse_abs() and ex_parse_diff() every time they're called. This ensures that
+        # as Hamiltonian parameters change during fitting, the (mu,n) → eigenstate mapping
+        # is always recomputed, just like the state-label logic recomputes principal components.
+        # This is the correct approach: the mapping depends on the current Hamiltonian, so it
+        # cannot be cached.
 
         self.n_obs = self.ex.n_obs
 

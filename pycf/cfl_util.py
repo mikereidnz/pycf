@@ -204,7 +204,7 @@ def print_completed_str(completed_at: Optional[Union[datetime, str]] = None) -> 
     print(gen_completed_str(completed_at), end="")
 
 
-def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
+def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
     from an ExData object for absolute energy level data.
@@ -218,6 +218,13 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         state labels.
     labels : list
         A list of state labels.
+    h : Hamiltonian, optional
+        Hamiltonian object needed for mu/n marker-column data. If provided with
+        minimum_q and half_integer_states, enables dynamic mu_n_to_level computation.
+    minimum_q : int, optional
+        Smallest non-zero q value in the Hamiltonian expansion.
+    half_integer_states : bool, optional
+        Whether m values are half-integers.
 
     Returns
     -------
@@ -255,16 +262,41 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         parsed_ex = np.zeros((ex.n_a, 2))
         # Abs. energy values are ordered to preceed diff. values.
         parsed_ex[:, 1] = ex.e[: ex.n_a]
-        parsed_ex[:, 0] = ex.la
-        # Sort ex according to index column, BUT NOT for marker-column mu/n data.
-        # For marker-column data, the user has specified the exact (mu, n) → energy
-        # mapping, and sorting by eigenstate index would change the energy assignment order.
-        if not (hasattr(ex, 'mu_n_abs') and len(ex.mu_n_abs) > 0):
+        
+        # Check if marker-column mu/n data is present
+        has_marker_mu_n = hasattr(ex, 'mu_n_abs') and len(ex.mu_n_abs) > 0
+        
+        if has_marker_mu_n and 'h' in kwargs:
+            # Marker-column mu/n data: compute eigenstate indices dynamically from current Hamiltonian
+            # This mirrors the sl_index approach: recompute for every summary call
+            h = kwargs['h']
+            minimum_q = kwargs.get('minimum_q', h.minimum_q if h.minimum_q is not None else 2)
+            half_integer_states = kwargs.get('half_integer_states', h.half_integer_states)
+            
+            # Compute mu_n_to_level for all user-provided (mu, n) pairs
+            level_indices = mu_n_to_level(h, ex.mu_n_abs, minimum_q, half_integer_states)
+            
+            # For mixed marker/regular data, fill in only the mu rows; others come from ex.la
+            if hasattr(ex, 'mu_row_indices') and len(ex.mu_row_indices) > 0:
+                parsed_ex[:, 0] = ex.la
+                for i, row_idx in enumerate(ex.mu_row_indices):
+                    parsed_ex[row_idx, 0] = level_indices[i] - 1
+            else:
+                # Pure mu/n data: use all computed indices
+                parsed_ex[:, 0] = level_indices - 1
+            # NOTE: Don't sort marker-column mu/n data - user specified the order
+        elif has_marker_mu_n:
+            # Marker-column data but no Hamiltonian provided - use cached ex.la
+            # Don't sort - user specified the order
+            parsed_ex[:, 0] = ex.la
+        else:
+            # Regular level index data - sort for display
+            parsed_ex[:, 0] = ex.la
             parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
     return parsed_ex
 
 
-def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
+def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> np.ndarray:
     r"""
     Helper function for extracting and formatting experimental energy level data
     from an ExData object for energy level differences.
@@ -278,6 +310,12 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         state labels.
     labels : list
         A list of state labels.
+    h : Hamiltonian, optional
+        Hamiltonian object needed for mu/n marker-column data.
+    minimum_q : int, optional
+        Smallest non-zero q value in the Hamiltonian expansion.
+    half_integer_states : bool, optional
+        Whether m values are half-integers.
 
     Returns
     -------
@@ -322,15 +360,44 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         parsed_ex = np.zeros((ex.n_d, 3))
         # Diff. energy values are ordered to come after abs. values.
         parsed_ex[:, 2] = ex.e[ex.n_a :]
-        parsed_ex[:, 0] = ex.ild
-        parsed_ex[:, 1] = ex.fld
-        # Sort ex according to initial level (col 0), then final level (col 1).
-        # np.lexsort sorts primarily by the *last* key in its tuple, so col 0
-        # (initial level) must come last to be the primary sort key.  The
-        # previous order had the keys reversed, making final level primary.
-        # Do NOT sort marker-column mu/n data, as the user has specified the exact
-        # (mu_i, n_i) → (mu_f, n_f) → energy mapping.
-        if not (hasattr(ex, 'mu_n_diff') and len(ex.mu_n_diff) > 0):
+        
+        # Check if marker-column mu/n data is present
+        has_marker_mu_n = hasattr(ex, 'mu_n_diff') and len(ex.mu_n_diff) > 0
+        
+        if has_marker_mu_n and 'h' in kwargs:
+            # Marker-column mu/n data: compute eigenstate indices dynamically
+            h = kwargs['h']
+            minimum_q = kwargs.get('minimum_q', h.minimum_q if h.minimum_q is not None else 2)
+            half_integer_states = kwargs.get('half_integer_states', h.half_integer_states)
+            
+            mu_n_initial = ex.mu_n_diff[:, :2]
+            mu_n_final = ex.mu_n_diff[:, 2:4]
+            
+            initial_levels = mu_n_to_level(h, mu_n_initial, minimum_q, half_integer_states)
+            final_levels = mu_n_to_level(h, mu_n_final, minimum_q, half_integer_states)
+            
+            # For mixed marker/regular data, fill appropriately
+            if hasattr(ex, 'mu_row_indices_d') and len(ex.mu_row_indices_d) > 0:
+                parsed_ex[:, 0] = ex.ild
+                parsed_ex[:, 1] = ex.fld
+                for i, row_idx in enumerate(ex.mu_row_indices_d):
+                    parsed_ex[row_idx, 0] = initial_levels[i] - 1
+                    parsed_ex[row_idx, 1] = final_levels[i] - 1
+            else:
+                # Pure mu/n data
+                parsed_ex[:, 0] = initial_levels - 1
+                parsed_ex[:, 1] = final_levels - 1
+            # NOTE: Don't sort marker-column mu/n data - user specified the order
+        elif has_marker_mu_n:
+            # Marker-column data but no Hamiltonian provided - use cached ex.ild/fld
+            # Don't sort - user specified the order
+            parsed_ex[:, 0] = ex.ild
+            parsed_ex[:, 1] = ex.fld
+        else:
+            # Regular level index data - sort for display
+            parsed_ex[:, 0] = ex.ild
+            parsed_ex[:, 1] = ex.fld
+            # Sort ex according to initial level (col 0), then final level (col 1).
             parsed_ex = parsed_ex[np.lexsort((parsed_ex[:, 1], parsed_ex[:, 0])), :]
     return parsed_ex
 
@@ -855,7 +922,15 @@ def gen_e_summary(
             # Change to zero based indexing
             ex[:, 0] = ex[:, 0] - 1
         else:
-            ex = ex_parse_abs(ex, z, labels)
+            # Pass Hamiltonian and related parameters to ex_parse_abs for mu/n conversion
+            ex_kwargs = {}
+            if "h" in kwargs:
+                ex_kwargs["h"] = kwargs["h"]
+            if "minimum_q" in kwargs:
+                ex_kwargs["minimum_q"] = kwargs["minimum_q"]
+            if "half_integer_states" in kwargs:
+                ex_kwargs["half_integer_states"] = kwargs["half_integer_states"]
+            ex = ex_parse_abs(ex, z, labels, **ex_kwargs)
         if len(ex[:, 0]) != len(set(ex[:, 0])):
             raise ValueError(
                 "e_summary: ex input data contains duplicate entries in the index column."
@@ -1102,7 +1177,15 @@ def gen_e_summary_trunc(
     if ex.n_a != 0:
         if ex.n_d != 0:
             s += uline_char("Absolute energy levels:\n")
-        exa = ex_parse_abs(ex, z, labels)
+        # Pass Hamiltonian and related parameters to ex_parse_abs for mu/n conversion
+        ex_abs_kwargs = {}
+        if "h" in kwargs and kwargs["h"] is not None:
+            ex_abs_kwargs["h"] = kwargs["h"]
+        if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
+            ex_abs_kwargs["minimum_q"] = kwargs["minimum_q"]
+        if "half_integer_states" in kwargs:
+            ex_abs_kwargs["half_integer_states"] = kwargs["half_integer_states"]
+        exa = ex_parse_abs(ex, z, labels, **ex_abs_kwargs)
         heading = (
             "Lev.  "
             + (
@@ -1149,7 +1232,15 @@ def gen_e_summary_trunc(
     if ex.n_d != 0:
         if ex.n_a != 0:
             s += uline_char("Energy level differences:\n")
-        exd = ex_parse_diff(ex, z, labels)
+        # Pass Hamiltonian and related parameters to ex_parse_diff for mu/n conversion
+        ex_diff_kwargs = {}
+        if "h" in kwargs and kwargs["h"] is not None:
+            ex_diff_kwargs["h"] = kwargs["h"]
+        if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
+            ex_diff_kwargs["minimum_q"] = kwargs["minimum_q"]
+        if "half_integer_states" in kwargs:
+            ex_diff_kwargs["half_integer_states"] = kwargs["half_integer_states"]
+        exd = ex_parse_diff(ex, z, labels, **ex_diff_kwargs)
         heading = (
             "Lev.  "
             + (
