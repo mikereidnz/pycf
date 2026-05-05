@@ -4404,7 +4404,13 @@ cdef class CFLMin:
         # nlls specific tolerances.
         if self.method == 'gsl_nls':
             if fit_obj.nls_f_cap is None:
-                raise NotImplementedError("gls_nls is not an existing option for requested fitting mode.")
+                raise NotImplementedError(
+                    "gsl_nls is not supported for this fit configuration. "
+                    "Marker-column ExData (label_key='MuN') uses a Python "
+                    "objective trampoline that produces a scalar chi^2 rather "
+                    "than per-residual values, so no Jacobian can be formed. "
+                    "Use a derivative-free minimiser such as nlopt_bobyqa or "
+                    "nlopt_neldermead instead.")
             else:
                 nls_f_ptr = <void (*)(double *, void *, double *) noexcept>PyCapsule_GetPointer(
                         fit_obj.nls_f_cap, "pycfl.NlsObjF")

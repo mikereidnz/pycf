@@ -50,10 +50,6 @@ from math import fsum
 
 from scipy.special import factorial  # type: ignore[import-untyped]
 
-# Module-level storage for marker-column mu/n mappings (eigenstate_idx → (mu, n))
-# This is used to pass mapping info from ex_parse_abs to display code
-_mu_n_mapping_cache: Dict[int, Tuple[int, int]] = {}
-
 
 def uline_char(s: str) -> str:
     """Underline all non-whitespace characters in a string, except for single
@@ -279,17 +275,7 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> np
             
             # Compute mu_n_to_level for all user-provided (mu, n) pairs
             level_indices = mu_n_to_level(h, ex.mu_n_abs, minimum_q, half_integer_states)
-            
-            # Store (mu, n) mapping for display: maps eigenstate_idx → (mu, n)
-            # This ensures display uses the same (mu, n) as the experimental data assignment
-            global _mu_n_mapping_cache
-            _mu_n_mapping_cache.clear()
-            for i in range(len(level_indices)):
-                eigenstate_idx = level_indices[i] - 1  # Convert to 0-based
-                mu_val = int(ex.mu_n_abs[i, 0])
-                n_val = int(ex.mu_n_abs[i, 1])
-                _mu_n_mapping_cache[eigenstate_idx] = (mu_val, n_val)
-            
+
             # For mixed marker/regular data, fill in only the mu rows; others come from ex.la
             if hasattr(ex, 'mu_row_indices') and len(ex.mu_row_indices) > 0:
                 parsed_ex[:, 0] = ex.la
@@ -1207,16 +1193,7 @@ def gen_e_summary_trunc(
         if "half_integer_states" in kwargs:
             ex_abs_kwargs["half_integer_states"] = kwargs["half_integer_states"]
         exa = ex_parse_abs(ex, z, labels, **ex_abs_kwargs)
-        
-        # Override mu_values and n_values if marker-column mapping is available
-        global _mu_n_mapping_cache
-        if _mu_n_mapping_cache:
-            for eigenstate_idx, (mu_val, n_val) in _mu_n_mapping_cache.items():
-                if mu_values is not None and eigenstate_idx < len(mu_values):
-                    mu_values[eigenstate_idx] = mu_val  # type: ignore[index]
-                if n_values is not None and eigenstate_idx < len(n_values):
-                    n_values[eigenstate_idx] = n_val  # type: ignore[index]
-        
+
         heading = (
             "Lev.  "
             + (
