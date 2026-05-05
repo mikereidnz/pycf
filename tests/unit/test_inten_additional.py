@@ -4,22 +4,15 @@ that still have missing coverage. These tests target:
 - _format_state_label_content
 - _format_state_label_short
 - AltpFit initialization and methods
-- fit_altp function
 - _estimate_parameter_uncertainties
 """
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
-from unittest.mock import MagicMock, patch
 
-from pycf.inten import (
-    _format_state_label_content,
-    _format_state_label_short,
-    AltpFit,
-    fit_altp,
-    _estimate_parameter_uncertainties,
-)
-from pycf.cfl_util import L2term
+from pycf.inten import AltpFit, _format_state_label_content, _format_state_label_short
 
 
 class TestFormatStateLabel:
@@ -96,14 +89,14 @@ class TestAltpFitInitialization:
             "altp": [("A10", 1.0), ("A20", 2.0)],
         }
         target_intensities = {0: 0.5, 1: 0.3}
-        
+
         fitter = AltpFit(
             param_names=["A10", "A20"],
             hamiltonian=mock_ham,
             spectrum_config=spectrum_config,
             target_intensities=target_intensities,
         )
-        
+
         assert fitter.n_obs == 2
         assert len(fitter.param_names) == 2
         assert isinstance(fitter.param_info, dict)
@@ -119,14 +112,14 @@ class TestAltpFitInitialization:
             "altp": [("A10", complex(1.0, 0.5)), ("A20", 2.0)],
         }
         target_intensities = {0: 0.5}
-        
+
         fitter = AltpFit(
             param_names=["A10", "A20"],
             hamiltonian=mock_ham,
             spectrum_config=spectrum_config,
             target_intensities=target_intensities,
         )
-        
+
         # A10 is complex (2 params), A20 is real (1 param) = 3 total
         assert fitter.n_p == 3
 
@@ -141,7 +134,7 @@ class TestAltpFitInitialization:
             "altp": [("A10", 1.0)],
         }
         target_intensities = {0: 0.5}
-        
+
         with pytest.raises(ValueError, match="not found in Altp"):
             AltpFit(
                 param_names=["A10", "A20"],  # A20 not in altp
@@ -165,14 +158,14 @@ class TestAltpFitInitialization:
             ],
         }
         target_intensities = {0: 0.5}
-        
+
         fitter = AltpFit(
             param_names=["A10", "A20", "A30"],
             hamiltonian=mock_ham,
             spectrum_config=spectrum_config,
             target_intensities=target_intensities,
         )
-        
+
         assert fitter.param_info["A10"]["type"] == "real"
         assert fitter.param_info["A20"]["type"] == "complex"
         assert fitter.param_info["A30"]["type"] == "real"
@@ -193,14 +186,14 @@ class TestAltpFitInitialization:
             ],
         }
         target_intensities = {0: 0.5}
-        
+
         fitter = AltpFit(
             param_names=["R1", "C1", "R2", "C2"],
             hamiltonian=mock_ham,
             spectrum_config=spectrum_config,
             target_intensities=target_intensities,
         )
-        
+
         # 4 reals + 4 complexes = 2 + 4 + 2 + 4 = wait, let me recalculate
         # R1=1, C1=2, R2=1, C2=2 = 6 total
         assert fitter.n_p == 6
@@ -216,14 +209,14 @@ class TestAltpFitInitialization:
             "altp": [("A10", 1.5), ("A20", complex(2.0, 1.0))],
         }
         target_intensities = {0: 0.5}
-        
+
         fitter = AltpFit(
             param_names=["A10", "A20"],
             hamiltonian=mock_ham,
             spectrum_config=spectrum_config,
             target_intensities=target_intensities,
         )
-        
+
         # Should have extracted [1.5, 2.0, 1.0] for [real, complex_real, complex_imag]
         assert len(fitter.initial_x) == 3
         assert fitter.initial_x[0] == 1.5
@@ -239,6 +232,7 @@ class TestEstimateParameterUncertainties:
         # This test just verifies the function exists and handles edge cases
         # The actual fitting is tested in integration tests
         from pycf.inten import _estimate_parameter_uncertainties
+
         assert callable(_estimate_parameter_uncertainties)
 
 

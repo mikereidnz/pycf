@@ -2,21 +2,22 @@
 Unit tests for inten.py focusing on coverage of edge cases, error paths, and validation logic.
 """
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
-from unittest.mock import MagicMock, patch
 
 from pycf.inten import (
-    clean_complex,
-    vtrans,
-    dipole_str,
-    group_transitions,
-    Spectrum,
-    boltzmann_factor,
-    lorentzian,
     A_and_f_calc,
+    Spectrum,
     _format_complex_dipole,
     _format_state_label_with_energy,
+    boltzmann_factor,
+    clean_complex,
+    dipole_str,
+    group_transitions,
+    lorentzian,
+    vtrans,
 )
 
 
@@ -132,7 +133,7 @@ class TestSpectrumValidation:
         mock_ham = MagicMock()
         mock_ham.diag = MagicMock(return_value=(np.array([0, 1, 2]), np.eye(3)))
         mock_tensor = MagicMock()
-        
+
         with pytest.raises(ValueError, match="Spectrum name must be non-empty"):
             Spectrum(
                 name="",  # Empty!
@@ -146,7 +147,7 @@ class TestSpectrumValidation:
         """Spectrum rejects empty i_range."""
         mock_ham = MagicMock()
         mock_tensor = MagicMock()
-        
+
         with pytest.raises(ValueError, match="i_range must be non-empty"):
             Spectrum(
                 name="test",
@@ -160,7 +161,7 @@ class TestSpectrumValidation:
         """Spectrum rejects empty f_range."""
         mock_ham = MagicMock()
         mock_tensor = MagicMock()
-        
+
         with pytest.raises(ValueError, match="f_range must be non-empty"):
             Spectrum(
                 name="test",
@@ -173,7 +174,7 @@ class TestSpectrumValidation:
     def test_spectrum_init_invalid_intensity_tensors(self):
         """Spectrum rejects empty intensity_tensors."""
         mock_ham = MagicMock()
-        
+
         with pytest.raises(ValueError, match="intensity_tensors must be non-empty"):
             Spectrum(
                 name="test",
@@ -187,7 +188,7 @@ class TestSpectrumValidation:
         """Spectrum rejects non-positive group_tol."""
         mock_ham = MagicMock()
         mock_tensor = MagicMock()
-        
+
         with pytest.raises(ValueError, match="group_tol must be positive"):
             Spectrum(
                 name="test",
@@ -202,7 +203,7 @@ class TestSpectrumValidation:
         """Spectrum rejects non-positive nrefractive."""
         mock_ham = MagicMock()
         mock_tensor = MagicMock()
-        
+
         with pytest.raises(ValueError, match="nrefractive must be positive"):
             Spectrum(
                 name="test",
@@ -217,7 +218,7 @@ class TestSpectrumValidation:
         """Spectrum rejects non-Hamiltonian object."""
         mock_tensor = MagicMock()
         mock_ham = "not a hamiltonian"  # String, not object with diag method
-        
+
         with pytest.raises(ValueError, match="hamiltonian must be a cfl.Hamiltonian object"):
             Spectrum(
                 name="test",
@@ -232,7 +233,7 @@ class TestSpectrumValidation:
         mock_ham = MagicMock()
         mock_ham.diag = MagicMock(return_value=(np.array([0, 1, 2]), np.eye(3)))
         mock_tensor = MagicMock()
-        
+
         s = Spectrum(
             name="test",
             hamiltonian=mock_ham,
@@ -240,7 +241,7 @@ class TestSpectrumValidation:
             f_range=[1],
             intensity_tensors=[mock_tensor],
         )
-        
+
         new_altp = [("A10", 1.23)]
         s.set_altp(new_altp)
         assert s.altp == new_altp
@@ -316,7 +317,7 @@ class TestDipoleStrValidation:
         tensor_dict = {"M10": np.array([[0.5, 0.0], [0.0, -0.5]])}
         E = np.array([0.0, 100.0])
         V = np.eye(2)
-        
+
         with pytest.raises(ValueError, match="Altp must be provided|ed is True"):
             dipole_str(
                 i_range=[1],
@@ -334,7 +335,7 @@ class TestDipoleStrValidation:
         tensor_dict = {}  # Missing M10, M1-1, M11
         E = np.array([0.0, 100.0])
         V = np.eye(2)
-        
+
         with pytest.raises(ValueError, match="Missing.*magnetic"):
             dipole_str(
                 i_range=[1],
@@ -351,7 +352,7 @@ class TestDipoleStrValidation:
         tensor_dict = {"M10": np.array([[0.5, 0.0], [0.0, -0.5]])}
         E = np.array([0.0, 100.0])
         V = np.array([1.0, 0.0])  # 1D - invalid!
-        
+
         with pytest.raises(ValueError, match="2-dimensional|Eigenvector"):
             dipole_str(
                 i_range=[1],
@@ -385,7 +386,7 @@ class TestVtransValidation:
     def test_vtrans_requires_tensors(self):
         """vtrans requires at least one tensor."""
         z = np.eye(3)
-        
+
         with pytest.raises(ValueError, match="requires at least one tensor"):
             vtrans([], z)
 
