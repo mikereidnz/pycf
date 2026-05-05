@@ -106,7 +106,7 @@ def format_state_label(li: int, labels: List[Any], label_key: str) -> str:
     Returns
     -------
     str
-        Formatted label string like "|2F 7,  1>" or "|1,5D 4, -2>"
+        Formatted label string like ``"|2F 7,  1>"`` or ``"|1,5D 4, -2>"``
     """
     label = "|"
     for i, l in enumerate(labels[li]):
@@ -661,10 +661,10 @@ def mu_n_to_level(
     Parameters
     ----------
     h : Hamiltonian
-        Diagonalized Hamiltonian with current coefficients. Must have:
-        - ``h.z``: eigenvector matrix, shape ``(n_states, n_basis)``
-        - ``h.tensors[0].states.labels``: basis state SLJM labels,
-          shape ``(n_basis, 4)`` where each row is [S, L, J, M]
+        Diagonalized Hamiltonian with current coefficients. Must have ``h.z``
+        (eigenvector matrix, shape ``(n_states, n_basis)``) and
+        ``h.tensors[0].states.labels`` (basis state SLJM labels, shape
+        ``(n_basis, 4)`` where each row is ``[S, L, J, M]``)
     mu_n_array : ndarray
         Array of (mu, n) pairs to convert, shape ``(N, 2)`` with dtype ``int32``.
         - Column 0: mu values (folded magnetic quantum numbers)

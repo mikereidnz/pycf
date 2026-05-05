@@ -451,7 +451,7 @@ cdef class Hamiltonian:
 
     The (mu, n) parametrization is useful when symmetry is reduced and magnetic
     quantum numbers become ambiguous. Example: Ce:YLF (f-electrons) where magnetic
-    decoherence mixes |m⟩ states and only folded combinations have physical meaning.
+    decoherence mixes :math:`|m\\rangle` states and only folded combinations have physical meaning.
 
     **Example usage:**
 
