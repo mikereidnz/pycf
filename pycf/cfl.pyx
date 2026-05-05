@@ -1532,11 +1532,15 @@ cdef class ExData(object):
                 weights = np.ones(data.shape[0], dtype=np.float64)
             else:
                 # Handle both 1-element and 2-element tuples
+                # Convert lists to get length (works for both lists and arrays)
+                def get_len(x):
+                    return len(x) if isinstance(x, list) else x.shape[0]
+                
                 if len(data) == 1:
-                    weights = (np.ones(data[0].shape[0], dtype=np.float64),)
+                    weights = (np.ones(get_len(data[0]), dtype=np.float64),)
                 else:
-                    weights = (np.ones(data[0].shape[0], dtype=np.float64),
-                            np.ones(data[1].shape[0], dtype=np.float64))
+                    weights = (np.ones(get_len(data[0]), dtype=np.float64),
+                            np.ones(get_len(data[1]), dtype=np.float64))
         else:
             if isinstance(weights, np.ndarray):
                 if data.shape[0] != len(weights):
@@ -1553,8 +1557,8 @@ cdef class ExData(object):
                 raise ValueError("Missing key argument; this must be specified if data is a tuple.")
             elif len(data) < 1 or len(data) > 2:
                 raise ValueError("The data argument must contain 1 or 2 elements.")
-            elif not all(isinstance(e, np.ndarray) for e in data):
-                raise TypeError("Elements of the data tuple must be of type np.ndarray.")
+            elif not all(isinstance(e, (np.ndarray, list)) for e in data):
+                raise TypeError("Elements of the data tuple must be of type np.ndarray or list.")
             elif not isinstance(key, tuple):
                 raise TypeError("If the data argument is a tuple, the key argument must also be a tuple.")
             elif len(key) != len(data):
@@ -1576,8 +1580,17 @@ cdef class ExData(object):
                 data = [data]
                 weights = [weights]
 
-            if any(d.ndim != 2 for d in data):
-                raise ValueError("All data arrays must be two dimensional.")
+            # Validate that all data is 2D (list of lists or ndarray with ndim==2)
+            for d in data:
+                if isinstance(d, np.ndarray):
+                    if d.ndim != 2:
+                        raise ValueError("All data arrays must be two dimensional.")
+                elif isinstance(d, list):
+                    # Lists should be list of lists (rows)
+                    if not d or not all(isinstance(row, (list, tuple)) for row in d):
+                        raise ValueError("All data arrays must be two dimensional.")
+                else:
+                    raise ValueError("Data must be numpy arrays or lists.")
 
             for k in key:
                 if k == 'A' or k == 'D':
@@ -1695,6 +1708,17 @@ cdef class ExData(object):
                     a_idx = key.index('A')
                     a_data = data[a_idx]
                     
+                    # Convert list to numpy array if needed (before processing)
+                    if isinstance(a_data, list):
+                        # Find max width across all rows
+                        max_cols = max(len(row) for row in a_data) if a_data else 0
+                        # Pad all rows to max width with None
+                        a_data = np.array([row + [None]*(max_cols-len(row)) for row in a_data], dtype=object)
+                        # Update data tuple with converted array
+                        data = list(data)
+                        data[a_idx] = a_data
+                        data = tuple(data)
+                    
                     if a_data.shape[1] < 3:
                         raise ValueError("A data with label_key='MuN' must have at least 3 columns "
                                        "(marker, col, energy).")
@@ -1713,11 +1737,13 @@ cdef class ExData(object):
                         self.a_states[i] = marker
                         
                         if marker == "mu":
-                            if a_data.shape[1] != 4:
-                                raise ValueError(f"'mu' row {i} must have 4 columns: (marker, mu, n, energy).")
+                            if a_data.shape[1] < 4:
+                                raise ValueError(f"'mu' row {i} must have at least 4 columns: (marker, mu, n, energy).")
                             mu_rows.append(i)
                             self.mu_row_indices.append(i)
                         elif marker == "lev":
+                            if a_data.shape[1] < 3:
+                                raise ValueError(f"'lev' row {i} must have at least 3 columns: (marker, level, energy).")
                             # Convert 1-based level to 0-based index
                             level = int(a_data[i, 1])
                             if level < 1:
@@ -1735,6 +1761,17 @@ cdef class ExData(object):
                 if 'D' in key:
                     d_idx = key.index('D')
                     d_data = data[d_idx]
+                    
+                    # Convert list to numpy array if needed (before processing)
+                    if isinstance(d_data, list):
+                        # Find max width across all rows
+                        max_cols = max(len(row) for row in d_data) if d_data else 0
+                        # Pad all rows to max width with None
+                        d_data = np.array([row + [None]*(max_cols-len(row)) for row in d_data], dtype=object)
+                        # Update data tuple with converted array
+                        data = list(data)
+                        data[d_idx] = d_data
+                        data = tuple(data)
                     
                     if d_data.shape[1] < 4:
                         raise ValueError("D data with label_key='MuN' must have at least 4 columns "
@@ -1755,14 +1792,14 @@ cdef class ExData(object):
                         self.id_states[i] = marker
                         
                         if marker == "mu":
-                            if d_data.shape[1] != 6:
-                                raise ValueError(f"'mu' row {i} must have 6 columns: "
+                            if d_data.shape[1] < 6:
+                                raise ValueError(f"'mu' row {i} must have at least 6 columns: "
                                                "(marker, mu_i, n_i, mu_f, n_f, energy).")
                             mu_rows.append(i)
                             self.mu_row_indices_d.append(i)
                         elif marker == "lev":
-                            if d_data.shape[1] != 4:
-                                raise ValueError(f"'lev' row {i} must have 4 columns: "
+                            if d_data.shape[1] < 4:
+                                raise ValueError(f"'lev' row {i} must have at least 4 columns: "
                                                "(marker, level_i, level_f, energy).")
                             # Convert 1-based levels to 0-based indices
                             level_i = int(d_data[i, 1])
