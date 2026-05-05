@@ -256,8 +256,11 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         # Abs. energy values are ordered to preceed diff. values.
         parsed_ex[:, 1] = ex.e[: ex.n_a]
         parsed_ex[:, 0] = ex.la
-        # Sort ex according to index column.
-        parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
+        # Sort ex according to index column, BUT NOT for marker-column mu/n data.
+        # For marker-column data, the user has specified the exact (mu, n) → energy
+        # mapping, and sorting by eigenstate index would change the energy assignment order.
+        if not (hasattr(ex, 'mu_n_abs') and len(ex.mu_n_abs) > 0):
+            parsed_ex = parsed_ex[np.argsort(parsed_ex[:, 0]), :]
     return parsed_ex
 
 
@@ -325,7 +328,10 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any]) -> np.ndarray:
         # np.lexsort sorts primarily by the *last* key in its tuple, so col 0
         # (initial level) must come last to be the primary sort key.  The
         # previous order had the keys reversed, making final level primary.
-        parsed_ex = parsed_ex[np.lexsort((parsed_ex[:, 1], parsed_ex[:, 0])), :]
+        # Do NOT sort marker-column mu/n data, as the user has specified the exact
+        # (mu_i, n_i) → (mu_f, n_f) → energy mapping.
+        if not (hasattr(ex, 'mu_n_diff') and len(ex.mu_n_diff) > 0):
+            parsed_ex = parsed_ex[np.lexsort((parsed_ex[:, 1], parsed_ex[:, 0])), :]
     return parsed_ex
 
 
@@ -590,9 +596,9 @@ def get_eigenstate_mu_n(
             mu_to_levels[mu_temp] = []
         mu_to_levels[mu_temp].append((w[idx], idx))
 
-    # Sort each mu group by energy
+    # Sort each mu group by energy (with eigenstate index as tie-breaker for stability)
     for mu_key in mu_to_levels:
-        mu_to_levels[mu_key].sort(key=lambda x: x[0])
+        mu_to_levels[mu_key].sort(key=lambda x: (x[0], x[1]))
 
     # Find the ordinal position (n) of this eigenstate in its mu group
     n: int | None = None
@@ -755,9 +761,9 @@ def mu_n_to_level(
             mu_to_levels[mu] = []
         mu_to_levels[mu].append((h.w[eigenstate_idx], eigenstate_idx + 1))
 
-    # Step 2: Sort each mu group by energy
+    # Step 2: Sort each mu group by energy (with eigenstate index as tie-breaker for stability)
     for mu in mu_to_levels:
-        mu_to_levels[mu].sort(key=lambda x: x[0])
+        mu_to_levels[mu].sort(key=lambda x: (x[0], x[1]))
 
     # Match requested (mu, n) to level indices
     level_indices = np.zeros(len(mu_n_array), dtype=np.int32)
@@ -1070,9 +1076,9 @@ def gen_e_summary_trunc(
                 mu_to_levels[mu] = []
             mu_to_levels[mu].append((w[idx], idx))
 
-        # Sort each mu group by energy
+        # Sort each mu group by energy (with eigenstate index as tie-breaker for stability)
         for mu_key in mu_to_levels:
-            mu_to_levels[mu_key].sort(key=lambda x: x[0])
+            mu_to_levels[mu_key].sort(key=lambda x: (x[0], x[1]))
 
         # Now compute (mu, n) for each eigenstate
         mu_values = [None] * len(z)
