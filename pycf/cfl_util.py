@@ -1800,7 +1800,7 @@ def update_coeff(coeff: dict, updates: dict) -> dict:
 def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     """Compute chi² from fitted eigenvalues and experimental data.
     
-    Vectorized NumPy computation of sum of squared normalized residuals.
+    Vectorized NumPy computation matching C objective: sum(w * residual²).
     Used by both marker-column fits (via Cython objective wrapper) and
     display functions. Shared source of truth for chi² calculation.
     
@@ -1814,7 +1814,7 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     Returns
     -------
     float
-        Sum of squared normalized residuals: sum((E_fitted - E_expt)² / σ²)
+        Sum of weighted squared residuals: sum(w_i * (E_fitted - E_expt)²)
     
     Raises
     ------
@@ -1824,7 +1824,7 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     evals = efit.h.w  # NumPy array of eigenvalues
     la = efit.ex.la  # Level indices for each experimental point
     e_exp = efit.ex.e  # Experimental energies
-    sigma = efit.ex.w  # Weights (standard deviations or 1 for unweighted)
+    weights = efit.ex.w  # Weights (per-point weighting factors)
     
     # Find valid level indices (>= 0)
     valid = la >= 0
@@ -1835,8 +1835,9 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     # Extract fitted eigenvalues for valid points
     fitted_e = evals[la[valid]]
     
-    # Compute residuals and chi²
-    residuals = (fitted_e - e_exp[valid]) / sigma[valid]
-    chi2 = float(np.sum(residuals ** 2))
+    # Compute residuals and chi² using weighted sum (matching C echisq function)
+    # echisq: chisq += w[i] * pow(e[la[i]] - e[i], 2)
+    residuals = fitted_e - e_exp[valid]
+    chi2 = float(np.sum(weights[valid] * residuals ** 2))
     
     return chi2

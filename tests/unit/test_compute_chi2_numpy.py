@@ -77,17 +77,19 @@ def test_compute_chi2_with_residuals():
 
 
 def test_compute_chi2_weighted_residuals():
-    """Test chi² with weighted residuals."""
+    """Test chi² with weighted residuals (matching C echisq formula)."""
     evals = np.array([0.0, 100.0, 200.0, 300.0])
     la = np.array([1, 2])
     e_exp = np.array([110.0, 210.0])
-    sigma = np.array([2.0, 5.0])  # Different weights
+    weights = np.array([2.0, 5.0])  # Weight factors (not 1/sigma²)
     
-    mock_efit = MockEFit(evals, la, e_exp, sigma)
+    mock_efit = MockEFit(evals, la, e_exp, weights)
     chi2 = compute_chi2_numpy(mock_efit)
     
-    # Expected: (100-110)²/2² + (200-210)²/5² = 100/4 + 100/25 = 25 + 4 = 29
-    assert chi2 == pytest.approx(29.0, abs=1e-10)
+    # Expected: w[0] * (e[1]-e_exp[0])² + w[1] * (e[2]-e_exp[1])²
+    #         = 2.0 * (100-110)² + 5.0 * (200-210)²
+    #         = 2.0 * 100 + 5.0 * 100 = 200 + 500 = 700
+    assert chi2 == pytest.approx(700.0, abs=1e-10)
 
 
 def test_compute_chi2_with_negative_indices():
@@ -136,13 +138,13 @@ def test_compute_chi2_single_point():
     evals = np.array([0.0, 100.0, 200.0])
     la = np.array([1])
     e_exp = np.array([105.0])
-    sigma = np.array([2.0])
+    weights = np.array([2.0])
     
-    mock_efit = MockEFit(evals, la, e_exp, sigma)
+    mock_efit = MockEFit(evals, la, e_exp, weights)
     chi2 = compute_chi2_numpy(mock_efit)
     
-    # (100 - 105)² / 2² = 25 / 4 = 6.25
-    assert chi2 == pytest.approx(6.25, abs=1e-10)
+    # w * (e_calc - e_exp)² = 2.0 * (100 - 105)² = 2.0 * 25 = 50.0
+    assert chi2 == pytest.approx(50.0, abs=1e-10)
 
 
 def test_compute_chi2_large_eigenvalue_set():
@@ -193,20 +195,20 @@ def test_compute_chi2_with_real_hamiltonian():
 
 
 def test_compute_chi2_matches_manual_calculation():
-    """Verify chi² computation matches manual calculation."""
+    """Verify chi² computation matches manual calculation using weighted formula."""
     evals = np.array([0.0, 50.0, 100.0, 150.0, 200.0])
     la = np.array([1, 3])
     e_exp = np.array([45.0, 160.0])
-    sigma = np.array([2.0, 4.0])
+    weights = np.array([2.0, 4.0])
     
-    mock_efit = MockEFit(evals, la, e_exp, sigma)
+    mock_efit = MockEFit(evals, la, e_exp, weights)
     chi2 = compute_chi2_numpy(mock_efit)
     
-    # Manual calculation:
+    # Manual calculation using chi² = sum(w * residual²):
     # fitted_e = [50.0, 150.0]
-    # residuals = [(50-45)/2, (150-160)/4] = [2.5, -2.5]
-    # chi² = 2.5² + (-2.5)² = 6.25 + 6.25 = 12.5
-    assert chi2 == pytest.approx(12.5, abs=1e-10)
+    # residuals = [(50-45), (150-160)] = [5, -10]
+    # chi² = 2.0 * 5² + 4.0 * (-10)² = 2.0 * 25 + 4.0 * 100 = 50 + 400 = 450
+    assert chi2 == pytest.approx(450.0, abs=1e-10)
 
 
 def test_compute_chi2_out_of_bounds_index():
