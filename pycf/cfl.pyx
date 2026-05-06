@@ -4791,7 +4791,12 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
                 h.tensors[0].states.label_key, **summary_kwargs)
     else:
-        summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **kwargs)
+        # Pass minimum_q and half_integer_states to gen_summary for absolute-only data
+        gen_summary_kwargs = dict(kwargs)
+        if h.minimum_q is not None:
+            gen_summary_kwargs["minimum_q"] = h.minimum_q
+            gen_summary_kwargs["half_integer_states"] = h.half_integer_states
+        summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **gen_summary_kwargs)
 
     summary += "\n"
     summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
@@ -4874,7 +4879,14 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     h = mhfit.h_list[0]
     h.update_coeff(x)
     (w, z) = h.diag()
-    summary += h.gen_summary(**kwargs) + "\n\n"
+    
+    # Pass minimum_q and experimental data parameters to gen_summary for first Hamiltonian
+    h_summary_kwargs = {"ex": mhfit.ex_list[0], "chi2": mhfit.chi2[0], "ndof": ndof, "weighting": mhfit.weights_list[0]}
+    h_summary_kwargs.update(kwargs)  # Merge user-provided kwargs
+    if h.minimum_q is not None:
+        h_summary_kwargs["minimum_q"] = h.minimum_q
+        h_summary_kwargs["half_integer_states"] = h.half_integer_states
+    summary += h.gen_summary(**h_summary_kwargs) + "\n\n"
     for i,h in enumerate(mhfit.h_list):
         h.update_coeff(x)
         (w, z) = h.diag()
