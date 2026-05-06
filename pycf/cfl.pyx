@@ -4827,6 +4827,9 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     if h.w is None or np.sum(np.abs(h.w)) == 0:
         h.diag()
 
+    # Capture initial coefficients before fitting
+    initial_coeff = copy.deepcopy(h.coeff_dict) if h.coeff_dict is not None else {}
+
     efit = EFit(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
     completed_at = datetime.now()
@@ -4862,7 +4865,7 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **gen_summary_kwargs)
 
     summary += "\n"
-    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
+    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, initial_coeff=initial_coeff, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 

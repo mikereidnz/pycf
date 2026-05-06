@@ -1405,7 +1405,8 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
 
 
 def gen_fit_summary(
-    coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float, **kwargs: Any
+    coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float, 
+    initial_coeff: Dict[str, Any] | None = None, **kwargs: Any
 ) -> str:
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
@@ -1418,6 +1419,10 @@ def gen_fit_summary(
         Must have __iter__ method that iterates over names of tensors.
     method : str
         The optimization algorithm used for the fit.
+    initial_coeff : dict, optional
+        Contains the initial (pre-fit) interaction coefficients.
+        If not provided, fit_obj.coeff is used (may be outdated if coefficients
+        were already modified).
     kwargs: dict
         Additional, optimization algorithm specific, settings to print.
     """
@@ -1480,22 +1485,33 @@ def gen_fit_summary(
     s += uline_char(heading)
     ii = 0  # Index for covariance matrix; increments two for imaginary params.
     for i, p in enumerate(fit_obj):
-        co = fit_obj.coeff[p]
+        # Use initial_coeff if provided, otherwise fall back to fit_obj.coeff
+        # (which may be stale if coefficients were already modified)
+        if initial_coeff is not None:
+            initial_val = initial_coeff[p]
+        else:
+            initial_val = fit_obj.coeff[p]
+        
+        if initial_val.imag == 0:
+            initial_val = initial_val.real
+        else:
+            pass  # Keep complex
+        
         if p in cf_l:
             key = "CF"
         elif p in hyp_l:
             key = "HYP"
         else:
             key = "FI"
-        if co.imag == 0:
-            co = co.real
-            if kwargs["cov"]:
-                assert cov is not None
-                scov = fmt_scov[key].format(np.sqrt(cov[ii, ii]))
-            else:
-                scov = ""
-            ii += 1
+        
+        fitted_val = coeff[p]
+        if fitted_val.imag == 0:
+            fitted_val = fitted_val.real
         else:
+            pass  # Keep complex
+        
+        if isinstance(fitted_val, complex) or (hasattr(fitted_val, 'imag') and fitted_val.imag != 0):
+            # Complex fitted value
             if kwargs["cov"]:
                 assert cov is not None
                 scov = fmt_scov[key].format(
@@ -1504,8 +1520,17 @@ def gen_fit_summary(
             else:
                 scov = ""
             ii += 2
+        else:
+            # Real fitted value
+            if kwargs["cov"]:
+                assert cov is not None
+                scov = fmt_scov[key].format(np.sqrt(cov[ii, ii]))
+            else:
+                scov = ""
+            ii += 1
+        
         s += "'{0:<12}: ".format(p + "'")
-        s += fmt_coeff[key].format(coeff[p], co, coeff[p] - co)
+        s += fmt_coeff[key].format(fitted_val, initial_val, fitted_val - initial_val)
         s += scov
         if "bounds" in kwargs:
             s += fmt_bounds[key].format(kwargs["bounds"][p][0], kwargs["bounds"][p][1])
