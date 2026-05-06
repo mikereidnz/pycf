@@ -31,6 +31,7 @@ import sys
 import warnings
 from contextlib import contextmanager
 from numbers import Number
+import threading
 
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
@@ -42,6 +43,9 @@ from libc.string cimport memcpy
 
 from pycf.cfl_util import *
 from pycf.matel import matel
+
+# Thread-local storage for MHFit mu/n callback wrapper
+_mhfit_current = threading.local()
 
 # Global storage for Python error handler callback
 _python_error_handler = None
@@ -2347,85 +2351,6 @@ cdef double mu_n_efit_obj_trampoline(
         return float('inf')
 
 
-cdef double mu_n_mhfit_obj_trampoline(const double *x, void *data) with gil:
-    """
-    Python wrapper objective for multi-Hamiltonian fits with marker-column mu/n data.
-    
-    For each Hamiltonian, updates its ExData's dynamic mu/n mappings before
-    computing the combined chi² across all Hamiltonians. Called by CFLMin minimizer
-    instead of cfl.mhfit_obj when any ex_list[i].has_mu_n == True.
-    
-    Parameters:
-    -----------
-    x : const double *
-        Real-valued parameter vector (complex parameters stored as [re, im]).
-    data : void *
-        Pointer to MHFit instance (Python object).
-    
-    Returns:
-    --------
-    chi2 : double
-        Sum of squared, weighted residuals across all Hamiltonians.
-    """
-    cdef Py_ssize_t i, n_evals, la_idx, ild_idx, fld_idx
-    cdef double diff, chisq = 0.0
-    cdef np.ndarray eval_arr, e_arr, w_arr, la_arr, ild_arr, fld_arr
-    
-    try:
-        mhfit = <object>data
-        x_arr = np.asarray(<double[:mhfit.n_p_real]>x)
-        
-        # Update all Hamiltonians' coefficients
-        new_coeff = _x_to_coeff_dict(mhfit, x_arr)
-        mhfit.coeff.update(new_coeff)
-        
-        # For each Hamiltonian:
-        #   1. Set coefficients and diagonalize
-        #   2. Update ExData mu/n mapping
-        #   3. Accumulate chi²
-        for i in range(mhfit.n_h):
-            h = mhfit.h_list[i]
-            ex = mhfit.ex_list[i]
-            
-            # Set this H's coefficients and diagonalize
-            h.set_coeff({p: mhfit.coeff[p] for p in mhfit.h_param_list[i]})
-            h.diag()
-            
-            # Update dynamic mu/n indices for this H
-            _update_exdata_mu_n_indices(ex, h, skip_diag=True)
-            
-            # Compute chi² contribution for this H (same as mu_n_efit_obj_trampoline)
-            eval_arr = np.asarray(h.w, dtype=np.float64).ravel()
-            e_arr = np.asarray(ex.e, dtype=np.float64)
-            w_arr = np.asarray(ex.w, dtype=np.float64)
-            la_arr = np.asarray(ex.la).astype(np.int64, copy=False)
-            n_evals = eval_arr.shape[0]
-            
-            for j in range(ex.n_a):
-                la_idx = <Py_ssize_t>la_arr[j]
-                if la_idx < 0 or la_idx >= n_evals:
-                    return float('inf')
-                diff = eval_arr[la_idx] - e_arr[j]
-                chisq += w_arr[j] * diff * diff
-            
-            if ex.n_d > 0:
-                ild_arr = np.asarray(ex.ild).astype(np.int64, copy=False)
-                fld_arr = np.asarray(ex.fld).astype(np.int64, copy=False)
-                for j in range(ex.n_d):
-                    ild_idx = <Py_ssize_t>ild_arr[j]
-                    fld_idx = <Py_ssize_t>fld_arr[j]
-                    if (ild_idx < 0 or ild_idx >= n_evals
-                            or fld_idx < 0 or fld_idx >= n_evals):
-                        return float('inf')
-                    diff = abs(eval_arr[fld_idx] - eval_arr[ild_idx]) - e_arr[j + ex.n_a]
-                    chisq += w_arr[j + ex.n_a] * diff * diff
-        
-        return chisq
-    except BaseException:
-        import traceback
-        traceback.print_exc()
-        return float('inf')
-
 
 cdef class EFit(object):
     r"""
@@ -2886,6 +2811,65 @@ cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=
     return EData(arr)
 
 
+cdef double mu_n_mhfit_wrapper(
+    size_t n, double *x, double *grad, void *data
+) noexcept with gil:
+    """
+    Wrapper objective for MHFit with marker-column mu/n data.
+    
+    Updates dynamic mu/n eigenstate indices before calling the standard
+    C mhfit_obj. Thread-local lookup ensures thread-safe access to the
+    current MHFit instance.
+    
+    Parameters
+    ----------
+    n : size_t
+        Size of parameter vector.
+    x : double *
+        Real-valued parameter vector.
+    grad : double *
+        Gradient vector (unused).
+    data : void *
+        Pointer to C mhfit_data struct (passed to mhfit_obj).
+    
+    Returns
+    -------
+    chi2 : double
+        Sum of squared, weighted residuals across all Hamiltonians.
+    """
+    cdef Py_ssize_t i
+    
+    try:
+        # Retrieve MHFit instance from thread-local storage
+        mhfit = getattr(_mhfit_current, 'obj', None)
+        if mhfit is None:
+            return float('inf')
+        
+        # Extract coefficients from x vector
+        x_arr = np.asarray(<double[:n]>x)
+        new_coeff = _x_to_coeff_dict(mhfit, x_arr)
+        mhfit.coeff.update(new_coeff)
+        
+        # Update each Hamiltonian: set coefficients, diagonalize, update mu/n indices
+        for i in range(mhfit.n_h):
+            h = mhfit.h_list[i]
+            ex = mhfit.ex_list[i]
+            
+            # Set this H's coefficients (pass all, H will use its own tensors) and diagonalize
+            h.set_coeff(mhfit.coeff)
+            h.diag()
+            
+            # Update dynamic mu/n indices for this H (using shared helper)
+            _update_exdata_mu_n_indices(ex, h, skip_diag=True)
+        
+        # Call standard C objective with updated indices
+        return cfl.mhfit_obj(n, x, grad, data)
+    except BaseException:
+        import traceback
+        traceback.print_exc()
+        return float('inf')
+
+
 cdef class MHFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
@@ -2924,7 +2908,7 @@ cdef class MHFit(object):
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
-    cdef int n_h
+    cdef public int n_h
     cdef public Hamiltonian h
     cdef public dict coeff
     cdef public list h_list
@@ -2933,10 +2917,10 @@ cdef class MHFit(object):
     cdef public int n_p_real
     cdef public int n_obs
     cdef public dict param_types
-    cdef list h_param_list
+    cdef public list h_param_list
     cdef cfl.zh **ha
     cdef cfl.ex_data **ex_data
-    cdef list ex_list
+    cdef public list ex_list
     cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
     cdef public np.ndarray x0
@@ -2949,6 +2933,7 @@ cdef class MHFit(object):
     cdef public np.ndarray chi2
     cdef public list weights_list
     cdef public object last_jacobian
+    cdef public bint has_mu_n
     cdef list _ex_w_backing     # keeps each ex_data.w buffer alive (see exdata_alloc_helper)
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
@@ -3143,12 +3128,13 @@ cdef class MHFit(object):
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.nls_f_cap = PyCapsule_New(<void *>&cfl.mhfit_nls, "pycfl.NlsObjF", NULL)
         
-        # If any Hamiltonian uses marker-column mu/n data, swap to Python wrapper.
-        # The wrapper updates dynamic mu/n indices per Hamiltonian before calling
-        # the C objective. (Non-mu/n fits use C objective directly.)
-        has_mu_n = any(ex.has_mu_n for ex in self.ex_list)
-        if has_mu_n:
-            self.obj_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_obj_trampoline, "pycfl.MinObjF", NULL)
+        # If any Hamiltonian uses marker-column mu/n data, swap objective to wrapper.
+        # The wrapper uses thread-local storage to access this MHFit instance and
+        # updates dynamic mu/n indices during minimization. (Non-mu/n fits use
+        # C objective directly with zero overhead.)
+        self.has_mu_n = any(ex.has_mu_n for ex in self.ex_list)
+        if self.has_mu_n:
+            self.obj_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_wrapper, "pycfl.MinObjF", NULL)
 
     def __dealloc__(self):
         if self.ha != NULL:
@@ -3195,7 +3181,16 @@ cdef class MHFit(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
 
-        fmin = min_object.minimize(self, x)
+        # If using mu/n wrapper, store this MHFit in thread-local storage
+        # so the C callback can access it
+        if self.has_mu_n:
+            _mhfit_current.obj = self
+            try:
+                fmin = min_object.minimize(self, x)
+            finally:
+                _mhfit_current.obj = None
+        else:
+            fmin = min_object.minimize(self, x)
 
         if 'jac' in min_object.kwargs:
             self.last_jacobian = np.array(min_object.kwargs['jac'], copy=True)
