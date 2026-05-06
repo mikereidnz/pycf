@@ -44,7 +44,9 @@ from libc.string cimport memcpy
 from pycf.cfl_util import *
 from pycf.matel import matel
 
-# Thread-local storage for EFit/MHFit mu/n callback wrappers
+# Thread-local storage for EFit/MHFit instance access during mu/n objective evaluation
+# Used by consolidated Cython objectives (mu_n_efit_obj, mu_n_mhfit_obj) to safely
+# access the current EFit/MHFit instance from the C minimizer's callback context.
 _efit_current = threading.local()
 _mhfit_current = threading.local()
 
@@ -2281,7 +2283,8 @@ cdef void _update_exdata_mu_n_indices(ex, h, bint skip_diag=False):
     """Shared helper: update ex.la and ex.ild/ex.fld for mu_n markers.
     
     Recomputes eigenstate indices dynamically using mu_n_to_level, ensuring
-    fit and display use the same mapping. Used by both EFit and MHFit trampolines.
+    fit and display use the same mapping. Used by consolidated Cython objectives
+    (mu_n_efit_obj and mu_n_mhfit_obj) when evaluating mu/n marker-column data.
     
     Parameters
     ----------
