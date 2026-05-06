@@ -44,7 +44,8 @@ from libc.string cimport memcpy
 from pycf.cfl_util import *
 from pycf.matel import matel
 
-# Thread-local storage for MHFit mu/n callback wrapper
+# Thread-local storage for EFit/MHFit mu/n callback wrappers
+_efit_current = threading.local()
 _mhfit_current = threading.local()
 
 # Global storage for Python error handler callback
@@ -2299,64 +2300,50 @@ cdef void _update_exdata_mu_n_indices(ex, h, bint skip_diag=False):
             ex.fld[row] = int(fin_levels[k]) - 1
 
 
-cdef double mu_n_efit_obj_trampoline(
+cdef double mu_n_efit_wrapper(
     size_t n, double *x, double *grad, void *data
 ) noexcept with gil:
-    """Cython trampoline used as the C-minimizer objective for marker-column EFit fits.
-
-    Re-enters Python so that fit and display use the SAME mu_n_to_level mapping.
-    Fixes the static-la divergence that caused fits with marker-column data to
-    compute chi^2 against eigenstate 0 for every (mu, n) entry.
-
-    The opaque ``data`` pointer carries the EFit Python instance (set in
-    ``EFit.__init__`` via ``PyCapsule_New(<void *>self, ...)``), not an
-    ``efit_data*``.
     """
-    cdef int i
-    cdef Py_ssize_t la_idx, ild_idx, fld_idx
-    cdef double chisq = 0.0
-    cdef double diff
-    cdef Py_ssize_t n_evals
-    cdef object efit, ex
+    Wrapper objective for EFit with marker-column mu/n data.
+    
+    Updates dynamic mu/n eigenstate indices before calling the standard
+    C efit_obj. Thread-local lookup ensures thread-safe access to the
+    current EFit instance.
+    
+    Parameters
+    ----------
+    n : size_t
+        Size of parameter vector.
+    x : double *
+        Real-valued parameter vector.
+    grad : double *
+        Gradient vector (unused).
+    data : void *
+        Pointer to C efit_data struct (passed to efit_obj).
+    
+    Returns
+    -------
+    chi2 : double
+        Sum of squared, weighted residuals.
+    """
     try:
-        efit = <object>data
-
-        x_arr = np.empty(<Py_ssize_t>n, dtype=np.float64)
-        for i in range(<int>n):
-            x_arr[i] = x[i]
-
+        # Retrieve EFit instance from thread-local storage
+        efit = getattr(_efit_current, 'obj', None)
+        if efit is None:
+            return float('inf')
+        
+        # Extract coefficients from x vector and update
+        x_arr = np.asarray(<double[:n]>x)
         new_coeff = _x_to_coeff_dict(efit, x_arr)
         efit.coeff.update(new_coeff)
+        
+        # Set coefficients, diagonalize, and update mu/n indices
         efit.h.set_coeff(efit.coeff)
-
         efit.h.diag()
         _update_exdata_mu_n_indices(efit.ex, efit.h, skip_diag=True)
-
-        ex = efit.ex
-        eval_arr = np.asarray(efit.h.w, dtype=np.float64).ravel()
-        e_arr = np.asarray(ex.e, dtype=np.float64)
-        w_arr = np.asarray(ex.w, dtype=np.float64)
-        la_arr = np.asarray(ex.la).astype(np.int64, copy=False)
-        n_evals = eval_arr.shape[0]
-
-        for i in range(ex.n_a):
-            la_idx = <Py_ssize_t>la_arr[i]
-            if la_idx < 0 or la_idx >= n_evals:
-                return float('inf')
-            diff = eval_arr[la_idx] - e_arr[i]
-            chisq += w_arr[i] * diff * diff
-        if ex.n_d > 0:
-            ild_arr = np.asarray(ex.ild).astype(np.int64, copy=False)
-            fld_arr = np.asarray(ex.fld).astype(np.int64, copy=False)
-            for i in range(ex.n_d):
-                ild_idx = <Py_ssize_t>ild_arr[i]
-                fld_idx = <Py_ssize_t>fld_arr[i]
-                if (ild_idx < 0 or ild_idx >= n_evals
-                        or fld_idx < 0 or fld_idx >= n_evals):
-                    return float('inf')
-                diff = abs(eval_arr[fld_idx] - eval_arr[ild_idx]) - e_arr[i + ex.n_a]
-                chisq += w_arr[i + ex.n_a] * diff * diff
-        return chisq
+        
+        # Call standard C objective with updated indices
+        return cfl.efit_obj(n, x, grad, data)
     except BaseException:
         import traceback
         traceback.print_exc()
@@ -2540,9 +2527,9 @@ cdef class EFit(object):
 
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         if self.ex.has_mu_n:
-            self.fit_data_cap = PyCapsule_New(<void *>self, "pycfl.MinData", NULL)
+            # Use thread-local wrapper for mu/n marker-column data
             self.obj_f_cap = PyCapsule_New(
-                <void *>&mu_n_efit_obj_trampoline, "pycfl.MinObjF", NULL)
+                <void *>&mu_n_efit_wrapper, "pycfl.MinObjF", NULL)
             self.nls_f_cap = None
         else:
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
@@ -2585,7 +2572,16 @@ cdef class EFit(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
 
-        fmin = min_object.minimize(self, x)
+        # Store EFit in thread-local storage if using mu/n wrapper
+        if self.ex.has_mu_n:
+            _efit_current.obj = self
+
+        try:
+            fmin = min_object.minimize(self, x)
+        finally:
+            # Clean up thread-local storage
+            if self.ex.has_mu_n:
+                _efit_current.obj = None
 
         # If the minimiser produced a Jacobian (gsl_nls path), expose it
         # for downstream callers (e.g. covariance helper).
