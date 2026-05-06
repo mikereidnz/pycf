@@ -1795,3 +1795,48 @@ def update_coeff(coeff: dict, updates: dict) -> dict:
     result = coeff.copy()
     result.update(updates)
     return result
+
+
+def compute_chi2_numpy(efit: "cfl.EFit") -> float:
+    """Compute chi² from fitted eigenvalues and experimental data.
+    
+    Vectorized NumPy computation of sum of squared normalized residuals.
+    Used by both marker-column fits (via Cython objective wrapper) and
+    display functions. Shared source of truth for chi² calculation.
+    
+    Parameters
+    ----------
+    efit : cfl.EFit or object with h and ex attributes
+        EFit instance (or similar) with diagonalized Hamiltonian and experimental data.
+        Must have: efit.h (Hamiltonian with eigenvalues w),
+                   efit.ex (ExData with la, e, w).
+    
+    Returns
+    -------
+    float
+        Sum of squared normalized residuals: sum((E_fitted - E_expt)² / σ²)
+    
+    Raises
+    ------
+    ValueError
+        If any experimental level index (la) is invalid (<0).
+    """
+    evals = efit.h.w  # NumPy array of eigenvalues
+    la = efit.ex.la  # Level indices for each experimental point
+    e_exp = efit.ex.e  # Experimental energies
+    sigma = efit.ex.w  # Weights (standard deviations or 1 for unweighted)
+    
+    # Find valid level indices (>= 0)
+    valid = la >= 0
+    if not np.any(valid):
+        # No valid experimental points
+        return 0.0
+    
+    # Extract fitted eigenvalues for valid points
+    fitted_e = evals[la[valid]]
+    
+    # Compute residuals and chi²
+    residuals = (fitted_e - e_exp[valid]) / sigma[valid]
+    chi2 = float(np.sum(residuals ** 2))
+    
+    return chi2

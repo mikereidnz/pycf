@@ -47,8 +47,6 @@ from pycf.matel import matel
 # Thread-local storage for EFit/MHFit mu/n callback wrappers
 _efit_current = threading.local()
 _mhfit_current = threading.local()
-_efit_nls_meta = threading.local()  # Stores n_p, n_r for NLS wrappers
-_mhfit_nls_meta = threading.local()  # Stores n_p, n_r, n_h for NLS wrappers
 
 # Global storage for Python error handler callback
 _python_error_handler = None
@@ -2333,15 +2331,21 @@ cdef void _update_exdata_mu_n_indices(ex, h, bint skip_diag=False):
             ex.fld[row] = int(fin_levels[k]) - 1
 
 
-cdef double mu_n_efit_wrapper(
+cdef double mu_n_efit_obj(
     size_t n, double *x, double *grad, void *data
 ) noexcept with gil:
     """
-    Wrapper objective for EFit with marker-column mu/n data.
+    Consolidated objective for EFit with marker-column mu/n data.
     
-    Updates dynamic mu/n eigenstate indices before calling the standard
-    C efit_obj. Thread-local lookup ensures thread-safe access to the
-    current EFit instance.
+    Optimized to minimize C↔Python boundary crossings:
+    1. Updates dynamic mu/n eigenstate indices via mu_n_to_level()
+    2. Computes chi² via compute_chi2_numpy() 
+    3. Returns scalar to C minimize loop
+    
+    All work stays in Python context (inside `with gil:` block), crossing
+    the boundary only ONCE per objective call instead of multiple times.
+    
+    Thread-local lookup ensures thread-safe access to the current EFit instance.
     
     Parameters
     ----------
@@ -2352,12 +2356,12 @@ cdef double mu_n_efit_wrapper(
     grad : double *
         Gradient vector (unused).
     data : void *
-        Pointer to C efit_data struct (passed to efit_obj).
+        Pointer to C efit_data struct (unused; chi² computed in Python).
     
     Returns
     -------
     chi2 : double
-        Sum of squared, weighted residuals.
+        Sum of squared, weighted residuals (computed via compute_chi2_numpy).
     """
     try:
         # Retrieve EFit instance from thread-local storage
@@ -2370,97 +2374,25 @@ cdef double mu_n_efit_wrapper(
         new_coeff = _x_to_coeff_dict(efit, x_arr)
         efit.coeff.update(new_coeff)
         
-        # Set coefficients, diagonalize, and update mu/n indices
+        # Set coefficients and diagonalize
         efit.h.set_coeff(efit.coeff)
         efit.h.diag()
+        
+        # Update mu/n indices (single Python call, stays in Python context)
         _update_exdata_mu_n_indices(efit.ex, efit.h, skip_diag=True)
         
-        # Call standard C objective with updated indices
-        return cfl.efit_obj(n, x, grad, data)
+        # Compute chi² using vectorized NumPy (stays in Python context)
+        # This is the same logic used by display functions, ensuring
+        # fit and display share one source of truth for chi² calculation
+        from pycf.cfl_util import compute_chi2_numpy
+        chi2 = compute_chi2_numpy(efit)
+        
+        return chi2
     except BaseException:
         import traceback
         traceback.print_exc()
         return float('inf')
 
-
-
-cdef void mu_n_efit_nls_wrapper(
-    double *x, void *data, double *y
-) noexcept with gil:
-    r"""
-    NLS wrapper for EFit with marker-column mu/n data.
-    Updates mu/n indices, then calls C efit_nls to compute residuals.
-    """
-    cdef Py_ssize_t i
-    cdef object efit, x_arr, new_coeff, h, ex
-    cdef Py_ssize_t n_p, n_r
-    
-    # Get metadata from thread-local storage
-    meta = getattr(_efit_nls_meta, 'data', None)
-    if meta is None:
-        # Should not happen, but fail gracefully
-        return
-    n_p, n_r = meta['n_p'], meta['n_r']
-    
-    # Get wrapper instance from thread-local storage
-    efit = getattr(_efit_current, 'obj', None)
-    if efit is None:
-        return
-    
-    # Extract coefficients from x vector and update
-    x_arr = np.asarray(<double[:n_p]>x)
-    new_coeff = _x_to_coeff_dict(efit, x_arr)
-    efit.coeff.update(new_coeff)
-    
-    # Set coefficients, diagonalize, and update mu/n indices
-    h = efit.h
-    ex = efit.ex
-    h.set_coeff(efit.coeff)
-    h.diag()
-    _update_exdata_mu_n_indices(ex, h, skip_diag=True)
-    
-    # Call standard C NLS objective to compute residuals
-    cfl.efit_nls(x, data, y)
-
-
-cdef void mu_n_mhfit_nls_wrapper(
-    double *x, void *data, double *y
-) noexcept with gil:
-    r"""
-    NLS wrapper for MHFit with marker-column mu/n data.
-    Updates mu/n indices for all Hamiltonians, then calls C mhfit_nls.
-    """
-    cdef Py_ssize_t i
-    cdef object mhfit, x_arr, new_coeff, h, ex
-    cdef Py_ssize_t n_p, n_r, n_h
-    
-    # Get metadata from thread-local storage
-    meta = getattr(_mhfit_nls_meta, 'data', None)
-    if meta is None:
-        return
-    n_p, n_r, n_h = meta['n_p'], meta['n_r'], meta['n_h']
-    
-    # Get wrapper instance from thread-local storage
-    mhfit = getattr(_mhfit_current, 'obj', None)
-    if mhfit is None:
-        return
-    
-    # Extract coefficients from x and update all Hamiltonians
-    x_arr = np.asarray(<double[:n_p]>x)
-    new_coeff = _x_to_coeff_dict(mhfit, x_arr)
-    mhfit.coeff.update(new_coeff)
-    
-    # Update each Hamiltonian: set coefficients, diagonalize, update mu/n indices
-    for i in range(n_h):
-        h = mhfit.h_list[i]
-        ex = mhfit.ex_list[i]
-        h.set_coeff(mhfit.coeff)
-        h.diag()
-        if ex.has_mu_n:
-            _update_exdata_mu_n_indices(ex, h, skip_diag=True)
-    
-    # Call standard C NLS objective to compute residuals
-    cfl.mhfit_nls(x, data, y)
 
 cdef class EFit(object):
     r"""
@@ -2638,11 +2570,11 @@ cdef class EFit(object):
 
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
         if self.ex.has_mu_n:
-            # Use thread-local wrapper for mu/n marker-column data
+            # Use consolidated Cython objective for mu/n marker-column data
+            # Optimized to minimize C↔Python boundary crossings
             self.obj_f_cap = PyCapsule_New(
-                <void *>&mu_n_efit_wrapper, "pycfl.MinObjF", NULL)
-            self.nls_f_cap = PyCapsule_New(
-                <void *>&mu_n_efit_nls_wrapper, "pycfl.NlsObjF", NULL)
+                <void *>&mu_n_efit_obj, "pycfl.MinObjF", NULL)
+            self.nls_f_cap = None  # NLS not supported with mu/n (Python-computed chi²)
         else:
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
             self.nls_f_cap = PyCapsule_New(<void *>&cfl.efit_nls, "pycfl.NlsObjF", NULL)
@@ -2684,10 +2616,9 @@ cdef class EFit(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
 
-        # Store EFit in thread-local storage if using mu/n wrapper
+        # Store EFit in thread-local storage for mu/n wrapper objective
         if self.ex.has_mu_n:
             _efit_current.obj = self
-            _efit_nls_meta.data = {'n_p': self.n_p, 'n_r': len(self.ex.e)}
 
         try:
             fmin = min_object.minimize(self, x)
@@ -2695,7 +2626,6 @@ cdef class EFit(object):
             # Clean up thread-local storage
             if self.ex.has_mu_n:
                 _efit_current.obj = None
-                _efit_nls_meta.data = None
 
         # If the minimiser produced a Jacobian (gsl_nls path), expose it
         # for downstream callers (e.g. covariance helper).
@@ -2933,15 +2863,21 @@ cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=
     return EData(arr)
 
 
-cdef double mu_n_mhfit_wrapper(
+cdef double mu_n_mhfit_obj(
     size_t n, double *x, double *grad, void *data
 ) noexcept with gil:
     """
-    Wrapper objective for MHFit with marker-column mu/n data.
+    Consolidated objective for MHFit with marker-column mu/n data.
     
-    Updates dynamic mu/n eigenstate indices before calling the standard
-    C mhfit_obj. Thread-local lookup ensures thread-safe access to the
-    current MHFit instance.
+    Optimized to minimize C↔Python boundary crossings:
+    1. Updates dynamic mu/n eigenstate indices for each Hamiltonian
+    2. Computes chi² across all Hamiltonians via compute_chi2_numpy()
+    3. Returns scalar to C minimize loop
+    
+    All work stays in Python context (inside `with gil:` block), crossing
+    the boundary only ONCE per objective call instead of multiple times.
+    
+    Thread-local lookup ensures thread-safe access to the current MHFit instance.
     
     Parameters
     ----------
@@ -2952,7 +2888,7 @@ cdef double mu_n_mhfit_wrapper(
     grad : double *
         Gradient vector (unused).
     data : void *
-        Pointer to C mhfit_data struct (passed to mhfit_obj).
+        Pointer to C mhfit_data struct (unused; chi² computed in Python).
     
     Returns
     -------
@@ -2977,15 +2913,28 @@ cdef double mu_n_mhfit_wrapper(
             h = mhfit.h_list[i]
             ex = mhfit.ex_list[i]
             
-            # Set this H's coefficients (pass all, H will use its own tensors) and diagonalize
+            # Set this H's coefficients and diagonalize
             h.set_coeff(mhfit.coeff)
             h.diag()
             
-            # Update dynamic mu/n indices for this H (using shared helper)
+            # Update dynamic mu/n indices for this H (only if has_mu_n)
             _update_exdata_mu_n_indices(ex, h, skip_diag=True)
         
-        # Call standard C objective with updated indices
-        return cfl.mhfit_obj(n, x, grad, data)
+        # Compute chi² across all Hamiltonians using vectorized NumPy
+        # This is the same logic used by display functions, ensuring
+        # fit and display share one source of truth for chi² calculation
+        from pycf.cfl_util import compute_chi2_numpy
+        total_chi2 = 0.0
+        for i in range(mhfit.n_h):
+            # Create a temporary object with just h and ex for chi² computation
+            class _TempEFit:
+                pass
+            temp = _TempEFit()
+            temp.h = mhfit.h_list[i]
+            temp.ex = mhfit.ex_list[i]
+            total_chi2 += compute_chi2_numpy(temp)
+        
+        return total_chi2
     except BaseException:
         import traceback
         traceback.print_exc()
@@ -3250,14 +3199,14 @@ cdef class MHFit(object):
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.nls_f_cap = PyCapsule_New(<void *>&cfl.mhfit_nls, "pycfl.NlsObjF", NULL)
         
-        # If any Hamiltonian uses marker-column mu/n data, swap objective to wrapper.
-        # The wrapper uses thread-local storage to access this MHFit instance and
-        # updates dynamic mu/n indices during minimization. (Non-mu/n fits use
-        # C objective directly with zero overhead.)
+        # If any Hamiltonian uses marker-column mu/n data, swap objective to consolidated Cython version.
+        # The objective uses thread-local storage to access this MHFit instance and
+        # updates dynamic mu/n indices during minimization, while computing chi² in Python
+        # to minimize C↔Python boundary crossings. (Non-mu/n fits use C objective directly with zero overhead.)
         self.has_mu_n = any(ex.has_mu_n for ex in self.ex_list)
         if self.has_mu_n:
-            self.obj_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_wrapper, "pycfl.MinObjF", NULL)
-            self.nls_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_nls_wrapper, "pycfl.NlsObjF", NULL)
+            self.obj_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_obj, "pycfl.MinObjF", NULL)
+            self.nls_f_cap = None  # NLS not supported with mu/n (Python-computed chi²)
 
     def __dealloc__(self):
         if self.ha != NULL:
@@ -3308,12 +3257,10 @@ cdef class MHFit(object):
         # so the C callback can access it
         if self.has_mu_n:
             _mhfit_current.obj = self
-            _mhfit_nls_meta.data = {'n_p': self.n_p, 'n_r': len(self.ex_list[0].e), 'n_h': self.n_h}
             try:
                 fmin = min_object.minimize(self, x)
             finally:
                 _mhfit_current.obj = None
-                _mhfit_nls_meta.data = None
         else:
             fmin = min_object.minimize(self, x)
 
