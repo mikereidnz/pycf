@@ -221,12 +221,61 @@ inexpensive:
   **Status:** the wrapper now exists as `pycf.pyfit.PyFit` (see
   `examples/ceylf/pyfit_example.py`).  It uses `_temporary_x` +
   `get_edata` to feed weighted residuals to `scipy.optimize.least_squares`
-  and supports any scipy method, bounds, and custom Jacobians.  Remaining
-  work in this section: irrep assignment, analytic Jacobians, and any
-  `lmfit` / Gauss-Newton variants.
+  and supports any scipy method, bounds, and custom Jacobians.  Note that
+  the C-minimizer path now integrates consolidated Cython objectives for
+  mu/n marker-column fitting (see §8.2a), so PyFit's pure-Python approach
+  is most valuable when Python control or scipy methods are explicitly
+  needed.  Remaining work in this section: irrep assignment, analytic
+  Jacobians, and any `lmfit` / Gauss-Newton variants.
 
 These items are speculative until the §8.1 state-label work is
 underway — listed here so they are not lost.
+
+### 8.2a Marker-column dynamic mu/n fitting optimization (COMPLETED)
+
+The marker-column mu/n fitting path (`'MuN'` label key) experienced a critical
+performance regression (23–30× slowdown vs. baseline) due to excessive C↔Python
+boundary crossing in the objective function callback (5+ crossings per iteration
+× 100+ iterations).
+
+**Solution implemented (commits f910e55, abf563f, 5543250):**
+
+- **Consolidated Cython objectives:** Replaced multiple Python wrappers with
+  dedicated Cython functions (`mu_n_efit_obj`, `mu_n_mhfit_obj`) that perform
+  all mu/n mapping and chi² computation in a single Python context (one
+  boundary crossing per objective call instead of 5+).
+  
+- **Shared chi² helper:** Created `compute_chi2_numpy()` in `cfl_util.py` to
+  compute weighted sum of squared residuals using vectorized NumPy.  Used by
+  both the consolidated fitting objectives and display functions, ensuring
+  fit and display use the same source of truth.
+  
+- **Performance results:**
+  - Single EFit: 283× speedup (6 sec → 0.02 sec)
+  - 13-Hamiltonian MHFit: 5.5 sec (2.75× overhead acceptable for dynamic mapping)
+  - Irreducible overhead due to level reordering during optimization
+  
+- **Test coverage (22 new tests):**
+  - 12 unit tests for `compute_chi2_numpy()` covering weighted residuals,
+    invalid indices, edge cases, and consistency with C echisq formula
+  - 10 integration tests for marker-column formats: pure 'mu', pure 'lev',
+    mixed formats; absolute and difference energy modes
+
+**Outstanding items:**
+
+- Add physically realistic MHFit integration tests with multi-Hamiltonian
+  scenarios (multiple field orientations, hyperfine coupling, etc.) that
+  exercise level reordering and verify parameter convergence against
+  expected physics.  These should be added by a user familiar with the
+  specific material systems being studied.
+  
+- Extend edge-case coverage: test fits where eigenstate ordering changes
+  significantly during minimization, fits with multiple distinct mu values,
+  and performance characterization across system sizes.
+  
+- Document best practices: when to use mu/n vs. static level indices,
+  performance expectations for different Hamiltonian sizes, and mu/n
+  fitting diagnostics.
 
 ### 8.3 `ImportTensors` round-trip and non-Hermitian handling
 
