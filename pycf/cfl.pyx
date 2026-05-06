@@ -1795,12 +1795,16 @@ cdef class ExData(object):
                         elif marker == "lev":
                             if a_data.shape[1] < 3:
                                 raise ValueError(f"'lev' row {i} must have at least 3 columns: (marker, level, energy).")
+                            # For 'lev' markers, level is in column 1 if 3 columns, column 2 if 4+ (mixed format)
+                            # Mixed format: ['lev', mu_ref, level, energy] - ignore mu_ref, use level
+                            level_col = 2 if a_data.shape[1] >= 4 else 1
+                            energy_col = 3 if a_data.shape[1] >= 4 else 2
                             # Convert 1-based level to 0-based index
-                            level = int(a_data[i, 1])
+                            level = int(a_data[i, level_col])
                             if level < 1:
                                 raise ValueError(f"'lev' row {i}: level must be >= 1 (1-based), got {level}")
                             self.la[i] = level - 1
-                            a_energies[i] = float(a_data[i, 2])
+                            a_energies[i] = float(a_data[i, energy_col])
                     self._a_energies_marker = a_energies
 
                     # Store mu/n data for rows that have it
@@ -1856,14 +1860,22 @@ cdef class ExData(object):
                             if d_data.shape[1] < 4:
                                 raise ValueError(f"'lev' row {i} must have at least 4 columns: "
                                                "(marker, level_i, level_f, energy).")
+                            # For 'lev' markers, levels are in columns 1,2 if 4 columns, columns 2,3 if 5+ (mixed format)
+                            # Mixed format: ['lev', mu_ref, level_i, level_f, energy] - ignore mu_ref, use levels
+                            if d_data.shape[1] >= 5:
+                                # Mixed format with mu_ref in column 1
+                                level_i_col, level_f_col, energy_col = 2, 3, 4
+                            else:
+                                # Pure lev format
+                                level_i_col, level_f_col, energy_col = 1, 2, 3
                             # Convert 1-based levels to 0-based indices
-                            level_i = int(d_data[i, 1])
-                            level_f = int(d_data[i, 2])
+                            level_i = int(d_data[i, level_i_col])
+                            level_f = int(d_data[i, level_f_col])
                             if level_i < 1 or level_f < 1:
                                 raise ValueError(f"'lev' row {i}: levels must be >= 1 (1-based)")
                             self.ild[i] = level_i - 1
                             self.fld[i] = level_f - 1
-                            d_energies[i] = float(d_data[i, 3])
+                            d_energies[i] = float(d_data[i, energy_col])
                     self._d_energies_marker = d_energies
 
                     # Store mu/n data for rows that have it
