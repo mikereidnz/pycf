@@ -47,6 +47,8 @@ from pycf.matel import matel
 # Thread-local storage for EFit/MHFit mu/n callback wrappers
 _efit_current = threading.local()
 _mhfit_current = threading.local()
+_efit_nls_meta = threading.local()  # Stores n_p, n_r for NLS wrappers
+_mhfit_nls_meta = threading.local()  # Stores n_p, n_r, n_h for NLS wrappers
 
 # Global storage for Python error handler callback
 _python_error_handler = None
@@ -2382,6 +2384,84 @@ cdef double mu_n_efit_wrapper(
 
 
 
+cdef void mu_n_efit_nls_wrapper(
+    double *x, void *data, double *y
+) noexcept with gil:
+    r"""
+    NLS wrapper for EFit with marker-column mu/n data.
+    Updates mu/n indices, then calls C efit_nls to compute residuals.
+    """
+    cdef Py_ssize_t i
+    cdef object efit, x_arr, new_coeff, h, ex
+    cdef Py_ssize_t n_p, n_r
+    
+    # Get metadata from thread-local storage
+    meta = getattr(_efit_nls_meta, 'data', None)
+    if meta is None:
+        # Should not happen, but fail gracefully
+        return
+    n_p, n_r = meta['n_p'], meta['n_r']
+    
+    # Get wrapper instance from thread-local storage
+    efit = getattr(_efit_current, 'obj', None)
+    if efit is None:
+        return
+    
+    # Extract coefficients from x vector and update
+    x_arr = np.asarray(<double[:n_p]>x)
+    new_coeff = _x_to_coeff_dict(efit, x_arr)
+    efit.coeff.update(new_coeff)
+    
+    # Set coefficients, diagonalize, and update mu/n indices
+    h = efit.h
+    ex = efit.ex
+    h.set_coeff(efit.coeff)
+    h.diag()
+    _update_exdata_mu_n_indices(ex, h, skip_diag=True)
+    
+    # Call standard C NLS objective to compute residuals
+    cfl.efit_nls(x, data, y)
+
+
+cdef void mu_n_mhfit_nls_wrapper(
+    double *x, void *data, double *y
+) noexcept with gil:
+    r"""
+    NLS wrapper for MHFit with marker-column mu/n data.
+    Updates mu/n indices for all Hamiltonians, then calls C mhfit_nls.
+    """
+    cdef Py_ssize_t i
+    cdef object mhfit, x_arr, new_coeff, h, ex
+    cdef Py_ssize_t n_p, n_r, n_h
+    
+    # Get metadata from thread-local storage
+    meta = getattr(_mhfit_nls_meta, 'data', None)
+    if meta is None:
+        return
+    n_p, n_r, n_h = meta['n_p'], meta['n_r'], meta['n_h']
+    
+    # Get wrapper instance from thread-local storage
+    mhfit = getattr(_mhfit_current, 'obj', None)
+    if mhfit is None:
+        return
+    
+    # Extract coefficients from x and update all Hamiltonians
+    x_arr = np.asarray(<double[:n_p]>x)
+    new_coeff = _x_to_coeff_dict(mhfit, x_arr)
+    mhfit.coeff.update(new_coeff)
+    
+    # Update each Hamiltonian: set coefficients, diagonalize, update mu/n indices
+    for i in range(n_h):
+        h = mhfit.h_list[i]
+        ex = mhfit.ex_list[i]
+        h.set_coeff(mhfit.coeff)
+        h.diag()
+        if ex.has_mu_n:
+            _update_exdata_mu_n_indices(ex, h, skip_diag=True)
+    
+    # Call standard C NLS objective to compute residuals
+    cfl.mhfit_nls(x, data, y)
+
 cdef class EFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
@@ -2561,7 +2641,8 @@ cdef class EFit(object):
             # Use thread-local wrapper for mu/n marker-column data
             self.obj_f_cap = PyCapsule_New(
                 <void *>&mu_n_efit_wrapper, "pycfl.MinObjF", NULL)
-            self.nls_f_cap = None
+            self.nls_f_cap = PyCapsule_New(
+                <void *>&mu_n_efit_nls_wrapper, "pycfl.NlsObjF", NULL)
         else:
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
             self.nls_f_cap = PyCapsule_New(<void *>&cfl.efit_nls, "pycfl.NlsObjF", NULL)
@@ -2606,6 +2687,7 @@ cdef class EFit(object):
         # Store EFit in thread-local storage if using mu/n wrapper
         if self.ex.has_mu_n:
             _efit_current.obj = self
+            _efit_nls_meta.data = {'n_p': self.n_p, 'n_r': len(self.ex.e)}
 
         try:
             fmin = min_object.minimize(self, x)
@@ -2613,6 +2695,7 @@ cdef class EFit(object):
             # Clean up thread-local storage
             if self.ex.has_mu_n:
                 _efit_current.obj = None
+                _efit_nls_meta.data = None
 
         # If the minimiser produced a Jacobian (gsl_nls path), expose it
         # for downstream callers (e.g. covariance helper).
@@ -3174,6 +3257,7 @@ cdef class MHFit(object):
         self.has_mu_n = any(ex.has_mu_n for ex in self.ex_list)
         if self.has_mu_n:
             self.obj_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_wrapper, "pycfl.MinObjF", NULL)
+            self.nls_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_nls_wrapper, "pycfl.NlsObjF", NULL)
 
     def __dealloc__(self):
         if self.ha != NULL:
@@ -3224,10 +3308,12 @@ cdef class MHFit(object):
         # so the C callback can access it
         if self.has_mu_n:
             _mhfit_current.obj = self
+            _mhfit_nls_meta.data = {'n_p': self.n_p, 'n_r': len(self.ex_list[0].e), 'n_h': self.n_h}
             try:
                 fmin = min_object.minimize(self, x)
             finally:
                 _mhfit_current.obj = None
+                _mhfit_nls_meta.data = None
         else:
             fmin = min_object.minimize(self, x)
 
