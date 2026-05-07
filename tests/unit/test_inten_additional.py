@@ -12,7 +12,13 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from pycf.inten import AltpFit, fit_altp, _format_state_label_content, _format_state_label_short
+from pycf.inten import (
+    AltpFit,
+    fit_altp,
+    mh_fit_altp,
+    _format_state_label_content,
+    _format_state_label_short,
+)
 
 
 class TestFormatStateLabel:
@@ -276,6 +282,25 @@ class TestFitAltpDryRun:
         assert result["chi2"] == pytest.approx(0.0)
         assert result["fitted_params"]["A10"] == pytest.approx(1.0)
         assert result["uncertainties"] == {}
+
+
+class TestMhFitAltpWrapper:
+    """Test mh_fit_altp wrapper behavior."""
+
+    def test_mh_fit_altp_requires_sequence(self):
+        class FakeSpectrum:
+            pass
+
+        with pytest.raises(TypeError, match="requires a sequence"):
+            mh_fit_altp(["A10"], FakeSpectrum())  # type: ignore[arg-type]
+
+    def test_mh_fit_altp_requires_nonempty_sequence(self):
+        with pytest.raises(ValueError, match="at least one Spectrum"):
+            mh_fit_altp(["A10"], [])
+
+    def test_mh_fit_altp_requires_spectrum_elements(self):
+        with pytest.raises(TypeError, match="only Spectrum objects"):
+            mh_fit_altp(["A10"], ["not-a-spectrum"])  # type: ignore[list-item]
 
 
 class TestFormattingEdgeCases:

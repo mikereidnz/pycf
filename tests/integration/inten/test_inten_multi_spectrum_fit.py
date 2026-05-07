@@ -58,7 +58,7 @@ def _target_map(spec):
     return {idx: group.get("f", 0.0) for idx, group in enumerate(spec.groups, start=1)}
 
 
-def test_fit_altp_multi_hamiltonian_two_spectra():
+def test_fit_altp_multi_spectrum_two_spectra():
     """Fit shared Altp parameters across two different Hamiltonians."""
     matel_base = Path(__file__).resolve().parent / "matel" / "f1cf"
     inten_base = Path(__file__).resolve().parent / "matel" / "f1int"
@@ -100,7 +100,7 @@ def test_fit_altp_multi_hamiltonian_two_spectra():
     assert result["fitted_params"]["A230"] < 0
 
 
-def test_fit_altp_multi_hamiltonian_dry_run():
+def test_fit_altp_multi_spectrum_dry_run():
     """dry_run returns current-parameter chi² without optimization for multi-spectrum fits."""
     matel_base = Path(__file__).resolve().parent / "matel" / "f1cf"
     inten_base = Path(__file__).resolve().parent / "matel" / "f1int"

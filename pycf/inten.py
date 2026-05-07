@@ -1835,6 +1835,37 @@ def fit_altp(
     }
 
 
+def mh_fit_altp(
+    param_names: List[str],
+    spectra: Sequence[Spectrum],
+    target_intensities: Optional[Sequence[Dict[int, float]]] = None,
+    cfl_min: Optional[Any] = None,
+    weights: Optional[Union[np.ndarray, Sequence[np.ndarray]]] = None,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """
+    mh_fit-style wrapper for multi-spectrum intensity fitting.
+
+    Parameters are intentionally parallel to fit_altp, but this entry point
+    requires a list/sequence of Spectrum objects to make multi-spectrum intent
+    explicit in calling code.
+    """
+    if isinstance(spectra, Spectrum) or not isinstance(spectra, SequenceABC):
+        raise TypeError("mh_fit_altp requires a sequence of Spectrum objects.")
+    if len(spectra) == 0:
+        raise ValueError("mh_fit_altp requires at least one Spectrum.")
+    if not all(isinstance(spec, Spectrum) for spec in spectra):
+        raise TypeError("mh_fit_altp requires a sequence containing only Spectrum objects.")
+    return fit_altp(
+        param_names,
+        list(spectra),
+        target_intensities=target_intensities,
+        cfl_min=cfl_min,
+        weights=weights,
+        **kwargs,
+    )
+
+
 def _estimate_parameter_uncertainties(
     fitter: "AltpFit",
     x_opt: np.ndarray,
