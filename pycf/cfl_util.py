@@ -1405,7 +1405,8 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
 
 
 def gen_fit_summary(
-    coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float, **kwargs: Any
+    coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float,
+    initial_coeff: Dict[str, Any] | None = None, **kwargs: Any
 ) -> str:
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
@@ -1418,6 +1419,9 @@ def gen_fit_summary(
         Must have __iter__ method that iterates over names of tensors.
     method : str
         The optimization algorithm used for the fit.
+    initial_coeff : dict, optional
+        Pre-fit coefficient dictionary for display of "Initial coeff".
+        If omitted, fit_obj.coeff is used.
     kwargs: dict
         Additional, optimization algorithm specific, settings to print.
     """
@@ -1480,7 +1484,7 @@ def gen_fit_summary(
     s += uline_char(heading)
     ii = 0  # Index for covariance matrix; increments two for imaginary params.
     for i, p in enumerate(fit_obj):
-        co = fit_obj.coeff[p]
+        co = initial_coeff[p] if initial_coeff is not None else fit_obj.coeff[p]
         if p in cf_l:
             key = "CF"
         elif p in hyp_l:
