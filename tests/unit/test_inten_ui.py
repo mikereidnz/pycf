@@ -210,13 +210,13 @@ def test_spectrum_set_altp():
         i_range=[1],
         f_range=[2],
         intensity_tensors=[1],
-        altp=[["A210", 1e-10]],
+        altp={"A210": 1e-10},
     )
 
-    assert spectrum.altp == [["A210", 1e-10]]
+    assert spectrum.altp == {"A210": 1e-10}
 
     # Update Altp
-    new_altp = [["A210", 2e-10], ["A230", -1e-10]]
+    new_altp = {"A210": 2e-10, "A230": -1e-10}
     spectrum.set_altp(new_altp)
 
     assert spectrum.altp == new_altp

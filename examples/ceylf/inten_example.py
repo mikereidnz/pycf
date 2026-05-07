@@ -146,10 +146,10 @@ def main():
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
 
     # Electric dipole coupling parameters (exact same as test_inten_c3.py)
-    altp = [["A210", 1e-10], ["A230", -1e-10], ["A233", 1e-10 + 2e-10j]]
+    altp = {"A210": 1e-10, "A230": -1e-10, "A233": 1e-10 + 2e-10j}
 
     print(f"\nAltp (electric dipole coupling) parameters:")
-    for name, value in altp:
+    for name, value in altp.items():
         print(f"  {name}: {value}")
 
     # =========================================================================
@@ -206,37 +206,37 @@ def main():
     print("\n" + "=" * 80)
     print("Absorption - Brief format (compact tabular):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_abs, h, format="brief"))
+    print("\n" + gen_inten_summary(spec_abs, format="brief"))
 
     # Print absorption summary (verbose format - BRIEF + individual transitions)
     print("\n" + "=" * 80)
     print("Absorption - Verbose format (BRIEF + individual transitions):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_abs, h, format="detailed"))
+    print("\n" + gen_inten_summary(spec_abs, format="detailed"))
 
     # Print absorption summary (ultra format - VERBOSE + dipole moments)
     print("\n" + "=" * 80)
     print("Absorption - Ultra format (VERBOSE + dipole moments):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_abs, h, format="moments"))
+    print("\n" + gen_inten_summary(spec_abs, format="moments"))
 
     # Print emission summary (brief format - compact tabular)
     print("\n" + "=" * 80)
     print("Emission - Brief format (compact tabular):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_em, h, format="brief"))
+    print("\n" + gen_inten_summary(spec_em, format="brief"))
 
     # Print emission summary (verbose format - BRIEF + individual transitions)
     print("\n" + "=" * 80)
     print("Emission - Verbose format (BRIEF + individual transitions):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_em, h, format="detailed"))
+    print("\n" + gen_inten_summary(spec_em, format="detailed"))
 
     # Print emission summary (ultra format - VERBOSE + dipole moments)
     print("\n" + "=" * 80)
     print("Emission - Ultra format (VERBOSE + dipole moments):")
     print("=" * 80)
-    print("\n" + gen_inten_summary(spec_em, h, format="moments"))
+    print("\n" + gen_inten_summary(spec_em, format="moments"))
 
     # =========================================================================
     # Export to CSV for spreadsheet import/analysis
@@ -245,10 +245,10 @@ def main():
     em_csv_path = script_dir / "inten_emission.csv"
 
     with open(abs_csv_path, "w") as f:
-        f.write(gen_inten_summary(spec_abs, h, format="csv"))
+        f.write(gen_inten_summary(spec_abs, format="csv"))
 
     with open(em_csv_path, "w") as f:
-        f.write(gen_inten_summary(spec_em, h, format="csv"))
+        f.write(gen_inten_summary(spec_em, format="csv"))
 
     print(f"\nCSV files written:")
     print(f"  {abs_csv_path}")

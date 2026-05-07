@@ -242,7 +242,7 @@ class TestSpectrumValidation:
             intensity_tensors=[mock_tensor],
         )
 
-        new_altp = [("A10", 1.23)]
+        new_altp = {"A10": 1.23}
         s.set_altp(new_altp)
         assert s.altp == new_altp
 

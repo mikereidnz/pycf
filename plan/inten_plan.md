@@ -169,3 +169,74 @@ f4dd51c refactor: consolidate intensity output formatting functions
 - Plot controls added (ylim parameter, unique figure naming)
 - Energy column added to output formatting
 - Test suite optimized (13x faster without losing coverage)
+
+## Usability and streamlining (Phase 8)
+
+The intensity calculation, display, plotting, and fitting are now working, but
+the current user workflow is still too complicated. Phase 8 will align the
+intensity workflow more closely with the ergonomics of the energy-level fitting
+workflow (e.g., `mh_fit`) while prioritizing simple user-facing calls.
+
+### Goals
+
+1. Recalculate a spectrum without rebuilding the object.
+2. Refactor `fit_altp` to accept `Spectrum` objects directly.
+3. Support fitting across multiple `Spectrum` objects.
+4. Standardize data structures and output summaries for easier scripting.
+
+### Scope and design decisions
+
+#### 1) Recalculation and caching within `Spectrum`
+
+- A `Spectrum` should be reusable after construction.
+- Changing Altp values should trigger intensity recomputation without forcing
+  users to rebuild the object.
+- The expensive `vtrans` step should be skipped when Hamiltonian eigenvectors
+  have not changed.
+- Cache invalidation should be explicit:
+  - If Hamiltonian/eigenvectors change, recompute `vtrans`.
+  - If only Altp changes, reuse cached transformed tensors.
+
+#### 2) Refactor `fit_altp` API
+
+- `fit_altp` should operate on `Spectrum` objects (single or list), not on
+  constructor ingredients that rebuild spectra internally.
+- `fit_altp` should not require a separate Hamiltonian argument, since each
+  `Spectrum` already owns its Hamiltonian reference.
+- Return both:
+  - numerical results (fitted parameters, chi², uncertainties)
+  - a formatted text summary suitable for printing (like `mh_fit` style output)
+
+#### 3) Multi-spectrum fitting
+
+- Add a list-based fitting path analogous to `mh_fit`.
+- Inputs should support:
+  - list of `Spectrum` objects
+  - list of experimental intensity datasets
+  - shared list of fit parameter names (common Altp parameters)
+- Defer weighting and non-isotropic polarization options until a later phase.
+
+#### 4) Data model simplification
+
+- Use dictionary-style Altp parameter storage (consistent with Hamiltonian
+  coefficient dictionaries) instead of list-of-lists.
+- Experimental data can remain user-provided dictionaries/lists for now, as
+  long as accepted formats are clearly documented and validated.
+
+### Proposed user workflow (target state)
+
+1. Build and diagonalize Hamiltonian (`h.diag()`).
+2. Assemble intensity tensors.
+3. Create one or more `Spectrum` objects.
+4. Attach/set experimental intensity data for each spectrum.
+5. Print summary tables for all spectra.
+6. Call `fit_altp` with spectrum object(s), experimental data, and parameter
+   names.
+7. Receive fitted values plus a printable summary string.
+
+### Phase 8 implementation order
+
+1. Single-spectrum API cleanup (`Spectrum` reuse + recalculation semantics).
+2. `fit_altp(spec, ...)` refactor and summary return.
+3. Multi-spectrum `fit_altp([spec1, spec2, ...], ...)`.
+4. Tests/examples refresh and documentation update.

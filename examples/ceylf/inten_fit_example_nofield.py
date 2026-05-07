@@ -145,14 +145,14 @@ def main():
     print("STEP 1: TARGET INTENSITIES (Known Altp Parameters)")
     print("=" * 70)
 
-    known_altp = [
-        ["A210", 1e-10],
-        ["A230", -1e-10],
-        ["A233", 1e-10 + 2e-10j],
-    ]
+    known_altp = {
+        "A210": 1e-10,
+        "A230": -1e-10,
+        "A233": 1e-10 + 2e-10j,
+    }
 
     print("\nKnown Altp parameters:")
-    for name, value in known_altp:
+    for name, value in known_altp.items():
         print(f"  {name}: {value}")
 
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
@@ -188,14 +188,14 @@ def main():
     print("STEP 2: INITIAL PARAMETERS (Perturbed, 50% of Known Values)")
     print("=" * 70)
 
-    initial_altp = [
-        ["A210", 5e-11],
-        ["A230", -5e-11],
-        ["A233", 5e-11 + 1e-10j],
-    ]
+    initial_altp = {
+        "A210": 5e-11,
+        "A230": -5e-11,
+        "A233": 5e-11 + 1e-10j,
+    }
 
     print("\nInitial Altp parameters:")
-    for name, value in initial_altp:
+    for name, value in initial_altp.items():
         print(f"  {name}: {value}")
 
     spectrum_config["altp"] = initial_altp
@@ -220,8 +220,7 @@ def main():
 
     result = fit_altp(
         ["A210", "A230", "A233"],
-        h,
-        spectrum_config,
+        spec_initial,
         target_intensities,
         method="Nelder-Mead",
         options={"maxiter": 5000, "xatol": 1e-8, "fatol": 1e-10},
@@ -229,7 +228,7 @@ def main():
 
     print(f"\nFit converged with χ² = {result['chi2']:.6e}")
 
-    fitted_altp = [[name, result["fitted_params"][name]] for name in ["A210", "A230", "A233"]]
+    fitted_altp = {name: result["fitted_params"][name] for name in ["A210", "A230", "A233"]}
 
     print_parameter_uncertainties("Fitted Altp parameters with uncertainties:", result)
 
@@ -240,9 +239,9 @@ def main():
     print("STEP 4: VERIFICATION (Fitted Parameters)")
     print("=" * 70)
 
-    spectrum_config["altp"] = fitted_altp
-    spec_final = Spectrum(**spectrum_config)
-    spec_final.calculate_intensities(polarization="isotropic")
+    spec_final = spec_initial
+    spec_final.set_altp(fitted_altp)
+    spec_final.recalculate(polarization="isotropic")
 
     print_transitions_with_energy("Final transition groups (with fitted parameters):", spec_final)
 
@@ -293,7 +292,7 @@ def main():
     display_config["expt_data"] = expt_data  # Show experimental data comparison
     spec_before_fit = Spectrum(**display_config)
     spec_before_fit.calculate_intensities(polarization="isotropic")
-    print(gen_inten_summary(spec_before_fit, h, format="brief"))
+    print(gen_inten_summary(spec_before_fit, format="brief"))
 
     # ======================================================================
     # STEP 5: Demonstrate experimental data integration
@@ -322,21 +321,20 @@ def main():
     print("=" * 70)
 
     print(f"Fitting to {len(expt_target_intensities)} experimental data points...")
+    spec_before_fit.set_expt_data([[idx, val] for idx, val in sorted(expt_target_intensities.items())])
     result_expt = fit_altp(
         ["A210", "A230", "A233"],
-        h,
-        spectrum_config,
-        expt_target_intensities,
+        spec_before_fit,
         method="Nelder-Mead",
         options={"maxiter": 5000, "xatol": 1e-8, "fatol": 1e-10},
     )
 
     print(f"\nFit converged with χ² = {result_expt['chi2']:.6e}")
-    fitted_altp_expt = [
-        [name, result_expt["fitted_params"][name]] for name in ["A210", "A230", "A233"]
-    ]
+    fitted_altp_expt = {
+        name: result_expt["fitted_params"][name] for name in ["A210", "A230", "A233"]
+    }
     print("\nFitted Altp parameters from experimental data:")
-    for name, value in fitted_altp_expt:
+    for name, value in fitted_altp_expt.items():
         print(f"  {name}: {value}")
 
     # --- BRIEF FORMAT AFTER FIT (new fitted parameters with experimental data) ---
@@ -348,7 +346,7 @@ def main():
     display_config["expt_data"] = expt_data  # Include experimental data for comparison
     spec_after_fit = Spectrum(**display_config)
     spec_after_fit.calculate_intensities(polarization="isotropic")
-    print(gen_inten_summary(spec_after_fit, h, format="brief"))
+    print(gen_inten_summary(spec_after_fit, format="brief"))
 
 
 if __name__ == "__main__":

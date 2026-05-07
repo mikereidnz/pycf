@@ -52,7 +52,7 @@ def test_inten_c1_spectrum_absorption() -> None:
     # Define absorption spectrum: ground state (Z1) to excited state (Y1+Y2)
     # Using 1-based indexing (matching user convention)
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
-    altp = [["A210", 1e-10], ["A230", -1e-10], ["A233", 1e-10 + 2e-10j]]
+    altp = {"A210": 1e-10, "A230": -1e-10, "A233": 1e-10 + 2e-10j}
 
     spectrum = Spectrum(
         hamiltonian=h,
@@ -113,7 +113,7 @@ def test_inten_c1_spectrum_update_altp() -> None:
     h.set_coeff(coeff)
 
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
-    initial_altp = [["A210", 1e-10], ["A230", -1e-10], ["A233", 1e-10 + 2e-10j]]
+    initial_altp = {"A210": 1e-10, "A230": -1e-10, "A233": 1e-10 + 2e-10j}
 
     spectrum = Spectrum(
         hamiltonian=h,
@@ -132,7 +132,7 @@ def test_inten_c1_spectrum_update_altp() -> None:
     f1 = spectrum.total_f
 
     # Update Altp and recalculate
-    new_altp = [["A210", 2e-10], ["A230", -2e-10], ["A233", 2e-10 + 4e-10j]]
+    new_altp = {"A210": 2e-10, "A230": -2e-10, "A233": 2e-10 + 4e-10j}
     spectrum.set_altp(new_altp)
     spectrum.calculate_intensities()
     f2 = spectrum.total_f
@@ -175,7 +175,7 @@ def test_inten_c1_spectrum_summary() -> None:
     h.set_coeff(coeff)
 
     intensity_tensors = [t_int.M11, t_int.M10, t_int.U20, t_int.U21, t_int.U22]
-    altp = [["A210", 1e-10], ["A230", -1e-10], ["A233", 1e-10 + 2e-10j]]
+    altp = {"A210": 1e-10, "A230": -1e-10, "A233": 1e-10 + 2e-10j}
 
     spectrum = Spectrum(
         hamiltonian=h,
@@ -193,13 +193,13 @@ def test_inten_c1_spectrum_summary() -> None:
     spectrum.calculate_intensities()
 
     # Generate summary (uses cached eigenvalues and principal components)
-    summary_text = gen_inten_summary(spectrum, h, format="text")
+    summary_text = gen_inten_summary(spectrum, format="text")
     assert "C1 absorption" in summary_text
     assert "Total oscillator strength" in summary_text
     assert "f:" in summary_text
 
     # Generate CSV
-    summary_csv = gen_inten_summary(spectrum, h, format="csv")
+    summary_csv = gen_inten_summary(spectrum, format="csv")
     assert "initial_level" in summary_csv
     assert "initial_label" in summary_csv
 

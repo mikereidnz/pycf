@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from pycf.inten import AltpFit, _format_state_label_content, _format_state_label_short
+from pycf.inten import AltpFit, fit_altp, _format_state_label_content, _format_state_label_short
 
 
 class TestFormatStateLabel:
@@ -81,19 +81,14 @@ class TestAltpFitInitialization:
     def test_altp_fit_init_real_parameters(self):
         """Test AltpFit initialization with real parameters."""
         mock_ham = MagicMock()
-        spectrum_config = {
-            "name": "test",
-            "i_range": [1],
-            "f_range": [2],
-            "intensity_tensors": [MagicMock()],
-            "altp": [("A10", 1.0), ("A20", 2.0)],
-        }
+        spectrum = MagicMock()
+        spectrum.altp = {"A10": 1.0, "A20": 2.0}
+        spectrum.expt_data = [[1, 0.5], [2, 0.3]]
         target_intensities = {0: 0.5, 1: 0.3}
 
         fitter = AltpFit(
             param_names=["A10", "A20"],
-            hamiltonian=mock_ham,
-            spectrum_config=spectrum_config,
+            spectra=spectrum,
             target_intensities=target_intensities,
         )
 
@@ -104,19 +99,14 @@ class TestAltpFitInitialization:
     def test_altp_fit_init_complex_parameters(self):
         """Test AltpFit initialization with complex parameters."""
         mock_ham = MagicMock()
-        spectrum_config = {
-            "name": "test",
-            "i_range": [1],
-            "f_range": [2],
-            "intensity_tensors": [MagicMock()],
-            "altp": [("A10", complex(1.0, 0.5)), ("A20", 2.0)],
-        }
+        spectrum = MagicMock()
+        spectrum.altp = {"A10": complex(1.0, 0.5), "A20": 2.0}
+        spectrum.expt_data = [[1, 0.5]]
         target_intensities = {0: 0.5}
 
         fitter = AltpFit(
             param_names=["A10", "A20"],
-            hamiltonian=mock_ham,
-            spectrum_config=spectrum_config,
+            spectra=spectrum,
             target_intensities=target_intensities,
         )
 
@@ -126,43 +116,33 @@ class TestAltpFitInitialization:
     def test_altp_fit_missing_parameter_raises(self):
         """Test AltpFit raises when parameter not in altp."""
         mock_ham = MagicMock()
-        spectrum_config = {
-            "name": "test",
-            "i_range": [1],
-            "f_range": [2],
-            "intensity_tensors": [MagicMock()],
-            "altp": [("A10", 1.0)],
-        }
+        spectrum = MagicMock()
+        spectrum.altp = {"A10": 1.0}
+        spectrum.expt_data = [[1, 0.5]]
         target_intensities = {0: 0.5}
 
-        with pytest.raises(ValueError, match="not found in Altp"):
+        with pytest.raises(ValueError, match="not found in Spectrum.altp"):
             AltpFit(
                 param_names=["A10", "A20"],  # A20 not in altp
-                hamiltonian=mock_ham,
-                spectrum_config=spectrum_config,
+                spectra=spectrum,
                 target_intensities=target_intensities,
             )
 
     def test_altp_fit_build_param_info_type_checking(self):
         """Test parameter type detection (real vs complex)."""
         mock_ham = MagicMock()
-        spectrum_config = {
-            "name": "test",
-            "i_range": [1],
-            "f_range": [2],
-            "intensity_tensors": [MagicMock()],
-            "altp": [
-                ("A10", 1.5),  # real
-                ("A20", complex(2.0, 1.0)),  # complex
-                ("A30", 3.0),  # real
-            ],
+        spectrum = MagicMock()
+        spectrum.altp = {
+            "A10": 1.5,  # real
+            "A20": complex(2.0, 1.0),  # complex
+            "A30": 3.0,  # real
         }
+        spectrum.expt_data = [[1, 0.5]]
         target_intensities = {0: 0.5}
 
         fitter = AltpFit(
             param_names=["A10", "A20", "A30"],
-            hamiltonian=mock_ham,
-            spectrum_config=spectrum_config,
+            spectra=spectrum,
             target_intensities=target_intensities,
         )
 
@@ -173,24 +153,19 @@ class TestAltpFitInitialization:
     def test_altp_fit_count_flat_params(self):
         """Test flat parameter counting (real=1, complex=2)."""
         mock_ham = MagicMock()
-        spectrum_config = {
-            "name": "test",
-            "i_range": [1],
-            "f_range": [2],
-            "intensity_tensors": [MagicMock()],
-            "altp": [
-                ("R1", 1.0),
-                ("C1", complex(1.0, 1.0)),
-                ("R2", 2.0),
-                ("C2", complex(2.0, 2.0)),
-            ],
+        spectrum = MagicMock()
+        spectrum.altp = {
+            "R1": 1.0,
+            "C1": complex(1.0, 1.0),
+            "R2": 2.0,
+            "C2": complex(2.0, 2.0),
         }
+        spectrum.expt_data = [[1, 0.5]]
         target_intensities = {0: 0.5}
 
         fitter = AltpFit(
             param_names=["R1", "C1", "R2", "C2"],
-            hamiltonian=mock_ham,
-            spectrum_config=spectrum_config,
+            spectra=spectrum,
             target_intensities=target_intensities,
         )
 
@@ -201,19 +176,14 @@ class TestAltpFitInitialization:
     def test_altp_fit_extract_initial_params(self):
         """Test initial parameter vector extraction."""
         mock_ham = MagicMock()
-        spectrum_config = {
-            "name": "test",
-            "i_range": [1],
-            "f_range": [2],
-            "intensity_tensors": [MagicMock()],
-            "altp": [("A10", 1.5), ("A20", complex(2.0, 1.0))],
-        }
+        spectrum = MagicMock()
+        spectrum.altp = {"A10": 1.5, "A20": complex(2.0, 1.0)}
+        spectrum.expt_data = [[1, 0.5]]
         target_intensities = {0: 0.5}
 
         fitter = AltpFit(
             param_names=["A10", "A20"],
-            hamiltonian=mock_ham,
-            spectrum_config=spectrum_config,
+            spectra=spectrum,
             target_intensities=target_intensities,
         )
 
@@ -222,6 +192,51 @@ class TestAltpFitInitialization:
         assert fitter.initial_x[0] == 1.5
         assert fitter.initial_x[1] == 2.0
         assert fitter.initial_x[2] == 1.0
+
+    def test_altp_fit_uses_expt_data_when_targets_omitted(self):
+        """If target_intensities is omitted, infer from spectrum.expt_data."""
+        spectrum = MagicMock()
+        spectrum.altp = {"A10": 1.0}
+        spectrum.expt_data = [[1, 0.2], [2, 0.3]]
+
+        fitter = AltpFit(
+            param_names=["A10"],
+            spectra=spectrum,
+            target_intensities=None,
+        )
+
+        assert fitter.target_intensities == [{1: 0.2, 2: 0.3}]
+        assert fitter.n_obs == 2
+
+    def test_altp_fit_multi_spectrum_requires_list_targets(self):
+        """Passing dict targets with multiple spectra should raise."""
+        s1 = MagicMock()
+        s1.altp = {"A10": 1.0}
+        s1.expt_data = [[1, 0.2]]
+        s2 = MagicMock()
+        s2.altp = {"A10": 1.0}
+        s2.expt_data = [[1, 0.3]]
+
+        with pytest.raises(ValueError, match="list of dicts"):
+            AltpFit(
+                param_names=["A10"],
+                spectra=[s1, s2],
+                target_intensities={1: 0.2},
+            )
+
+    def test_altp_fit_missing_expt_data_raises_when_targets_omitted(self):
+        """Require either explicit targets or usable expt_data."""
+        spectrum = MagicMock()
+        spectrum.name = "test"
+        spectrum.altp = {"A10": 1.0}
+        spectrum.expt_data = None
+
+        with pytest.raises(ValueError, match="has no expt_data"):
+            AltpFit(
+                param_names=["A10"],
+                spectra=spectrum,
+                target_intensities=None,
+            )
 
 
 class TestEstimateParameterUncertainties:
@@ -234,6 +249,33 @@ class TestEstimateParameterUncertainties:
         from pycf.inten import _estimate_parameter_uncertainties
 
         assert callable(_estimate_parameter_uncertainties)
+
+
+class TestFitAltpDryRun:
+    """Test dry_run behavior in fit_altp."""
+
+    def test_fit_altp_dry_run_computes_chi2_without_optimization(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        result = fit_altp(["A10"], spec, dry_run=True)
+
+        assert result["dry_run"] is True
+        assert result["chi2"] == pytest.approx(0.0)
+        assert result["fitted_params"]["A10"] == pytest.approx(1.0)
+        assert result["uncertainties"] == {}
 
 
 class TestFormattingEdgeCases:

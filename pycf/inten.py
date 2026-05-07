@@ -6,7 +6,8 @@ A rewrite of the intensity calculation to follow the old Pascal code more closel
 
 from dataclasses import dataclass, field
 from operator import itemgetter
-from typing import Any, Dict, List, Optional, Tuple, Union
+from collections.abc import Mapping as MappingABC, Sequence as SequenceABC
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from uuid import uuid4
 
 import numpy as np
@@ -48,6 +49,30 @@ def clean_complex(value: Union[complex, float], tolerance: float = 1e-12) -> Uni
             return real
         return complex(real, imag)
     return value
+
+
+def _normalize_altp(
+    altp: Optional[Union[Mapping[str, Any], Sequence[Sequence[Any]]]]
+) -> Optional[Dict[str, Any]]:
+    """Normalize Altp inputs to an internal dict representation."""
+    if altp is None:
+        return None
+    if isinstance(altp, MappingABC):
+        return dict(altp)
+    normalized: Dict[str, Any] = {}
+    for item in altp:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            raise ValueError("Altp entries must be (name, value) pairs.")
+        name, value = item
+        normalized[str(name)] = value
+    return normalized
+
+
+def _altp_dict_to_list(altp: Optional[Mapping[str, Any]]) -> Optional[List[List[Any]]]:
+    """Convert dict-style Altp to dipole_str's pair-list format."""
+    if altp is None:
+        return None
+    return [[name, value] for name, value in altp.items()]
 
 
 def vtrans(tensors: List[Any], z: np.ndarray) -> Dict[str, Any]:
@@ -674,8 +699,8 @@ class Spectrum:
     md: bool = True
     ed: bool = False
 
-    # Mutable Altp parameters (can be changed via set_altp)
-    altp: Optional[List[Any]] = field(default=None)
+    # Mutable Altp parameters (can be changed without rebuilding Spectrum)
+    altp: Optional[Dict[str, Any]] = field(default=None)
 
     # Experimental data (optional): list of [group_idx, f_calc, f_expt]
     expt_data: Optional[List[List[float]]] = field(default=None)
@@ -688,6 +713,7 @@ class Spectrum:
     total_A: float = field(default=0.0, init=False)
     eigenvalues: Optional[np.ndarray] = field(default=None, init=False)
     principal_components: Optional[np.ndarray] = field(default=None, init=False)
+    _cached_eigenvectors: Optional[np.ndarray] = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Validate inputs."""
@@ -705,12 +731,32 @@ class Spectrum:
             raise ValueError(f"nrefractive must be positive (got {self.nrefractive})")
         if not hasattr(self.hamiltonian, "diag"):
             raise ValueError("hamiltonian must be a cfl.Hamiltonian object")
+        self.altp = _normalize_altp(self.altp)
 
-    def set_altp(self, altp: Optional[List[Any]]) -> None:
-        """Update Altp parameters. Call calculate_intensities() to recompute."""
-        self.altp = altp
+    def set_altp(self, altp: Optional[Union[Mapping[str, Any], Sequence[Sequence[Any]]]]) -> None:
+        """Replace Altp parameters for this spectrum."""
+        self.altp = _normalize_altp(altp)
 
-    def calculate_intensities(self, polarization: str = "isotropic") -> List[Dict[str, Any]]:
+    def update_altp(self, **updates: Any) -> None:
+        """Update one or more Altp entries in-place."""
+        if self.altp is None:
+            self.altp = {}
+        self.altp.update(updates)
+
+    def set_expt_data(self, expt_data: Optional[List[List[float]]]) -> None:
+        """Set or replace experimental intensity data."""
+        self.expt_data = expt_data
+
+    def _eigenvectors_match(self, z: np.ndarray) -> bool:
+        return (
+            self._cached_eigenvectors is not None
+            and self._cached_eigenvectors.shape == z.shape
+            and np.array_equal(self._cached_eigenvectors, z)
+        )
+
+    def calculate_intensities(
+        self, polarization: str = "isotropic", *, reuse_transformed: bool = True
+    ) -> List[Dict[str, Any]]:
         """
         Compute intensity data for this spectrum.
 
@@ -757,8 +803,10 @@ class Spectrum:
                 f"{z.shape if hasattr(z, 'shape') else 'unknown'})"
             )
 
-        # Transform intensity tensors to eigenbasis
-        self.transformed_tensors = vtrans(self.intensity_tensors, z)
+        # Transform intensity tensors to eigenbasis (cache-aware).
+        if not (reuse_transformed and self.transformed_tensors and self._eigenvectors_match(z)):
+            self.transformed_tensors = vtrans(self.intensity_tensors, z)
+            self._cached_eigenvectors = np.array(z, copy=True)
 
         # Compute dipole strengths for all transitions
         # dipole_str() expects 1-based indices and converts internally
@@ -771,7 +819,7 @@ class Spectrum:
             z,
             md=self.md,
             ed=self.ed,
-            Altp=self.altp,
+            Altp=_altp_dict_to_list(self.altp),
         )
 
         # Group transitions by level pair
@@ -797,10 +845,15 @@ class Spectrum:
 
         return self.groups
 
+    def recalculate(self, polarization: str = "isotropic", *, force_vtrans: bool = False) -> List[Dict[str, Any]]:
+        """Recalculate intensities after parameter updates."""
+        return self.calculate_intensities(
+            polarization=polarization, reuse_transformed=not force_vtrans
+        )
+
 
 def gen_inten_summary(
     spectrum: Spectrum,
-    hamiltonian: Any,
     format: str = "text",
     state_labels: Optional[List[Any]] = None,
 ) -> str:
@@ -811,12 +864,10 @@ def gen_inten_summary(
     ----------
     spectrum : Spectrum
         Spectrum object with computed groups (from calculate_intensities()).
-    hamiltonian : cfl.Hamiltonian
-        Hamiltonian object (needed for state labels and energies if cached values not available).
     format : str, optional
         Output format: 'text' (default, pretty table) or 'csv' (comma-separated).
     state_labels : list of Any, optional
-        Human-readable state labels (from hamiltonian.tensors[0].states.labels).
+        Human-readable state labels (from spectrum.hamiltonian.tensors[0].states.labels).
         If not provided, uses principal component indices from cached spectrum data.
 
     Returns
@@ -826,6 +877,8 @@ def gen_inten_summary(
     """
     if not spectrum.groups:
         return "No transitions computed."
+
+    hamiltonian = spectrum.hamiltonian
 
     # Get state labels if not provided
     if state_labels is None:
@@ -868,10 +921,8 @@ def _format_inten_text(
     # Print Altp parameters if present
     if spectrum.altp:
         lines.append("Altp (electric dipole coupling) parameters:")
-        for altp_item in spectrum.altp:
-            if isinstance(altp_item, (list, tuple)) and len(altp_item) == 2:
-                name, value = altp_item
-                lines.append(f"  {name}: {value}")
+        for name, value in spectrum.altp.items():
+            lines.append(f"  {name}: {value}")
         lines.append("")
 
     for group_idx, group in enumerate(spectrum.groups, start=1):
@@ -1261,10 +1312,8 @@ def _format_inten(
     # Print Altp parameters if present
     if spectrum.altp:
         lines.append("Altp (electric dipole coupling) parameters:")
-        for altp_item in spectrum.altp:
-            if isinstance(altp_item, (list, tuple)) and len(altp_item) == 2:
-                name, value = altp_item
-                lines.append(f"  {name}: {value}")
+        for name, value in spectrum.altp.items():
+            lines.append(f"  {name}: {value}")
         lines.append("")
 
     # Determine if absorption or emission
@@ -1463,54 +1512,85 @@ class AltpFit:
     def __init__(
         self,
         param_names: List[str],
-        hamiltonian: Any,
-        spectrum_config: Dict[str, Any],
-        target_intensities: Dict[int, float],
-        weights: Optional[np.ndarray] = None,
+        spectra: Union[Spectrum, Sequence[Spectrum]],
+        target_intensities: Optional[Union[Dict[int, float], Sequence[Dict[int, float]]]] = None,
+        weights: Optional[Union[np.ndarray, Sequence[np.ndarray]]] = None,
         **kwargs: Any,
     ):
-        """
-        Initialize Altp fitting context.
-
-        Parameters
-        ----------
-        param_names : list of str
-            Altp parameter names to fit (e.g., ["A210", "A230", "A233"])
-        hamiltonian : cfl.Hamiltonian
-            The crystal-field Hamiltonian
-        spectrum_config : dict
-            Configuration for creating Spectrum (name, i_range, f_range,
-            intensity_tensors, altp, nrefractive, md, ed)
-        target_intensities : dict
-            Target intensity values keyed by group index (group_idx -> f or A value).
-            These should be computed/experimental values to fit to.
-        weights : np.ndarray, optional
-            Per-group weights (default: equal weights)
-        """
         self.param_names = param_names
-        self.hamiltonian = hamiltonian
-        self.spectrum_config = spectrum_config
-        self.target_intensities = target_intensities
+        if isinstance(spectra, Spectrum) or not isinstance(spectra, SequenceABC):
+            self.spectra = [spectra]
+        else:
+            self.spectra = list(spectra)
+        if not self.spectra:
+            raise ValueError("At least one Spectrum is required.")
+
+        self.target_intensities = self._normalize_target_intensities(target_intensities)
         self.weights = weights
-        self.n_obs = len(target_intensities)
+        self.n_obs = sum(len(t) for t in self.target_intensities)
 
         # Build parameter info: track which are complex, indices in flat vector
         self.param_info = self._build_param_info()
         self.n_p = self._count_flat_params()
         self.initial_x = self._extract_initial_params()
 
+    def _normalize_target_intensities(
+        self,
+        target_intensities: Optional[Union[Dict[int, float], Sequence[Dict[int, float]]]],
+    ) -> List[Dict[int, float]]:
+        if target_intensities is None:
+            out = []
+            for spec in self.spectra:
+                if not spec.expt_data:
+                    raise ValueError(
+                        f"Spectrum '{spec.name}' has no expt_data; pass target_intensities explicitly."
+                    )
+                mapped: Dict[int, float] = {}
+                for entry in spec.expt_data:
+                    if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                        mapped[int(entry[0])] = float(entry[1])
+                if not mapped:
+                    raise ValueError(f"Spectrum '{spec.name}' expt_data is empty or malformed.")
+                out.append(mapped)
+            return out
+
+        if isinstance(target_intensities, dict):
+            if len(self.spectra) != 1:
+                raise ValueError(
+                    "For multiple spectra, target_intensities must be a list of dicts."
+                )
+            return [target_intensities]
+
+        out = list(target_intensities)
+        if len(out) != len(self.spectra):
+            raise ValueError(
+                "Number of target_intensity datasets must match number of spectra."
+            )
+        return out
+
+    def _weights_for(self, spec_index: int, n_local: int, offset: int) -> Optional[np.ndarray]:
+        if self.weights is None:
+            return None
+        if isinstance(self.weights, np.ndarray):
+            return np.asarray(self.weights[offset : offset + n_local], dtype=float)
+        local = np.asarray(self.weights[spec_index], dtype=float)
+        if len(local) != n_local:
+            raise ValueError(
+                f"Weight length mismatch for spectrum index {spec_index}: expected {n_local}, got {len(local)}."
+            )
+        return local
+
     def _build_param_info(self) -> Dict[str, Dict[str, Any]]:
         """Build parameter tracking dict for complex/real parameters."""
         info = {}
         flat_idx = 0
 
-        # Get initial Altp to determine types
-        altp = self.spectrum_config.get("altp", [])
-        altp_dict = {name: value for name, value in altp} if altp else {}
+        # Use first spectrum's Altp as source of truth.
+        altp_dict = self.spectra[0].altp or {}
 
         for pname in self.param_names:
             if pname not in altp_dict:
-                raise ValueError(f"Parameter {pname} not found in Altp list")
+                raise ValueError(f"Parameter {pname} not found in Spectrum.altp")
 
             value = altp_dict[pname]
             is_complex = isinstance(value, complex)
@@ -1555,55 +1635,56 @@ class AltpFit:
                 x[info["index"]] = info["initial_value"]
         return x
 
-    def _x_to_altp(self, x: np.ndarray) -> List[List[Any]]:
-        """Convert flat parameter vector to Altp list format."""
-        altp = []
+    def _x_to_altp(self, x: np.ndarray) -> Dict[str, Any]:
+        """Convert flat parameter vector to dict-style Altp."""
+        altp: Dict[str, Any] = {}
         for pname in self.param_names:
             info = self.param_info[pname]
             if info["type"] == "complex":
                 value = complex(x[info["real_index"]], x[info["imag_index"]])
             else:
                 value = float(x[info["index"]])
-            altp.append([pname, value])
+            altp[pname] = value
         return altp
 
-    def _compute_grouped_intensities(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Compute intensities for a given Altp parameter vector.
-
-        Returns
-        -------
-        computed_f : np.ndarray
-            f or A values for each group (sorted by group index)
-        group_indices : np.ndarray
-            Group indices corresponding to computed_f
-        """
-        # Convert x to Altp
+    def _compute_grouped_intensities(self, x: np.ndarray) -> List[np.ndarray]:
+        """Compute grouped intensities for all spectra for parameter vector x."""
         altp = self._x_to_altp(x)
+        computed_all: List[np.ndarray] = []
+        for spec, target_map in zip(self.spectra, self.target_intensities):
+            spec.set_altp(altp)
+            spec.recalculate(polarization="isotropic")
+            if not spec.groups:
+                return [np.full(len(target_map), np.nan)]
+            is_absorption = spec.groups[0]["Energy"] > 0
+            key = "f" if is_absorption else "A"
+            computed = {group_idx: group.get(key, 0.0) for group_idx, group in enumerate(spec.groups, start=1)}
+            indices = sorted(target_map.keys())
+            values = np.array([computed.get(i, np.nan) for i in indices], dtype=float)
+            computed_all.append(values)
+        return computed_all
 
-        # Update Spectrum config with new Altp
-        config = dict(self.spectrum_config)
-        config["altp"] = altp
-
-        # Create and compute Spectrum (non-mutating)
-        try:
-            spec = Spectrum(**config)
-            spec.calculate_intensities(polarization="isotropic")
-
-            # Extract f/A values per group, sorted by group index
-            computed = {}
-            for group_idx, group in enumerate(spec.groups, start=1):
-                # Get f or A based on absorption/emission
-                energy = group["Energy"]
-                computed[group_idx] = group.get("f", 0.0) if energy > 0 else group.get("A", 0.0)
-
-            # Sort by group index to match target_intensities order
-            indices = sorted(computed.keys())
-            values = np.array([computed[i] for i in indices])
-            return values, np.array(indices)
-        except Exception:
-            # If computation fails, return NaN (bad fit)
-            return np.full(self.n_obs, np.nan), np.arange(1, self.n_obs + 1)
+    def per_spectrum_chi2(self, x: np.ndarray) -> List[Dict[str, Any]]:
+        """Return per-spectrum chi² contributions and observation counts."""
+        computed_all = self._compute_grouped_intensities(x)
+        rows: List[Dict[str, Any]] = []
+        offset = 0
+        for spec_index, (spec, computed, target_map) in enumerate(
+            zip(self.spectra, computed_all, self.target_intensities)
+        ):
+            if np.any(np.isnan(computed)):
+                raise ValueError(f"Computation failed for spectrum '{spec.name}'.")
+            target_vals = np.array([target_map[i] for i in sorted(target_map.keys())], dtype=float)
+            epsilon = 1e-20
+            denominator = np.abs(computed) + np.abs(target_vals) + epsilon
+            residuals = (computed - target_vals) / denominator
+            local_weights = self._weights_for(spec_index, len(target_vals), offset)
+            if local_weights is not None:
+                residuals = residuals * np.sqrt(local_weights)
+            chi2_val = float(np.sum(residuals**2))
+            rows.append({"name": spec.name, "chi2": chi2_val, "n_obs": len(target_vals)})
+            offset += len(target_vals)
+        return rows
 
     def compute_residual(self, x: np.ndarray) -> float:
         """
@@ -1613,27 +1694,11 @@ class AltpFit:
 
         This is symmetric and robust to scaling.
         """
-        computed, _ = self._compute_grouped_intensities(x)
-
-        # Handle NaN values from failed computations
-        if np.any(np.isnan(computed)):
+        try:
+            rows = self.per_spectrum_chi2(x)
+        except Exception:
             return 1e10
-
-        # Get target values in sorted order
-        target_indices = sorted(self.target_intensities.keys())
-        target_vals = np.array([self.target_intensities[i] for i in target_indices])
-
-        # Compute symmetric residual
-        epsilon = 1e-20  # Avoid division by zero
-        denominator = np.abs(computed) + np.abs(target_vals) + epsilon
-        residuals = (computed - target_vals) / denominator
-
-        # Apply weights
-        if self.weights is not None:
-            residuals = residuals * np.sqrt(self.weights)
-
-        chi2 = np.sum(residuals**2)
-        return float(chi2)
+        return float(sum(row["chi2"] for row in rows))
 
     def objective_fn(self, x: np.ndarray) -> float:
         """Objective function for minimizer."""
@@ -1642,33 +1707,32 @@ class AltpFit:
 
 def fit_altp(
     param_names: List[str],
-    hamiltonian: Any,
-    spectrum_config: Dict[str, Any],
-    target_intensities: Dict[int, float],
+    spectra: Union[Spectrum, Sequence[Spectrum]],
+    target_intensities: Optional[Union[Dict[int, float], Sequence[Dict[int, float]]]] = None,
     cfl_min: Optional[Any] = None,
-    weights: Optional[np.ndarray] = None,
+    weights: Optional[Union[np.ndarray, Sequence[np.ndarray]]] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """
-    Fit Altp parameters to match target intensity data.
+    Fit Altp parameters to match target intensity data using Spectrum object(s).
 
     Parameters
     ----------
     param_names : list of str
         Altp parameter names to fit (e.g., ["A210", "A230", "A233"])
-    hamiltonian : cfl.Hamiltonian
-        The crystal-field Hamiltonian
-    spectrum_config : dict
-        Configuration for creating Spectrum (name, i_range, f_range,
-        intensity_tensors, altp, nrefractive, md, ed)
-    target_intensities : dict
-        Target intensity values keyed by group index (group_idx -> f or A value)
+    spectra : Spectrum or sequence of Spectrum
+        Spectrum object(s) to fit. Each spectrum carries its Hamiltonian and setup.
+    target_intensities : dict or list of dict, optional
+        Per-spectrum target intensity mappings (group_idx -> f/A value).
+        If omitted, each spectrum must already have expt_data set.
     cfl_min : cfl.CFLMin, optional
         Minimization object specifying solver and options (not used, kept for API consistency)
     weights : np.ndarray, optional
         Per-group weights (default: equal weights)
     **kwargs
         Additional options passed to minimizer (e.g., method='Nelder-Mead', options={...})
+        Supports dry_run=True to evaluate chi² at the current parameter values
+        without performing optimization.
 
     Returns
     -------
@@ -1685,49 +1749,77 @@ def fit_altp(
     # Create fitter
     fitter = AltpFit(
         param_names,
-        hamiltonian,
-        spectrum_config,
+        spectra,
         target_intensities,
         weights=weights,
         **kwargs,
     )
 
-    # Minimize using scipy
-    method = kwargs.get("method", "Nelder-Mead")
-    options = kwargs.get("options", {})
+    dry_run = bool(kwargs.get("dry_run", False))
 
-    result = minimize(fitter.objective_fn, fitter.initial_x, method=method, options=options)
-
-    x_opt = result.x
-    fmin = result.fun
+    if dry_run:
+        x_opt = np.array(fitter.initial_x, copy=True)
+        fmin = fitter.objective_fn(x_opt)
+    else:
+        # Minimize using scipy
+        method = kwargs.get("method", "Nelder-Mead")
+        options = kwargs.get("options", {})
+        result = minimize(fitter.objective_fn, fitter.initial_x, method=method, options=options)
+        x_opt = result.x
+        fmin = result.fun
 
     # Reconstruct fitted Altp
-    fitted_altp = fitter._x_to_altp(x_opt)
-    fitted_dict = {name: value for name, value in fitted_altp}
+    fitted_dict = fitter._x_to_altp(x_opt)
+
+    for spec in fitter.spectra:
+        spec.set_altp(fitted_dict)
+        spec.recalculate(polarization="isotropic")
 
     # Estimate parameter uncertainties from Hessian
-    uncertainties = _estimate_parameter_uncertainties(fitter, x_opt, fmin, param_names)
+    uncertainties = (
+        {}
+        if dry_run
+        else _estimate_parameter_uncertainties(fitter, x_opt, fmin, param_names)
+    )
+    chi2_rows = fitter.per_spectrum_chi2(x_opt)
 
     # Build summary
     summary = "Altp Parameter Fit\n"
     summary += "=" * 50 + "\n"
     summary += f"Fitted parameters: {', '.join(param_names)}\n"
+    summary += f"Number of spectra: {len(fitter.spectra)}\n"
     summary += f"Number of observations: {fitter.n_obs}\n"
     summary += f"Number of parameters: {fitter.n_p}\n"
+    if dry_run:
+        summary += "Mode: dry_run (no optimization performed)\n"
     summary += f"Final χ²: {fmin:.6e}\n\n"
+    summary += "Per-spectrum χ² contributions:\n"
+    summary += f"{'Spectrum':<40} {'n_obs':>8} {'chi2':>16}\n"
+    summary += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"
+    for row in chi2_rows:
+        summary += f"{row['name']:<40} {row['n_obs']:>8d} {row['chi2']:>16.6e}\n"
+    summary += "\n"
 
     summary += "Initial Altp values:\n"
     for pname in param_names:
         initial_val = fitter.param_info[pname]["initial_value"]
         summary += f"  {pname}: {initial_val}\n"
 
-    summary += "\nFitted Altp values with uncertainties:\n"
+    summary += "\nFitted Altp values:\n"
+    summary += f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
+    summary += "-" * 108 + "\n"
     for pname, value in fitted_dict.items():
+        initial_val = fitter.param_info[pname]["initial_value"]
+        diff = value - initial_val
         unc = uncertainties.get(pname, None)
         if unc is not None:
-            summary += f"  {pname}: {value} ± {unc}\n"
+            unc_str = str(unc)
         else:
-            summary += f"  {pname}: {value}\n"
+            unc_str = "n/a"
+        summary += (
+            f"{pname:<12} {str(initial_val):>22} {str(value):>22} "
+            f"{str(diff):>22} {unc_str:>22}\n"
+        )
 
     return {
         "fitted_params": fitted_dict,
@@ -1735,7 +1827,10 @@ def fit_altp(
         "chi2": fmin,
         "n_obs": fitter.n_obs,
         "n_params": fitter.n_p,
+        "n_spectra": len(fitter.spectra),
+        "chi2_by_spectrum": chi2_rows,
         "initial_altp": {pname: fitter.param_info[pname]["initial_value"] for pname in param_names},
+        "dry_run": dry_run,
         "summary": summary,
     }
 

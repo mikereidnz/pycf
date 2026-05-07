@@ -216,8 +216,8 @@ def test_inten_c3_spectrum_two_spectra() -> None:
     assert abs_spectrum.hamiltonian is h
 
     # Generate summaries
-    abs_text = gen_inten_summary(abs_spectrum, h, format="text")
-    em_text = gen_inten_summary(em_spectrum, h, format="text")
+    abs_text = gen_inten_summary(abs_spectrum, format="text")
+    em_text = gen_inten_summary(em_spectrum, format="text")
 
     assert "Absorption" in abs_text
     assert "Emission" in em_text
