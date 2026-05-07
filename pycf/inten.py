@@ -1277,13 +1277,14 @@ def _format_inten(
     expt_lookup = {}
     if spectrum.expt_data and format == "brief":
         for expt_entry in spectrum.expt_data:
-            if len(expt_entry) >= 2:
-                try:
+            # Check if entry is iterable (list, tuple) and has at least 2 elements
+            try:
+                if isinstance(expt_entry, (list, tuple)) and len(expt_entry) >= 2:
                     group_idx = int(expt_entry[0])  # Convert to int with validation
                     f_expt = float(expt_entry[1])  # Convert to float with validation
                     expt_lookup[group_idx] = f_expt
-                except (ValueError, TypeError):
-                    continue  # Skip malformed entries silently
+            except (ValueError, TypeError, IndexError):
+                continue  # Skip malformed entries silently
 
     # Header
     if is_absorption:
@@ -1919,17 +1920,20 @@ def inten_plot(  # pragma: no cover
         expt_energies = []
         expt_intensities = []
         for expt_entry in spectrum.expt_data:
-            if len(expt_entry) >= 2:
-                try:
+            # Check if entry is iterable (list, tuple) and has at least 2 elements
+            try:
+                if isinstance(expt_entry, (list, tuple)) and len(expt_entry) >= 2:
                     group_idx = int(expt_entry[0])  # Convert to int with validation
                     f_expt = float(expt_entry[1])  # Convert to float with validation
-                except (ValueError, TypeError):
-                    continue  # Skip malformed entries
+                else:
+                    continue
+            except (ValueError, TypeError, IndexError):
+                continue  # Skip malformed entries
 
-                if 1 <= group_idx <= len(spectrum.groups):
-                    e = abs(spectrum.groups[group_idx - 1].get("Energy", 0.0))
-                    expt_energies.append(e)
-                    expt_intensities.append(f_expt)
+            if 1 <= group_idx <= len(spectrum.groups):
+                e = abs(spectrum.groups[group_idx - 1].get("Energy", 0.0))
+                expt_energies.append(e)
+                expt_intensities.append(f_expt)
 
         if expt_energies:
             expt_energies_arr = np.array(expt_energies)
