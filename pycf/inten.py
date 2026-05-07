@@ -1300,7 +1300,8 @@ def _format_inten(
 
     # Append expt columns for brief format only
     if spectrum.expt_data and format == "brief":
-        header += f" {'f_Expt':<14} {'χ²':<14}"
+        expt_label = "f_Expt" if is_absorption else "A_Expt"
+        header += f" {expt_label:<14} {'χ²':<14}"
 
     lines.append(header)
 
