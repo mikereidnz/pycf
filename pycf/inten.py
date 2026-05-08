@@ -2369,7 +2369,7 @@ def inten_plot(  # pragma: no cover
     else:
         ylabel = "A Coefficient (s$^{-1}$)"
     ax.set_ylabel(ylabel, fontsize=14)
-    title = f"{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)"
+    title = f"{spectrum.name} (FWHM = {fwhm} cm$^{{-1}}$)"
     if comment is not None:
         title = f"{comment}: {title}"
     ax.set_title(title, fontsize=13, pad=20)
