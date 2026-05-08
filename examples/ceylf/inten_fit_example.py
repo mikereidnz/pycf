@@ -226,7 +226,7 @@ def main():
         options={"maxiter": 5000, "xatol": 1e-8, "fatol": 1e-10},
     )
 
-    print(f"\nFit converged with χ² = {result['chi2']:.6e}")
+    print(f"\nFit converged with chisqr = {result['chi2']:.6e}")
 
     fitted_altp = {name: result["fitted_params"][name] for name in ["A210", "A230", "A233"]}
 
@@ -329,7 +329,7 @@ def main():
         options={"maxiter": 5000, "xatol": 1e-8, "fatol": 1e-10},
     )
 
-    print(f"\nFit converged with χ² = {result_expt['chi2']:.6e}")
+    print(f"\nFit converged with chisqr = {result_expt['chi2']:.6e}")
     fitted_altp_expt = {
         name: result_expt["fitted_params"][name] for name in ["A210", "A230", "A233"]
     }

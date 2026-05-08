@@ -704,6 +704,7 @@ class Spectrum:
 
     # Experimental data (optional): list of [group_idx, f_calc, f_expt]
     expt_data: Optional[List[List[float]]] = field(default=None)
+    altp_uncertainties: Dict[str, Any] = field(default_factory=dict, init=False)
 
     # Computed fields
     transformed_tensors: Dict[str, Any] = field(default_factory=dict, init=False)
@@ -736,12 +737,15 @@ class Spectrum:
     def set_altp(self, altp: Optional[Union[Mapping[str, Any], Sequence[Sequence[Any]]]]) -> None:
         """Replace Altp parameters for this spectrum."""
         self.altp = _normalize_altp(altp)
+        self.altp_uncertainties = {}
 
     def update_altp(self, **updates: Any) -> None:
         """Update one or more Altp entries in-place."""
         if self.altp is None:
             self.altp = {}
         self.altp.update(updates)
+        for name in updates:
+            self.altp_uncertainties.pop(name, None)
 
     def set_expt_data(self, expt_data: Optional[List[List[float]]]) -> None:
         """Set or replace experimental intensity data."""
@@ -909,6 +913,14 @@ def gen_inten_summary(
         )
 
 
+def _format_altp_param_line(spectrum: Spectrum, name: str, value: Any) -> str:
+    """Format one Altp parameter line, appending uncertainty when available."""
+    unc = spectrum.altp_uncertainties.get(name)
+    if unc is None:
+        return f"  {name}: {value}"
+    return f"  {name}: {value} +/- {unc}"
+
+
 def _format_inten_text(
     spectrum: Spectrum,
     eigenvalues: np.ndarray,
@@ -922,7 +934,7 @@ def _format_inten_text(
     if spectrum.altp:
         lines.append("Altp (electric dipole coupling) parameters:")
         for name, value in spectrum.altp.items():
-            lines.append(f"  {name}: {value}")
+            lines.append(_format_altp_param_line(spectrum, name, value))
         lines.append("")
 
     for group_idx, group in enumerate(spectrum.groups, start=1):
@@ -1089,7 +1101,7 @@ def _format_state_label_with_energy(
 ) -> str:
     """Format a state label with 1-based level index and energy."""
     content = _format_state_label_content(label, label_key)
-    return f"{level}: |{content}> (E = {energy:12.6f} cm-1)"
+    return f"{level}: |{content}> ({energy:.6f})"
 
 
 def _format_complex_dipole(value: Union[complex, float]) -> str:
@@ -1164,7 +1176,7 @@ def _format_group_line(
 
     # Format energy as absolute value (for both absorption and emission)
     abs_energy = abs(energy)
-    energy_str = f"{abs_energy:>13.6f}"
+    energy_str = f"{abs_energy:>11.6f}"
 
     # Sum dipole strengths over all transitions in group
     total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
@@ -1181,13 +1193,13 @@ def _format_group_line(
     # Format group line based on absorption or emission
     if is_absorption:
         line = (
-            f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} "
-            f"{f_ED:>13.6e}  {f_MD:>13.6e}  {f_total:>13.6e}"
+            f"{group_idx:<4} {energy_str} {initial_label:<42} {final_label:<42} "
+            f"{f_ED:.6e} {f_MD:.6e} {f_total:.6e}"
         )
     else:
         line = (
-            f"{group_idx:<6} {energy_str} {initial_label:<50} {final_label:<50} "
-            f"{A_ED:>13.6e}  {A_MD:>13.6e}  {A_total:>13.6e}"
+            f"{group_idx:<4} {energy_str} {initial_label:<42} {final_label:<42} "
+            f"{A_ED:.6e} {A_MD:.6e} {A_total:.6e}"
         )
 
     return line
@@ -1307,13 +1319,12 @@ def _format_inten(
         raise ValueError(f"Unknown format: {format}. Use 'brief', 'detailed', or 'moments'.")
 
     lines = [f"Spectrum: {spectrum.name}"]
-    lines.append("=" * 160 if format == "brief" else "=" * 132)
 
     # Print Altp parameters if present
     if spectrum.altp:
         lines.append("Altp (electric dipole coupling) parameters:")
         for name, value in spectrum.altp.items():
-            lines.append(f"  {name}: {value}")
+            lines.append(_format_altp_param_line(spectrum, name, value))
         lines.append("")
 
     # Determine if absorption or emission
@@ -1338,25 +1349,23 @@ def _format_inten(
     # Header
     if is_absorption:
         header = (
-            f"{'Group':<6} {'Energy':<14} {'Initial State':<50} "
-            f"{'Final State':<50} {'f_ED':<14} {'f_MD':<14} {'f_Total':<14}"
+            f"{'Grp':<4} {'Energy':<11} {'Initial State':<42} "
+            f"{'Final State':<42} {'f_ED':<12} {'f_MD':<12} {'f_Total':<12}"
         )
     else:
         header = (
-            f"{'Group':<6} {'Energy':<14} {'Initial State':<50} "
-            f"{'Final State':<50} {'A_ED':<14} {'A_MD':<14} {'A_Total':<14}"
+            f"{'Grp':<4} {'Energy':<11} {'Initial State':<42} "
+            f"{'Final State':<42} {'A_ED':<12} {'A_MD':<12} {'A_Total':<12}"
         )
 
     # Append expt columns for brief format only
     if spectrum.expt_data and format == "brief":
         expt_label = "f_Expt" if is_absorption else "A_Expt"
-        header += f" {expt_label:<14} {'χ²':<14}"
+        header += f" {expt_label:<12} {'chisqr':<12}"
 
+    sep_width = len(header)
+    lines.append("=" * sep_width)
     lines.append(header)
-
-    sep_width = 160 + 14 if format == "brief" else 132 + 14
-    if spectrum.expt_data and format == "brief":
-        sep_width += 28
     lines.append("-" * sep_width)
 
     # Print each group
@@ -1367,17 +1376,18 @@ def _format_inten(
 
         # Append experimental data if present (brief format only)
         if spectrum.expt_data and format == "brief":
-            f_expt = expt_lookup.get(group_idx, 0.0)
+            f_expt = expt_lookup.get(group_idx)
             f_calc = group.get("f", 0.0) if is_absorption else group.get("A", 0.0)
-
-            # Calculate χ² = ((calc - exp) / (calc + exp))²
-            if f_calc + f_expt != 0:
-                chi2 = ((f_calc - f_expt) / (f_calc + f_expt)) ** 2
+            if f_expt is None:
+                group_line += f" {'---':<12} {'---':<12}"
             else:
-                chi2 = 0.0
-            total_chi2 += chi2
-
-            group_line += f"  {f_expt:>13.6e}  {chi2:>13.6e}"
+                # Calculate chisqr = ((calc - exp) / (calc + exp))^2
+                if f_calc + f_expt != 0:
+                    chi2 = ((f_calc - f_expt) / (f_calc + f_expt)) ** 2
+                else:
+                    chi2 = 0.0
+                total_chi2 += chi2
+                group_line += f" {f_expt:.6e} {chi2:.6e}"
 
         lines.append(group_line)
 
@@ -1421,15 +1431,15 @@ def _format_inten(
     if spectrum.groups:
         if is_absorption:
             total_line = (
-                f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_f:>13.6e}"
+                f"{'Total':<4} {'':<11} {'':<42} {'':<42} {'':<12} {'':<12} {spectrum.total_f:.6e}"
             )
         else:
             total_line = (
-                f"{'Total':<6} {'':<50} {'':<50} {'':<14} {'':<14} {spectrum.total_A:>13.6e}"
+                f"{'Total':<4} {'':<11} {'':<42} {'':<42} {'':<12} {'':<12} {spectrum.total_A:.6e}"
             )
 
         if spectrum.expt_data and format == "brief":
-            total_line += f"  {'':<14} {total_chi2:>13.6e}"
+            total_line += f" {'':<12} {total_chi2:.6e}"
 
         lines.append(total_line)
 
@@ -1528,6 +1538,7 @@ class AltpFit:
         self.target_intensities = self._normalize_target_intensities(target_intensities)
         self.weights = weights
         self.n_obs = sum(len(t) for t in self.target_intensities)
+        self.base_altp_by_spectrum = [dict(spec.altp or {}) for spec in self.spectra]
 
         # Build parameter info: track which are complex, indices in flat vector
         self.param_info = self._build_param_info()
@@ -1649,10 +1660,13 @@ class AltpFit:
 
     def _compute_grouped_intensities(self, x: np.ndarray) -> List[np.ndarray]:
         """Compute grouped intensities for all spectra for parameter vector x."""
-        altp = self._x_to_altp(x)
+        fitted_altp_subset = self._x_to_altp(x)
         computed_all: List[np.ndarray] = []
-        for spec, target_map in zip(self.spectra, self.target_intensities):
-            spec.set_altp(altp)
+        for i, (spec, target_map) in enumerate(zip(self.spectra, self.target_intensities)):
+            # Keep non-fitted Altp parameters fixed for each spectrum.
+            full_altp = dict(self.base_altp_by_spectrum[i])
+            full_altp.update(fitted_altp_subset)
+            spec.set_altp(full_altp)
             spec.recalculate(polarization="isotropic")
             if not spec.groups:
                 return [np.full(len(target_map), np.nan)]
@@ -1754,12 +1768,15 @@ def fit_altp(
         weights=weights,
         **kwargs,
     )
+    initial_x = np.array(fitter.initial_x, copy=True)
+    initial_chi2 = fitter.objective_fn(initial_x)
 
     dry_run = bool(kwargs.get("dry_run", False))
+    reverted_to_initial = False
 
     if dry_run:
-        x_opt = np.array(fitter.initial_x, copy=True)
-        fmin = fitter.objective_fn(x_opt)
+        x_opt = initial_x
+        fmin = initial_chi2
     else:
         # Minimize using scipy
         method = kwargs.get("method", "Nelder-Mead")
@@ -1767,21 +1784,35 @@ def fit_altp(
         result = minimize(fitter.objective_fn, fitter.initial_x, method=method, options=options)
         x_opt = result.x
         fmin = result.fun
+        # Guard against regressions from non-smooth objectives/group re-ordering:
+        # never accept a solution worse than the starting point.
+        if fmin > initial_chi2:
+            x_opt = initial_x
+            fmin = initial_chi2
+            reverted_to_initial = True
 
     # Reconstruct fitted Altp
     fitted_dict = fitter._x_to_altp(x_opt)
 
     for spec in fitter.spectra:
-        spec.set_altp(fitted_dict)
+        if hasattr(spec, "update_altp"):
+            spec.update_altp(**fitted_dict)
+        else:
+            merged_altp = dict(getattr(spec, "altp", {}) or {})
+            merged_altp.update(fitted_dict)
+            spec.set_altp(merged_altp)
         spec.recalculate(polarization="isotropic")
 
     # Estimate parameter uncertainties from Hessian
     uncertainties = (
         {}
-        if dry_run
+        if dry_run or reverted_to_initial
         else _estimate_parameter_uncertainties(fitter, x_opt, fmin, param_names)
     )
     chi2_rows = fitter.per_spectrum_chi2(x_opt)
+    for spec in fitter.spectra:
+        if hasattr(spec, "altp_uncertainties"):
+            spec.altp_uncertainties = dict(uncertainties)
 
     # Build summary
     summary = "Altp Parameter Fit\n"
@@ -1790,10 +1821,13 @@ def fit_altp(
     summary += f"Number of spectra: {len(fitter.spectra)}\n"
     summary += f"Number of observations: {fitter.n_obs}\n"
     summary += f"Number of parameters: {fitter.n_p}\n"
+    summary += f"Initial chisqr: {initial_chi2:.6e}\n"
     if dry_run:
         summary += "Mode: dry_run (no optimization performed)\n"
-    summary += f"Final χ²: {fmin:.6e}\n\n"
-    summary += "Per-spectrum χ² contributions:\n"
+    elif reverted_to_initial:
+        summary += "Mode: optimization reverted to initial parameters (no improvement)\n"
+    summary += f"Final chisqr: {fmin:.6e}\n\n"
+    summary += "Per-spectrum chisqr contributions:\n"
     summary += f"{'Spectrum':<40} {'n_obs':>8} {'chi2':>16}\n"
     summary += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"
     for row in chi2_rows:
@@ -1830,12 +1864,71 @@ def fit_altp(
         "n_spectra": len(fitter.spectra),
         "chi2_by_spectrum": chi2_rows,
         "initial_altp": {pname: fitter.param_info[pname]["initial_value"] for pname in param_names},
+        "initial_chi2": initial_chi2,
+        "improved": fmin < initial_chi2,
+        "reverted_to_initial": reverted_to_initial,
         "dry_run": dry_run,
         "summary": summary,
     }
 
 
-def mh_fit_altp(
+# ---------------------------------------------------------------------------
+# Convenience wrappers for multi-spectrum operations
+# ---------------------------------------------------------------------------
+
+
+def inten_calculate(
+    spectra: Sequence[Spectrum], polarization: str = "isotropic"
+) -> None:
+    """Call calculate_intensities() on each spectrum in the list."""
+    for spec in spectra:
+        spec.calculate_intensities(polarization=polarization)
+
+
+def inten_print(
+    spectra: Union[Spectrum, Sequence[Spectrum]],
+    format: str = "brief",
+    **kwargs: Any,
+) -> None:
+    """Print gen_inten_summary() for each spectrum in the list."""
+    if isinstance(spectra, Spectrum):
+        spectra = [spectra]
+    for spec in spectra:
+        print(gen_inten_summary(spec, format=format, **kwargs))
+
+
+def inten_set_expt_data(
+    spectra: Sequence[Spectrum],
+    data_list: Sequence[Optional[List[List[float]]]],
+) -> None:
+    """Call set_expt_data() on each spectrum with its corresponding data."""
+    if len(spectra) != len(data_list):
+        raise ValueError(
+            f"spectra and data_list must have the same length "
+            f"(got {len(spectra)} and {len(data_list)})"
+        )
+    for spec, data in zip(spectra, data_list):
+        spec.set_expt_data(data)
+
+
+def inten_set_altp(
+    spectra: Sequence[Spectrum],
+    altp: Optional[Union[Mapping[str, Any], Sequence[Sequence[Any]]]],
+) -> None:
+    """Call set_altp() on every spectrum with the same Altp dict."""
+    for spec in spectra:
+        spec.set_altp(altp)
+
+
+def inten_recalculate(
+    spectra: Sequence[Spectrum], polarization: str = "isotropic"
+) -> None:
+    """Call recalculate() on each spectrum in the list."""
+    for spec in spectra:
+        spec.recalculate(polarization=polarization)
+
+
+def ms_fit_altp(
     param_names: List[str],
     spectra: Sequence[Spectrum],
     target_intensities: Optional[Sequence[Dict[int, float]]] = None,
@@ -1844,19 +1937,23 @@ def mh_fit_altp(
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """
-    mh_fit-style wrapper for multi-spectrum intensity fitting.
+    Multi-spectrum Altp parameter fitting.
 
-    Parameters are intentionally parallel to fit_altp, but this entry point
-    requires a list/sequence of Spectrum objects to make multi-spectrum intent
-    explicit in calling code.
+    Requires a list/sequence of Spectrum objects. After fitting, prints the fit
+    summary followed by an updated brief intensity table for each spectrum.
+
+    Parameters are parallel to fit_altp; see that function for details.
+    Extra kwarg ``print_summary`` (default True) can be set to False to suppress
+    automatic printing.
     """
     if isinstance(spectra, Spectrum) or not isinstance(spectra, SequenceABC):
-        raise TypeError("mh_fit_altp requires a sequence of Spectrum objects.")
+        raise TypeError("ms_fit_altp requires a sequence of Spectrum objects.")
     if len(spectra) == 0:
-        raise ValueError("mh_fit_altp requires at least one Spectrum.")
+        raise ValueError("ms_fit_altp requires at least one Spectrum.")
     if not all(isinstance(spec, Spectrum) for spec in spectra):
-        raise TypeError("mh_fit_altp requires a sequence containing only Spectrum objects.")
-    return fit_altp(
+        raise TypeError("ms_fit_altp requires a sequence containing only Spectrum objects.")
+    print_summary = kwargs.pop("print_summary", True)
+    result = fit_altp(
         param_names,
         list(spectra),
         target_intensities=target_intensities,
@@ -1864,6 +1961,10 @@ def mh_fit_altp(
         weights=weights,
         **kwargs,
     )
+    if print_summary:
+        print(result["summary"])
+        inten_print(list(spectra), format="brief")
+    return result
 
 
 def _estimate_parameter_uncertainties(

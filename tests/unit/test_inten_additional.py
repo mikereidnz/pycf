@@ -7,7 +7,8 @@ that still have missing coverage. These tests target:
 - _estimate_parameter_uncertainties
 """
 
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -15,7 +16,13 @@ import pytest
 from pycf.inten import (
     AltpFit,
     fit_altp,
-    mh_fit_altp,
+    gen_inten_summary,
+    inten_calculate,
+    inten_print,
+    inten_recalculate,
+    inten_set_altp,
+    inten_set_expt_data,
+    ms_fit_altp,
     _format_state_label_content,
     _format_state_label_short,
 )
@@ -283,24 +290,77 @@ class TestFitAltpDryRun:
         assert result["fitted_params"]["A10"] == pytest.approx(1.0)
         assert result["uncertainties"] == {}
 
+    def test_fit_altp_reverts_when_optimization_worsens_chi2(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
 
-class TestMhFitAltpWrapper:
-    """Test mh_fit_altp wrapper behavior."""
+            def set_altp(self, altp):
+                self.altp = dict(altp)
 
-    def test_mh_fit_altp_requires_sequence(self):
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        fake_result = SimpleNamespace(x=np.array([2.0]), fun=0.2)
+        with patch("pycf.inten.minimize", return_value=fake_result):
+            result = fit_altp(["A10"], spec, dry_run=False, method="Nelder-Mead")
+
+        assert result["initial_chi2"] == pytest.approx(0.0)
+        assert result["chi2"] == pytest.approx(0.0)
+        assert result["fitted_params"]["A10"] == pytest.approx(1.0)
+        assert result["reverted_to_initial"] is True
+        assert result["improved"] is False
+        assert result["uncertainties"] == {}
+
+    def test_fit_altp_keeps_nonfitted_altp_terms_fixed(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0, "A20": 2.0}
+                self.expt_data = [[1, 3.0]]
+                self.groups = [{"Energy": 1.0, "f": 3.0, "A": 0.0}]
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def update_altp(self, **updates):
+                self.altp.update(updates)
+
+            def recalculate(self, polarization="isotropic"):
+                f_val = float(self.altp.get("A10", 0.0) + self.altp.get("A20", 0.0))
+                self.groups = [{"Energy": 1.0, "f": f_val, "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        result = fit_altp(["A10"], spec, dry_run=True)
+
+        # If non-fitted terms are preserved, chi2 stays zero for matching expt_data.
+        assert result["chi2"] == pytest.approx(0.0)
+        assert spec.altp["A20"] == pytest.approx(2.0)
+
+
+class TestMsFitAltpWrapper:
+    """Test ms_fit_altp wrapper behavior."""
+
+    def test_ms_fit_altp_requires_sequence(self):
         class FakeSpectrum:
             pass
 
         with pytest.raises(TypeError, match="requires a sequence"):
-            mh_fit_altp(["A10"], FakeSpectrum())  # type: ignore[arg-type]
+            ms_fit_altp(["A10"], FakeSpectrum())  # type: ignore[arg-type]
 
-    def test_mh_fit_altp_requires_nonempty_sequence(self):
+    def test_ms_fit_altp_requires_nonempty_sequence(self):
         with pytest.raises(ValueError, match="at least one Spectrum"):
-            mh_fit_altp(["A10"], [])
+            ms_fit_altp(["A10"], [])
 
-    def test_mh_fit_altp_requires_spectrum_elements(self):
+    def test_ms_fit_altp_requires_spectrum_elements(self):
         with pytest.raises(TypeError, match="only Spectrum objects"):
-            mh_fit_altp(["A10"], ["not-a-spectrum"])  # type: ignore[list-item]
+            ms_fit_altp(["A10"], ["not-a-spectrum"])  # type: ignore[list-item]
 
 
 class TestFormattingEdgeCases:
@@ -337,5 +397,170 @@ class TestFormattingEdgeCases:
         assert isinstance(result, str)
 
 
+class TestIntensitySummaryFormatting:
+    """Test formatting behavior for missing experimental data and fit uncertainty display."""
+
+    def _make_fake_spectrum(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.altp_uncertainties = {}
+                self.expt_data = [[1, 0.8]]
+                self.groups = [
+                    {
+                        "Energy": 1.0,
+                        "e_i": 0.0,
+                        "e_f": 1.0,
+                        "g_i": 1,
+                        "g_f": 1,
+                        "t_list": [
+                            {
+                                "i": 0,
+                                "f": 1,
+                                "e": 1.0,
+                                "pc_i": 0,
+                                "pc_f": 1,
+                                "S_ED_isotropic": 0.0,
+                                "S_MD_isotropic": 0.0,
+                            }
+                        ],
+                        "f": 1.0,
+                        "A": 0.0,
+                    },
+                    {
+                        "Energy": 2.0,
+                        "e_i": 0.0,
+                        "e_f": 2.0,
+                        "g_i": 1,
+                        "g_f": 1,
+                        "t_list": [
+                            {
+                                "i": 0,
+                                "f": 2,
+                                "e": 2.0,
+                                "pc_i": 0,
+                                "pc_f": 1,
+                                "S_ED_isotropic": 0.0,
+                                "S_MD_isotropic": 0.0,
+                            }
+                        ],
+                        "f": 2.0,
+                        "A": 0.0,
+                    },
+                ]
+                self.total_f = 3.0
+                self.total_A = 0.0
+                self.eigenvalues = np.array([0.0, 1.0, 2.0])
+                self.principal_components = np.array([0, 1, 2])
+                self.hamiltonian = SimpleNamespace(tensors=[])
+                self.nrefractive = 1.0
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+                self.altp_uncertainties = {}
+
+            def update_altp(self, **updates):
+                self.altp.update(updates)
+                for name in updates:
+                    self.altp_uncertainties.pop(name, None)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups[0]["f"] = float(self.altp["A10"])
+                self.total_f = self.groups[0]["f"] + self.groups[1]["f"]
+                return self.groups
+
+        return FakeSpectrum()
+
+    def test_missing_expt_data_shows_dashes_and_skips_chisqr(self):
+        spec = self._make_fake_spectrum()
+        summary = gen_inten_summary(spec, format="brief", state_labels=["|a>", "|b>", "|c>"])
+
+        assert "chisqr" in summary
+        assert "---" in summary
+        assert "2    " in summary and "---          ---" in summary
+
+    def test_fit_uncertainty_is_appended_in_altp_block(self):
+        spec = self._make_fake_spectrum()
+
+        with patch("pycf.inten.minimize") as mock_minimize, patch(
+            "pycf.inten._estimate_parameter_uncertainties", return_value={"A10": 0.123}
+        ):
+            mock_minimize.return_value = SimpleNamespace(x=np.array([0.8]), fun=0.01)
+            fit_altp(["A10"], spec, dry_run=False)
+
+        assert spec.altp_uncertainties == {"A10": 0.123}
+        summary = gen_inten_summary(spec, format="brief", state_labels=["|a>", "|b>", "|c>"])
+        assert "A10: 0.8 +/- 0.123" in summary
+
+
+class TestConvenienceWrappers:
+    """Tests for the multi-spectrum convenience wrapper functions."""
+
+    def _make_mock_spec(self):
+        spec = MagicMock()
+        spec.name = "mock"
+        spec.altp = {"A10": 1.0}
+        spec.altp_uncertainties = {}
+        return spec
+
+    def test_inten_calculate_calls_each_spectrum(self):
+        specs = [self._make_mock_spec(), self._make_mock_spec()]
+        inten_calculate(specs)
+        for spec in specs:
+            spec.calculate_intensities.assert_called_once_with(polarization="isotropic")
+
+    def test_inten_calculate_custom_polarization(self):
+        spec = self._make_mock_spec()
+        inten_calculate([spec], polarization="linear")
+        spec.calculate_intensities.assert_called_once_with(polarization="linear")
+
+    def test_inten_print_calls_gen_inten_summary(self):
+        spec = self._make_mock_spec()
+        with patch("pycf.inten.gen_inten_summary", return_value="summary") as mock_gen:
+            with patch("builtins.print") as mock_print:
+                inten_print([spec], format="brief")
+        mock_gen.assert_called_once_with(spec, format="brief")
+        mock_print.assert_called_once_with("summary")
+
+    def test_inten_print_accepts_single_spectrum(self):
+        spec = self._make_mock_spec()
+        with patch("pycf.inten.gen_inten_summary", return_value="s") as mock_gen:
+            with patch("builtins.print"):
+                inten_print([spec])
+        mock_gen.assert_called_once()
+
+    def test_inten_set_expt_data_calls_each(self):
+        specs = [self._make_mock_spec(), self._make_mock_spec()]
+        data = [[[1, 0.5]], [[1, 0.8]]]
+        inten_set_expt_data(specs, data)
+        specs[0].set_expt_data.assert_called_once_with([[1, 0.5]])
+        specs[1].set_expt_data.assert_called_once_with([[1, 0.8]])
+
+    def test_inten_set_expt_data_length_mismatch_raises(self):
+        specs = [self._make_mock_spec(), self._make_mock_spec()]
+        with pytest.raises(ValueError, match="same length"):
+            inten_set_expt_data(specs, [[[1, 0.5]]])
+
+    def test_inten_set_altp_calls_each(self):
+        specs = [self._make_mock_spec(), self._make_mock_spec()]
+        altp = {"A10": 2.0}
+        inten_set_altp(specs, altp)
+        for spec in specs:
+            spec.set_altp.assert_called_once_with(altp)
+
+    def test_inten_recalculate_calls_each(self):
+        specs = [self._make_mock_spec(), self._make_mock_spec()]
+        inten_recalculate(specs)
+        for spec in specs:
+            spec.recalculate.assert_called_once_with(polarization="isotropic")
+
+    def test_inten_recalculate_custom_polarization(self):
+        spec = self._make_mock_spec()
+        inten_recalculate([spec], polarization="circular")
+        spec.recalculate.assert_called_once_with(polarization="circular")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
