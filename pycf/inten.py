@@ -1131,7 +1131,7 @@ def _format_state_label_with_energy(
 ) -> str:
     """Format a state label with 1-based level index and energy."""
     content = _format_state_label_content(label, label_key)
-    return f"{level:4}: |{content}> ({energy:12.6f})"
+    return f"{level:4}: |{content}> ({energy:8.2f})"
 
 
 def _format_complex_dipole(value: Union[complex, float]) -> str:
@@ -1207,7 +1207,7 @@ def _format_group_line(
 
     # Format energy as absolute value (for both absorption and emission)
     abs_energy = abs(energy)
-    energy_str = f"{abs_energy:>13.6f}"
+    energy_str = f"{abs_energy:>9.2f}"
 
     # Sum dipole strengths over all transitions in group
     total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
@@ -1353,7 +1353,7 @@ def _format_inten(
     if format not in ("brief", "detailed", "moments"):
         raise ValueError(f"Unknown format: {format}. Use 'brief', 'detailed', or 'moments'.")
 
-    lines = [f"Spectrum: {spectrum.name}"]
+    lines = [f"Spectrum: {spectrum.name}", f"Refractive index: {spectrum.nrefractive}"]
 
     # Print Altp parameters if present
     if spectrum.altp:
@@ -1421,12 +1421,12 @@ def _format_inten(
     # Header
     if is_absorption:
         header = (
-            f"{'Grp':<4} {'Energy':>13} {'':6}{'Initial State':<{label_w - 6}} "
+            f"{'Grp':<4} {'Energy':>9} {'':6}{'Initial State':<{label_w - 6}} "
             f"{'':6}{'Final State':<{label_w - 6}} {'f_ED':<12} {'f_MD':<12} {'f_Total':<12}"
         )
     else:
         header = (
-            f"{'Grp':<4} {'Energy':>13} {'':6}{'Initial State':<{label_w - 6}} "
+            f"{'Grp':<4} {'Energy':>9} {'':6}{'Initial State':<{label_w - 6}} "
             f"{'':6}{'Final State':<{label_w - 6}} {'A_ED':<12} {'A_MD':<12} {'A_Total':<12}"
         )
 
@@ -1503,11 +1503,11 @@ def _format_inten(
     if spectrum.groups:
         if is_absorption:
             total_line = (
-                f"Total{'':<13} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_f:.6e}"
+                f"Total{'':<9} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_f:.6e}"
             )
         else:
             total_line = (
-                f"Total{'':<13} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_A:.6e}"
+                f"Total{'':<9} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_A:.6e}"
             )
 
         if spectrum.expt_data and format == "brief":
@@ -2052,6 +2052,29 @@ def inten_print(
     for spec in spectra:
         print(gen_inten_summary(spec, format=format, **kwargs))
 
+    # Print grand total chi-square across all spectra with expt data
+    grand_total_chi2 = 0.0
+    has_any_expt = False
+    for spec in spectra:
+        if spec.expt_data and spec.groups:
+            has_any_expt = True
+            expt_lookup: Dict[int, float] = {}
+            for expt_entry in spec.expt_data:
+                try:
+                    if isinstance(expt_entry, (list, tuple)) and len(expt_entry) >= 2:
+                        expt_lookup[int(expt_entry[0])] = float(expt_entry[1])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            is_absorption = spec.groups[0]["Energy"] > 0
+            for group_idx, group in enumerate(spec.groups, start=1):
+                f_expt = expt_lookup.get(group_idx)
+                if f_expt is not None:
+                    f_calc = group.get("f", 0.0) if is_absorption else group.get("A", 0.0)
+                    if f_calc + f_expt != 0:
+                        grand_total_chi2 += ((f_calc - f_expt) / (f_calc + f_expt)) ** 2
+    if has_any_expt:
+        print(f"Total chisqr: {grand_total_chi2:.6e}")
+
 
 def inten_set_expt_data(
     spectra: Sequence[Spectrum],
@@ -2211,6 +2234,7 @@ def inten_plot(  # pragma: no cover
     ylim: Optional[Tuple[float, float]] = None,
     npoints: int = 10000,
     figsize: Tuple[float, float] = (12, 6),
+    comment: Optional[str] = None,
 ) -> "Tuple[Any, Any]":
     """
     Plot calculated and experimental intensities.
@@ -2233,6 +2257,8 @@ def inten_plot(  # pragma: no cover
         Number of points for energy grid (controls resolution). Default: 10000.
     figsize : tuple, optional
         Figure size (width, height) in inches. Default: (12, 6).
+    comment : str, optional
+        If provided, prepended to the plot title as ``"comment": spectrum_name``.
 
     Returns
     -------
@@ -2292,12 +2318,15 @@ def inten_plot(  # pragma: no cover
     fig, ax = plt.subplots(figsize=figsize, num=figure_name)
 
     # Plot convoluted spectrum
-    ax.plot(energy_grid, convoluted, "b-", linewidth=2, label="Calculated (convoluted)")
+    ax.plot(energy_grid, convoluted, "b-", linewidth=2, label="Calculated")
 
     # Plot stick spectrum for calculated
     ax.vlines(
         energies_arr, 0, intensities_arr, colors="blue", alpha=0.5, linewidth=1, linestyles="solid"
     )
+
+    # Mark each transition position on the x-axis
+    ax.plot(energies_arr, np.zeros_like(energies_arr), "o", color="blue", markersize=8, alpha=0.8)
 
     # If experimental data available, plot as stick lines
     if spectrum.expt_data:
@@ -2340,9 +2369,10 @@ def inten_plot(  # pragma: no cover
     else:
         ylabel = "A Coefficient (s$^{-1}$)"
     ax.set_ylabel(ylabel, fontsize=14)
-    ax.set_title(
-        f"{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)", fontsize=13, pad=20
-    )
+    title = f"{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)"
+    if comment is not None:
+        title = f'"{comment}": {title}'
+    ax.set_title(title, fontsize=13, pad=20)
     ax.set_xlim(xlim)
     if ylim is not None:
         ax.set_ylim(ylim)

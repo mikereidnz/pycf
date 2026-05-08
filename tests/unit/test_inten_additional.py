@@ -618,6 +618,7 @@ class TestConvenienceWrappers:
         spec.name = "mock"
         spec.altp = {"A10": 1.0}
         spec.altp_uncertainties = {}
+        spec.expt_data = []
         return spec
 
     def test_inten_calculate_calls_each_spectrum(self):
@@ -639,6 +640,28 @@ class TestConvenienceWrappers:
         mock_gen.assert_called_once_with(spec, format="brief")
         mock_print.assert_called_once_with("summary")
 
+    def test_inten_print_total_chisqr_printed(self):
+        """inten_print prints total chisqr when spec has expt_data in brief format."""
+        spec = self._make_mock_spec()
+        spec.expt_data = [[1, 2.0]]
+        spec.groups = [{"Energy": 100.0, "f": 2.0, "A": 0.0}]
+        with patch("pycf.inten.gen_inten_summary", return_value="s"):
+            with patch("builtins.print") as mock_print:
+                inten_print([spec], format="brief")
+        calls = [str(c) for c in mock_print.call_args_list]
+        assert any("Total chisqr" in c for c in calls)
+
+    def test_inten_print_no_total_chisqr_for_detailed(self):
+        """inten_print prints total chisqr even for detailed format."""
+        spec = self._make_mock_spec()
+        spec.expt_data = [[1, 2.0]]
+        spec.groups = [{"Energy": 100.0, "f": 2.0, "A": 0.0}]
+        with patch("pycf.inten.gen_inten_summary", return_value="s"):
+            with patch("builtins.print") as mock_print:
+                inten_print([spec], format="detailed")
+        calls = [str(c) for c in mock_print.call_args_list]
+        assert any("Total chisqr" in c for c in calls)
+
     def test_inten_print_accepts_single_spectrum(self):
         """inten_print should accept a bare Spectrum (not wrapped in a list)."""
         spec = self._make_mock_spec()
@@ -654,6 +677,7 @@ class TestConvenienceWrappers:
         # Build a minimal real Spectrum to exercise isinstance branch
         import pycf.cfl as cfl  # noqa: F401 — needed for fixture
         spec = MagicMock(spec=RealSpectrum)
+        spec.expt_data = []
         with patch("pycf.inten.gen_inten_summary", return_value="s") as mock_gen:
             with patch("builtins.print"):
                 inten_print(spec)
