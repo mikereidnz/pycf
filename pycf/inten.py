@@ -1108,7 +1108,7 @@ def _format_state_label_with_energy(
 ) -> str:
     """Format a state label with 1-based level index and energy."""
     content = _format_state_label_content(label, label_key)
-    return f"{level}: |{content}> ({energy:.6f})"
+    return f"{level:4}: |{content}> ({energy:12.6f})"
 
 
 def _format_complex_dipole(value: Union[complex, float]) -> str:
@@ -1130,6 +1130,7 @@ def _format_group_line(
     state_labels: List[Any],
     spectrum: Spectrum,
     is_absorption: bool,
+    label_w: int = 42,
 ) -> str:
     """Format one group line (Group, Initial State, Final State, f_ED, f_MD, f_Total/A_Total)."""
     t_list = group["t_list"]
@@ -1183,7 +1184,7 @@ def _format_group_line(
 
     # Format energy as absolute value (for both absorption and emission)
     abs_energy = abs(energy)
-    energy_str = f"{abs_energy:>11.6f}"
+    energy_str = f"{abs_energy:>13.6f}"
 
     # Sum dipole strengths over all transitions in group
     total_S_ED = sum(t.get("S_ED_isotropic", 0.0) for t in t_list)
@@ -1200,12 +1201,12 @@ def _format_group_line(
     # Format group line based on absorption or emission
     if is_absorption:
         line = (
-            f"{group_idx:<4} {energy_str} {initial_label:<42} {final_label:<42} "
+            f"{group_idx:<4} {energy_str} {initial_label:<{label_w}} {final_label:<{label_w}} "
             f"{f_ED:.6e} {f_MD:.6e} {f_total:.6e}"
         )
     else:
         line = (
-            f"{group_idx:<4} {energy_str} {initial_label:<42} {final_label:<42} "
+            f"{group_idx:<4} {energy_str} {initial_label:<{label_w}} {final_label:<{label_w}} "
             f"{A_ED:.6e} {A_MD:.6e} {A_total:.6e}"
         )
 
@@ -1353,16 +1354,53 @@ def _format_inten(
             except (ValueError, TypeError, IndexError):
                 continue  # Skip malformed entries silently
 
+    # Compute label column width from actual rendered labels
+    min_label_w = max(len("Initial State"), len("Final State"))  # header text minimum
+    label_w = min_label_w
+    # Resolve label_key once (same logic as _format_group_line)
+    label_key: Optional[str] = None
+    if (
+        spectrum.hamiltonian
+        and spectrum.hamiltonian.tensors
+        and spectrum.hamiltonian.tensors[0]
+    ):
+        try:
+            label_key = spectrum.hamiltonian.tensors[0].states.label_key
+        except (AttributeError, IndexError):
+            pass
+    for group in spectrum.groups:
+        t_list = group.get("t_list", [])
+        if t_list:
+            i_idx = t_list[0].get("i", 0)
+            f_idx = t_list[0].get("f", 0)
+            pc_i = t_list[0].get("pc_i", i_idx)
+            pc_f = t_list[0].get("pc_f", f_idx)
+            i_label = _format_state_label_with_energy(
+                state_labels[pc_i] if 0 <= pc_i < len(state_labels) else None,
+                i_idx + 1,
+                group["e_i"],
+                label_key,
+            )
+            f_label = _format_state_label_with_energy(
+                state_labels[pc_f] if 0 <= pc_f < len(state_labels) else None,
+                f_idx + 1,
+                group["e_f"],
+                label_key,
+            )
+            label_w = max(label_w, len(i_label), len(f_label))
+
+    label_w += 2  # always leave a small gap after the longest label
+
     # Header
     if is_absorption:
         header = (
-            f"{'Grp':<4} {'Energy':<11} {'Initial State':<42} "
-            f"{'Final State':<42} {'f_ED':<12} {'f_MD':<12} {'f_Total':<12}"
+            f"{'Grp':<4} {'Energy':>13} {'':6}{'Initial State':<{label_w - 6}} "
+            f"{'':6}{'Final State':<{label_w - 6}} {'f_ED':<12} {'f_MD':<12} {'f_Total':<12}"
         )
     else:
         header = (
-            f"{'Grp':<4} {'Energy':<11} {'Initial State':<42} "
-            f"{'Final State':<42} {'A_ED':<12} {'A_MD':<12} {'A_Total':<12}"
+            f"{'Grp':<4} {'Energy':>13} {'':6}{'Initial State':<{label_w - 6}} "
+            f"{'':6}{'Final State':<{label_w - 6}} {'A_ED':<12} {'A_MD':<12} {'A_Total':<12}"
         )
 
     # Append expt columns for brief format only
@@ -1379,7 +1417,7 @@ def _format_inten(
     total_chi2 = 0.0
     for group_idx, group in enumerate(spectrum.groups, start=1):
         # Print group line
-        group_line = _format_group_line(group, group_idx, state_labels, spectrum, is_absorption)
+        group_line = _format_group_line(group, group_idx, state_labels, spectrum, is_absorption, label_w)
 
         # Append experimental data if present (brief format only)
         if spectrum.expt_data and format == "brief":
@@ -1438,11 +1476,11 @@ def _format_inten(
     if spectrum.groups:
         if is_absorption:
             total_line = (
-                f"{'Total':<4} {'':<11} {'':<42} {'':<42} {'':<12} {'':<12} {spectrum.total_f:.6e}"
+                f"Total{'':<13} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_f:.6e}"
             )
         else:
             total_line = (
-                f"{'Total':<4} {'':<11} {'':<42} {'':<42} {'':<12} {'':<12} {spectrum.total_A:.6e}"
+                f"Total{'':<13} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_A:.6e}"
             )
 
         if spectrum.expt_data and format == "brief":
