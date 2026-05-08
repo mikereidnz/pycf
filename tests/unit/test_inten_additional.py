@@ -363,6 +363,84 @@ class TestMsFitAltpWrapper:
             ms_fit_altp(["A10"], ["not-a-spectrum"])  # type: ignore[list-item]
 
 
+class TestOptimizerDispatch:
+    """Test that fit_altp dispatches to the correct scipy optimizer."""
+
+    def _make_fake_spec(self):
+        """Return a Spectrum-like object with expt_data and an Altp."""
+        from pycf.inten import Spectrum as RealSpectrum
+        spec = MagicMock(spec=RealSpectrum)
+        spec.name = "test"
+        spec.altp = {"A10": 1.0}
+        spec.expt_data = [[1, 1.0]]
+        spec.groups = [{"Energy": 1.0, "e_i": 0.0, "e_f": 1.0, "g_i": 1, "g_f": 1,
+                        "t_list": [{"i": 0, "f": 1, "ED": 1.0, "MD": 0.0}]}]
+        return spec
+
+    def test_unknown_minimizer_raises(self):
+        with pytest.raises(ValueError, match="Unknown minimizer"):
+            with patch("pycf.inten.AltpFit") as mock_fitter_cls:
+                mock_fitter = MagicMock()
+                mock_fitter.initial_x = np.array([1.0])
+                mock_fitter.objective_fn.return_value = 0.0
+                mock_fitter_cls.return_value = mock_fitter
+                from pycf.inten import fit_altp
+                fit_altp(["A10"], MagicMock(), minimizer="not_a_real_optimizer")
+
+    def test_bounds_required_for_differential_evolution(self):
+        with pytest.raises(ValueError, match="requires a 'bounds' kwarg"):
+            with patch("pycf.inten.AltpFit") as mock_fitter_cls:
+                mock_fitter = MagicMock()
+                mock_fitter.initial_x = np.array([1.0])
+                mock_fitter.objective_fn.return_value = 0.0
+                mock_fitter_cls.return_value = mock_fitter
+                from pycf.inten import fit_altp
+                fit_altp(["A10"], MagicMock(), minimizer="differential_evolution")
+
+    def test_basinhopping_dispatch(self):
+        with patch("pycf.inten.AltpFit") as mock_fitter_cls, \
+             patch("pycf.inten.basinhopping") as mock_bh:
+            mock_fitter = MagicMock()
+            mock_fitter.initial_x = np.array([1.0])
+            mock_fitter.objective_fn.return_value = 0.0
+            mock_fitter._x_to_altp.return_value = {"A10": 1.0}
+            mock_fitter.spectra = [MagicMock()]
+            mock_fitter.spectra[0].name = "s"
+            mock_fitter.n_obs = 1
+            mock_fitter.n_p = 1
+            mock_fitter.param_names = ["A10"]
+            mock_fitter.per_spectrum_chi2.return_value = [{"name": "s", "chi2": 0.0, "n_obs": 1}]
+            mock_fitter_cls.return_value = mock_fitter
+            mock_bh.return_value = SimpleNamespace(x=np.array([1.0]), fun=0.0)
+            with patch("pycf.inten._estimate_parameter_uncertainties", return_value={}):
+                from pycf.inten import fit_altp
+                fit_altp(["A10"], MagicMock(), minimizer="basinhopping", niter=50,
+                         minimizer_kwargs={"method": "Nelder-Mead"})
+            mock_bh.assert_called_once()
+            _, bh_kwargs = mock_bh.call_args
+            assert bh_kwargs.get("niter") == 50
+
+    def test_default_uses_minimize(self):
+        with patch("pycf.inten.AltpFit") as mock_fitter_cls, \
+             patch("pycf.inten.minimize") as mock_min:
+            mock_fitter = MagicMock()
+            mock_fitter.initial_x = np.array([1.0])
+            mock_fitter.objective_fn.return_value = 0.0
+            mock_fitter._x_to_altp.return_value = {"A10": 1.0}
+            mock_fitter.spectra = [MagicMock()]
+            mock_fitter.spectra[0].name = "s"
+            mock_fitter.n_obs = 1
+            mock_fitter.n_p = 1
+            mock_fitter.param_names = ["A10"]
+            mock_fitter.per_spectrum_chi2.return_value = [{"name": "s", "chi2": 0.0, "n_obs": 1}]
+            mock_fitter_cls.return_value = mock_fitter
+            mock_min.return_value = SimpleNamespace(x=np.array([1.0]), fun=0.0)
+            with patch("pycf.inten._estimate_parameter_uncertainties", return_value={}):
+                from pycf.inten import fit_altp
+                fit_altp(["A10"], MagicMock())
+            mock_min.assert_called_once()
+
+
 class TestFormattingEdgeCases:
     """Test edge cases in formatting functions."""
 

@@ -11,7 +11,14 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from uuid import uuid4
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import (
+    minimize,
+    basinhopping,
+    differential_evolution,
+    dual_annealing,
+    shgo,
+    direct,
+)
 
 from pycf.cfl_util import L2term
 from pycf.constants import (
@@ -1745,9 +1752,31 @@ def fit_altp(
     weights : np.ndarray, optional
         Per-group weights (default: equal weights)
     **kwargs
-        Additional options passed to minimizer (e.g., method='Nelder-Mead', options={...})
-        Supports dry_run=True to evaluate chi² at the current parameter values
-        without performing optimization.
+        Additional options passed to the optimizer. Key kwargs:
+
+        ``minimizer`` : str, optional
+            Which scipy optimizer to use. Choices:
+
+            * ``"minimize"`` (default) — ``scipy.optimize.minimize``.
+              Pass ``method`` (e.g. ``"Nelder-Mead"``, ``"Powell"``,
+              ``"L-BFGS-B"``) and ``options`` dict.
+            * ``"basinhopping"`` — global search via random perturbations +
+              local minimization. Pass ``minimizer_kwargs`` (dict with
+              ``method``, ``options``) and ``niter`` (default 100).
+            * ``"differential_evolution"`` — population-based global search.
+              Requires ``bounds`` (list of ``(min, max)`` per parameter).
+            * ``"dual_annealing"`` — simulated annealing global search.
+              Requires ``bounds``; optionally pass ``x0``.
+            * ``"shgo"`` — simplicial homology global optimization.
+              Requires ``bounds``.
+            * ``"direct"`` — DIRECT algorithm global search.
+              Requires ``bounds``.
+
+        All other kwargs (except ``dry_run``) are forwarded directly to the
+        chosen optimizer.
+
+        ``dry_run`` : bool, optional
+            If True, evaluate chi² at the current parameters without fitting.
 
     Returns
     -------
@@ -1779,10 +1808,56 @@ def fit_altp(
         x_opt = initial_x
         fmin = initial_chi2
     else:
-        # Minimize using scipy
-        method = kwargs.get("method", "Nelder-Mead")
-        options = kwargs.get("options", {})
-        result = minimize(fitter.objective_fn, fitter.initial_x, method=method, options=options)
+        minimizer_name = str(kwargs.get("minimizer", "minimize")).lower()
+        optimizer_kwargs = {
+            k: v for k, v in kwargs.items()
+            if k not in ("dry_run", "minimizer")
+        }
+
+        _BOUNDS_REQUIRED = {"differential_evolution", "dual_annealing", "shgo", "direct"}
+        if minimizer_name in _BOUNDS_REQUIRED and "bounds" not in optimizer_kwargs:
+            raise ValueError(
+                f"minimizer='{minimizer_name}' requires a 'bounds' kwarg: "
+                f"a list of (min, max) tuples, one per fitted parameter."
+            )
+
+        if minimizer_name == "minimize":
+            method = optimizer_kwargs.pop("method", "Nelder-Mead")
+            options = optimizer_kwargs.pop("options", {})
+            result = minimize(
+                fitter.objective_fn, fitter.initial_x,
+                method=method, options=options, **optimizer_kwargs,
+            )
+        elif minimizer_name == "basinhopping":
+            niter = optimizer_kwargs.pop("niter", 100)
+            minimizer_kwargs = optimizer_kwargs.pop(
+                "minimizer_kwargs", {"method": "Nelder-Mead"}
+            )
+            result = basinhopping(
+                fitter.objective_fn, fitter.initial_x,
+                niter=niter, minimizer_kwargs=minimizer_kwargs,
+                **optimizer_kwargs,
+            )
+        elif minimizer_name == "differential_evolution":
+            result = differential_evolution(
+                fitter.objective_fn, **optimizer_kwargs,
+            )
+        elif minimizer_name == "dual_annealing":
+            x0 = optimizer_kwargs.pop("x0", fitter.initial_x)
+            result = dual_annealing(
+                fitter.objective_fn, x0=x0, **optimizer_kwargs,
+            )
+        elif minimizer_name == "shgo":
+            result = shgo(fitter.objective_fn, **optimizer_kwargs)
+        elif minimizer_name == "direct":
+            result = direct(fitter.objective_fn, **optimizer_kwargs)
+        else:
+            raise ValueError(
+                f"Unknown minimizer '{minimizer_name}'. "
+                f"Choose from: minimize, basinhopping, differential_evolution, "
+                f"dual_annealing, shgo, direct."
+            )
+
         x_opt = result.x
         fmin = result.fun
         # Guard against regressions from non-smooth objectives/group re-ordering:
