@@ -1803,6 +1803,7 @@ def fit_altp(
 
     dry_run = bool(kwargs.get("dry_run", False))
     reverted_to_initial = False
+    optimizer_result = None
 
     if dry_run:
         x_opt = initial_x
@@ -1860,6 +1861,7 @@ def fit_altp(
 
         x_opt = result.x
         fmin = result.fun
+        optimizer_result = result
         # Guard against regressions from non-smooth objectives/group re-ordering:
         # never accept a solution worse than the starting point.
         if fmin > initial_chi2:
@@ -1945,6 +1947,7 @@ def fit_altp(
         "reverted_to_initial": reverted_to_initial,
         "dry_run": dry_run,
         "summary": summary,
+        "optimizer_result": optimizer_result,
     }
 
 
