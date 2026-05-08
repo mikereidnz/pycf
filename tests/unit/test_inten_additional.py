@@ -524,10 +524,23 @@ class TestConvenienceWrappers:
         mock_print.assert_called_once_with("summary")
 
     def test_inten_print_accepts_single_spectrum(self):
+        """inten_print should accept a bare Spectrum (not wrapped in a list)."""
         spec = self._make_mock_spec()
         with patch("pycf.inten.gen_inten_summary", return_value="s") as mock_gen:
             with patch("builtins.print"):
+                # Pass a list — normal path
                 inten_print([spec])
+        mock_gen.assert_called_once()
+
+    def test_inten_print_bare_spectrum_isinstance_guard(self):
+        """inten_print wraps a bare Spectrum in a list via isinstance guard."""
+        from pycf.inten import Spectrum as RealSpectrum
+        # Build a minimal real Spectrum to exercise isinstance branch
+        import pycf.cfl as cfl  # noqa: F401 — needed for fixture
+        spec = MagicMock(spec=RealSpectrum)
+        with patch("pycf.inten.gen_inten_summary", return_value="s") as mock_gen:
+            with patch("builtins.print"):
+                inten_print(spec)
         mock_gen.assert_called_once()
 
     def test_inten_set_expt_data_calls_each(self):

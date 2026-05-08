@@ -1669,7 +1669,8 @@ class AltpFit:
             spec.set_altp(full_altp)
             spec.recalculate(polarization="isotropic")
             if not spec.groups:
-                return [np.full(len(target_map), np.nan)]
+                computed_all.append(np.full(len(target_map), np.nan))
+                continue
             is_absorption = spec.groups[0]["Energy"] > 0
             key = "f" if is_absorption else "A"
             computed = {group_idx: group.get(key, 0.0) for group_idx, group in enumerate(spec.groups, start=1)}

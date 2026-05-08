@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
-from pycf.inten import Spectrum, gen_inten_summary, inten_print, ms_fit_altp
+from pycf.inten import Spectrum, inten_print, ms_fit_altp
 
 
 print("\n" + "=" * 76)
@@ -86,10 +86,8 @@ spec2 = Spectrum(
 spec1.calculate_intensities()
 spec2.calculate_intensities()
 
-print("\nBefore fit (H1):")
-print(gen_inten_summary(spec1, format="brief"))
-print("\nBefore fit (H2):")
-print(gen_inten_summary(spec2, format="brief"))
+print("\nBefore fit:")
+inten_print([spec1, spec2])
 
 # ---------------------------------------------------------------------------
 # SYNTHETIC DATA BLOCK (DELETE THIS BLOCK FOR REAL EXPERIMENTAL DATA)
