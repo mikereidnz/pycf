@@ -421,6 +421,42 @@ class TestOptimizerDispatch:
             mock_bh.assert_called_once()
             _, bh_kwargs = mock_bh.call_args
             assert bh_kwargs.get("niter") == 50
+            assert bh_kwargs["minimizer_kwargs"]["method"] == "Nelder-Mead"
+
+    def test_basinhopping_strips_duplicate_bounds(self):
+        """Avoid passing bounds twice to scipy minimize via options + kwargs."""
+        with patch("pycf.inten.AltpFit") as mock_fitter_cls, \
+             patch("pycf.inten.basinhopping") as mock_bh:
+            mock_fitter = MagicMock()
+            mock_fitter.initial_x = np.array([1.0])
+            mock_fitter.objective_fn.return_value = 0.0
+            mock_fitter._x_to_altp.return_value = {"A10": 1.0}
+            mock_fitter.spectra = [MagicMock()]
+            mock_fitter.spectra[0].name = "s"
+            mock_fitter.n_obs = 1
+            mock_fitter.n_p = 1
+            mock_fitter.param_names = ["A10"]
+            mock_fitter.per_spectrum_chi2.return_value = [{"name": "s", "chi2": 0.0, "n_obs": 1}]
+            mock_fitter_cls.return_value = mock_fitter
+            mock_bh.return_value = SimpleNamespace(x=np.array([1.0]), fun=0.0)
+            bounds = [(-1.0, 1.0)]
+            with patch("pycf.inten._estimate_parameter_uncertainties", return_value={}):
+                from pycf.inten import fit_altp
+                fit_altp(
+                    ["A10"],
+                    MagicMock(),
+                    minimizer="basinhopping",
+                    bounds=bounds,
+                    minimizer_kwargs={
+                        "method": "Nelder-Mead",
+                        "options": {"maxiter": 10, "bounds": bounds},
+                    },
+                )
+
+            _, bh_kwargs = mock_bh.call_args
+            mk = bh_kwargs["minimizer_kwargs"]
+            assert mk["bounds"] == bounds
+            assert "bounds" not in mk.get("options", {})
 
     def test_default_uses_minimize(self):
         with patch("pycf.inten.AltpFit") as mock_fitter_cls, \
@@ -656,4 +692,3 @@ class TestConvenienceWrappers:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

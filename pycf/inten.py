@@ -1867,9 +1867,23 @@ def fit_altp(
             )
         elif minimizer_name == "basinhopping":
             niter = optimizer_kwargs.pop("niter", 100)
-            minimizer_kwargs = optimizer_kwargs.pop(
-                "minimizer_kwargs", {"method": "Nelder-Mead"}
+            minimizer_kwargs = dict(
+                optimizer_kwargs.pop("minimizer_kwargs", {"method": "Nelder-Mead"})
             )
+            # Allow users to pass bounds at fit_altp() top-level for consistency
+            # with other optimizers; route them into the local minimizer kwargs.
+            if "bounds" in optimizer_kwargs:
+                bh_bounds = optimizer_kwargs.pop("bounds")
+                minimizer_kwargs.setdefault("bounds", bh_bounds)
+            # SciPy minimize() passes bounds separately and then expands options.
+            # If options also contains "bounds", Nelder-Mead receives duplicate
+            # bounds and raises TypeError; normalize by promoting/removing it.
+            options = minimizer_kwargs.get("options")
+            if isinstance(options, dict) and "bounds" in options:
+                options = dict(options)
+                option_bounds = options.pop("bounds")
+                minimizer_kwargs["options"] = options
+                minimizer_kwargs.setdefault("bounds", option_bounds)
             result = basinhopping(
                 fitter.objective_fn, fitter.initial_x,
                 niter=niter, minimizer_kwargs=minimizer_kwargs,
