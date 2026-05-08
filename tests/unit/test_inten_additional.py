@@ -237,19 +237,21 @@ class TestAltpFitInitialization:
                 target_intensities={1: 0.2},
             )
 
-    def test_altp_fit_missing_expt_data_raises_when_targets_omitted(self):
-        """Require either explicit targets or usable expt_data."""
+    def test_altp_fit_empty_expt_data_contributes_zero_chi2(self):
+        """Spectrum with no expt_data is allowed; it contributes 0 to chi-square."""
         spectrum = MagicMock()
         spectrum.name = "test"
         spectrum.altp = {"A10": 1.0}
-        spectrum.expt_data = None
+        spectrum.expt_data = []
 
-        with pytest.raises(ValueError, match="has no expt_data"):
-            AltpFit(
-                param_names=["A10"],
-                spectra=spectrum,
-                target_intensities=None,
-            )
+        # Should not raise — empty target map is returned
+        fitter = AltpFit(
+            param_names=["A10"],
+            spectra=spectrum,
+            target_intensities=None,
+        )
+        assert fitter.target_intensities == [{}]
+        assert fitter.n_obs == 0
 
 
 class TestEstimateParameterUncertainties:

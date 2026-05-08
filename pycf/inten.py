@@ -1598,15 +1598,13 @@ class AltpFit:
             out = []
             for spec in self.spectra:
                 if not spec.expt_data:
-                    raise ValueError(
-                        f"Spectrum '{spec.name}' has no expt_data; pass target_intensities explicitly."
-                    )
+                    # No data for this spectrum — contributes 0 to chi-square
+                    out.append({})
+                    continue
                 mapped: Dict[int, float] = {}
                 for entry in spec.expt_data:
                     if isinstance(entry, (list, tuple)) and len(entry) >= 2:
                         mapped[int(entry[0])] = float(entry[1])
-                if not mapped:
-                    raise ValueError(f"Spectrum '{spec.name}' expt_data is empty or malformed.")
                 out.append(mapped)
             return out
 
