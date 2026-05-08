@@ -2326,7 +2326,7 @@ def inten_plot(  # pragma: no cover
     )
 
     # Mark each transition position on the x-axis
-    ax.plot(energies_arr, np.zeros_like(energies_arr), "o", color="blue", markersize=8, alpha=0.8)
+    ax.plot(energies_arr, np.zeros_like(energies_arr), "o", color="blue", markersize=4, alpha=0.7)
 
     # If experimental data available, plot as stick lines
     if spectrum.expt_data:
@@ -2371,7 +2371,7 @@ def inten_plot(  # pragma: no cover
     ax.set_ylabel(ylabel, fontsize=14)
     title = f"{spectrum.name} - Intensity Spectrum (FWHM = {fwhm} cm$^{{-1}}$)"
     if comment is not None:
-        title = f'"{comment}": {title}'
+        title = f"{comment}: {title}"
     ax.set_title(title, fontsize=13, pad=20)
     ax.set_xlim(xlim)
     if ylim is not None:
