@@ -272,10 +272,14 @@ class TestAandFCalcEdgeCases:
         S_MD = 0.0
         energy = 0.0
         g_i = 1.0
-        A, f = A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0)
+        f_ED, f_MD, f, A_ED, A_MD, A = A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.0)
         # With zero energy, both A and f should be zero
         assert A == 0.0 or np.isclose(A, 0.0)
         assert f == 0.0 or np.isclose(f, 0.0)
+        assert A_ED == 0.0 or np.isclose(A_ED, 0.0)
+        assert A_MD == 0.0 or np.isclose(A_MD, 0.0)
+        assert f_ED == 0.0 or np.isclose(f_ED, 0.0)
+        assert f_MD == 0.0 or np.isclose(f_MD, 0.0)
 
     def test_A_and_f_calc_positive_energy(self):
         """Test A_and_f_calc with positive energy."""
@@ -283,11 +287,13 @@ class TestAandFCalcEdgeCases:
         S_MD = 0.0
         energy = 500.0  # cm^-1
         g_i = 1.0  # Degeneracy
-        A, f = A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.5)
+        f_ED, f_MD, f, A_ED, A_MD, A = A_and_f_calc(S_ED, S_MD, energy, g_i, nrefractive=1.5)
         # Should have positive A and f coefficients
         assert A >= 0
         # f should be dimensionless and reasonable
         assert f >= 0
+        assert np.isclose(f, f_ED + f_MD)
+        assert np.isclose(A, A_ED + A_MD)
 
 
 class TestAddOscillatorStrengths:
@@ -314,9 +320,15 @@ class TestAddOscillatorStrengths:
         # Should have added A and f fields
         assert "f" in groups[0]
         assert "A" in groups[0]
+        assert "f_ED" in groups[0]
+        assert "f_MD" in groups[0]
+        assert "A_ED" in groups[0]
+        assert "A_MD" in groups[0]
         # Oscillator strength should be positive
         assert groups[0]["f"] >= 0
         assert groups[0]["A"] >= 0
+        assert np.isclose(groups[0]["f"], groups[0]["f_ED"] + groups[0]["f_MD"])
+        assert np.isclose(groups[0]["A"], groups[0]["A_ED"] + groups[0]["A_MD"])
 
 
 class TestNumericalStability:
@@ -338,7 +350,7 @@ class TestNumericalStability:
 
     def test_A_and_f_calc_small_energy(self):
         """Test A_and_f_calc with very small energy."""
-        A, f = A_and_f_calc(1e-20, 0.0, 1e-3, g_i=1.0, nrefractive=1.0)
+        _, _, f, _, _, A = A_and_f_calc(1e-20, 0.0, 1e-3, g_i=1.0, nrefractive=1.0)
         # Should not produce NaN or infinity
         assert np.isfinite(A)
         assert np.isfinite(f)
@@ -390,7 +402,7 @@ class TestMissingCases:
 
     def test_A_and_f_calc_with_magnetic_dipole(self):
         """Test A_and_f_calc when S_MD is non-zero."""
-        A, f = A_and_f_calc(
+        _, _, f, _, _, A = A_and_f_calc(
             S_ED=1e-20,
             S_MD=1e-21,  # Non-zero magnetic dipole strength
             energy=500.0,

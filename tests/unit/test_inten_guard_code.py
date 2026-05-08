@@ -27,7 +27,7 @@ class TestAandFCalcGuardCode:
         energy = 500.0
         g_i = 4.0
 
-        A, f = A_and_f_calc(S_ED, S_MD, energy, g_i)
+        _, _, f, _, _, A = A_and_f_calc(S_ED, S_MD, energy, g_i)
         assert np.isfinite(A)
         assert np.isfinite(f)
         assert A >= 0
@@ -60,7 +60,7 @@ class TestAandFCalcGuardCode:
         energy = 500.0
 
         for g_i in [0.1, 1.0, 2.5, 10.0]:
-            A, f = A_and_f_calc(S_ED, S_MD, energy, g_i)
+            _, _, f, _, _, A = A_and_f_calc(S_ED, S_MD, energy, g_i)
             assert np.isfinite(A), f"A not finite for g_i={g_i}"
             assert np.isfinite(f), f"f not finite for g_i={g_i}"
 

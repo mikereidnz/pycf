@@ -466,7 +466,7 @@ def group_transitions(items: List[Dict[str, Any]], tol: float = 1e-4) -> List[Di
 
 def A_and_f_calc(
     S_ED: float, S_MD: float, energy: float, g_i: float, nrefractive: float = 1.0
-) -> Tuple[float, float]:
+) -> Tuple[float, float, float, float, float, float]:
     """
     Calculate the Einstein A coefficient and oscillator strength for a transition
     with given electric and magnetic dipole strengths and transition energy.
@@ -486,10 +486,18 @@ def A_and_f_calc(
 
     Returns
     -------
-    A : float
-        Einstein A coefficient for the transition (s^-1).
+    f_ED : float
+        Electric-dipole contribution to oscillator strength.
+    f_MD : float
+        Magnetic-dipole contribution to oscillator strength.
     f : float
-        Oscillator strength (dimensionless).
+        Total oscillator strength (f_ED + f_MD).
+    A_ED : float
+        Electric-dipole contribution to Einstein A coefficient (s^-1).
+    A_MD : float
+        Magnetic-dipole contribution to Einstein A coefficient (s^-1).
+    A : float
+        Total Einstein A coefficient (A_ED + A_MD).
 
     Raises
     ------
@@ -523,16 +531,27 @@ def A_and_f_calc(
     smd = echarge * echarge * S_MD * 1e-20 * 1e-4  # {C2m2}
     oscfactor = 2 * melectron / hbar / echarge / echarge
     afactor = 1 / (4 * rpi * epsilon0) * 4 / (hbar * clight * clight * clight)
-    f = omega * oscfactor * (sed * 1 / nrefractive * chilocal + smd * nrefractive) / g_i
-    A = (
+    f_ED = omega * oscfactor * (sed * 1 / nrefractive * chilocal) / g_i
+    f_MD = omega * oscfactor * (smd * nrefractive) / g_i
+    f = f_ED + f_MD
+    A_ED = (
         omega
         * omega
         * omega
         * afactor
-        * (sed * nrefractive * chilocal + smd * nrefractive * nrefractive * nrefractive)
+        * (sed * nrefractive * chilocal)
         / g_i
     )
-    return abs(A), abs(f)
+    A_MD = (
+        omega
+        * omega
+        * omega
+        * afactor
+        * (smd * nrefractive * nrefractive * nrefractive)
+        / g_i
+    )
+    A = A_ED + A_MD
+    return abs(f_ED), abs(f_MD), abs(f), abs(A_ED), abs(A_MD), abs(A)
 
 
 def add_oscillator_strengths_and_A_coefficients(
@@ -556,14 +575,18 @@ def add_oscillator_strengths_and_A_coefficients(
     for group in groups:
         group["S_ED_isotropic"] = sum(tr["S_ED_isotropic"] for tr in group["t_list"])
         group["S_MD_isotropic"] = sum(tr["S_MD_isotropic"] for tr in group["t_list"])
-        A, f = A_and_f_calc(
+        f_ED, f_MD, f, A_ED, A_MD, A = A_and_f_calc(
             group["S_ED_isotropic"],
             group["S_MD_isotropic"],
             group["Energy"],
             group["g_i"],
             nrefractive=refractive_index,
         )
+        group["f_ED"] = f_ED
+        group["f_MD"] = f_MD
         group["A"] = A
+        group["A_ED"] = A_ED
+        group["A_MD"] = A_MD
         group["f"] = f
     # no return value since we are modifying the input list in place.
 
@@ -1195,8 +1218,14 @@ def _format_group_line(
     A_total = group.get("A", 0.0)
 
     # Decompose into ED and MD components
-    A_ED, f_ED = A_and_f_calc(total_S_ED, 0.0, energy, g_i, nrefractive=spectrum.nrefractive)
-    A_MD, f_MD = A_and_f_calc(0.0, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive)
+    f_ED = group.get("f_ED")
+    f_MD = group.get("f_MD")
+    A_ED = group.get("A_ED")
+    A_MD = group.get("A_MD")
+    if any(v is None for v in (f_ED, f_MD, A_ED, A_MD)):
+        f_ED, f_MD, _, A_ED, A_MD, _ = A_and_f_calc(
+            total_S_ED, total_S_MD, energy, g_i, nrefractive=spectrum.nrefractive
+        )
 
     # Format group line based on absorption or emission
     if is_absorption:
@@ -1249,12 +1278,10 @@ def _format_transition_line(
     else:
         f_label = f"State {f_1b}"
 
-    # Calculate f_ED, f_MD for this individual transition
-    A_ED_t, f_ED_t = A_and_f_calc(s_ed, 0.0, e_trans, g_i, nrefractive=spectrum.nrefractive)
-    A_MD_t, f_MD_t = A_and_f_calc(0.0, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
-
-    # Get transition-level total (not group total)
-    A_t, f_t = A_and_f_calc(s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive)
+    # Get transition-level ED/MD and total values
+    f_ED_t, f_MD_t, f_t, A_ED_t, A_MD_t, A_t = A_and_f_calc(
+        s_ed, s_md, e_trans, g_i, nrefractive=spectrum.nrefractive
+    )
 
     if is_absorption:
         trans_line = (
