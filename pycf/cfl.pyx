@@ -4937,6 +4937,9 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         if h.w is None or np.sum(np.abs(h.w)) == 0:
             h.diag()
 
+    # Preserve pre-fit coefficients for summary display.
+    initial_coeff = copy.deepcopy(h_list[0].coeff_dict) if h_list[0].coeff_dict is not None else {}
+
     mhfit = MHFit(parameters, h_list, weights_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
     completed_at = datetime.now()
@@ -4975,7 +4978,9 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
 
         summary += "\n"
 
-    summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, **cfl_min.kwargs)
+    summary += gen_fit_summary(
+        x, mhfit, cfl_min.method, fmin, initial_coeff=initial_coeff, **cfl_min.kwargs
+    )
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
