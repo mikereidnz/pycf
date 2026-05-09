@@ -31,11 +31,22 @@ Example
 
 from __future__ import annotations
 
-from typing import Any, Optional
+import copy
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 import numpy as np
 
-from pycf.cfl import _temporary_x
+from pycf.cfl import _temporary_x, _x_to_coeff_dict
+from pycf.cfl_util import (
+    gen_all_coeff_summary,
+    gen_completed_str,
+    gen_e_summary_trunc,
+    gen_fit_summary,
+    gen_pycf_summary,
+    jacobian_diagnostics,
+    map_sigma_by_parameter,
+)
 
 __all__ = ["PyFit"]
 
@@ -265,3 +276,208 @@ class PyFit:
         """
         _, sigma, _ = self.covariance(x=x, scale=scale, **fd_kwargs)
         return np.asarray(sigma, dtype=np.float64)
+
+    def fit_res(
+        self,
+        x0: Optional[np.ndarray] = None,
+        *,
+        method: str = "lm",
+        bounds: Any = None,
+        jac: Any = "2-point",
+        calculate_sigma: bool = True,
+        include_covariance: bool = False,
+        include_jacobian: bool = False,
+        print_summary: bool = False,
+        max_levels: Optional[int] = None,
+        nstates: int = 2,
+        covariance_scale: str = "reduced_chi2",
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Run SciPy least-squares and return an e_fit/mh_fit-like result dict."""
+        initial_coeff = None
+        if hasattr(self.efit, "h") and getattr(self.efit.h, "coeff_dict", None) is not None:
+            initial_coeff = copy.deepcopy(self.efit.h.coeff_dict)
+        elif hasattr(self.efit, "h_list") and self.efit.h_list and getattr(self.efit.h_list[0], "coeff_dict", None) is not None:
+            initial_coeff = copy.deepcopy(self.efit.h_list[0].coeff_dict)
+        else:
+            initial_coeff = {}
+
+        started_at = datetime.now()
+        result = self.fit(x0=x0, method=method, bounds=bounds, jac=jac, **kwargs)
+        completed_at = datetime.now()
+        coeff = _x_to_coeff_dict(self.efit, np.asarray(result.x, dtype=np.float64))
+
+        with _temporary_x(self.efit, np.asarray(result.x, dtype=np.float64)):
+            chi2_arr = np.asarray(self.efit.eval({}), dtype=np.float64)
+        fmin = float(np.sum(chi2_arr))
+
+        jacobian = None
+        jacobian_info: Dict[str, Any] = {}
+        jac_raw = getattr(result, "jac", None)
+        if jac_raw is not None:
+            # SciPy may return sparse Jacobians when jac_sparsity is used.
+            try:
+                if hasattr(jac_raw, "toarray"):
+                    jacobian = np.asarray(jac_raw.toarray(), dtype=np.float64)
+                else:
+                    jacobian = np.asarray(jac_raw, dtype=np.float64)
+                jacobian_info = jacobian_diagnostics(jacobian, self.efit.n_p_real)
+            except Exception:
+                jacobian = None
+                jacobian_info = {}
+
+        sigma_vector = None
+        covariance = None
+        sigma_by_param: Dict[str, Any] = {}
+        if calculate_sigma or include_covariance:
+            covariance, sigma_vector, _ = self.covariance(
+                x=np.asarray(result.x, dtype=np.float64),
+                scale=covariance_scale,
+            )
+            sigma_by_param = map_sigma_by_parameter(self.efit, sigma_vector)
+
+        summary = self._build_summary(
+            coeff=coeff,
+            method=f"scipy.least_squares/{method}",
+            fmin=fmin,
+            initial_coeff=initial_coeff,
+            include_covariance=include_covariance,
+            sigma_by_param=sigma_by_param if calculate_sigma else {},
+            covariance=covariance,
+            max_levels=max_levels,
+            nstates=nstates,
+            chi2_arr=chi2_arr,
+            started_at=started_at,
+            completed_at=completed_at,
+        )
+
+        if print_summary:
+            print(summary)
+
+        all_coeff: Dict[str, Any] = {}
+        if hasattr(self.efit, "h"):
+            self.efit.h.update_coeff(coeff)
+            self.efit.h.diag()
+            all_coeff = copy.deepcopy(self.efit.h.coeff_dict) if self.efit.h.coeff_dict is not None else {}
+        elif hasattr(self.efit, "h_list") and self.efit.h_list:
+            for h in self.efit.h_list:
+                h.update_coeff(coeff)
+                h.diag()
+            all_coeff = copy.deepcopy(self.efit.h_list[0].coeff_dict) if self.efit.h_list[0].coeff_dict is not None else {}
+
+        return {
+            "fmin": fmin,
+            "coeff": coeff,
+            "all_coeff": all_coeff,
+            "sigma": sigma_by_param if calculate_sigma else None,
+            "sigma_vector": sigma_vector if calculate_sigma else None,
+            "covariance": covariance if include_covariance else None,
+            "jacobian": jacobian if include_jacobian else None,
+            "jacobian_diagnostics": jacobian_info if (include_jacobian or calculate_sigma) else {},
+            "chi2": fmin,
+            "optimizer_result": result,
+            "summary": summary,
+        }
+
+    def _build_summary(
+        self,
+        *,
+        coeff: Dict[str, Any],
+        method: str,
+        fmin: float,
+        initial_coeff: Dict[str, Any],
+        include_covariance: bool,
+        sigma_by_param: Dict[str, Any],
+        covariance: Optional[np.ndarray],
+        max_levels: Optional[int],
+        nstates: int,
+        chi2_arr: np.ndarray,
+        started_at: datetime,
+        completed_at: datetime,
+    ) -> str:
+        ndof = max(int(self.efit.n_obs) - int(self.efit.n_p_real), 1)
+        summary = "\n=============\npyfit summary\n=============\n"
+        summary += gen_pycf_summary(started_at, suppress_input=True)
+        summary += gen_completed_str(completed_at)
+        if hasattr(self.efit, "h"):
+            h = self.efit.h
+            h.update_coeff(coeff)
+            h.diag()
+            all_coeff = h.coeff_dict if h.coeff_dict is not None else {}
+            summary += "\n"
+            summary += gen_all_coeff_summary(
+                all_coeff,
+                fitted_coeff=coeff,
+                sigma_by_param=sigma_by_param,
+                name="All Hamiltonian parameters",
+            )
+            if self.efit.ex.n_d != 0:
+                summary += h.gen_summary() + "\n\n"
+                kwargs: Dict[str, Any] = {
+                    "ex": self.efit.ex,
+                    "name": "Fitted energy levels",
+                    "chi2": float(chi2_arr[0]),
+                    "ndof": ndof,
+                    "weighting": 1,
+                    "nstates": nstates,
+                }
+                if max_levels is not None:
+                    kwargs["max_levels"] = int(max_levels)
+                summary += gen_e_summary_trunc(
+                    h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **kwargs
+                )
+            else:
+                kwargs = {
+                    "ex": self.efit.ex,
+                    "chi2": float(chi2_arr[0]),
+                    "ndof": ndof,
+                    "weighting": 1,
+                    "nstates": nstates,
+                }
+                if max_levels is not None:
+                    kwargs["max_levels"] = int(max_levels)
+                summary += h.gen_summary(**kwargs)
+        else:
+            all_coeff = (
+                self.efit.h_list[0].coeff_dict
+                if self.efit.h_list and self.efit.h_list[0].coeff_dict is not None
+                else {}
+            )
+            summary += "\n"
+            summary += gen_all_coeff_summary(
+                all_coeff,
+                fitted_coeff=coeff,
+                sigma_by_param=sigma_by_param,
+                name="All Hamiltonian parameters",
+            )
+            summary += "Multi-Hamiltonian fit\n\n"
+            for i, h in enumerate(self.efit.h_list):
+                h.update_coeff(coeff)
+                h.diag()
+                kwargs = {
+                    "ex": self.efit.ex_list[i],
+                    "name": f"Hamiltonian {i}",
+                    "chi2": float(chi2_arr[i]),
+                    "ndof": ndof,
+                    "weighting": self.efit.weights_list[i],
+                    "nstates": nstates,
+                }
+                if max_levels is not None:
+                    kwargs["max_levels"] = int(max_levels)
+                summary += gen_e_summary_trunc(
+                    h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **kwargs
+                )
+                summary += "\n"
+        fit_kwargs: Dict[str, Any] = {"n_obs": int(self.efit.n_obs), "n_param": int(self.efit.n_p_real), "retval": int(getattr(self.last_result, "status", 0))}
+        if include_covariance and covariance is not None:
+            fit_kwargs["covar"] = covariance
+        summary += gen_fit_summary(
+            coeff,
+            self.efit,
+            method=method,
+            fmin=fmin,
+            initial_coeff=initial_coeff,
+            include_covariance_matrix=include_covariance,
+            **fit_kwargs,
+        )
+        return summary

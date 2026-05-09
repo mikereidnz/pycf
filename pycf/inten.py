@@ -5,6 +5,7 @@ A rewrite of the intensity calculation to follow the old Pascal code more closel
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from operator import itemgetter
 from collections.abc import Mapping as MappingABC, Sequence as SequenceABC
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
@@ -21,7 +22,12 @@ from scipy.optimize import (
     least_squares,
 )
 
-from pycf.cfl_util import L2term
+from pycf.cfl_util import (
+    L2term,
+    gen_completed_str,
+    gen_pycf_summary,
+    jacobian_diagnostics,
+)
 from pycf.constants import (
     BOLTZMANN_CM_INVERSE,
     ELECTRON_MASS,
@@ -946,10 +952,19 @@ def gen_inten_summary(
 
 def _format_altp_param_line(spectrum: Spectrum, name: str, value: Any) -> str:
     """Format one Altp parameter line, appending uncertainty when available."""
+    def _fmt(v: Any) -> str:
+        if isinstance(v, complex):
+            return f"{float(v.real):.6e}{float(v.imag):+.6e}j"
+        if isinstance(v, (int, float, np.floating)):
+            return f"{float(v):.6e}"
+        return str(v)
+
     unc = spectrum.altp_uncertainties.get(name)
+    value_s = _fmt(value)
     if unc is None:
-        return f"  {name}: {value}"
-    return f"  {name}: {value} +/- {unc}"
+        return f"  {name:<6}: {value_s:>14}"
+    unc_s = _fmt(unc)
+    return f"  {name:<6}: {value_s:>14} +/- {unc_s:>14}"
 
 
 def _format_inten_text(
@@ -959,7 +974,8 @@ def _format_inten_text(
     state_labels: List[Any],
 ) -> str:
     """Format spectrum as a human-readable text table."""
-    lines = [f"Spectrum: {spectrum.name}", "=" * 80]
+    title = f"Spectrum: {spectrum.name}"
+    lines = ["=" * len(title), title, "=" * len(title), ""]
 
     # Print Altp parameters if present
     if spectrum.altp:
@@ -1354,7 +1370,14 @@ def _format_inten(
     if format not in ("brief", "detailed", "moments"):
         raise ValueError(f"Unknown format: {format}. Use 'brief', 'detailed', or 'moments'.")
 
-    lines = [f"Spectrum: {spectrum.name}", f"Refractive index: {spectrum.nrefractive}"]
+    title = f"Spectrum: {spectrum.name}"
+    lines = [
+        "=" * len(title),
+        title,
+        "=" * len(title),
+        f"Refractive index: {spectrum.nrefractive}",
+        "",
+    ]
 
     # Print Altp parameters if present
     if spectrum.altp:
@@ -1896,6 +1919,13 @@ def fit_altp(
         ``dry_run`` : bool, optional
             If True, evaluate chi² at the current parameters without fitting.
 
+        ``calculate_sigma`` : bool, optional
+            If True (default), estimate parameter uncertainties from the Hessian.
+        ``include_covariance`` : bool, optional
+            If True, include the estimated covariance matrix in the result dict.
+        ``include_jacobian`` : bool, optional
+            If True, include optimizer Jacobian (when available) in the result dict.
+
     Returns
     -------
     dict
@@ -1908,6 +1938,12 @@ def fit_altp(
         - 'initial_altp': initial Altp values
         - 'summary': human-readable summary string
     """
+    calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    include_covariance = bool(kwargs.pop("include_covariance", False))
+    include_jacobian = bool(kwargs.pop("include_jacobian", False))
+
+    started_at = datetime.now()
+
     # Create fitter
     fitter = AltpFit(
         param_names,
@@ -1930,7 +1966,7 @@ def fit_altp(
         minimizer_name = str(kwargs.get("minimizer", "minimize")).lower()
         optimizer_kwargs = {
             k: v for k, v in kwargs.items()
-            if k not in ("dry_run", "minimizer")
+            if k not in ("dry_run", "minimizer", "calculate_sigma", "include_covariance", "include_jacobian")
         }
 
         _BOUNDS_REQUIRED = {"differential_evolution", "dual_annealing", "shgo", "direct"}
@@ -2024,60 +2060,92 @@ def fit_altp(
         spec.recalculate(polarization="isotropic")
 
     # Estimate parameter uncertainties from Hessian
-    uncertainties = (
-        {}
-        if dry_run or reverted_to_initial
-        else _estimate_parameter_uncertainties(fitter, x_opt, fmin, param_names)
-    )
+    covariance = None
+    uncertainty_diagnostics: Dict[str, Any] = {}
+    if dry_run or reverted_to_initial or not calculate_sigma:
+        uncertainties = {}
+    else:
+        unc_result = _estimate_parameter_uncertainties(
+            fitter, x_opt, fmin, param_names, return_details=True
+        )
+        if isinstance(unc_result, tuple) and len(unc_result) == 3:
+            uncertainties, covariance, uncertainty_diagnostics = unc_result
+        else:
+            uncertainties = unc_result
+
+    jacobian = None
+    jacobian_info: Dict[str, Any] = {}
+    if optimizer_result is not None and hasattr(optimizer_result, "jac"):
+        jac = getattr(optimizer_result, "jac")
+        if jac is not None:
+            # least_squares may return a sparse Jacobian (e.g. with jac_sparsity).
+            # Convert safely for diagnostics without breaking the fit result path.
+            try:
+                if hasattr(jac, "toarray"):
+                    jacobian = np.asarray(jac.toarray(), dtype=float)
+                else:
+                    jacobian = np.asarray(jac, dtype=float)
+                jacobian_info = jacobian_diagnostics(jacobian, fitter.n_p)
+            except Exception:
+                jacobian = None
+                jacobian_info = {}
     chi2_rows = fitter.per_spectrum_chi2(x_opt)
     for spec in fitter.spectra:
         if hasattr(spec, "altp_uncertainties"):
             spec.altp_uncertainties = dict(uncertainties)
+    completed_at = datetime.now()
 
-    # Build summary
-    summary = "Altp Parameter Fit\n"
-    summary += "=" * 50 + "\n"
-    summary += f"Fitted parameters: {', '.join(param_names)}\n"
-    summary += f"Number of spectra: {len(fitter.spectra)}\n"
-    summary += f"Number of observations: {fitter.n_obs}\n"
-    summary += f"Number of parameters: {fitter.n_p}\n"
-    summary += f"Initial chisqr: {initial_chi2:.6e}\n"
+    # Build summary (parameters first; diagnostics at the end).
+    summary_main = "\n====================\n"
+    summary_main += "fit_altp summary\n"
+    summary_main += "====================\n"
+    summary_main += gen_pycf_summary(started_at, suppress_input=True)
+    summary_main += gen_completed_str(completed_at)
+    summary_main += "\n"
+
+    summary_diag = "\nFit diagnostics\n"
+    summary_diag += "===============\n"
+    summary_diag += f"Fitted parameters: {', '.join(param_names)}\n"
+    summary_diag += f"Number of spectra: {len(fitter.spectra)}\n"
+    summary_diag += f"Number of observations: {fitter.n_obs}\n"
+    summary_diag += f"Number of parameters: {fitter.n_p}\n"
+    summary_diag += f"Initial chisqr: {initial_chi2:.6e}\n"
     if dry_run:
-        summary += "Mode: dry_run (no optimization performed)\n"
+        summary_diag += "Mode: dry_run (no optimization performed)\n"
     elif reverted_to_initial:
-        summary += "Mode: optimization reverted to initial parameters (no improvement)\n"
-    summary += f"Final chisqr: {fmin:.6e}\n\n"
-    summary += "Per-spectrum chisqr contributions:\n"
-    summary += f"{'Spectrum':<40} {'n_obs':>8} {'chi2':>16}\n"
-    summary += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"
+        summary_diag += "Mode: optimization reverted to initial parameters (no improvement)\n"
+    summary_diag += f"Final chisqr: {fmin:.6e}\n\n"
+    summary_diag += "Per-spectrum chisqr contributions:\n"
+    summary_diag += f"{'Spectrum':<40} {'n_obs':>8} {'chi2':>16}\n"
+    summary_diag += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"
     for row in chi2_rows:
-        summary += f"{row['name']:<40} {row['n_obs']:>8d} {row['chi2']:>16.6e}\n"
-    summary += "\n"
-
-    summary += "Initial Altp values:\n"
-    for pname in param_names:
-        initial_val = fitter.param_info[pname]["initial_value"]
-        summary += f"  {pname}: {initial_val}\n"
-
-    summary += "\nFitted Altp values:\n"
-    summary += f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
-    summary += "-" * 108 + "\n"
+        summary_diag += f"{row['name']:<40} {row['n_obs']:>8d} {row['chi2']:>16.6e}\n"
+    summary_diag += "\nFitted parameter details:\n"
+    summary_diag += f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
+    summary_diag += "-" * 108 + "\n"
     for pname, value in fitted_dict.items():
         initial_val = fitter.param_info[pname]["initial_value"]
         diff = value - initial_val
         unc = uncertainties.get(pname, None)
-        if unc is not None:
-            unc_str = str(unc)
-        else:
-            unc_str = "n/a"
-        summary += (
+        unc_str = str(unc) if unc is not None else "n/a"
+        summary_diag += (
             f"{pname:<12} {str(initial_val):>22} {str(value):>22} "
             f"{str(diff):>22} {unc_str:>22}\n"
         )
+    if uncertainty_diagnostics:
+        summary_diag += "\nUncertainty diagnostics:\n"
+        summary_diag += f"  rank(H): {uncertainty_diagnostics.get('rank', 'n/a')} / {uncertainty_diagnostics.get('n_params', 'n/a')}\n"
+        summary_diag += f"  cond(H): {uncertainty_diagnostics.get('condition_hessian', 'n/a')}\n"
+    if jacobian_info:
+        summary_diag += "\nJacobian diagnostics:\n"
+        summary_diag += f"  rank(J): {jacobian_info.get('rank', 'n/a')} / {jacobian_info.get('n_params', 'n/a')}\n"
+        summary_diag += f"  cond(J^T J): {jacobian_info.get('condition_jtj', 'n/a')}\n"
+    summary = summary_main + "\n" + summary_diag
 
     return {
         "fitted_params": fitted_dict,
         "uncertainties": uncertainties,
+        "sigma": uncertainties,
         "chi2": fmin,
         "n_obs": fitter.n_obs,
         "n_params": fitter.n_p,
@@ -2088,8 +2156,14 @@ def fit_altp(
         "improved": fmin < initial_chi2,
         "reverted_to_initial": reverted_to_initial,
         "dry_run": dry_run,
+        "summary_main": summary_main,
+        "summary_diagnostics": summary_diag,
         "summary": summary,
         "optimizer_result": optimizer_result,
+        "covariance": covariance if include_covariance else None,
+        "jacobian": jacobian if include_jacobian else None,
+        "jacobian_diagnostics": jacobian_info,
+        "uncertainty_diagnostics": uncertainty_diagnostics,
     }
 
 
@@ -2206,8 +2280,10 @@ def ms_fit_altp(
         **kwargs,
     )
     if print_summary:
-        print(result["summary"])
+        print(result.get("summary_main", result["summary"]))
         inten_print(list(spectra), format="brief")
+        if "summary_diagnostics" in result:
+            print(result["summary_diagnostics"])
     return result
 
 
@@ -2216,7 +2292,8 @@ def _estimate_parameter_uncertainties(
     x_opt: np.ndarray,
     fmin: float,
     param_names: List[str],
-) -> Dict[str, Any]:
+    return_details: bool = False,
+) -> Any:
     """
     Estimate parameter uncertainties from the Hessian matrix.
 
@@ -2286,10 +2363,27 @@ def _estimate_parameter_uncertainties(
                 uncertainties[pname] = unc
                 idx += 1
 
+        diagnostics = {
+            "rank": int(np.linalg.matrix_rank(hessian)),
+            "n_params": int(n_params),
+            "condition_hessian": float(np.linalg.cond(hessian)),
+            "well_conditioned": bool(np.isfinite(np.linalg.cond(hessian)) and np.linalg.cond(hessian) < 1e12),
+        }
+        if return_details:
+            return uncertainties, cov, diagnostics
         return uncertainties
     except np.linalg.LinAlgError:
         # Hessian is singular or near-singular
-        return {pname: None for pname in param_names}
+        uncertainties = {pname: None for pname in param_names}
+        diagnostics = {
+            "rank": 0,
+            "n_params": int(n_params),
+            "condition_hessian": np.inf,
+            "well_conditioned": False,
+        }
+        if return_details:
+            return uncertainties, None, diagnostics
+        return uncertainties
 
 
 def inten_plot(  # pragma: no cover

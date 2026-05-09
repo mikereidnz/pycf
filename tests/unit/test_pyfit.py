@@ -196,3 +196,30 @@ def test_pyfit_stderr_shape_and_positive():
     sigma = py.stderr()
     assert sigma.shape == (py.n_p_real,)
     assert np.all(sigma >= 0.0)
+
+
+def test_pyfit_fit_res_returns_e_fit_like_payload():
+    diag = np.array([0.0, 5.0, 10.0])
+    ex = cfl.ExData(np.array([[1, 0.0], [2, 3.5], [3, 7.0]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    res = py.fit_res(method="lm", jac="pycf", max_levels=2)
+    assert "coeff" in res
+    assert "all_coeff" in res
+    assert "sigma" in res
+    assert "summary" in res
+    assert "optimizer_result" in res
+    assert "All Hamiltonian parameters" in res["summary"]
+
+
+def test_pyfit_fit_res_covariance_and_jacobian_opt_in():
+    diag = np.array([0.0, 5.0, 10.0])
+    ex = cfl.ExData(np.array([[1, 0.05], [2, 3.45], [3, 7.05]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    res = py.fit_res(method="lm", include_covariance=True, include_jacobian=True)
+    assert res["covariance"] is not None
+    assert res["jacobian"] is not None
+    assert "rank" in res["jacobian_diagnostics"]

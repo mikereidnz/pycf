@@ -1406,7 +1406,9 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
 
 def gen_fit_summary(
     coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float,
-    initial_coeff: Dict[str, Any] | None = None, **kwargs: Any
+    initial_coeff: Dict[str, Any] | None = None,
+    include_covariance_matrix: bool = True,
+    **kwargs: Any
 ) -> str:
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
@@ -1524,9 +1526,11 @@ def gen_fit_summary(
         formatter={"float": lambda x: "{:11.2f}".format(x)},  # type: ignore[arg-type]
         linewidth=200,
     )
-    if kwargs["cov"]:
+    if kwargs["cov"] and include_covariance_matrix:
         s += "\n" + uline_char("Covariance matrix:\n")
         s += str(cov) + "\n"
+        del kwargs["covar"]
+    elif kwargs["cov"]:
         del kwargs["covar"]
     del kwargs["cov"]
     s += "\nNumber of observables: {}\n".format(kwargs["n_obs"])
@@ -1543,6 +1547,71 @@ def gen_fit_summary(
         if k not in ["chi2accept", "xaccept", "covar", "jac"]:
             s += "{0:<20} {1: <}\n".format(k + ":", kwargs[k])
     return s
+
+
+def map_sigma_by_parameter(fit_obj: Any, sigma_vector: np.ndarray) -> Dict[str, Any]:
+    """Map real-valued sigma vector entries back to parameter names."""
+    sigma_by_param: Dict[str, Any] = {}
+    ii = 0
+    for p in fit_obj:
+        ptype = fit_obj.param_types[p]
+        if ptype == "c":
+            sigma_by_param[p] = complex(float(sigma_vector[ii]), float(sigma_vector[ii + 1]))
+            ii += 2
+        else:
+            sigma_by_param[p] = float(sigma_vector[ii])
+            ii += 1
+    return sigma_by_param
+
+
+def jacobian_diagnostics(jacobian: Optional[np.ndarray], n_params: int) -> Dict[str, Any]:
+    """Return basic Jacobian conditioning diagnostics."""
+    if jacobian is None:
+        return {}
+    j = np.asarray(jacobian, dtype=np.float64)
+    if j.size == 0:
+        return {"rank": 0, "n_params": int(n_params), "n_rows": int(j.shape[0]), "condition_jtj": np.inf}
+    rank = int(np.linalg.matrix_rank(j))
+    jtj = j.T @ j
+    try:
+        cond = float(np.linalg.cond(jtj))
+    except np.linalg.LinAlgError:
+        cond = np.inf
+    return {
+        "rank": rank,
+        "n_params": int(n_params),
+        "n_rows": int(j.shape[0]),
+        "condition_jtj": cond,
+        "well_conditioned": bool(np.isfinite(cond) and cond < 1e12 and rank == int(n_params)),
+    }
+
+
+def gen_all_coeff_summary(
+    all_coeff: Dict[str, Any],
+    fitted_coeff: Optional[Dict[str, Any]] = None,
+    sigma_by_param: Optional[Dict[str, Any]] = None,
+    name: str = "All Hamiltonian parameters",
+) -> str:
+    """Create a compact table showing all coefficients and fitted/sigma status."""
+    def _fmt(v: Any) -> str:
+        if isinstance(v, complex):
+            return f"{float(v.real):.6e}{float(v.imag):+.6e}j"
+        if isinstance(v, (int, float, np.floating)):
+            return f"{float(v):.6e}"
+        return str(v)
+
+    fitted_coeff = fitted_coeff or {}
+    sigma_by_param = sigma_by_param or {}
+    s = f"{name}\n"
+    s += "=" * len(name) + "\n"
+    s += "{:<14} {:>30} {:>10} {:>30}\n".format("Parameter", "Value", "Status", "Sigma")
+    s += "{}\n".format("-" * 90)
+    for p in sorted(all_coeff.keys()):
+        val = _fmt(all_coeff[p])
+        status = "fitted" if p in fitted_coeff else "fixed"
+        sig = _fmt(sigma_by_param[p]) if p in sigma_by_param else "n/a"
+        s += "{:<14} {:>30} {:>10} {:>30}\n".format(str(p), str(val), status, str(sig))
+    return s + "\n"
 
 
 def print_as_fortran_array(a: np.ndarray) -> None:

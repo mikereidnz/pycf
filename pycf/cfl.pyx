@@ -4816,8 +4816,16 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         Default: 2.
     **kwargs : optional
         Additional keyword arguments passed to EFit (e.g., fitting-specific options).
+        Output-control flags are also accepted:
+
+        - ``calculate_sigma`` (bool, default True): estimate parameter uncertainties.
+        - ``include_covariance`` (bool, default False): include covariance matrix in ``res`` and summary.
+        - ``include_jacobian`` (bool, default False): include Jacobian in ``res``.
     """
     started_at = datetime.now()
+    calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    include_covariance = bool(kwargs.pop("include_covariance", False))
+    include_jacobian = bool(kwargs.pop("include_jacobian", False))
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
@@ -4840,9 +4848,30 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     h.update_coeff(x)
     (w, z) = h.diag()
 
+    jacobian = None
+    covariance = None
+    sigma_vector = None
+    sigma_by_param = {}
+    jacobian_info = {}
+    if include_jacobian or calculate_sigma or include_covariance:
+        jacobian = efit.fd_jacobian(x=np.asarray(efit.x0, dtype=np.float64))
+        jacobian_info = jacobian_diagnostics(jacobian, efit.n_p_real)
+    if calculate_sigma or include_covariance:
+        covariance, sigma_vector, _ = efit.covariance(
+            x=np.asarray(efit.x0, dtype=np.float64), jacobian=jacobian
+        )
+        sigma_by_param = map_sigma_by_parameter(efit, sigma_vector)
+
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(efit.n_obs - efit.n_p_real, 1)
 
+    summary += "\n"
+    summary += gen_all_coeff_summary(
+        h.coeff_dict if h.coeff_dict is not None else {},
+        fitted_coeff=x,
+        sigma_by_param=sigma_by_param if calculate_sigma else {},
+        name="All Hamiltonian parameters",
+    )
     if efit.ex.n_d != 0:
         summary += h.gen_summary(**kwargs) + "\n\n"
         # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
@@ -4865,12 +4894,31 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
             gen_summary_kwargs["half_integer_states"] = h.half_integer_states
         summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **gen_summary_kwargs)
 
-    summary += "\n"
+    fit_summary_kwargs = dict(cfl_min.kwargs)
+    if include_covariance and covariance is not None:
+        fit_summary_kwargs["covar"] = covariance
     summary += gen_fit_summary(
-        x, efit, cfl_min.method, fmin, initial_coeff=initial_coeff, **cfl_min.kwargs
+        x,
+        efit,
+        cfl_min.method,
+        fmin,
+        initial_coeff=initial_coeff,
+        include_covariance_matrix=include_covariance,
+        **fit_summary_kwargs,
     )
 
-    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
+    return {
+        'fmin': fmin,
+        'coeff': x,
+        'all_coeff': copy.deepcopy(h.coeff_dict) if h.coeff_dict is not None else {},
+        'sigma': sigma_by_param if calculate_sigma else None,
+        'sigma_vector': sigma_vector if calculate_sigma else None,
+        'covariance': covariance if include_covariance else None,
+        'jacobian': jacobian if include_jacobian else None,
+        'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
+        'summary': summary,
+        **cfl_min.kwargs
+    }
 
 
 
@@ -4923,9 +4971,16 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         Number of constituent states to display for mixed states in the summary.
         Default: 2.
     **kwargs : optional
-        Additional keyword arguments passed to MHFit.
+        Additional keyword arguments passed to MHFit. Output-control flags:
+
+        - ``calculate_sigma`` (bool, default True): estimate parameter uncertainties.
+        - ``include_covariance`` (bool, default False): include covariance matrix in ``res`` and summary.
+        - ``include_jacobian`` (bool, default False): include Jacobian in ``res``.
     """
     started_at = datetime.now()
+    calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    include_covariance = bool(kwargs.pop("include_covariance", False))
+    include_jacobian = bool(kwargs.pop("include_jacobian", False))
     summary = "==============\n"
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
@@ -4946,12 +5001,32 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     summary += gen_completed_str(completed_at)
     print_completed_str(completed_at)
 
+    jacobian = None
+    covariance = None
+    sigma_vector = None
+    sigma_by_param = {}
+    jacobian_info = {}
+    if include_jacobian or calculate_sigma or include_covariance:
+        jacobian = mhfit.fd_jacobian(x=np.asarray(mhfit.x0, dtype=np.float64))
+        jacobian_info = jacobian_diagnostics(jacobian, mhfit.n_p_real)
+    if calculate_sigma or include_covariance:
+        covariance, sigma_vector, _ = mhfit.covariance(
+            x=np.asarray(mhfit.x0, dtype=np.float64), jacobian=jacobian
+        )
+        sigma_by_param = map_sigma_by_parameter(mhfit, sigma_vector)
+
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(mhfit.n_obs - mhfit.n_p_real, 1)
     h = mhfit.h_list[0]
     h.update_coeff(x)
     (w, z) = h.diag()
-    
+
+    summary += gen_all_coeff_summary(
+        h_list[0].coeff_dict if h_list[0].coeff_dict is not None else {},
+        fitted_coeff=x,
+        sigma_by_param=sigma_by_param if calculate_sigma else {},
+        name="All Hamiltonian parameters",
+    )
     # Pass minimum_q and experimental data parameters to gen_summary for first Hamiltonian
     h_summary_kwargs = {"ex": mhfit.ex_list[0], "chi2": mhfit.chi2[0], "ndof": ndof, "weighting": mhfit.weights_list[0]}
     h_summary_kwargs.update(kwargs)  # Merge user-provided kwargs
@@ -4977,12 +5052,31 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **summary_kwargs)
 
         summary += "\n"
-
+    fit_summary_kwargs = dict(cfl_min.kwargs)
+    if include_covariance and covariance is not None:
+        fit_summary_kwargs["covar"] = covariance
     summary += gen_fit_summary(
-        x, mhfit, cfl_min.method, fmin, initial_coeff=initial_coeff, **cfl_min.kwargs
+        x,
+        mhfit,
+        cfl_min.method,
+        fmin,
+        initial_coeff=initial_coeff,
+        include_covariance_matrix=include_covariance,
+        **fit_summary_kwargs,
     )
 
-    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
+    return {
+        'fmin': fmin,
+        'coeff': x,
+        'all_coeff': copy.deepcopy(h_list[0].coeff_dict) if h_list[0].coeff_dict is not None else {},
+        'sigma': sigma_by_param if calculate_sigma else None,
+        'sigma_vector': sigma_vector if calculate_sigma else None,
+        'covariance': covariance if include_covariance else None,
+        'jacobian': jacobian if include_jacobian else None,
+        'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
+        'summary': summary,
+        **cfl_min.kwargs
+    }
 
 
 def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, **kwargs):
