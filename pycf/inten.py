@@ -18,6 +18,7 @@ from scipy.optimize import (
     dual_annealing,
     shgo,
     direct,
+    least_squares,
 )
 
 from pycf.cfl_util import L2term
@@ -1789,6 +1790,55 @@ class AltpFit:
         """Objective function for minimizer."""
         return self.compute_residual(x)
 
+    def residuals(self, x: np.ndarray) -> np.ndarray:
+        """
+        Return residuals vector for least_squares optimization.
+
+        Each entry is (computed_i - target_i) / (|computed_i| + |target_i| + epsilon),
+        optionally scaled by sqrt(weight_i).  When squared and summed, this yields
+        the same chi² as compute_residual.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Parameter vector.
+
+        Returns
+        -------
+        np.ndarray
+            One-dimensional residuals vector.
+        """
+        try:
+            computed_all = self._compute_grouped_intensities(x)
+        except Exception:
+            return np.full(self.n_obs, 1e5)
+
+        residuals_list = []
+        offset = 0
+        for spec_index, (spec, computed, target_map) in enumerate(
+            zip(self.spectra, computed_all, self.target_intensities)
+        ):
+            if np.any(np.isnan(computed)):
+                # Return large residuals on NaN
+                target_vals = np.array([target_map[i] for i in sorted(target_map.keys())], dtype=float)
+                residuals_list.append(np.full_like(target_vals, 1e5))
+                continue
+
+            target_vals = np.array([target_map[i] for i in sorted(target_map.keys())], dtype=float)
+            epsilon = 1e-20
+            denominator = np.abs(computed) + np.abs(target_vals) + epsilon
+            r = (computed - target_vals) / denominator
+            
+            local_weights = self._weights_for(spec_index, len(target_vals), offset)
+            if local_weights is not None:
+                r = r * np.sqrt(local_weights)
+            
+            residuals_list.append(r)
+            offset += len(target_vals)
+
+        return np.concatenate(residuals_list)
+
+
 
 def fit_altp(
     param_names: List[str],
@@ -1823,6 +1873,11 @@ def fit_altp(
             * ``"minimize"`` (default) — ``scipy.optimize.minimize``.
               Pass ``method`` (e.g. ``"Nelder-Mead"``, ``"Powell"``,
               ``"L-BFGS-B"``) and ``options`` dict.
+            * ``"least_squares"`` — ``scipy.optimize.least_squares``.
+              Pass ``method`` (``"lm"``, ``"trf"``, or ``"dogbox"``,
+              default ``"lm"``). Efficient for well-behaved least-squares
+              problems; ``"lm"`` is Levenberg-Marquardt. ``"trf"`` and
+              ``"dogbox"`` support ``bounds``.
             * ``"basinhopping"`` — global search via random perturbations +
               local minimization. Pass ``minimizer_kwargs`` (dict with
               ``method``, ``options``) and ``niter`` (default 100).
@@ -1892,6 +1947,12 @@ def fit_altp(
                 fitter.objective_fn, fitter.initial_x,
                 method=method, options=options, **optimizer_kwargs,
             )
+        elif minimizer_name == "least_squares":
+            method = optimizer_kwargs.pop("method", "lm")
+            result = least_squares(
+                fitter.residuals, fitter.initial_x,
+                method=method, **optimizer_kwargs,
+            )
         elif minimizer_name == "basinhopping":
             niter = optimizer_kwargs.pop("niter", 100)
             minimizer_kwargs = dict(
@@ -1932,12 +1993,16 @@ def fit_altp(
         else:
             raise ValueError(
                 f"Unknown minimizer '{minimizer_name}'. "
-                f"Choose from: minimize, basinhopping, differential_evolution, "
-                f"dual_annealing, shgo, direct."
+                f"Choose from: minimize, least_squares, basinhopping, "
+                f"differential_evolution, dual_annealing, shgo, direct."
             )
 
         x_opt = result.x
-        fmin = result.fun
+        # least_squares returns result.cost (0.5 * sum(residuals^2)); others return result.fun (scalar)
+        if minimizer_name == "least_squares":
+            fmin = 2.0 * result.cost  # chi2 = sum(residuals^2) = 2 * cost
+        else:
+            fmin = result.fun
         optimizer_result = result
         # Guard against regressions from non-smooth objectives/group re-ordering:
         # never accept a solution worse than the starting point.
