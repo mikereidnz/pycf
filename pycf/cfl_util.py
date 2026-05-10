@@ -1941,24 +1941,24 @@ def update_coeff(coeff: dict, updates: dict) -> dict:
 
 
 def compute_chi2_numpy(efit: "cfl.EFit") -> float:
-    """Compute chi² from fitted eigenvalues and experimental data.
-    
+    r"""Compute chi² from fitted eigenvalues and experimental data.
+
     Vectorized NumPy computation matching C objective: sum(w * residual²).
     Used by both marker-column fits (via Cython objective wrapper) and
     display functions. Shared source of truth for chi² calculation.
-    
+
     Parameters
     ----------
     efit : cfl.EFit or object with h and ex attributes
         EFit instance (or similar) with diagonalized Hamiltonian and experimental data.
-        Must have: efit.h (Hamiltonian with eigenvalues w),
-                   efit.ex (ExData with la, e, w).
-    
+        Must have: ``efit.h`` (Hamiltonian with eigenvalues w),
+                   ``efit.ex`` (ExData with la, e, w).
+
     Returns
     -------
     float
-        Sum of weighted squared residuals: sum(w_i * (E_fitted - E_expt)²)
-    
+        Sum of weighted squared residuals: ``sum(w_i * (E_fitted - E_expt)²)``
+
     Raises
     ------
     ValueError

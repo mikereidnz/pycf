@@ -1819,9 +1819,9 @@ class AltpFit:
         """
         Return residuals vector for least_squares optimization.
 
-        Each entry is (computed_i - target_i) / (|computed_i| + |target_i| + epsilon),
-        optionally scaled by sqrt(weight_i).  When squared and summed, this yields
-        the same chi² as compute_residual.
+        Each entry is ``(computed_i - target_i) / (|computed_i| + |target_i| + epsilon)``,
+        optionally scaled by ``sqrt(weight_i)``.  When squared and summed, this yields
+        the same chi² as ``compute_residual``.
 
         Parameters
         ----------
