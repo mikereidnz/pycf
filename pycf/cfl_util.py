@@ -1957,9 +1957,10 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     Parameters
     ----------
     efit : cfl.EFit or object with h and ex attributes
-        EFit instance (or similar) with diagonalized Hamiltonian and experimental data.
-        Must have: ``efit.h`` (Hamiltonian with eigenvalues w),
-                   ``efit.ex`` (ExData with la, e, w).
+        EFit instance (or similar) with diagonalized Hamiltonian and
+        experimental data.
+        Must have: ``efit.h`` (Hamiltonian with eigenvalues w) and
+        ``efit.ex`` (ExData with la, e, w).
 
     Returns
     -------
