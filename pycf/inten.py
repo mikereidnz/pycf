@@ -2242,7 +2242,28 @@ def fit_altp(
             f"{jacobian_info.get('n_params', 'n/a')}\n"
         )
         summary_diag += f"  cond(J^T J): {jacobian_info.get('condition_jtj', 'n/a')}\n"
-    summary = summary_main + "\n" + summary_diag
+    # Build per-spectrum intensity summaries (single Altp table is already in summary_main).
+    spectra_summary_blocks: List[str] = []
+    for spec in fitter.spectra:
+        groups = getattr(spec, "groups", None)
+        if not isinstance(groups, list) or len(groups) == 0:
+            continue
+        first_group = groups[0]
+        if not isinstance(first_group, dict) or "t_list" not in first_group:
+            continue
+        spectra_summary_blocks.append(
+            gen_inten_summary(
+                spec,
+                format="brief",
+                include_altp_parameters=False,
+            )
+        )
+    summary_spectra = "\n\n".join(spectra_summary_blocks)
+
+    if summary_spectra:
+        summary = summary_main + "\n" + summary_spectra + "\n\n" + summary_diag
+    else:
+        summary = summary_main + "\n" + summary_diag
 
     return {
         "fitted_params": fitted_dict,
@@ -2259,6 +2280,7 @@ def fit_altp(
         "reverted_to_initial": reverted_to_initial,
         "dry_run": dry_run,
         "summary_main": summary_main,
+        "summary_spectra": summary_spectra,
         "summary_diagnostics": summary_diag,
         "summary": summary,
         "optimizer_result": optimizer_result,
@@ -2351,41 +2373,6 @@ def inten_recalculate(spectra: Sequence[Spectrum], polarization: str = "isotropi
     """Call recalculate() on each spectrum in the list."""
     for spec in spectra:
         spec.recalculate(polarization=polarization)
-
-
-def ms_fit_altp(
-    param_names: List[str],
-    spectra: Union[Spectrum, Sequence[Spectrum]],
-    target_intensities: Optional[Union[Dict[int, float], Sequence[Dict[int, float]]]] = None,
-    cfl_min: Optional[Any] = None,
-    weights: Optional[Union[np.ndarray, Sequence[np.ndarray]]] = None,
-    **kwargs: Any,
-) -> Dict[str, Any]:
-    """
-    Backward-compatible alias for fit_altp.
-
-    Accepts the same parameters as fit_altp. Extra kwarg ``print_summary``
-    (default True) controls printing of summary/intensity tables.
-    """
-    if isinstance(spectra, Spectrum) or not isinstance(spectra, SequenceABC):
-        spectra_list = [spectra]
-    else:
-        spectra_list = list(spectra)
-    print_summary = kwargs.pop("print_summary", True)
-    result = fit_altp(
-        param_names,
-        spectra_list,
-        target_intensities=target_intensities,
-        cfl_min=cfl_min,
-        weights=weights,
-        **kwargs,
-    )
-    if print_summary:
-        print(result.get("summary_main", result["summary"]))
-        inten_print(spectra_list, format="brief", include_altp_parameters=False)
-        if "summary_diagnostics" in result:
-            print(result["summary_diagnostics"])
-    return result
 
 
 def _estimate_parameter_uncertainties(
