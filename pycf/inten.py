@@ -27,6 +27,8 @@ from pycf.cfl_util import (
     gen_completed_str,
     gen_pycf_summary,
     jacobian_diagnostics,
+    print_completed_str,
+    print_pycf_details,
 )
 from pycf.constants import (
     BOLTZMANN_CM_INVERSE,
@@ -1921,6 +1923,8 @@ def fit_altp(
 
         ``calculate_sigma`` : bool, optional
             If True (default), estimate parameter uncertainties from the Hessian.
+            If covariance or Jacobian output is requested, sigma estimation is
+            automatically enabled.
         ``include_covariance`` : bool, optional
             If True, include the estimated covariance matrix in the result dict.
         ``include_jacobian`` : bool, optional
@@ -1938,11 +1942,18 @@ def fit_altp(
         - 'initial_altp': initial Altp values
         - 'summary': human-readable summary string
     """
-    calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    requested_calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
     include_covariance = bool(kwargs.pop("include_covariance", False))
     include_jacobian = bool(kwargs.pop("include_jacobian", False))
+    is_dry_run = bool(kwargs.get("dry_run", False))
+    sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian) and (not is_dry_run)
+    if sigma_forced:
+        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+    calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
 
+    summary_title = str(kwargs.pop("_summary_title", "fit_altp summary"))
     started_at = datetime.now()
+    print_pycf_details(started_at)
 
     # Create fitter
     fitter = AltpFit(
@@ -2062,7 +2073,7 @@ def fit_altp(
     # Estimate parameter uncertainties from Hessian
     covariance = None
     uncertainty_diagnostics: Dict[str, Any] = {}
-    if dry_run or reverted_to_initial or not calculate_sigma:
+    if dry_run or reverted_to_initial or (not calculate_sigma and not include_covariance):
         uncertainties = {}
     else:
         unc_result = _estimate_parameter_uncertainties(
@@ -2072,6 +2083,8 @@ def fit_altp(
             uncertainties, covariance, uncertainty_diagnostics = unc_result
         else:
             uncertainties = unc_result
+        if not calculate_sigma:
+            uncertainties = {}
 
     jacobian = None
     jacobian_info: Dict[str, Any] = {}
@@ -2094,10 +2107,11 @@ def fit_altp(
         if hasattr(spec, "altp_uncertainties"):
             spec.altp_uncertainties = dict(uncertainties)
     completed_at = datetime.now()
+    print_completed_str(completed_at)
 
     # Build summary (parameters first; diagnostics at the end).
     summary_main = "\n====================\n"
-    summary_main += "fit_altp summary\n"
+    summary_main += f"{summary_title}\n"
     summary_main += "====================\n"
     summary_main += gen_pycf_summary(started_at, suppress_input=True)
     summary_main += gen_completed_str(completed_at)
@@ -2162,7 +2176,8 @@ def fit_altp(
         "optimizer_result": optimizer_result,
         "covariance": covariance if include_covariance else None,
         "jacobian": jacobian if include_jacobian else None,
-        "jacobian_diagnostics": jacobian_info,
+        "jacobian_diagnostics": jacobian_info if (include_jacobian or calculate_sigma) else {},
+        "sigma_forced": sigma_forced,
         "uncertainty_diagnostics": uncertainty_diagnostics,
     }
 
@@ -2277,6 +2292,7 @@ def ms_fit_altp(
         target_intensities=target_intensities,
         cfl_min=cfl_min,
         weights=weights,
+        _summary_title="ms_fit_altp summary",
         **kwargs,
     )
     if print_summary:

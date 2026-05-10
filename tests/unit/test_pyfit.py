@@ -223,3 +223,30 @@ def test_pyfit_fit_res_covariance_and_jacobian_opt_in():
     assert res["covariance"] is not None
     assert res["jacobian"] is not None
     assert "rank" in res["jacobian_diagnostics"]
+
+
+def test_pyfit_fit_res_prints_pycf_details(capsys):
+    diag = np.array([0.0, 5.0, 10.0])
+    ex = cfl.ExData(np.array([[1, 0.0], [2, 3.5], [3, 7.0]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    py.fit_res(method="lm")
+    out = capsys.readouterr().out
+    assert "pycf details" in out
+    assert "Calculation started at:" in out
+    assert "Calculation completed at:" in out
+
+
+def test_pyfit_fit_res_forces_sigma_for_covariance(capsys):
+    diag = np.array([0.0, 5.0, 10.0])
+    ex = cfl.ExData(np.array([[1, 0.05], [2, 3.45], [3, 7.05]]))
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    res = py.fit_res(method="lm", calculate_sigma=False, include_covariance=True)
+    assert res["sigma"] is not None
+    assert res["sigma_vector"] is not None
+    assert res["covariance"] is not None
+    assert res["sigma_forced"] is True
+    assert "calculate_sigma assumed True" in capsys.readouterr().out

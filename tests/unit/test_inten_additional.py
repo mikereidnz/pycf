@@ -345,6 +345,65 @@ class TestFitAltpDryRun:
         assert result["chi2"] == pytest.approx(0.0)
         assert spec.altp["A20"] == pytest.approx(2.0)
 
+    def test_fit_altp_prints_pycf_details(self, capsys):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        fit_altp(["A10"], spec, dry_run=True)
+        out = capsys.readouterr().out
+        assert "pycf details" in out
+        assert "Calculation started at:" in out
+        assert "Calculation completed at:" in out
+
+    def test_fit_altp_include_covariance_without_sigma(self, capsys):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+                self.altp_uncertainties = {}
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        cov = np.array([[0.25]])
+        with patch(
+            "pycf.inten._estimate_parameter_uncertainties",
+            return_value=({"A10": 0.5}, cov, {"rank": 1}),
+        ):
+            result = fit_altp(
+                ["A10"],
+                spec,
+                dry_run=False,
+                calculate_sigma=False,
+                include_covariance=True,
+            )
+
+        assert result["covariance"] is cov
+        assert result["uncertainties"] == {"A10": 0.5}
+        assert result["sigma"] == {"A10": 0.5}
+        assert result["jacobian_diagnostics"] == {}
+        assert result["sigma_forced"] is True
+        assert "calculate_sigma assumed True" in capsys.readouterr().out
+
 
 class TestMsFitAltpWrapper:
     """Test ms_fit_altp wrapper behavior."""
@@ -363,6 +422,16 @@ class TestMsFitAltpWrapper:
     def test_ms_fit_altp_requires_spectrum_elements(self):
         with pytest.raises(TypeError, match="only Spectrum objects"):
             ms_fit_altp(["A10"], ["not-a-spectrum"])  # type: ignore[list-item]
+
+    def test_ms_fit_altp_sets_wrapper_summary_title(self):
+        class FakeSpectrum:
+            pass
+
+        fake_spec = FakeSpectrum()
+        with patch("pycf.inten.Spectrum", FakeSpectrum):
+            with patch("pycf.inten.fit_altp", return_value={"summary": "ok"}) as mock_fit:
+                ms_fit_altp(["A10"], [fake_spec], print_summary=False)
+        assert mock_fit.call_args.kwargs["_summary_title"] == "ms_fit_altp summary"
 
 
 class TestOptimizerDispatch:

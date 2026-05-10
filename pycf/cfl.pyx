@@ -4821,11 +4821,17 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         - ``calculate_sigma`` (bool, default True): estimate parameter uncertainties.
         - ``include_covariance`` (bool, default False): include covariance matrix in ``res`` and summary.
         - ``include_jacobian`` (bool, default False): include Jacobian in ``res``.
+          If covariance or Jacobian output is requested, sigma estimation is automatically enabled.
     """
     started_at = datetime.now()
-    calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    requested_calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
     include_covariance = bool(kwargs.pop("include_covariance", False))
     include_jacobian = bool(kwargs.pop("include_jacobian", False))
+    is_dry_run = bool(kwargs.get("dry_run", False))
+    sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian) and (not is_dry_run)
+    if sigma_forced:
+        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+    calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
@@ -4853,10 +4859,12 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     sigma_vector = None
     sigma_by_param = {}
     jacobian_info = {}
-    if include_jacobian or calculate_sigma or include_covariance:
+    # Only compute sigma/jacobian if fit actually ran (not in dry_run mode)
+    is_dry_run = cfl_min.kwargs.get('dry_run', False)
+    if not is_dry_run and (include_jacobian or calculate_sigma or include_covariance):
         jacobian = efit.fd_jacobian(x=np.asarray(efit.x0, dtype=np.float64))
         jacobian_info = jacobian_diagnostics(jacobian, efit.n_p_real)
-    if calculate_sigma or include_covariance:
+    if not is_dry_run and (calculate_sigma or include_covariance):
         covariance, sigma_vector, _ = efit.covariance(
             x=np.asarray(efit.x0, dtype=np.float64), jacobian=jacobian
         )
@@ -4918,6 +4926,7 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         'covariance': covariance if include_covariance else None,
         'jacobian': jacobian if include_jacobian else None,
         'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
+        'sigma_forced': sigma_forced,
         'summary': summary,
         **cfl_min.kwargs
     }
@@ -4978,11 +4987,17 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         - ``calculate_sigma`` (bool, default True): estimate parameter uncertainties.
         - ``include_covariance`` (bool, default False): include covariance matrix in ``res`` and summary.
         - ``include_jacobian`` (bool, default False): include Jacobian in ``res``.
+          If covariance or Jacobian output is requested, sigma estimation is automatically enabled.
     """
     started_at = datetime.now()
-    calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    requested_calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
     include_covariance = bool(kwargs.pop("include_covariance", False))
     include_jacobian = bool(kwargs.pop("include_jacobian", False))
+    is_dry_run = bool(kwargs.get("dry_run", False))
+    sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian) and (not is_dry_run)
+    if sigma_forced:
+        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+    calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
     summary = "==============\n"
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
@@ -5008,10 +5023,12 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     sigma_vector = None
     sigma_by_param = {}
     jacobian_info = {}
-    if include_jacobian or calculate_sigma or include_covariance:
+    # Only compute sigma/jacobian if fit actually ran (not in dry_run mode)
+    is_dry_run = cfl_min.kwargs.get('dry_run', False)
+    if not is_dry_run and (include_jacobian or calculate_sigma or include_covariance):
         jacobian = mhfit.fd_jacobian(x=np.asarray(mhfit.x0, dtype=np.float64))
         jacobian_info = jacobian_diagnostics(jacobian, mhfit.n_p_real)
-    if calculate_sigma or include_covariance:
+    if not is_dry_run and (calculate_sigma or include_covariance):
         covariance, sigma_vector, _ = mhfit.covariance(
             x=np.asarray(mhfit.x0, dtype=np.float64), jacobian=jacobian
         )
@@ -5078,6 +5095,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         'covariance': covariance if include_covariance else None,
         'jacobian': jacobian if include_jacobian else None,
         'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
+        'sigma_forced': sigma_forced,
         'summary': summary,
         **cfl_min.kwargs
     }

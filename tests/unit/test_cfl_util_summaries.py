@@ -439,6 +439,87 @@ class TestGenFitSummary:
 
 
 # ---------------------------------------------------------------------------
+# gen_all_coeff_summary
+# ---------------------------------------------------------------------------
+
+
+class TestGenAllCoeffSummary:
+    def test_parameter_order_matches_domain_priority(self):
+        all_coeff = {
+            "ZZ": 1.0,
+            "Q2": 1.0,
+            "A2": 1.0,
+            "M2": 1.0,
+            "MY": 1.0,
+            "C44": 1.0,
+            "C20": 1.0,
+            "PTOT": 1.0,
+            "MTOT": 1.0,
+            "ZETA": 1.0,
+            "T8": 1.0,
+            "T2": 1.0,
+            "GAMMA": 1.0,
+            "BETA": 1.0,
+            "ALPHA": 1.0,
+            "F9": 1.0,
+            "FTOT": 1.0,
+            "F6": 1.0,
+            "F4": 1.0,
+            "F2": 1.0,
+            "EAVG": 1.0,
+            "MX": 1.0,
+            "MZ": 1.0,
+            "A": 1.0,
+            "Q": 1.0,
+            "C2": 1.0,
+            "c4": 1.0,
+            "C64": 1.0,
+            "MABC": 1.0,
+            "X10": 1.0,
+            "X2": 1.0,
+        }
+        s = cfl_util.gen_all_coeff_summary(all_coeff)
+
+        lines = s.splitlines()
+        dash_idx = next(i for i, line in enumerate(lines) if set(line) == {"-"})
+        params = [line.split()[0] for line in lines[dash_idx + 1 :] if line.strip()]
+
+        assert params == [
+            "EAVG",
+            "F2",
+            "F4",
+            "F6",
+            "FTOT",
+            "F9",
+            "ALPHA",
+            "BETA",
+            "GAMMA",
+            "T2",
+            "T8",
+            "ZETA",
+            "MTOT",
+            "PTOT",
+            "C2",
+            "c4",
+            "C20",
+            "C44",
+            "C64",
+            "MX",
+            "MY",
+            "MZ",
+            "M2",
+            "MABC",
+            "A",
+            "A2",
+            "Q",
+            "Q2",
+            "X2",
+            "X10",
+            "ZZ",
+        ]
+
+
+# ---------------------------------------------------------------------------
 # print_as_fortran_array / print_as_c_array
 # ---------------------------------------------------------------------------
 

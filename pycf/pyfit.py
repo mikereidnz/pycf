@@ -46,6 +46,8 @@ from pycf.cfl_util import (
     gen_pycf_summary,
     jacobian_diagnostics,
     map_sigma_by_parameter,
+    print_completed_str,
+    print_pycf_details,
 )
 
 __all__ = ["PyFit"]
@@ -294,6 +296,12 @@ class PyFit:
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Run SciPy least-squares and return an e_fit/mh_fit-like result dict."""
+        requested_calculate_sigma = bool(calculate_sigma)
+        sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian)
+        if sigma_forced:
+            print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+        calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
+
         initial_coeff = None
         if hasattr(self.efit, "h") and getattr(self.efit.h, "coeff_dict", None) is not None:
             initial_coeff = copy.deepcopy(self.efit.h.coeff_dict)
@@ -303,8 +311,10 @@ class PyFit:
             initial_coeff = {}
 
         started_at = datetime.now()
+        print_pycf_details(started_at)
         result = self.fit(x0=x0, method=method, bounds=bounds, jac=jac, **kwargs)
         completed_at = datetime.now()
+        print_completed_str(completed_at)
         coeff = _x_to_coeff_dict(self.efit, np.asarray(result.x, dtype=np.float64))
 
         with _temporary_x(self.efit, np.asarray(result.x, dtype=np.float64)):
@@ -376,6 +386,7 @@ class PyFit:
             "covariance": covariance if include_covariance else None,
             "jacobian": jacobian if include_jacobian else None,
             "jacobian_diagnostics": jacobian_info if (include_jacobian or calculate_sigma) else {},
+            "sigma_forced": sigma_forced,
             "chi2": fmin,
             "optimizer_result": result,
             "summary": summary,

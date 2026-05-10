@@ -31,6 +31,7 @@ calculation results to users.
 import inspect
 import logging
 import os
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -1603,11 +1604,70 @@ def gen_all_coeff_summary(
     name: str = "All Hamiltonian parameters",
 ) -> str:
     """Create a compact table showing all coefficients and fitted/sigma status."""
+    def _natural_sort_key(text: str) -> Tuple[Any, ...]:
+        return tuple(
+            int(tok) if tok.isdigit() else tok
+            for tok in re.findall(r"\d+|[^\d]+", text)
+        )
+
+    def _all_coeff_sort_key(param: str) -> Tuple[int, int, Tuple[Any, ...], str]:
+        u = str(param).upper()
+
+        if u == "EAVG":
+            return (0, 0, (), u)
+
+        f_priority = {"F2": 0, "F4": 1, "F6": 2}
+        if u in f_priority:
+            return (1, f_priority[u], (), u)
+        if u == "FTOT":
+            return (2, 0, (), u)
+        if u.startswith("F"):
+            return (3, 0, _natural_sort_key(u), u)
+
+        if u == "ALPHA":
+            return (4, 0, (), u)
+        if u == "BETA":
+            return (5, 0, (), u)
+        if u == "GAMMA":
+            return (6, 0, (), u)
+
+        t_priority = {"T2": 0, "T3": 1, "T4": 2, "T6": 3, "T7": 4, "T8": 5}
+        if u in t_priority:
+            return (7, t_priority[u], (), u)
+
+        if u == "ZETA":
+            return (8, 0, (), u)
+        if u == "MTOT":
+            return (9, 0, (), u)
+        if u == "PTOT":
+            return (10, 0, (), u)
+
+        if u.startswith("C"):
+            return (11, 0, _natural_sort_key(u), u)
+
+        m_priority = {"MX": 0, "MY": 1, "MZ": 2}
+        if u in m_priority:
+            return (12, m_priority[u], (), u)
+        if u.startswith("M"):
+            return (13, 0, _natural_sort_key(u), u)
+
+        if u == "A":
+            return (14, 0, (), u)
+        if u.startswith("A"):
+            return (15, 0, _natural_sort_key(u), u)
+
+        if u == "Q":
+            return (16, 0, (), u)
+        if u.startswith("Q"):
+            return (17, 0, _natural_sort_key(u), u)
+
+        return (99, 0, _natural_sort_key(u), u)
+
     def _fmt(v: Any) -> str:
         if isinstance(v, complex):
-            return f"{float(v.real):.6e}{float(v.imag):+.6e}j"
+            return f"{float(v.real):13.5f}{float(v.imag):+13.5f}j"
         if isinstance(v, (int, float, np.floating)):
-            return f"{float(v):.6e}"
+            return f"{float(v):13.5f}"
         return str(v)
 
     fitted_coeff = fitted_coeff or {}
@@ -1616,7 +1676,7 @@ def gen_all_coeff_summary(
     s += "=" * len(name) + "\n"
     s += "{:<14} {:>30} {:>10} {:>30}\n".format("Parameter", "Value", "Status", "Sigma")
     s += "{}\n".format("-" * 90)
-    for p in sorted(all_coeff.keys()):
+    for p in sorted(all_coeff.keys(), key=lambda x: _all_coeff_sort_key(str(x))):
         val = _fmt(all_coeff[p])
         status = "fitted" if p in fitted_coeff else "fixed"
         sig = _fmt(sigma_by_param[p]) if p in sigma_by_param else "n/a"
