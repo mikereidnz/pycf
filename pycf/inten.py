@@ -1967,6 +1967,22 @@ def fit_altp(
     initial_chi2 = fitter.objective_fn(initial_x)
 
     dry_run = bool(kwargs.get("dry_run", False))
+    minimizer_name = str(kwargs.get("minimizer", "minimize")).lower()
+    minimization_method = minimizer_name
+    if minimizer_name == "minimize":
+        method_hint = str(kwargs.get("method", "Nelder-Mead")).strip()
+        minimization_method = f"{minimizer_name}/{method_hint}"
+    elif minimizer_name == "least_squares":
+        method_hint = str(kwargs.get("method", "lm")).strip()
+        minimization_method = f"{minimizer_name}/{method_hint}"
+    elif minimizer_name == "basinhopping":
+        minimizer_kwargs_raw = kwargs.get("minimizer_kwargs")
+        if isinstance(minimizer_kwargs_raw, Mapping):
+            bh_method = minimizer_kwargs_raw.get("method", "Nelder-Mead")
+            method_hint = str(bh_method).strip()
+        else:
+            method_hint = "Nelder-Mead"
+        minimization_method = f"{minimizer_name}/{method_hint}"
     reverted_to_initial = False
     optimizer_result = None
 
@@ -1974,7 +1990,6 @@ def fit_altp(
         x_opt = initial_x
         fmin = initial_chi2
     else:
-        minimizer_name = str(kwargs.get("minimizer", "minimize")).lower()
         optimizer_kwargs = {
             k: v
             for k, v in kwargs.items()
@@ -1997,6 +2012,7 @@ def fit_altp(
 
         if minimizer_name == "minimize":
             method = optimizer_kwargs.pop("method", "Nelder-Mead")
+            minimization_method = f"{minimizer_name}/{method}"
             options = optimizer_kwargs.pop("options", {})
             result = minimize(
                 fitter.objective_fn,
@@ -2007,6 +2023,7 @@ def fit_altp(
             )
         elif minimizer_name == "least_squares":
             method = optimizer_kwargs.pop("method", "lm")
+            minimization_method = f"{minimizer_name}/{method}"
             result = least_squares(
                 fitter.residuals,
                 fitter.initial_x,
@@ -2017,6 +2034,9 @@ def fit_altp(
             niter = optimizer_kwargs.pop("niter", 100)
             minimizer_kwargs = dict(
                 optimizer_kwargs.pop("minimizer_kwargs", {"method": "Nelder-Mead"})
+            )
+            minimization_method = (
+                f"{minimizer_name}/{minimizer_kwargs.get('method', 'Nelder-Mead')}"
             )
             # Allow users to pass bounds at fit_altp() top-level for consistency
             # with other optimizers; route them into the local minimizer kwargs.
@@ -2135,7 +2155,8 @@ def fit_altp(
     summary_main += gen_pycf_summary(started_at, suppress_input=True)
     summary_main += gen_completed_str(completed_at)
     summary_main += "\n"
-    summary_main += f"fmin = {fmin:.6e}\n\n"
+    summary_main += f"fmin = {fmin:.6e}\n"
+    summary_main += f"Minimization method: {minimization_method}\n\n"
 
     summary_diag = "\nFit diagnostics\n"
     summary_diag += "===============\n"
@@ -2148,7 +2169,8 @@ def fit_altp(
         summary_diag += "Mode: dry_run (no optimization performed)\n"
     elif reverted_to_initial:
         summary_diag += "Mode: optimization reverted to initial parameters (no improvement)\n"
-    summary_diag += f"Final chisqr: {fmin:.6e}\n\n"
+    summary_diag += f"Final chisqr: {fmin:.6e}\n"
+    summary_diag += f"Minimization method: {minimization_method}\n\n"
     summary_diag += "Per-spectrum chisqr contributions:\n"
     summary_diag += f"{'Spectrum':<40} {'n_obs':>8} {'chi2':>16}\n"
     summary_diag += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"

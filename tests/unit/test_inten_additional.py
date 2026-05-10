@@ -361,6 +361,36 @@ class TestFitAltpDryRun:
         assert "Calculation started at:" in out
         assert "Calculation completed at:" in out
 
+    def test_fit_altp_summary_includes_minimization_method(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        fake_result = SimpleNamespace(x=np.array([1.0]), fun=0.0)
+        with patch("pycf.inten.minimize", return_value=fake_result):
+            result = fit_altp(
+                ["A10"],
+                spec,
+                dry_run=False,
+                minimizer="minimize",
+                method="Powell",
+            )
+
+        summary = result["summary"]
+        assert "fmin =" in summary
+        assert "Minimization method: minimize/Powell" in summary
+
     def test_fit_altp_include_covariance_without_sigma(self, capsys):
         class FakeSpectrum:
             def __init__(self):
