@@ -9,7 +9,7 @@ from collections.abc import Sequence as SequenceABC
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import itemgetter
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
 from uuid import uuid4
 
 import numpy as np
@@ -1385,7 +1385,7 @@ def _format_inten(
 
     # Build expt_data lookup (group_idx -> f_expt) - only used in brief format
     # Parse with error handling for type consistency
-    expt_lookup = {}
+    expt_lookup: dict[int, float] = {}
     if spectrum.expt_data and format == "brief":
         for expt_entry in spectrum.expt_data:
             # Check if entry is iterable (list, tuple) and has at least 2 elements
@@ -1462,18 +1462,18 @@ def _format_inten(
 
         # Append experimental data if present (brief format only)
         if spectrum.expt_data and format == "brief":
-            f_expt = expt_lookup.get(group_idx)
+            f_expt_value: float | None = expt_lookup.get(group_idx)
             f_calc = group.get("f", 0.0) if is_absorption else group.get("A", 0.0)
-            if f_expt is None:
+            if f_expt_value is None:
                 group_line += f" {'---':<12} {'---':<12}"
             else:
                 # Calculate chisqr = ((calc - exp) / (calc + exp))^2
-                if f_calc + f_expt != 0:
-                    chi2 = ((f_calc - f_expt) / (f_calc + f_expt)) ** 2
+                if f_calc + f_expt_value != 0:
+                    chi2 = ((f_calc - f_expt_value) / (f_calc + f_expt_value)) ** 2
                 else:
                     chi2 = 0.0
                 total_chi2 += chi2
-                group_line += f" {f_expt:.6e} {chi2:.6e}"
+                group_line += f" {f_expt_value:.6e} {chi2:.6e}"
 
         lines.append(group_line)
 
@@ -1638,7 +1638,7 @@ class AltpFit:
         target_intensities: Optional[Union[Dict[int, float], Sequence[Dict[int, float]]]],
     ) -> List[Dict[int, float]]:
         if target_intensities is None:
-            out = []
+            out: list[dict[int, float]] = []
             for spec in self.spectra:
                 if not spec.expt_data:
                     # No data for this spectrum — contributes 0 to chi-square
@@ -2093,7 +2093,7 @@ def fit_altp(
     covariance = None
     uncertainty_diagnostics: Dict[str, Any] = {}
     if dry_run or reverted_to_initial or (not calculate_sigma and not include_covariance):
-        uncertainties = {}
+        uncertainties: dict[str, float | tuple[float, float]] = {}
     else:
         unc_result = _estimate_parameter_uncertainties(
             fitter, x_opt, fmin, param_names, return_details=True
@@ -2387,7 +2387,7 @@ def _estimate_parameter_uncertainties(
     # Estimate covariance from inverse Hessian
     try:
         cov = np.linalg.inv(hessian) * chi2_red
-        uncertainties = {}
+        uncertainties: dict[str, float | tuple[float, float]] = {}
 
         # Map uncertainties back to parameter names
         idx = 0
@@ -2416,7 +2416,10 @@ def _estimate_parameter_uncertainties(
         return uncertainties
     except np.linalg.LinAlgError:
         # Hessian is singular or near-singular
-        uncertainties = {pname: None for pname in param_names}
+        uncertainties = cast(
+            dict[str, float | tuple[float, float]],
+            {pname: None for pname in param_names},
+        )
         diagnostics = {
             "rank": 0,
             "n_params": int(n_params),
