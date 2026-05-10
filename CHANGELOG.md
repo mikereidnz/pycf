@@ -39,18 +39,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     principal-component label-matching used by the C objective.  The
     `kind` field of the EData dtype is widened to `U2` so the rows
     can carry `'AS'`/`'DS'` instead of just `'A'`/`'D'`.
-  - **`pycf.pyfit.PyFit`**: pure-Python fitting wrapper around
-    `scipy.optimize.least_squares` that drives an `EFit`/`MHFit`
-    through its `EData` residual vector.  Provides `residuals(x)`,
-    `chi2(x)`, `jacobian(x)` (weighted FD residual Jacobian),
-    `fit_(method=..., bounds=..., jac=...)` (with ``jac='pycf'`` to
-    use the pycf FD helper), `covariance()` and `stderr()` for
-    one-sigma parameter uncertainties at the optimum.  Parameter
-    perturbations go through `_temporary_x` so the wrapped fit's
-    persistent state is preserved.  Useful for irrep-aware extensions,
-    bound-constrained fits, and any custom Python-side residual logic
-    that doesn't yet exist in the C code.  See
-    `examples/ceylf/pyfit_example.py` for a worked Ce:YLF fit.
+- **`pycf.pyfit.PyFit`**: pure-Python fitting wrapper around
+  `scipy.optimize.least_squares` that drives an `EFit`/`MHFit`
+  through its `EData` residual vector.  Provides `residuals(x)`,
+  `chi2(x)`, `jacobian(x)` (weighted FD residual Jacobian),
+  `fit(method=..., bounds=..., jac=...)` (with ``jac='pycf'`` to
+  use the pycf FD helper), `covariance()` and `stderr()` for
+  one-sigma parameter uncertainties at the optimum, and `fit_res(...)`
+  for an `e_fit`/`mh_fit`-style summary + result payload. Parameter
+  perturbations go through `_temporary_x` so the wrapped fit's
+  persistent state is preserved.  Useful for irrep-aware extensions,
+  bound-constrained fits, and any custom Python-side residual logic
+  that doesn't yet exist in the C code.  See
+  `examples/ceylf/pyfit_example.py` for a worked Ce:YLF fit.
+- **Unified fit-output controls** across energy and intensity wrappers:
+  `calculate_sigma`, `include_covariance`, and `include_jacobian`.
+  `e_fit`/`mh_fit` now return `all_coeff`, `sigma`, and Jacobian
+  diagnostics in `res`, and summaries now include an all-parameter
+  table with fitted/fixed status.
 
 ### Changed (breaking)
 - Seniority `label_key` letter renamed from `T` to `X` in `ImportSLJM`,

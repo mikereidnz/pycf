@@ -342,6 +342,8 @@ class PyFit:
             fmin=fmin,
             initial_coeff=initial_coeff,
             include_covariance=include_covariance,
+            include_jacobian=include_jacobian,
+            jacobian_info=jacobian_info,
             sigma_by_param=sigma_by_param if calculate_sigma else {},
             covariance=covariance,
             max_levels=max_levels,
@@ -387,6 +389,8 @@ class PyFit:
         fmin: float,
         initial_coeff: Dict[str, Any],
         include_covariance: bool,
+        include_jacobian: bool,
+        jacobian_info: Dict[str, Any],
         sigma_by_param: Dict[str, Any],
         covariance: Optional[np.ndarray],
         max_levels: Optional[int],
@@ -469,8 +473,10 @@ class PyFit:
                 )
                 summary += "\n"
         fit_kwargs: Dict[str, Any] = {"n_obs": int(self.efit.n_obs), "n_param": int(self.efit.n_p_real), "retval": int(getattr(self.last_result, "status", 0))}
-        if include_covariance and covariance is not None:
+        if covariance is not None:
             fit_kwargs["covar"] = covariance
+        if include_jacobian and jacobian_info:
+            fit_kwargs["jacobian_diagnostics"] = jacobian_info
         summary += gen_fit_summary(
             coeff,
             self.efit,

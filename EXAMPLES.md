@@ -491,6 +491,59 @@ plot_results(result)
    result = fit_hamiltonian(hamiltonian, exdata)
    ```
 
+### Fit output options (energy and intensity wrappers)
+
+`e_fit`, `mh_fit`, `fit_altp`, and `ms_fit_altp` share output-control kwargs:
+
+- `calculate_sigma=True` (default): compute parameter uncertainties
+- `include_covariance=False` (default): include covariance matrix in `res` and summary
+- `include_jacobian=False` (default): include Jacobian array in `res`
+
+For energy fits (`e_fit` / `mh_fit`), the result dictionary now includes:
+
+- `res["coeff"]` (fitted subset)
+- `res["all_coeff"]` (all Hamiltonian coefficients)
+- `res["sigma"]` (parameter -> sigma mapping)
+- `res["covariance"]` (if enabled)
+- `res["jacobian"]` (if enabled)
+- `res["jacobian_diagnostics"]` (rank/conditioning summary)
+- `res["summary"]`
+
+Example (`mh_fit`):
+
+```python
+res = cfl.mh_fit(
+    param, h_list, weights_list, exdata_list, cfl_min,
+    suppress_input=True,
+    max_levels=150,
+    calculate_sigma=True,
+    include_covariance=False,
+    include_jacobian=True,
+)
+
+print(res["summary"])
+sigma = res["sigma"]
+jacdiag = res["jacobian_diagnostics"]
+```
+
+`PyFit` users can use `fit_res(...)` for the same style payload/summary:
+
+```python
+from pycf.pyfit import PyFit
+
+py = PyFit(cfl.EFit(param, h, exdata))
+res = py.fit_res(
+    method="lm",
+    jac="pycf",
+    max_levels=150,
+    calculate_sigma=True,
+    include_covariance=False,
+    include_jacobian=True,
+)
+
+print(res["summary"])
+```
+
 ### Compare to Theory
 
 1. Load theoretical parameters

@@ -35,7 +35,7 @@ from pycf.spinh import SpinH
 I = complex(0, 1)
 # Import the matrix elements.
 t = ImportSLJM(str(Path(__file__).parent / "matel" / "f11cf"))
-thfs = ImportSLJM(str(Path(__file__).parent / "erhfs"))
+thfs = ImportSLJM(str(Path(__file__).parent / "matel" / "erhfs"))
 
 # t.print_names()
 
@@ -221,7 +221,7 @@ ge = np.array([[1.950, -2.212, -3.584], [-2.212, 4.232, 4.986], [-3.584, 4.986, 
 h = cfl.Hamiltonian(t_list)
 h.set_coeff(coeff)
 h_list = [h]
-ex = np.loadtxt("eryso_site1_energy.txt", skiprows=1)
+ex = np.loadtxt(Path(__file__).parent / "eryso_site1_energy.txt", skiprows=1)
 exdata_list = [cfl.ExData(ex)]
 weights_list = [e_w]
 

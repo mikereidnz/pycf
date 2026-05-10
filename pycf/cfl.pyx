@@ -4895,8 +4895,10 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **gen_summary_kwargs)
 
     fit_summary_kwargs = dict(cfl_min.kwargs)
-    if include_covariance and covariance is not None:
+    if covariance is not None:
         fit_summary_kwargs["covar"] = covariance
+    if include_jacobian and jacobian_info:
+        fit_summary_kwargs["jacobian_diagnostics"] = jacobian_info
     summary += gen_fit_summary(
         x,
         efit,
@@ -5053,8 +5055,10 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
 
         summary += "\n"
     fit_summary_kwargs = dict(cfl_min.kwargs)
-    if include_covariance and covariance is not None:
+    if covariance is not None:
         fit_summary_kwargs["covar"] = covariance
+    if include_jacobian and jacobian_info:
+        fit_summary_kwargs["jacobian_diagnostics"] = jacobian_info
     summary += gen_fit_summary(
         x,
         mhfit,

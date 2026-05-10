@@ -1543,6 +1543,16 @@ def gen_fit_summary(
     s += "\n" + uline_char("Optimization routine details:\n")
     s += "{0:<20} {1: <}\n".format("fmin:", fmin)
     s += "{0:<20} {1: <}\n".format("method:", method)
+    if "jacobian_diagnostics" in kwargs:
+        jd = kwargs.pop("jacobian_diagnostics")
+        if isinstance(jd, dict) and jd:
+            n_rows = jd.get("n_rows", "?")
+            n_params = jd.get("n_params", "?")
+            rank = jd.get("rank", "?")
+            cond = jd.get("condition_jtj", "?")
+            s += "{0:<20} {1: <}\n".format("jacobian shape:", f"({n_rows}, {n_params})")
+            s += "{0:<20} {1: <}\n".format("jacobian rank:", f"{rank}/{n_params}")
+            s += "{0:<20} {1: <}\n".format("cond(J^T J):", cond)
     for k in kwargs:
         if k not in ["chi2accept", "xaccept", "covar", "jac"]:
             s += "{0:<20} {1: <}\n".format(k + ":", kwargs[k])

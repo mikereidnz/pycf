@@ -4,8 +4,8 @@ Test example for mu/n-based experimental data (ExData).
 
 This example demonstrates:
 1. Loading and displaying mu/n quantum numbers from energy summaries
-2. Creating ExData with AMu (absolute mu/n energy) format
-3. Creating ExData with DMu (difference mu/n energy) format
+2. Creating ExData with A (absolute mu/n energy) format + label_key="MuN"
+3. Creating ExData with D (difference mu/n energy) format + label_key="MuN"
 4. Verifying that ExData correctly stores and retrieves (mu, n) data
 5. Converting (mu, n) pairs to level indices using mu_n_to_level()
 
@@ -56,30 +56,28 @@ print(summary)
 
 # Extract the energy levels for reference
 print("\n" + "=" * 80)
-print("Step 2: Create ExData with AMu (absolute mu/n energy) format")
+print('Step 2: Create ExData with A + label_key="MuN" (absolute mu/n energy) format')
 print("-" * 80)
 print("Format: [mu, n, energy]")
 print()
 
 # Create some example experimental data using mu/n format
 # Based on the summary above, ALL states have mu=1, so we can only use (1, n) pairs
-# Use actual calculated energies to verify the conversion
-ex_amu = np.array(
-    [
-        [1, 1, 0.0],  # mu=1, n=1: level 1, energy 0.0 cm⁻¹
-        [1, 3, 212.323869],  # mu=1, n=3: level 3, energy 212.3239 cm⁻¹
-        [1, 5, 412.918602],  # mu=1, n=5: level 5, energy 412.9186 cm⁻¹
-    ]
-)
+# Marker-column MuN format requires rows: ["mu", mu, n, energy]
+ex_amu = [
+    ["mu", 1, 1, 0.0],  # mu=1, n=1: level 1, energy 0.0 cm⁻¹
+    ["mu", 1, 3, 212.323869],  # mu=1, n=3: level 3, energy 212.3239 cm⁻¹
+    ["mu", 1, 5, 412.918602],  # mu=1, n=5: level 5, energy 412.9186 cm⁻¹
+]
 
 print("Example AMu data:")
 print(ex_amu)
 print()
 
-# Create ExData with AMu format
+# Create ExData with A mode plus MuN marker-column label parsing
 try:
-    exdata_amu = cfl.ExData(ex_amu, "AMu", label_key="MuN")
-    print("✓ ExData created successfully with AMu format")
+    exdata_amu = cfl.ExData(ex_amu, "A", label_key="MuN")
+    print('✓ ExData created successfully with A mode + label_key="MuN"')
     print(f"  - has_mu_n: {exdata_amu.has_mu_n}")
     print(f"  - mu_n_abs shape: {exdata_amu.mu_n_abs.shape}")
     print(f"  - mu_n_abs content:\n{exdata_amu.mu_n_abs}")
@@ -90,27 +88,26 @@ print()
 
 # ============================================================================
 print("=" * 80)
-print("Step 3: Create ExData with DMu (difference mu/n energy) format")
+print('Step 3: Create ExData with D + label_key="MuN" (difference mu/n energy) format')
 print("-" * 80)
 print("Format: [mu_i, n_i, mu_f, n_f, energy_diff]")
 print()
 
 # Create difference format data: transitions between states
 # All states have mu=1, so transitions are between states with the same mu
-ex_dmu = np.array(
-    [
-        [1, 1, 1, 3, 212.323869],  # Transition from (mu=1,n=1) to (mu=1,n=3): 212.3239 cm⁻¹
-        [1, 3, 1, 5, 200.594733],  # Transition from (mu=1,n=3) to (mu=1,n=5): 200.5947 cm⁻¹
-    ]
-)
+# Marker-column MuN format requires rows: ["mu", mu_i, n_i, mu_f, n_f, energy_diff]
+ex_dmu = [
+    ["mu", 1, 1, 1, 3, 212.323869],  # Transition from (mu=1,n=1) to (mu=1,n=3): 212.3239 cm⁻¹
+    ["mu", 1, 3, 1, 5, 200.594733],  # Transition from (mu=1,n=3) to (mu=1,n=5): 200.5947 cm⁻¹
+]
 
 print("Example DMu data:")
 print(ex_dmu)
 print()
 
 try:
-    exdata_dmu = cfl.ExData(ex_dmu, "DMu", label_key="MuN")
-    print("✓ ExData created successfully with DMu format")
+    exdata_dmu = cfl.ExData(ex_dmu, "D", label_key="MuN")
+    print('✓ ExData created successfully with D mode + label_key="MuN"')
     print(f"  - has_mu_n: {exdata_dmu.has_mu_n}")
     print(f"  - mu_n_diff shape: {exdata_dmu.mu_n_diff.shape}")
     print(f"  - mu_n_diff content:\n{exdata_dmu.mu_n_diff}")
@@ -126,8 +123,8 @@ print("-" * 80)
 print()
 
 try:
-    exdata_mixed = cfl.ExData((ex_amu, ex_dmu), ("AMu", "DMu"), label_key="MuN")
-    print("✓ ExData created successfully with mixed AMu and DMu")
+    exdata_mixed = cfl.ExData((ex_amu, ex_dmu), ("A", "D"), label_key="MuN")
+    print('✓ ExData created successfully with mixed A/D + label_key="MuN"')
     print(f"  - has_mu_n: {exdata_mixed.has_mu_n}")
     print(f"  - mu_n_abs shape: {exdata_mixed.mu_n_abs.shape}")
     print(f"  - mu_n_diff shape: {exdata_mixed.mu_n_diff.shape}")
@@ -173,15 +170,16 @@ try:
     # Verify that the level indices match the energy values in our test data
     energies_from_levels = w[level_indices_amu - 1]  # Convert to 0-based
     print(f"  Energies from level indices: {energies_from_levels}")
-    print(f"  Expected energies (from AMu): {ex_amu[:, 2]}")
+    expected_energies_amu = np.array([row[3] for row in ex_amu], dtype=float)
+    print(f"  Expected energies (from AMu): {expected_energies_amu}")
 
     # Check if conversion is correct (within tolerance)
     tol = 1e-3
-    if np.allclose(energies_from_levels, ex_amu[:, 2], atol=tol):
+    if np.allclose(energies_from_levels, expected_energies_amu, atol=tol):
         print(f"  ✓ Conversion verified! Energies match within tolerance {tol}")
     else:
         print(f"  ⚠ Energies don't match exactly:")
-        print(f"    Differences: {energies_from_levels - ex_amu[:, 2]}")
+        print(f"    Differences: {energies_from_levels - expected_energies_amu}")
 
 except Exception as e:
     import traceback
@@ -209,14 +207,15 @@ try:
     # Verify energy differences
     energy_diffs_computed = w[final_levels - 1] - w[initial_levels - 1]
     print(f"  Computed energy differences: {energy_diffs_computed}")
-    print(f"  Expected energy differences (from DMu): {ex_dmu[:, 4]}")
+    expected_diffs_dmu = np.array([row[5] for row in ex_dmu], dtype=float)
+    print(f"  Expected energy differences (from DMu): {expected_diffs_dmu}")
 
     tol = 1e-3
-    if np.allclose(energy_diffs_computed, ex_dmu[:, 4], atol=tol):
+    if np.allclose(energy_diffs_computed, expected_diffs_dmu, atol=tol):
         print(f"  ✓ Conversion verified! Energy differences match within tolerance {tol}")
     else:
         print(f"  ⚠ Energy differences don't match exactly:")
-        print(f"    Differences: {energy_diffs_computed - ex_dmu[:, 4]}")
+        print(f"    Differences: {energy_diffs_computed - expected_diffs_dmu}")
 
 except Exception as e:
     import traceback
@@ -270,7 +269,7 @@ print()
 print("Input ExData (AMu - Absolute energies):")
 print("mu | n | Energy (cm⁻¹) | Matched Level")
 print("---|---|---------------|---------------")
-for i, (mu, n, energy) in enumerate(ex_amu):
+for i, (_, mu, n, energy) in enumerate(ex_amu):
     matched_level = level_indices_amu[i]
     match_symbol = "✓" if abs(w[matched_level - 1] - energy) < 0.001 else "✗"
     print(f" {int(mu)} | {int(n)} | {energy:13.6f} | {matched_level:2d} {match_symbol}")
@@ -279,7 +278,7 @@ print()
 print("Input ExData (DMu - Energy differences):")
 print("mu_i | n_i | mu_f | n_f | Δ Energy (cm⁻¹) | Matched Transition")
 print("-----|-----|------|-----|-----------------|-------------------")
-for i, (mu_i, n_i, mu_f, n_f, e_diff) in enumerate(ex_dmu):
+for i, (_, mu_i, n_i, mu_f, n_f, e_diff) in enumerate(ex_dmu):
     i_level = initial_levels[i]
     f_level = final_levels[i]
     calc_diff = w[f_level - 1] - w[i_level - 1]
@@ -296,22 +295,24 @@ print("Step 8: Fit with mu/n-based experimental data (AMu)")
 print("-" * 80)
 print()
 
-# Create experimental data by adding small noise to calculated energies
-# This simulates realistic experimental values with small measurement errors
+# Create experimental data by adding small noise to calculated energies.
+# Keep marker-column shape: ["mu", mu, n, energy]
 np.random.seed(42)
 noise_level = 0.001  # 0.1% noise
-ex_amu_noisy = ex_amu.copy()
-ex_amu_noisy[:, 2] += np.random.normal(0, noise_level, len(ex_amu))
+ex_amu_noisy = [row.copy() for row in ex_amu]
+noise = np.random.normal(0, noise_level, len(ex_amu_noisy))
+for i, delta in enumerate(noise):
+    ex_amu_noisy[i][3] += float(delta)
 
 print("Noisy experimental data (AMu format):")
 print("mu | n | Energy (cm⁻¹)")
 print("---|---|---------------")
-for mu, n, energy in ex_amu_noisy:
+for _, mu, n, energy in ex_amu_noisy:
     print(f" {int(mu)} | {int(n)} | {energy:13.6f}")
 print()
 
 # Create ExData with the noisy data
-exdata_fit = cfl.ExData(ex_amu_noisy, "AMu", label_key="MuN")
+exdata_fit = cfl.ExData(ex_amu_noisy, "A", label_key="MuN")
 
 # Set up minimizer
 cfl_min = cfl.CFLMin("nlopt_bobyqa", xtol=1e-8)
