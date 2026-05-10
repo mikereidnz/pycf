@@ -18,7 +18,6 @@ import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.inten import Spectrum, fit_altp, gen_inten_summary
 
-
 print("\n" + "=" * 72)
 print("MINIMAL INTENSITY FIT EXAMPLE (CEYLF)")
 print("=" * 72)
@@ -26,7 +25,9 @@ print("=" * 72)
 # ---------------------------------------------------------------------------
 # 1) Load matrix elements
 # ---------------------------------------------------------------------------
-matel_dir = Path(__file__).resolve().parent.parent.parent / "tests" / "integration" / "inten" / "matel"
+matel_dir = (
+    Path(__file__).resolve().parent.parent.parent / "tests" / "integration" / "inten" / "matel"
+)
 matel_cf = matel_dir / "f1cf"
 matel_int = matel_dir / "f1int"
 
@@ -56,7 +57,9 @@ MY = mu_b * t_cf.MAGY
 MZ = mu_b * t_cf.MAGZ
 MX.name, MY.name, MZ.name = "MX", "MY", "MZ"
 
-h = cfl.Hamiltonian([t_cf.EAVG, t_cf.ZETA, t_cf.C20, t_cf.C40, t_cf.C43, t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ])
+h = cfl.Hamiltonian(
+    [t_cf.EAVG, t_cf.ZETA, t_cf.C20, t_cf.C40, t_cf.C43, t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ]
+)
 h.set_coeff(coeff)
 h.diag()
 
@@ -103,7 +106,9 @@ known_altp_for_synthetic_data = {
 
 spec.set_altp(known_altp_for_synthetic_data)
 spec.recalculate(polarization="isotropic")
-synthetic_expt_data = [[group_idx, group.get("f", 0.0)] for group_idx, group in enumerate(spec.groups, start=1)]
+synthetic_expt_data = [
+    [group_idx, group.get("f", 0.0)] for group_idx, group in enumerate(spec.groups, start=1)
+]
 
 # Restore initial guess before fit.
 spec.set_altp(initial_altp)
@@ -127,4 +132,3 @@ print(result["summary"])
 
 print("\nAfter fit:")
 print(gen_inten_summary(spec, format="brief"))
-

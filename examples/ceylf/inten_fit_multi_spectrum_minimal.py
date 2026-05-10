@@ -15,12 +15,13 @@ import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
 from pycf.inten import Spectrum, inten_print, ms_fit_altp
 
-
 print("\n" + "=" * 76)
 print("MINIMAL MULTI-SPECTRUM INTENSITY FIT EXAMPLE")
 print("=" * 76)
 
-matel_dir = Path(__file__).resolve().parent.parent.parent / "tests" / "integration" / "inten" / "matel"
+matel_dir = (
+    Path(__file__).resolve().parent.parent.parent / "tests" / "integration" / "inten" / "matel"
+)
 matel_cf = matel_dir / "f1cf"
 matel_int = matel_dir / "f1int"
 t_cf = ImportSLJM(str(matel_cf))
@@ -50,8 +51,12 @@ coeff1 = dict(base_coeff)
 coeff2 = dict(base_coeff)
 coeff2["MZ"] = 0.8
 
-h1 = cfl.Hamiltonian([t_cf.EAVG, t_cf.ZETA, t_cf.C20, t_cf.C40, t_cf.C43, t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ])
-h2 = cfl.Hamiltonian([t_cf.EAVG, t_cf.ZETA, t_cf.C20, t_cf.C40, t_cf.C43, t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ])
+h1 = cfl.Hamiltonian(
+    [t_cf.EAVG, t_cf.ZETA, t_cf.C20, t_cf.C40, t_cf.C43, t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ]
+)
+h2 = cfl.Hamiltonian(
+    [t_cf.EAVG, t_cf.ZETA, t_cf.C20, t_cf.C40, t_cf.C43, t_cf.C60, t_cf.C63, t_cf.C66, MX, MY, MZ]
+)
 h1.set_coeff(coeff1)
 h2.set_coeff(coeff2)
 h1.diag()

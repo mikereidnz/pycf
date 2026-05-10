@@ -4,22 +4,23 @@
 A rewrite of the intensity calculation to follow the old Pascal code more closely,
 """
 
+from collections.abc import Mapping as MappingABC
+from collections.abc import Sequence as SequenceABC
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import itemgetter
-from collections.abc import Mapping as MappingABC, Sequence as SequenceABC
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from uuid import uuid4
 
 import numpy as np
 from scipy.optimize import (
-    minimize,
     basinhopping,
     differential_evolution,
-    dual_annealing,
-    shgo,
     direct,
+    dual_annealing,
     least_squares,
+    minimize,
+    shgo,
 )
 
 from pycf.cfl_util import (
@@ -68,7 +69,7 @@ def clean_complex(value: Union[complex, float], tolerance: float = 1e-12) -> Uni
 
 
 def _normalize_altp(
-    altp: Optional[Union[Mapping[str, Any], Sequence[Sequence[Any]]]]
+    altp: Optional[Union[Mapping[str, Any], Sequence[Sequence[Any]]]],
 ) -> Optional[Dict[str, Any]]:
     """Normalize Altp inputs to an internal dict representation."""
     if altp is None:
@@ -543,22 +544,8 @@ def A_and_f_calc(
     f_ED = omega * oscfactor * (sed * 1 / nrefractive * chilocal) / g_i
     f_MD = omega * oscfactor * (smd * nrefractive) / g_i
     f = f_ED + f_MD
-    A_ED = (
-        omega
-        * omega
-        * omega
-        * afactor
-        * (sed * nrefractive * chilocal)
-        / g_i
-    )
-    A_MD = (
-        omega
-        * omega
-        * omega
-        * afactor
-        * (smd * nrefractive * nrefractive * nrefractive)
-        / g_i
-    )
+    A_ED = omega * omega * omega * afactor * (sed * nrefractive * chilocal) / g_i
+    A_MD = omega * omega * omega * afactor * (smd * nrefractive * nrefractive * nrefractive) / g_i
     A = A_ED + A_MD
     return abs(f_ED), abs(f_MD), abs(f), abs(A_ED), abs(A_MD), abs(A)
 
@@ -888,7 +875,9 @@ class Spectrum:
 
         return self.groups
 
-    def recalculate(self, polarization: str = "isotropic", *, force_vtrans: bool = False) -> List[Dict[str, Any]]:
+    def recalculate(
+        self, polarization: str = "isotropic", *, force_vtrans: bool = False
+    ) -> List[Dict[str, Any]]:
         """Recalculate intensities after parameter updates."""
         return self.calculate_intensities(
             polarization=polarization, reuse_transformed=not force_vtrans
@@ -954,6 +943,7 @@ def gen_inten_summary(
 
 def _format_altp_param_line(spectrum: Spectrum, name: str, value: Any) -> str:
     """Format one Altp parameter line, appending uncertainty when available."""
+
     def _fmt(v: Any) -> str:
         if isinstance(v, complex):
             return f"{float(v.real):.6e}{float(v.imag):+.6e}j"
@@ -1412,11 +1402,7 @@ def _format_inten(
     label_w = min_label_w
     # Resolve label_key once (same logic as _format_group_line)
     label_key: Optional[str] = None
-    if (
-        spectrum.hamiltonian
-        and spectrum.hamiltonian.tensors
-        and spectrum.hamiltonian.tensors[0]
-    ):
+    if spectrum.hamiltonian and spectrum.hamiltonian.tensors and spectrum.hamiltonian.tensors[0]:
         try:
             label_key = spectrum.hamiltonian.tensors[0].states.label_key
         except (AttributeError, IndexError):
@@ -1470,7 +1456,9 @@ def _format_inten(
     total_chi2 = 0.0
     for group_idx, group in enumerate(spectrum.groups, start=1):
         # Print group line
-        group_line = _format_group_line(group, group_idx, state_labels, spectrum, is_absorption, label_w)
+        group_line = _format_group_line(
+            group, group_idx, state_labels, spectrum, is_absorption, label_w
+        )
 
         # Append experimental data if present (brief format only)
         if spectrum.expt_data and format == "brief":
@@ -1529,11 +1517,13 @@ def _format_inten(
     if spectrum.groups:
         if is_absorption:
             total_line = (
-                f"Total{'':<9} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_f:.6e}"
+                f"Total{'':<9} {'':<{label_w}} {'':<{label_w}} "
+                f"{'':<12} {'':<12} {spectrum.total_f:.6e}"
             )
         else:
             total_line = (
-                f"Total{'':<9} {'':<{label_w}} {'':<{label_w}} {'':<12} {'':<12} {spectrum.total_A:.6e}"
+                f"Total{'':<9} {'':<{label_w}} {'':<{label_w}} "
+                f"{'':<12} {'':<12} {spectrum.total_A:.6e}"
             )
 
         if spectrum.expt_data and format == "brief":
@@ -1670,9 +1660,7 @@ class AltpFit:
 
         out = list(target_intensities)
         if len(out) != len(self.spectra):
-            raise ValueError(
-                "Number of target_intensity datasets must match number of spectra."
-            )
+            raise ValueError("Number of target_intensity datasets must match number of spectra.")
         return out
 
     def _weights_for(self, spec_index: int, n_local: int, offset: int) -> Optional[np.ndarray]:
@@ -1683,7 +1671,8 @@ class AltpFit:
         local = np.asarray(self.weights[spec_index], dtype=float)
         if len(local) != n_local:
             raise ValueError(
-                f"Weight length mismatch for spectrum index {spec_index}: expected {n_local}, got {len(local)}."
+                f"Weight length mismatch for spectrum index {spec_index}: "
+                f"expected {n_local}, got {len(local)}."
             )
         return local
 
@@ -1769,7 +1758,10 @@ class AltpFit:
                 continue
             is_absorption = spec.groups[0]["Energy"] > 0
             key = "f" if is_absorption else "A"
-            computed = {group_idx: group.get(key, 0.0) for group_idx, group in enumerate(spec.groups, start=1)}
+            computed = {
+                group_idx: group.get(key, 0.0)
+                for group_idx, group in enumerate(spec.groups, start=1)
+            }
             indices = sorted(target_map.keys())
             values = np.array([computed.get(i, np.nan) for i in indices], dtype=float)
             computed_all.append(values)
@@ -1845,7 +1837,9 @@ class AltpFit:
         ):
             if np.any(np.isnan(computed)):
                 # Return large residuals on NaN
-                target_vals = np.array([target_map[i] for i in sorted(target_map.keys())], dtype=float)
+                target_vals = np.array(
+                    [target_map[i] for i in sorted(target_map.keys())], dtype=float
+                )
                 residuals_list.append(np.full_like(target_vals, 1e5))
                 continue
 
@@ -1853,16 +1847,15 @@ class AltpFit:
             epsilon = 1e-20
             denominator = np.abs(computed) + np.abs(target_vals) + epsilon
             r = (computed - target_vals) / denominator
-            
+
             local_weights = self._weights_for(spec_index, len(target_vals), offset)
             if local_weights is not None:
                 r = r * np.sqrt(local_weights)
-            
+
             residuals_list.append(r)
             offset += len(target_vals)
 
         return np.concatenate(residuals_list)
-
 
 
 def fit_altp(
@@ -1946,9 +1939,16 @@ def fit_altp(
     include_covariance = bool(kwargs.pop("include_covariance", False))
     include_jacobian = bool(kwargs.pop("include_jacobian", False))
     is_dry_run = bool(kwargs.get("dry_run", False))
-    sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian) and (not is_dry_run)
+    sigma_forced = (
+        (not requested_calculate_sigma)
+        and (include_covariance or include_jacobian)
+        and (not is_dry_run)
+    )
     if sigma_forced:
-        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+        print(
+            "Note: calculate_sigma assumed True because "
+            "include_covariance/include_jacobian was requested."
+        )
     calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
 
     summary_title = str(kwargs.pop("_summary_title", "fit_altp summary"))
@@ -1976,8 +1976,16 @@ def fit_altp(
     else:
         minimizer_name = str(kwargs.get("minimizer", "minimize")).lower()
         optimizer_kwargs = {
-            k: v for k, v in kwargs.items()
-            if k not in ("dry_run", "minimizer", "calculate_sigma", "include_covariance", "include_jacobian")
+            k: v
+            for k, v in kwargs.items()
+            if k
+            not in (
+                "dry_run",
+                "minimizer",
+                "calculate_sigma",
+                "include_covariance",
+                "include_jacobian",
+            )
         }
 
         _BOUNDS_REQUIRED = {"differential_evolution", "dual_annealing", "shgo", "direct"}
@@ -1991,14 +1999,19 @@ def fit_altp(
             method = optimizer_kwargs.pop("method", "Nelder-Mead")
             options = optimizer_kwargs.pop("options", {})
             result = minimize(
-                fitter.objective_fn, fitter.initial_x,
-                method=method, options=options, **optimizer_kwargs,
+                fitter.objective_fn,
+                fitter.initial_x,
+                method=method,
+                options=options,
+                **optimizer_kwargs,
             )
         elif minimizer_name == "least_squares":
             method = optimizer_kwargs.pop("method", "lm")
             result = least_squares(
-                fitter.residuals, fitter.initial_x,
-                method=method, **optimizer_kwargs,
+                fitter.residuals,
+                fitter.initial_x,
+                method=method,
+                **optimizer_kwargs,
             )
         elif minimizer_name == "basinhopping":
             niter = optimizer_kwargs.pop("niter", 100)
@@ -2020,18 +2033,23 @@ def fit_altp(
                 minimizer_kwargs["options"] = options
                 minimizer_kwargs.setdefault("bounds", option_bounds)
             result = basinhopping(
-                fitter.objective_fn, fitter.initial_x,
-                niter=niter, minimizer_kwargs=minimizer_kwargs,
+                fitter.objective_fn,
+                fitter.initial_x,
+                niter=niter,
+                minimizer_kwargs=minimizer_kwargs,
                 **optimizer_kwargs,
             )
         elif minimizer_name == "differential_evolution":
             result = differential_evolution(
-                fitter.objective_fn, **optimizer_kwargs,
+                fitter.objective_fn,
+                **optimizer_kwargs,
             )
         elif minimizer_name == "dual_annealing":
             x0 = optimizer_kwargs.pop("x0", fitter.initial_x)
             result = dual_annealing(
-                fitter.objective_fn, x0=x0, **optimizer_kwargs,
+                fitter.objective_fn,
+                x0=x0,
+                **optimizer_kwargs,
             )
         elif minimizer_name == "shgo":
             result = shgo(fitter.objective_fn, **optimizer_kwargs)
@@ -2040,12 +2058,13 @@ def fit_altp(
         else:
             raise ValueError(
                 f"Unknown minimizer '{minimizer_name}'. "
-                f"Choose from: minimize, least_squares, basinhopping, "
-                f"differential_evolution, dual_annealing, shgo, direct."
+                "Choose from: minimize, least_squares, basinhopping, "
+                "differential_evolution, dual_annealing, shgo, direct."
             )
 
         x_opt = result.x
-        # least_squares returns result.cost (0.5 * sum(residuals^2)); others return result.fun (scalar)
+        # least_squares returns result.cost (0.5 * sum(residuals^2));
+        # others return result.fun (scalar)
         if minimizer_name == "least_squares":
             fmin = 2.0 * result.cost  # chi2 = sum(residuals^2) = 2 * cost
         else:
@@ -2136,7 +2155,9 @@ def fit_altp(
     for row in chi2_rows:
         summary_diag += f"{row['name']:<40} {row['n_obs']:>8d} {row['chi2']:>16.6e}\n"
     summary_diag += "\nFitted parameter details:\n"
-    summary_diag += f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
+    summary_diag += (
+        f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
+    )
     summary_diag += "-" * 108 + "\n"
     for pname, value in fitted_dict.items():
         initial_val = fitter.param_info[pname]["initial_value"]
@@ -2149,11 +2170,17 @@ def fit_altp(
         )
     if uncertainty_diagnostics:
         summary_diag += "\nUncertainty diagnostics:\n"
-        summary_diag += f"  rank(H): {uncertainty_diagnostics.get('rank', 'n/a')} / {uncertainty_diagnostics.get('n_params', 'n/a')}\n"
+        summary_diag += (
+            f"  rank(H): {uncertainty_diagnostics.get('rank', 'n/a')} / "
+            f"{uncertainty_diagnostics.get('n_params', 'n/a')}\n"
+        )
         summary_diag += f"  cond(H): {uncertainty_diagnostics.get('condition_hessian', 'n/a')}\n"
     if jacobian_info:
         summary_diag += "\nJacobian diagnostics:\n"
-        summary_diag += f"  rank(J): {jacobian_info.get('rank', 'n/a')} / {jacobian_info.get('n_params', 'n/a')}\n"
+        summary_diag += (
+            f"  rank(J): {jacobian_info.get('rank', 'n/a')} / "
+            f"{jacobian_info.get('n_params', 'n/a')}\n"
+        )
         summary_diag += f"  cond(J^T J): {jacobian_info.get('condition_jtj', 'n/a')}\n"
     summary = summary_main + "\n" + summary_diag
 
@@ -2188,9 +2215,7 @@ def fit_altp(
 # ---------------------------------------------------------------------------
 
 
-def inten_calculate(
-    spectra: Sequence[Spectrum], polarization: str = "isotropic"
-) -> None:
+def inten_calculate(spectra: Sequence[Spectrum], polarization: str = "isotropic") -> None:
     """Call calculate_intensities() on each spectrum in the list."""
     for spec in spectra:
         spec.calculate_intensities(polarization=polarization)
@@ -2254,9 +2279,7 @@ def inten_set_altp(
         spec.set_altp(altp)
 
 
-def inten_recalculate(
-    spectra: Sequence[Spectrum], polarization: str = "isotropic"
-) -> None:
+def inten_recalculate(spectra: Sequence[Spectrum], polarization: str = "isotropic") -> None:
     """Call recalculate() on each spectrum in the list."""
     for spec in spectra:
         spec.recalculate(polarization=polarization)
@@ -2384,7 +2407,9 @@ def _estimate_parameter_uncertainties(
             "rank": int(np.linalg.matrix_rank(hessian)),
             "n_params": int(n_params),
             "condition_hessian": float(np.linalg.cond(hessian)),
-            "well_conditioned": bool(np.isfinite(np.linalg.cond(hessian)) and np.linalg.cond(hessian) < 1e12),
+            "well_conditioned": bool(
+                np.isfinite(np.linalg.cond(hessian)) and np.linalg.cond(hessian) < 1e12
+            ),
         }
         if return_details:
             return uncertainties, cov, diagnostics

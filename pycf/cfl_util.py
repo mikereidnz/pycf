@@ -263,27 +263,28 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> np
         parsed_ex = np.zeros((ex.n_a, 2))
         # Abs. energy values are ordered to preceed diff. values.
         parsed_ex[:, 1] = ex.e[: ex.n_a]
-        
+
         # Check if marker-column mu/n data is present
-        has_marker_mu_n = hasattr(ex, 'mu_n_abs') and len(ex.mu_n_abs) > 0
-        
-        if has_marker_mu_n and 'h' in kwargs:
-            # Marker-column mu/n data: compute eigenstate indices dynamically from current Hamiltonian
+        has_marker_mu_n = hasattr(ex, "mu_n_abs") and len(ex.mu_n_abs) > 0
+
+        if has_marker_mu_n and "h" in kwargs:
+            # Marker-column mu/n data: compute eigenstate indices dynamically
             # This mirrors the sl_index approach: recompute for every summary call
-            h = kwargs['h']
-            minimum_q = kwargs.get('minimum_q', h.minimum_q if h.minimum_q is not None else 2)
-            half_integer_states = kwargs.get('half_integer_states', h.half_integer_states)
-            
+            h = kwargs["h"]
+            minimum_q = kwargs.get("minimum_q", h.minimum_q if h.minimum_q is not None else 2)
+            half_integer_states = kwargs.get("half_integer_states", h.half_integer_states)
+
             # Compute mu_n_to_level for all user-provided (mu, n) pairs
             level_indices = mu_n_to_level(h, ex.mu_n_abs, minimum_q, half_integer_states)
 
             # For mixed marker/regular data, fill in only the mu rows; others come from ex.la
-            if hasattr(ex, 'mu_row_indices') and len(ex.mu_row_indices) > 0:
+            if hasattr(ex, "mu_row_indices") and len(ex.mu_row_indices) > 0:
                 parsed_ex[:, 0] = ex.la
                 for i, row_idx in enumerate(ex.mu_row_indices):
                     parsed_ex[row_idx, 0] = level_indices[i] - 1
             else:
-                # Pure mu/n data: use all computed indices - BUT preserve user order by indexing ex.mu_n_abs
+                # Pure mu/n data: use all computed indices
+                # BUT preserve user order by indexing ex.mu_n_abs
                 for i in range(len(level_indices)):
                     parsed_ex[i, 0] = level_indices[i] - 1
             # NOTE: Don't sort marker-column mu/n data - user specified the order
@@ -362,24 +363,24 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> n
         parsed_ex = np.zeros((ex.n_d, 3))
         # Diff. energy values are ordered to come after abs. values.
         parsed_ex[:, 2] = ex.e[ex.n_a :]
-        
+
         # Check if marker-column mu/n data is present
-        has_marker_mu_n = hasattr(ex, 'mu_n_diff') and len(ex.mu_n_diff) > 0
-        
-        if has_marker_mu_n and 'h' in kwargs:
+        has_marker_mu_n = hasattr(ex, "mu_n_diff") and len(ex.mu_n_diff) > 0
+
+        if has_marker_mu_n and "h" in kwargs:
             # Marker-column mu/n data: compute eigenstate indices dynamically
-            h = kwargs['h']
-            minimum_q = kwargs.get('minimum_q', h.minimum_q if h.minimum_q is not None else 2)
-            half_integer_states = kwargs.get('half_integer_states', h.half_integer_states)
-            
+            h = kwargs["h"]
+            minimum_q = kwargs.get("minimum_q", h.minimum_q if h.minimum_q is not None else 2)
+            half_integer_states = kwargs.get("half_integer_states", h.half_integer_states)
+
             mu_n_initial = ex.mu_n_diff[:, :2]
             mu_n_final = ex.mu_n_diff[:, 2:4]
-            
+
             initial_levels = mu_n_to_level(h, mu_n_initial, minimum_q, half_integer_states)
             final_levels = mu_n_to_level(h, mu_n_final, minimum_q, half_integer_states)
-            
+
             # For mixed marker/regular data, fill appropriately
-            if hasattr(ex, 'mu_row_indices_d') and len(ex.mu_row_indices_d) > 0:
+            if hasattr(ex, "mu_row_indices_d") and len(ex.mu_row_indices_d) > 0:
                 parsed_ex[:, 0] = ex.ild
                 parsed_ex[:, 1] = ex.fld
                 for i, row_idx in enumerate(ex.mu_row_indices_d):
@@ -1406,10 +1407,13 @@ def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
 
 
 def gen_fit_summary(
-    coeff: Dict[str, Any], fit_obj: Any, method: str, fmin: float,
+    coeff: Dict[str, Any],
+    fit_obj: Any,
+    method: str,
+    fmin: float,
     initial_coeff: Dict[str, Any] | None = None,
     include_covariance_matrix: bool = True,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> str:
     r"""
     Create a string summarizing a crystal-field Hamiltonian fitting run.
@@ -1581,7 +1585,12 @@ def jacobian_diagnostics(jacobian: Optional[np.ndarray], n_params: int) -> Dict[
         return {}
     j = np.asarray(jacobian, dtype=np.float64)
     if j.size == 0:
-        return {"rank": 0, "n_params": int(n_params), "n_rows": int(j.shape[0]), "condition_jtj": np.inf}
+        return {
+            "rank": 0,
+            "n_params": int(n_params),
+            "n_rows": int(j.shape[0]),
+            "condition_jtj": np.inf,
+        }
     rank = int(np.linalg.matrix_rank(j))
     jtj = j.T @ j
     try:
@@ -1604,11 +1613,9 @@ def gen_all_coeff_summary(
     name: str = "All Hamiltonian parameters",
 ) -> str:
     """Create a compact table showing all coefficients and fitted/sigma status."""
+
     def _natural_sort_key(text: str) -> Tuple[Any, ...]:
-        return tuple(
-            int(tok) if tok.isdigit() else tok
-            for tok in re.findall(r"\d+|[^\d]+", text)
-        )
+        return tuple(int(tok) if tok.isdigit() else tok for tok in re.findall(r"\d+|[^\d]+", text))
 
     def _all_coeff_sort_key(param: str) -> Tuple[int, int, Tuple[Any, ...], str]:
         u = str(param).upper()
@@ -1968,19 +1975,19 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     la = efit.ex.la  # Level indices for each experimental point
     e_exp = efit.ex.e  # Experimental energies
     weights = efit.ex.w  # Weights (per-point weighting factors)
-    
+
     # Find valid level indices (>= 0)
     valid = la >= 0
     if not np.any(valid):
         # No valid experimental points
         return 0.0
-    
+
     # Extract fitted eigenvalues for valid points
     fitted_e = evals[la[valid]]
-    
+
     # Compute residuals and chi² using weighted sum (matching C echisq function)
     # echisq: chisq += w[i] * pow(e[la[i]] - e[i], 2)
     residuals = fitted_e - e_exp[valid]
-    chi2 = float(np.sum(weights[valid] * residuals ** 2))
-    
+    chi2 = float(np.sum(weights[valid] * residuals**2))
+
     return chi2

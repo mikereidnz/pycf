@@ -15,6 +15,8 @@ import pytest
 
 from pycf.inten import (
     AltpFit,
+    _format_state_label_content,
+    _format_state_label_short,
     fit_altp,
     gen_inten_summary,
     inten_calculate,
@@ -23,8 +25,6 @@ from pycf.inten import (
     inten_set_altp,
     inten_set_expt_data,
     ms_fit_altp,
-    _format_state_label_content,
-    _format_state_label_short,
 )
 
 
@@ -93,7 +93,6 @@ class TestAltpFitInitialization:
 
     def test_altp_fit_init_real_parameters(self):
         """Test AltpFit initialization with real parameters."""
-        mock_ham = MagicMock()
         spectrum = MagicMock()
         spectrum.altp = {"A10": 1.0, "A20": 2.0}
         spectrum.expt_data = [[1, 0.5], [2, 0.3]]
@@ -111,7 +110,6 @@ class TestAltpFitInitialization:
 
     def test_altp_fit_init_complex_parameters(self):
         """Test AltpFit initialization with complex parameters."""
-        mock_ham = MagicMock()
         spectrum = MagicMock()
         spectrum.altp = {"A10": complex(1.0, 0.5), "A20": 2.0}
         spectrum.expt_data = [[1, 0.5]]
@@ -128,7 +126,6 @@ class TestAltpFitInitialization:
 
     def test_altp_fit_missing_parameter_raises(self):
         """Test AltpFit raises when parameter not in altp."""
-        mock_ham = MagicMock()
         spectrum = MagicMock()
         spectrum.altp = {"A10": 1.0}
         spectrum.expt_data = [[1, 0.5]]
@@ -143,7 +140,6 @@ class TestAltpFitInitialization:
 
     def test_altp_fit_build_param_info_type_checking(self):
         """Test parameter type detection (real vs complex)."""
-        mock_ham = MagicMock()
         spectrum = MagicMock()
         spectrum.altp = {
             "A10": 1.5,  # real
@@ -165,7 +161,6 @@ class TestAltpFitInitialization:
 
     def test_altp_fit_count_flat_params(self):
         """Test flat parameter counting (real=1, complex=2)."""
-        mock_ham = MagicMock()
         spectrum = MagicMock()
         spectrum.altp = {
             "R1": 1.0,
@@ -188,7 +183,6 @@ class TestAltpFitInitialization:
 
     def test_altp_fit_extract_initial_params(self):
         """Test initial parameter vector extraction."""
-        mock_ham = MagicMock()
         spectrum = MagicMock()
         spectrum.altp = {"A10": 1.5, "A20": complex(2.0, 1.0)}
         spectrum.expt_data = [[1, 0.5]]
@@ -440,12 +434,21 @@ class TestOptimizerDispatch:
     def _make_fake_spec(self):
         """Return a Spectrum-like object with expt_data and an Altp."""
         from pycf.inten import Spectrum as RealSpectrum
+
         spec = MagicMock(spec=RealSpectrum)
         spec.name = "test"
         spec.altp = {"A10": 1.0}
         spec.expt_data = [[1, 1.0]]
-        spec.groups = [{"Energy": 1.0, "e_i": 0.0, "e_f": 1.0, "g_i": 1, "g_f": 1,
-                        "t_list": [{"i": 0, "f": 1, "ED": 1.0, "MD": 0.0}]}]
+        spec.groups = [
+            {
+                "Energy": 1.0,
+                "e_i": 0.0,
+                "e_f": 1.0,
+                "g_i": 1,
+                "g_f": 1,
+                "t_list": [{"i": 0, "f": 1, "ED": 1.0, "MD": 0.0}],
+            }
+        ]
         return spec
 
     def test_unknown_minimizer_raises(self):
@@ -456,6 +459,7 @@ class TestOptimizerDispatch:
                 mock_fitter.objective_fn.return_value = 0.0
                 mock_fitter_cls.return_value = mock_fitter
                 from pycf.inten import fit_altp
+
                 fit_altp(["A10"], MagicMock(), minimizer="not_a_real_optimizer")
 
     def test_bounds_required_for_differential_evolution(self):
@@ -466,11 +470,14 @@ class TestOptimizerDispatch:
                 mock_fitter.objective_fn.return_value = 0.0
                 mock_fitter_cls.return_value = mock_fitter
                 from pycf.inten import fit_altp
+
                 fit_altp(["A10"], MagicMock(), minimizer="differential_evolution")
 
     def test_basinhopping_dispatch(self):
-        with patch("pycf.inten.AltpFit") as mock_fitter_cls, \
-             patch("pycf.inten.basinhopping") as mock_bh:
+        with (
+            patch("pycf.inten.AltpFit") as mock_fitter_cls,
+            patch("pycf.inten.basinhopping") as mock_bh,
+        ):
             mock_fitter = MagicMock()
             mock_fitter.initial_x = np.array([1.0])
             mock_fitter.objective_fn.return_value = 0.0
@@ -485,8 +492,14 @@ class TestOptimizerDispatch:
             mock_bh.return_value = SimpleNamespace(x=np.array([1.0]), fun=0.0)
             with patch("pycf.inten._estimate_parameter_uncertainties", return_value={}):
                 from pycf.inten import fit_altp
-                fit_altp(["A10"], MagicMock(), minimizer="basinhopping", niter=50,
-                         minimizer_kwargs={"method": "Nelder-Mead"})
+
+                fit_altp(
+                    ["A10"],
+                    MagicMock(),
+                    minimizer="basinhopping",
+                    niter=50,
+                    minimizer_kwargs={"method": "Nelder-Mead"},
+                )
             mock_bh.assert_called_once()
             _, bh_kwargs = mock_bh.call_args
             assert bh_kwargs.get("niter") == 50
@@ -494,8 +507,10 @@ class TestOptimizerDispatch:
 
     def test_basinhopping_strips_duplicate_bounds(self):
         """Avoid passing bounds twice to scipy minimize via options + kwargs."""
-        with patch("pycf.inten.AltpFit") as mock_fitter_cls, \
-             patch("pycf.inten.basinhopping") as mock_bh:
+        with (
+            patch("pycf.inten.AltpFit") as mock_fitter_cls,
+            patch("pycf.inten.basinhopping") as mock_bh,
+        ):
             mock_fitter = MagicMock()
             mock_fitter.initial_x = np.array([1.0])
             mock_fitter.objective_fn.return_value = 0.0
@@ -511,6 +526,7 @@ class TestOptimizerDispatch:
             bounds = [(-1.0, 1.0)]
             with patch("pycf.inten._estimate_parameter_uncertainties", return_value={}):
                 from pycf.inten import fit_altp
+
                 fit_altp(
                     ["A10"],
                     MagicMock(),
@@ -528,8 +544,10 @@ class TestOptimizerDispatch:
             assert "bounds" not in mk.get("options", {})
 
     def test_default_uses_minimize(self):
-        with patch("pycf.inten.AltpFit") as mock_fitter_cls, \
-             patch("pycf.inten.minimize") as mock_min:
+        with (
+            patch("pycf.inten.AltpFit") as mock_fitter_cls,
+            patch("pycf.inten.minimize") as mock_min,
+        ):
             mock_fitter = MagicMock()
             mock_fitter.initial_x = np.array([1.0])
             mock_fitter.objective_fn.return_value = 0.0
@@ -544,6 +562,7 @@ class TestOptimizerDispatch:
             mock_min.return_value = SimpleNamespace(x=np.array([1.0]), fun=0.0)
             with patch("pycf.inten._estimate_parameter_uncertainties", return_value={}):
                 from pycf.inten import fit_altp
+
                 fit_altp(["A10"], MagicMock())
             mock_min.assert_called_once()
 
@@ -668,8 +687,9 @@ class TestIntensitySummaryFormatting:
     def test_fit_uncertainty_is_appended_in_altp_block(self):
         spec = self._make_fake_spectrum()
 
-        with patch("pycf.inten.minimize") as mock_minimize, patch(
-            "pycf.inten._estimate_parameter_uncertainties", return_value={"A10": 0.123}
+        with (
+            patch("pycf.inten.minimize") as mock_minimize,
+            patch("pycf.inten._estimate_parameter_uncertainties", return_value={"A10": 0.123}),
         ):
             mock_minimize.return_value = SimpleNamespace(x=np.array([0.8]), fun=0.01)
             fit_altp(["A10"], spec, dry_run=False)
@@ -743,9 +763,10 @@ class TestConvenienceWrappers:
 
     def test_inten_print_bare_spectrum_isinstance_guard(self):
         """inten_print wraps a bare Spectrum in a list via isinstance guard."""
-        from pycf.inten import Spectrum as RealSpectrum
         # Build a minimal real Spectrum to exercise isinstance branch
         import pycf.cfl as cfl  # noqa: F401 — needed for fixture
+        from pycf.inten import Spectrum as RealSpectrum
+
         spec = MagicMock(spec=RealSpectrum)
         spec.expt_data = []
         with patch("pycf.inten.gen_inten_summary", return_value="s") as mock_gen:

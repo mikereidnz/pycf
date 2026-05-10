@@ -321,7 +321,9 @@ def main():
     print("=" * 70)
 
     print(f"Fitting to {len(expt_target_intensities)} experimental data points...")
-    spec_before_fit.set_expt_data([[idx, val] for idx, val in sorted(expt_target_intensities.items())])
+    spec_before_fit.set_expt_data(
+        [[idx, val] for idx, val in sorted(expt_target_intensities.items())]
+    )
     result_expt = fit_altp(
         ["A210", "A230", "A233"],
         spec_before_fit,

@@ -299,13 +299,20 @@ class PyFit:
         requested_calculate_sigma = bool(calculate_sigma)
         sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian)
         if sigma_forced:
-            print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+            print(
+                "Note: calculate_sigma assumed True because "
+                "include_covariance/include_jacobian was requested."
+            )
         calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
 
         initial_coeff = None
         if hasattr(self.efit, "h") and getattr(self.efit.h, "coeff_dict", None) is not None:
             initial_coeff = copy.deepcopy(self.efit.h.coeff_dict)
-        elif hasattr(self.efit, "h_list") and self.efit.h_list and getattr(self.efit.h_list[0], "coeff_dict", None) is not None:
+        elif (
+            hasattr(self.efit, "h_list")
+            and self.efit.h_list
+            and getattr(self.efit.h_list[0], "coeff_dict", None) is not None
+        ):
             initial_coeff = copy.deepcopy(self.efit.h_list[0].coeff_dict)
         else:
             initial_coeff = {}
@@ -370,12 +377,18 @@ class PyFit:
         if hasattr(self.efit, "h"):
             self.efit.h.update_coeff(coeff)
             self.efit.h.diag()
-            all_coeff = copy.deepcopy(self.efit.h.coeff_dict) if self.efit.h.coeff_dict is not None else {}
+            all_coeff = (
+                copy.deepcopy(self.efit.h.coeff_dict) if self.efit.h.coeff_dict is not None else {}
+            )
         elif hasattr(self.efit, "h_list") and self.efit.h_list:
             for h in self.efit.h_list:
                 h.update_coeff(coeff)
                 h.diag()
-            all_coeff = copy.deepcopy(self.efit.h_list[0].coeff_dict) if self.efit.h_list[0].coeff_dict is not None else {}
+            all_coeff = (
+                copy.deepcopy(self.efit.h_list[0].coeff_dict)
+                if self.efit.h_list[0].coeff_dict is not None
+                else {}
+            )
 
         return {
             "fmin": fmin,
@@ -485,7 +498,11 @@ class PyFit:
                     h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **kwargs
                 )
                 summary += "\n"
-        fit_kwargs: Dict[str, Any] = {"n_obs": int(self.efit.n_obs), "n_param": int(self.efit.n_p_real), "retval": int(getattr(self.last_result, "status", 0))}
+        fit_kwargs: Dict[str, Any] = {
+            "n_obs": int(self.efit.n_obs),
+            "n_param": int(self.efit.n_p_real),
+            "retval": int(getattr(self.last_result, "status", 0)),
+        }
         if covariance is not None:
             fit_kwargs["covar"] = covariance
         if include_jacobian and jacobian_info:
