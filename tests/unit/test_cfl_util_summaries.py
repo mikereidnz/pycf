@@ -239,6 +239,64 @@ class TestGenESummary:
         with pytest.raises(ValueError, match="duplicate entries"):
             cfl_util.gen_e_summary(w, z, labels, "JM", ex=ex)
 
+    def test_multiplet_stats_no_ex_data_prints_barycenter_only(self):
+        w, z = _diag_eigenpair([0.0, 100.0, 200.0, 300.0])
+        labels = [(0, i) for i in range(4)]
+        s = cfl_util.gen_e_summary(w, z, labels, "JM", multiplet_end_levels=[2, 4])
+        assert "Multiplet" in s
+        assert "barycenter =" in s
+        assert "sigma_total =" not in s
+        assert "sigma_crystal_field =" not in s
+
+    def test_multiplet_stats_with_ex_data_and_e_shift(self):
+        w, z = _diag_eigenpair([100.0, 200.0, 300.0, 400.0])
+        labels = [(0, i) for i in range(4)]
+        ex = np.array([[1, 1.0], [2, 98.0], [3, 205.0], [4, 305.0]], dtype=float)
+        s = cfl_util.gen_e_summary(
+            w,
+            z,
+            labels,
+            "JM",
+            ex=ex,
+            e_shift=True,
+            multiplet_end_levels=[2, 4],
+        )
+        assert "Multiplet" in s
+        assert "barycenter =" in s
+        assert "shift =" in s
+        assert "sigma_total =" in s
+        assert "sigma_crystal_field =" in s
+
+    def test_multiplet_stats_respects_max_levels(self):
+        w, z = _diag_eigenpair([0.0, 100.0, 200.0, 300.0])
+        labels = [(0, i) for i in range(4)]
+        s = cfl_util.gen_e_summary(
+            w,
+            z,
+            labels,
+            "JM",
+            ex=np.array([[1, 0.0], [2, 101.0]]),
+            max_levels=2,
+            multiplet_end_levels=[2, 4],
+        )
+        # Only the first multiplet boundary (2) is displayed when max_levels=2.
+        assert s.count("Multiplet") == 1
+        assert "  1-  2]" in s
+
+    def test_multiplet_end_levels_validation(self):
+        w, z = _diag_eigenpair([0.0, 100.0, 200.0])
+        labels = [(0, i) for i in range(3)]
+        with pytest.raises(ValueError, match="strictly increasing"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", multiplet_end_levels=[2, 2])
+        with pytest.raises(ValueError, match=">= 1"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", multiplet_end_levels=[0, 2])
+        with pytest.raises(ValueError, match="<= number of levels"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", multiplet_end_levels=[4])
+        with pytest.raises(TypeError, match="sequence"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", multiplet_end_levels=3)
+        with pytest.raises(TypeError, match="integer values"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", multiplet_end_levels=[2.5])
+
 
 # ---------------------------------------------------------------------------
 # gen_e_summary_trunc

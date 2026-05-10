@@ -1026,6 +1026,31 @@ def gen_e_summary(
             ex_dict[eigenstate_idx] = (energy, energy - w[eigenstate_idx])
     # Determine the number of levels to display
     n_display = len(z) if max_levels is None else min(len(z), max_levels)
+
+    # Optional multiplet boundaries (1-based inclusive level indices)
+    multiplet_end_levels = kwargs.get("multiplet_end_levels", None)
+    multiplet_start_by_end: Dict[int, int] = {}
+    if multiplet_end_levels is not None:
+        if not isinstance(multiplet_end_levels, (list, tuple, np.ndarray)):
+            raise TypeError("multiplet_end_levels must be a sequence of 1-based level indices.")
+        validated_ends: List[int] = []
+        for x in multiplet_end_levels:
+            if isinstance(x, (bool, np.bool_)) or not isinstance(x, (int, np.integer)):
+                raise TypeError("multiplet_end_levels must contain integer values.")
+            validated_ends.append(int(x))
+        if any(x < 1 for x in validated_ends):
+            raise ValueError("multiplet_end_levels entries must be >= 1.")
+        if any(validated_ends[i] <= validated_ends[i - 1] for i in range(1, len(validated_ends))):
+            raise ValueError("multiplet_end_levels must be strictly increasing with no duplicates.")
+        if any(x > len(z) for x in validated_ends):
+            raise ValueError("multiplet_end_levels entries must be <= number of levels.")
+
+        # Respect max_levels: only print multiplet diagnostics for displayed boundaries.
+        display_multiplet_ends = [x for x in validated_ends if x <= n_display]
+        prev_end = 0
+        for end_level in display_multiplet_ends:
+            multiplet_start_by_end[end_level] = prev_end + 1
+            prev_end = end_level
     for i in range(n_display):
         line = "{0:<6}".format(i + 1)
         # Add mu and n columns if calculated
@@ -1048,6 +1073,35 @@ def gen_e_summary(
                 s += "         --            --\n"
         else:
             s += "\n"
+
+        # Multiplet diagnostics line printed after each configured end level.
+        end_level = i + 1  # 1-based
+        if end_level in multiplet_start_by_end:
+            start_level = multiplet_start_by_end[end_level]
+            start_idx = start_level - 1
+            end_idx = end_level - 1
+            c_block = np.asarray(w[start_idx : end_idx + 1], dtype=float)
+            barycenter = float(np.mean(c_block))
+            diag_line = (
+                f"      [Multiplet {start_level:>3}-{end_level:>3}] "
+                f"barycenter = {barycenter:>10.4f}"
+            )
+
+            # Absolute-energy residuals only (already represented in ex_dict).
+            residuals_list = [
+                float(ex_dict[idx][1]) for idx in range(start_idx, end_idx + 1) if idx in ex_dict
+            ]
+            if residuals_list:
+                residuals = np.asarray(residuals_list, dtype=float)
+                barycenter_shift = float(np.mean(residuals))
+                sigma_total = float(np.sqrt(np.mean(residuals**2)))
+                sigma_crystal_field = float(np.sqrt(np.mean((residuals - barycenter_shift) ** 2)))
+                diag_line += (
+                    f"  shift = {barycenter_shift:>9.4f}"
+                    f"  sigma_total = {sigma_total:>9.4f}"
+                    f"  sigma_crystal_field = {sigma_crystal_field:>9.4f}"
+                )
+            s += diag_line + "\n"
     s += "Label key: {}".format(label_key)
     if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
         minimum_q = kwargs["minimum_q"]

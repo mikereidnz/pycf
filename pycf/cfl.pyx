@@ -506,6 +506,7 @@ cdef class Hamiltonian:
     cdef public object label
     cdef public object minimum_q
     cdef public object half_integer_states
+    cdef public object multiplet_end_levels
     cdef int diag_run
     def __cinit__(self, tensors, *, label=None):
 
@@ -531,6 +532,7 @@ cdef class Hamiltonian:
         self.label = label
         self.minimum_q = None
         self.half_integer_states = False
+        self.multiplet_end_levels = None
 
         # Create array of tensors and array of character arrays to be passed to
         # the zh_set cfl function.
@@ -740,6 +742,10 @@ cdef class Hamiltonian:
         half_integer_states : bool, optional
             Whether m values are half-integers (for f-electrons). Automatically passed
             from Hamiltonian instance if set.
+        multiplet_end_levels : list[int], optional
+            1-based inclusive end-level indices for user-defined multiplet blocks.
+            If set on the Hamiltonian instance via ``set_multiplet_end_levels()``,
+            it is automatically passed to ``gen_e_summary`` unless overridden here.
 
         Returns
         -------
@@ -755,6 +761,8 @@ cdef class Hamiltonian:
                 kwargs["minimum_q"] = self.minimum_q
             if "half_integer_states" not in kwargs:
                 kwargs["half_integer_states"] = self.half_integer_states
+            if self.multiplet_end_levels is not None and "multiplet_end_levels" not in kwargs:
+                kwargs["multiplet_end_levels"] = self.multiplet_end_levels
             # Pass Hamiltonian for mu/n marker-column data processing
             if "h" not in kwargs:
                 kwargs["h"] = self
@@ -762,6 +770,43 @@ cdef class Hamiltonian:
                     self.tensors[0].states.label_key, **kwargs)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
+
+    def set_multiplet_end_levels(self, end_levels):
+        r"""
+        Set user-defined multiplet boundaries for energy summary output.
+
+        Parameters
+        ----------
+        end_levels : sequence of int or None
+            1-based inclusive level indices marking the end of each multiplet.
+            Example: [3, 8, 15] creates blocks 1-3, 4-8, and 9-15.
+            Use None to clear boundaries.
+
+        Raises
+        ------
+        TypeError
+            If ``end_levels`` is not a sequence of integers.
+        ValueError
+            If any index is < 1, non-increasing, or duplicated.
+        """
+        if end_levels is None:
+            self.multiplet_end_levels = None
+            return None
+        if not isinstance(end_levels, (list, tuple, np.ndarray)):
+            raise TypeError("multiplet_end_levels must be a sequence of integers or None.")
+        levels = []
+        for x in end_levels:
+            if isinstance(x, (bool, np.bool_)) or not isinstance(x, (int, np.integer)):
+                raise TypeError("multiplet_end_levels must contain integer values.")
+            levels.append(int(x))
+        if any(x < 1 for x in levels):
+            raise ValueError("multiplet_end_levels entries must be >= 1 (1-based indices).")
+        if any(levels[i] <= levels[i - 1] for i in range(1, len(levels))):
+            raise ValueError("multiplet_end_levels must be strictly increasing with no duplicates.")
+        if any(x > self.n for x in levels):
+            raise ValueError("multiplet_end_levels entries must be <= number of Hamiltonian levels.")
+        self.multiplet_end_levels = levels
+        return None
 
     def validate_mu_parameters(self) -> None:
         r"""
