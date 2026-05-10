@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Minimal multi-spectrum intensity fit example (ms_fit-style workflow).
+Minimal multi-spectrum intensity fit example (fit_altp workflow).
 
 This script shows how to fit shared Altp parameters across two Spectrum objects
 that belong to different Hamiltonians.
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pycf.cfl as cfl
 from pycf.import_sljm import ImportSLJM
-from pycf.inten import Spectrum, inten_print, ms_fit_altp
+from pycf.inten import Spectrum, fit_altp, inten_print
 
 print("\n" + "=" * 76)
 print("MINIMAL MULTI-SPECTRUM INTENSITY FIT EXAMPLE")
@@ -112,8 +112,8 @@ spec1.recalculate()
 spec2.recalculate()
 # ---------------------------------------------------------------------------
 
-# ms_fit_altp prints fit summary + updated spectra automatically
-result = ms_fit_altp(
+# fit_altp handles both single and multi-spectrum inputs
+result = fit_altp(
     ["A210", "A230"],
     [spec1, spec2],
     dry_run=False,

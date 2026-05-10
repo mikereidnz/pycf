@@ -24,7 +24,6 @@ from pycf.inten import (
     inten_recalculate,
     inten_set_altp,
     inten_set_expt_data,
-    ms_fit_altp,
 )
 
 
@@ -338,6 +337,7 @@ class TestFitAltpDryRun:
         # If non-fitted terms are preserved, chi2 stays zero for matching expt_data.
         assert result["chi2"] == pytest.approx(0.0)
         assert spec.altp["A20"] == pytest.approx(2.0)
+        assert "A20" in result["summary_main"]
 
     def test_fit_altp_prints_pycf_details(self, capsys):
         class FakeSpectrum:
@@ -390,6 +390,8 @@ class TestFitAltpDryRun:
         summary = result["summary"]
         assert "fmin =" in summary
         assert "Minimization method: minimize/Powell" in summary
+        assert "All intensity parameters:" in result["summary_main"]
+        assert "Fitted parameter details:" not in result["summary_diagnostics"]
 
     def test_fit_altp_include_covariance_without_sigma(self, capsys):
         class FakeSpectrum:
@@ -429,33 +431,36 @@ class TestFitAltpDryRun:
         assert "calculate_sigma assumed True" in capsys.readouterr().out
 
 
-class TestMsFitAltpWrapper:
-    """Test ms_fit_altp wrapper behavior."""
+class TestFitAltpWrapperInputs:
+    """Test fit_altp wrapper input behavior."""
 
-    def test_ms_fit_altp_requires_sequence(self):
+    def test_fit_altp_accepts_single_spectrum(self):
         class FakeSpectrum:
-            pass
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+                self.altp_uncertainties = {}
 
-        with pytest.raises(TypeError, match="requires a sequence"):
-            ms_fit_altp(["A10"], FakeSpectrum())  # type: ignore[arg-type]
+            def set_altp(self, altp):
+                self.altp = dict(altp)
 
-    def test_ms_fit_altp_requires_nonempty_sequence(self):
-        with pytest.raises(ValueError, match="at least one Spectrum"):
-            ms_fit_altp(["A10"], [])
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
 
-    def test_ms_fit_altp_requires_spectrum_elements(self):
-        with pytest.raises(TypeError, match="only Spectrum objects"):
-            ms_fit_altp(["A10"], ["not-a-spectrum"])  # type: ignore[list-item]
+        spec = FakeSpectrum()
+        result = fit_altp(["A10"], spec, dry_run=True)
+        assert result["n_spectra"] == 1
 
-    def test_ms_fit_altp_sets_wrapper_summary_title(self):
-        class FakeSpectrum:
-            pass
+    def test_fit_altp_requires_nonempty_sequence(self):
+        with pytest.raises(ValueError, match="At least one Spectrum is required"):
+            fit_altp(["A10"], [])
 
-        fake_spec = FakeSpectrum()
-        with patch("pycf.inten.Spectrum", FakeSpectrum):
-            with patch("pycf.inten.fit_altp", return_value={"summary": "ok"}) as mock_fit:
-                ms_fit_altp(["A10"], [fake_spec], print_summary=False)
-        assert mock_fit.call_args.kwargs["_summary_title"] == "ms_fit_altp summary"
+    def test_fit_altp_requires_spectrum_elements(self):
+        with pytest.raises(TypeError, match="fit_altp requires a Spectrum or sequence"):
+            fit_altp(["A10"], ["not-a-spectrum"])  # type: ignore[list-item]
 
 
 class TestOptimizerDispatch:
@@ -757,8 +762,15 @@ class TestConvenienceWrappers:
         with patch("pycf.inten.gen_inten_summary", return_value="summary") as mock_gen:
             with patch("builtins.print") as mock_print:
                 inten_print([spec], format="brief")
-        mock_gen.assert_called_once_with(spec, format="brief")
+        mock_gen.assert_called_once_with(spec, format="brief", include_altp_parameters=True)
         mock_print.assert_called_once_with("summary")
+
+    def test_inten_print_can_suppress_altp_parameters(self):
+        spec = self._make_mock_spec()
+        with patch("pycf.inten.gen_inten_summary", return_value="summary") as mock_gen:
+            with patch("builtins.print"):
+                inten_print([spec], format="brief", include_altp_parameters=False)
+        mock_gen.assert_called_once_with(spec, format="brief", include_altp_parameters=False)
 
     def test_inten_print_total_chisqr_printed(self):
         """inten_print prints total chisqr when spec has expt_data in brief format."""

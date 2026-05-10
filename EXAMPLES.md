@@ -493,7 +493,7 @@ plot_results(result)
 
 ### Fit output options (energy and intensity wrappers)
 
-`e_fit`, `mh_fit`, `fit_altp`, and `ms_fit_altp` share output-control kwargs:
+`e_fit`, `mh_fit`, and `fit_altp` share output-control kwargs:
 
 - `calculate_sigma=True` (default): compute parameter uncertainties
 - `include_covariance=False` (default): include covariance matrix in `res` and summary

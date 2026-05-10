@@ -16,7 +16,7 @@ The spin-Hamiltonian methods are not under consideration here as the statistical
 
 #### Intensity fitting
 
-For intensities, there are  fit_altp and ms_fit_altp, patterned on e_fit and mh_fit. These use scipy minimizers. 
+For intensities, there is fit_altp, patterned on e_fit and mh_fit. This uses scipy minimizers. 
 
 ### Statistics and sigma
 
@@ -126,7 +126,7 @@ int_param = ["A210", "A230", "A430","A450", "A454","A650","A654","A670","A674"]
 .....
 elif optimizer == "Nelder-Mead":
     bounds = [(-50e-10, 50e-10)] * len(int_param)  # example bounds; adjust as needed
-    result = ms_fit_altp(
+    result = fit_altp(
         int_param,
         spec_list,
         bounds=bounds,
@@ -150,7 +150,7 @@ As far as possible, code should be common. E.g. a function to print all paramete
 ## Discussion: 
 
 ● I reviewed plan/sigma_output.md; the proposal is solid and consistent with current pain points. The most useful change
-  is a shared wrapper/output contract so e_fit/mh_fit, pyfit, and ms_fit_altp all return comparable res data and summary
+  is a shared wrapper/output contract so e_fit/mh_fit, pyfit, and fit_altp all return comparable res data and summary
   text.
 
   >> Yes, this is what I want. 
@@ -181,7 +181,7 @@ As far as possible, code should be common. E.g. a function to print all paramete
 
 >> Yes. In fact, the jacobian method is not very reliable for complex problems, and we use siman to do more robust estimation. However, the jacobian method gives quick fedback. 
 
-  Small note: line 19 says mf_fit_altp; in code it is ms_fit_altp.
+  Small note: line 19 says mf_fit_altp; in code it is fit_altp.
 
 >> fixed. 
 
@@ -210,7 +210,7 @@ Implemented first batch of the wrapper/output unification in `pycf` and it’s r
 3. **`PyFit` now has `fit_res(...)`**
    that returns an `e_fit`-style result dict and summary (so you don’t need the extra dry-run summary workaround).
 
-4. **`fit_altp` / `ms_fit_altp` now also accept**
+4. **`fit_altp` now also accepts**
    `calculate_sigma`, `include_covariance`, `include_jacobian`, and return diagnostics fields for conditioning.
 
 ---
@@ -272,10 +272,10 @@ This replaces your old pattern:
 
 ---
 
-#### C) Intensity fit (`ms_fit_altp`) with LM
+#### C) Intensity fit (`fit_altp`) with LM
 
 ```python
-res = ms_fit_altp(
+res = fit_altp(
     int_param,
     spec_list,
     dry_run=False,
@@ -321,15 +321,33 @@ The pycf routines have a nice header when they start doing a fit:
     Calculation started at: 2026-05-10 09:55:46
     Calculation completed at: 2026-05-10 09:55:47
 
-Please implement similar output for pyfit and ms_fit_altp. 
+Please implement similar output for pyfit and fit_altp. 
 
 #### Location of diagnostic output and parameters. 
 
 The energy level fits put all the diagnostics *after* the list of energy levels. 
-Currently, ms_fit_altp seems to list them in both places. 
+Currently, fit_altp seems to list them in both places. 
 For compatibility, I suggest putting all the diagnostics *after*. 
 
 However, I like how the intensity output *always* lists all the intensity parameters. 
 
 Can we modify the energy level summary so that it always lists all the Hamiltonian parameters before listing the energy levels, but has the detailed diagnostics at the end.  
 
+## Rethink of output and fit_altp
+
+### Scope
+1. fit_altp workflow and output
+2. printing of intensity parameters with spectrum lists. 
+
+### Issues: 
+1. In almost all cases the user will want multiple spectrums. Having a distinction between single and multi is confusing. 
+2. Printing the Altp parameters with each spectrum is too much repetition. 
+3. Workflow will now be like energies. Optional dry run, then fit. Calling of individual methods is discouraged for most users.  
+
+### Suggestion:
+
+1. Only have one wrapper: fit_altp. If the user only enters one spectrum and one data set, turn them into lists. 
+2. Modify tests and examples to reflect this. I can easily modify the files I am working on. 
+3. altp_fit should print the parameters only once, then the list of spectra. 
+
+Is this feasible? There may be other ways to think  about it. 

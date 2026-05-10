@@ -888,6 +888,7 @@ def gen_inten_summary(
     spectrum: Spectrum,
     format: str = "text",
     state_labels: Optional[List[Any]] = None,
+    include_altp_parameters: bool = True,
 ) -> str:
     """
     Generate a human-readable summary of intensity data for a spectrum.
@@ -901,6 +902,9 @@ def gen_inten_summary(
     state_labels : list of Any, optional
         Human-readable state labels (from spectrum.hamiltonian.tensors[0].states.labels).
         If not provided, uses principal component indices from cached spectrum data.
+    include_altp_parameters : bool, optional
+        If True (default), include the Altp parameter block in text/brief summaries.
+        Set False to suppress repeated parameter blocks when printing many spectra.
 
     Returns
     -------
@@ -930,9 +934,18 @@ def gen_inten_summary(
     )
 
     if format == "text":
-        return _format_inten_text(spectrum, w, pc, state_labels)
+        return _format_inten_text(
+            spectrum, w, pc, state_labels, include_altp_parameters=include_altp_parameters
+        )
     elif format in ("brief", "detailed", "moments"):
-        return _format_inten(spectrum, w, pc, state_labels, format=format)
+        return _format_inten(
+            spectrum,
+            w,
+            pc,
+            state_labels,
+            format=format,
+            include_altp_parameters=include_altp_parameters,
+        )
     elif format == "csv":
         return _format_inten_csv(spectrum, w, pc, state_labels)
     else:
@@ -964,13 +977,14 @@ def _format_inten_text(
     eigenvalues: np.ndarray,
     principal_components: np.ndarray,
     state_labels: List[Any],
+    include_altp_parameters: bool = True,
 ) -> str:
     """Format spectrum as a human-readable text table."""
     title = f"Spectrum: {spectrum.name}"
     lines = ["=" * len(title), title, "=" * len(title), ""]
 
     # Print Altp parameters if present
-    if spectrum.altp:
+    if include_altp_parameters and spectrum.altp:
         lines.append("Altp (electric dipole coupling) parameters:")
         for name, value in spectrum.altp.items():
             lines.append(_format_altp_param_line(spectrum, name, value))
@@ -1335,6 +1349,7 @@ def _format_inten(
     principal_components: np.ndarray,
     state_labels: List[Any],
     format: str = "brief",
+    include_altp_parameters: bool = True,
 ) -> str:
     """
     Unified formatter for intensity output supporting brief, detailed, and moments formats.
@@ -1372,7 +1387,7 @@ def _format_inten(
     ]
 
     # Print Altp parameters if present
-    if spectrum.altp:
+    if include_altp_parameters and spectrum.altp:
         lines.append("Altp (electric dipole coupling) parameters:")
         for name, value in spectrum.altp.items():
             lines.append(_format_altp_param_line(spectrum, name, value))
@@ -1622,6 +1637,17 @@ class AltpFit:
             self.spectra = list(spectra)
         if not self.spectra:
             raise ValueError("At least one Spectrum is required.")
+
+        def _looks_like_spectrum(spec: Any) -> bool:
+            return (
+                hasattr(spec, "altp")
+                and hasattr(spec, "expt_data")
+                and hasattr(spec, "set_altp")
+                and hasattr(spec, "recalculate")
+            )
+
+        if not all(_looks_like_spectrum(spec) for spec in self.spectra):
+            raise TypeError("fit_altp requires a Spectrum or sequence of Spectrum objects.")
 
         self.target_intensities = self._normalize_target_intensities(target_intensities)
         self.weights = weights
@@ -2157,6 +2183,32 @@ def fit_altp(
     summary_main += "\n"
     summary_main += f"fmin = {fmin:.6e}\n"
     summary_main += f"Minimization method: {minimization_method}\n\n"
+    summary_main += "All intensity parameters:\n"
+    summary_main += (
+        f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
+    )
+    summary_main += "-" * 108 + "\n"
+    initial_altp_full = dict(fitter.base_altp_by_spectrum[0])
+    fitted_altp_full = dict(getattr(fitter.spectra[0], "altp", {}) or {})
+    all_param_names = list(initial_altp_full.keys())
+    for pname in fitted_altp_full:
+        if pname not in all_param_names:
+            all_param_names.append(pname)
+    numeric_types = (int, float, complex, np.integer, np.floating, np.complexfloating)
+    for pname in all_param_names:
+        initial_val = initial_altp_full.get(pname, "n/a")
+        value = fitted_altp_full.get(pname, "n/a")
+        if isinstance(initial_val, numeric_types) and isinstance(value, numeric_types):
+            diff = value - initial_val
+        else:
+            diff = "n/a"
+        unc = uncertainties.get(pname, None)
+        unc_str = str(unc) if unc is not None else "n/a"
+        summary_main += (
+            f"{pname:<12} {str(initial_val):>22} {str(value):>22} "
+            f"{str(diff):>22} {unc_str:>22}\n"
+        )
+    summary_main += "\n"
 
     summary_diag = "\nFit diagnostics\n"
     summary_diag += "===============\n"
@@ -2176,20 +2228,6 @@ def fit_altp(
     summary_diag += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"
     for row in chi2_rows:
         summary_diag += f"{row['name']:<40} {row['n_obs']:>8d} {row['chi2']:>16.6e}\n"
-    summary_diag += "\nFitted parameter details:\n"
-    summary_diag += (
-        f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
-    )
-    summary_diag += "-" * 108 + "\n"
-    for pname, value in fitted_dict.items():
-        initial_val = fitter.param_info[pname]["initial_value"]
-        diff = value - initial_val
-        unc = uncertainties.get(pname, None)
-        unc_str = str(unc) if unc is not None else "n/a"
-        summary_diag += (
-            f"{pname:<12} {str(initial_val):>22} {str(value):>22} "
-            f"{str(diff):>22} {unc_str:>22}\n"
-        )
     if uncertainty_diagnostics:
         summary_diag += "\nUncertainty diagnostics:\n"
         summary_diag += (
@@ -2246,13 +2284,21 @@ def inten_calculate(spectra: Sequence[Spectrum], polarization: str = "isotropic"
 def inten_print(
     spectra: Union[Spectrum, Sequence[Spectrum]],
     format: str = "brief",
+    include_altp_parameters: bool = True,
     **kwargs: Any,
 ) -> None:
     """Print gen_inten_summary() for each spectrum in the list."""
     if isinstance(spectra, Spectrum):
         spectra = [spectra]
     for spec in spectra:
-        print(gen_inten_summary(spec, format=format, **kwargs))
+        print(
+            gen_inten_summary(
+                spec,
+                format=format,
+                include_altp_parameters=include_altp_parameters,
+                **kwargs,
+            )
+        )
 
     # Print grand total chi-square across all spectra with expt data
     grand_total_chi2 = 0.0
@@ -2309,41 +2355,34 @@ def inten_recalculate(spectra: Sequence[Spectrum], polarization: str = "isotropi
 
 def ms_fit_altp(
     param_names: List[str],
-    spectra: Sequence[Spectrum],
-    target_intensities: Optional[Sequence[Dict[int, float]]] = None,
+    spectra: Union[Spectrum, Sequence[Spectrum]],
+    target_intensities: Optional[Union[Dict[int, float], Sequence[Dict[int, float]]]] = None,
     cfl_min: Optional[Any] = None,
     weights: Optional[Union[np.ndarray, Sequence[np.ndarray]]] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """
-    Multi-spectrum Altp parameter fitting.
+    Backward-compatible alias for fit_altp.
 
-    Requires a list/sequence of Spectrum objects. After fitting, prints the fit
-    summary followed by an updated brief intensity table for each spectrum.
-
-    Parameters are parallel to fit_altp; see that function for details.
-    Extra kwarg ``print_summary`` (default True) can be set to False to suppress
-    automatic printing.
+    Accepts the same parameters as fit_altp. Extra kwarg ``print_summary``
+    (default True) controls printing of summary/intensity tables.
     """
     if isinstance(spectra, Spectrum) or not isinstance(spectra, SequenceABC):
-        raise TypeError("ms_fit_altp requires a sequence of Spectrum objects.")
-    if len(spectra) == 0:
-        raise ValueError("ms_fit_altp requires at least one Spectrum.")
-    if not all(isinstance(spec, Spectrum) for spec in spectra):
-        raise TypeError("ms_fit_altp requires a sequence containing only Spectrum objects.")
+        spectra_list = [spectra]
+    else:
+        spectra_list = list(spectra)
     print_summary = kwargs.pop("print_summary", True)
     result = fit_altp(
         param_names,
-        list(spectra),
+        spectra_list,
         target_intensities=target_intensities,
         cfl_min=cfl_min,
         weights=weights,
-        _summary_title="ms_fit_altp summary",
         **kwargs,
     )
     if print_summary:
         print(result.get("summary_main", result["summary"]))
-        inten_print(list(spectra), format="brief")
+        inten_print(spectra_list, format="brief", include_altp_parameters=False)
         if "summary_diagnostics" in result:
             print(result["summary_diagnostics"])
     return result
