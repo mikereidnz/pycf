@@ -426,6 +426,7 @@ class PyFit:
                 sigma_by_param=sigma_by_param,
                 name="All Hamiltonian parameters",
             )
+            summary += f"fmin = {fmin:.6e}\n\n"
             if self.efit.ex.n_d != 0:
                 summary += h.gen_summary() + "\n\n"
                 kwargs: Dict[str, Any] = {
@@ -465,6 +466,7 @@ class PyFit:
                 sigma_by_param=sigma_by_param,
                 name="All Hamiltonian parameters",
             )
+            summary += f"fmin = {fmin:.6e}\n\n"
             summary += "Multi-Hamiltonian fit\n\n"
             for i, h in enumerate(self.efit.h_list):
                 h.update_coeff(coeff)

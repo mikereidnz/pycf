@@ -2116,6 +2116,7 @@ def fit_altp(
     summary_main += gen_pycf_summary(started_at, suppress_input=True)
     summary_main += gen_completed_str(completed_at)
     summary_main += "\n"
+    summary_main += f"fmin = {fmin:.6e}\n\n"
 
     summary_diag = "\nFit diagnostics\n"
     summary_diag += "===============\n"

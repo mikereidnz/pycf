@@ -4880,6 +4880,7 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         sigma_by_param=sigma_by_param if calculate_sigma else {},
         name="All Hamiltonian parameters",
     )
+    summary += f"fmin = {fmin:.6e}\n\n"
     if efit.ex.n_d != 0:
         summary += h.gen_summary(**kwargs) + "\n\n"
         # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
@@ -5046,6 +5047,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         sigma_by_param=sigma_by_param if calculate_sigma else {},
         name="All Hamiltonian parameters",
     )
+    summary += f"fmin = {fmin:.6e}\n\n"
     # Pass minimum_q and experimental data parameters to gen_summary for first Hamiltonian
     h_summary_kwargs = {"ex": mhfit.ex_list[0], "chi2": mhfit.chi2[0], "ndof": ndof, "weighting": mhfit.weights_list[0]}
     h_summary_kwargs.update(kwargs)  # Merge user-provided kwargs
