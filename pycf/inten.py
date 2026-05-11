@@ -2491,11 +2491,15 @@ def fit_altp(
                 jacobian = np.asarray(jacobian_source.toarray(), dtype=float)
             else:
                 jacobian = np.asarray(jacobian_source, dtype=float)
-            if jacobian.ndim != 2:
+            expected_shape = (fitter.n_obs, fitter.n_p)
+            if jacobian.ndim != 2 or jacobian.shape != expected_shape:
                 if include_jacobian:
                     jacobian = _compute_numerical_jacobian(fitter, x_opt)
                 else:
-                    raise ValueError("Jacobian must be two-dimensional.")
+                    raise ValueError(
+                        "Jacobian must be two-dimensional with shape "
+                        f"{expected_shape}, got shape {jacobian.shape}."
+                    )
             jacobian_info = jacobian_diagnostics(jacobian, fitter.n_p)
         except Exception:
             jacobian = None
