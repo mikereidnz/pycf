@@ -2027,22 +2027,31 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
         If any experimental level index (la) is invalid (<0).
     """
     evals = efit.h.w  # NumPy array of eigenvalues
-    la = efit.ex.la  # Level indices for each experimental point
-    e_exp = efit.ex.e  # Experimental energies
-    weights = efit.ex.w  # Weights (per-point weighting factors)
+    ex = efit.ex
+    e_exp = ex.e  # Experimental energies (length n_a + n_d)
+    weights = ex.w  # Weights (length n_a + n_d)
+    n_a = getattr(ex, "n_a", len(ex.la) if ex.la is not None else 0)
+    n_d = getattr(ex, "n_d", 0)
 
-    # Find valid level indices (>= 0)
-    valid = la >= 0
-    if not np.any(valid):
-        # No valid experimental points
-        return 0.0
+    chi2 = 0.0
 
-    # Extract fitted eigenvalues for valid points
-    fitted_e = evals[la[valid]]
+    # Absolute energy contribution: sum_i w[i] * (eval[la[i]] - e[i])^2
+    if n_a > 0:
+        la = ex.la[:n_a]
+        valid_a = la >= 0
+        if np.any(valid_a):
+            fitted_e = evals[la[valid_a]]
+            residuals = fitted_e - e_exp[:n_a][valid_a]
+            chi2 += float(np.sum(weights[:n_a][valid_a] * residuals**2))
 
-    # Compute residuals and chi² using weighted sum (matching C echisq function)
-    # echisq: chisq += w[i] * pow(e[la[i]] - e[i], 2)
-    residuals = fitted_e - e_exp[valid]
-    chi2 = float(np.sum(weights[valid] * residuals**2))
+    # Difference energy contribution: sum_i w[n_a+i] * (|eval[fld[i]] - eval[ild[i]]| - e[n_a+i])^2
+    if n_d > 0:
+        ild = ex.ild[:n_d]
+        fld = ex.fld[:n_d]
+        valid_d = (ild >= 0) & (fld >= 0)
+        if np.any(valid_d):
+            diff_fitted = np.abs(evals[fld[valid_d]] - evals[ild[valid_d]])
+            residuals = diff_fitted - e_exp[n_a:n_a + n_d][valid_d]
+            chi2 += float(np.sum(weights[n_a:n_a + n_d][valid_d] * residuals**2))
 
     return chi2

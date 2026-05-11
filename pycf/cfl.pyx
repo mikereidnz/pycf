@@ -64,12 +64,18 @@ cdef void _c_error_handler_wrapper(const char *func, const char *file,
     global _python_error_handler
     with gil:
         if _python_error_handler is not None:
-            _python_error_handler(
-                func.decode('utf-8') if func else "",
-                file.decode('utf-8') if file else "",
-                line,
-                message.decode('utf-8') if message else ""
-            )
+            try:
+                _python_error_handler(
+                    func.decode('utf-8') if func else "",
+                    file.decode('utf-8') if file else "",
+                    line,
+                    message.decode('utf-8') if message else ""
+                )
+            except Exception:
+                # Never let a raising Python error handler escape a
+                # noexcept nogil C callback; just print the traceback.
+                import traceback
+                traceback.print_exc()
 
 
 def set_error_handler(handler):
@@ -1021,7 +1027,7 @@ cdef sh_hpro_helper(h, sh):
             h_new = Hamiltonian([magzs] + h.tensors)
             h_new.set_coeff(tmp_h_coeff)
             h = h_new
-        except:
+        except Exception:
             # If new Hamiltonian creation fails, use original h
             h.update_coeff({'MAGZS' : 1})
             raise
@@ -2436,9 +2442,15 @@ cdef double mu_n_efit_obj(
         chi2 = compute_chi2_numpy(efit)
 
         return chi2
-    except BaseException:
+    except BaseException as exc:
+        # noexcept Cython callbacks cannot propagate exceptions. Stash the
+        # first failure on the thread-local so EFit.fit() can re-raise it
+        # after the minimizer returns, and signal a very-bad chi² so the
+        # optimizer abandons this point quickly.
         import traceback
         traceback.print_exc()
+        if getattr(_efit_current, 'exception', None) is None:
+            _efit_current.exception = exc
         return float('inf')
 
 
@@ -2488,6 +2500,13 @@ cdef class EFit(object):
     cdef public np.ndarray chi2
     cdef public object last_jacobian
     cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.ex_data = NULL
+        self.param_array = NULL
+        self.efit_data = NULL
+        self.n_p = 0
     def __init__(self, parameters, h, ex, **kwargs):
         self.h = h
         self.n_p = len(parameters)
@@ -2668,13 +2687,18 @@ cdef class EFit(object):
         # Store EFit in thread-local storage for mu/n wrapper objective
         if self.ex.has_mu_n:
             _efit_current.obj = self
+            _efit_current.exception = None
 
         try:
             fmin = min_object.minimize(self, x)
         finally:
             # Clean up thread-local storage
             if self.ex.has_mu_n:
+                stashed = getattr(_efit_current, 'exception', None)
                 _efit_current.obj = None
+                _efit_current.exception = None
+                if stashed is not None:
+                    raise stashed
 
         # If the minimiser produced a Jacobian (gsl_nls path), expose it
         # for downstream callers (e.g. covariance helper).
@@ -2984,9 +3008,15 @@ cdef double mu_n_mhfit_obj(
             total_chi2 += compute_chi2_numpy(temp)
 
         return total_chi2
-    except BaseException:
+    except BaseException as exc:
+        # noexcept Cython callbacks cannot propagate exceptions. Stash the
+        # first failure on the thread-local so MHFit.fit() can re-raise it
+        # after the minimizer returns, and signal a very-bad chi² so the
+        # optimizer abandons this point quickly.
         import traceback
         traceback.print_exc()
+        if getattr(_mhfit_current, 'exception', None) is None:
+            _mhfit_current.exception = exc
         return float('inf')
 
 
@@ -3055,6 +3085,15 @@ cdef class MHFit(object):
     cdef public object last_jacobian
     cdef public bint has_mu_n
     cdef list _ex_w_backing     # keeps each ex_data.w buffer alive (see exdata_alloc_helper)
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.ha = NULL
+        self.ex_data = NULL
+        self.param_arrays = NULL
+        self.mhfit_data = NULL
+        self.n_h = 0
+        self.n_p = 0
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
         cdef np.ndarray[char, ndim=1, mode="c"] job_a
@@ -3306,10 +3345,15 @@ cdef class MHFit(object):
         # so the C callback can access it
         if self.has_mu_n:
             _mhfit_current.obj = self
+            _mhfit_current.exception = None
             try:
                 fmin = min_object.minimize(self, x)
             finally:
+                stashed = getattr(_mhfit_current, 'exception', None)
                 _mhfit_current.obj = None
+                _mhfit_current.exception = None
+                if stashed is not None:
+                    raise stashed
         else:
             fmin = min_object.minimize(self, x)
 
@@ -3575,6 +3619,14 @@ cdef class ESHFit(object):
     cdef public np.ndarray chi2
     cdef dict weights
     cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.ex_data = NULL
+        self.param_array = NULL
+        self.shx_array = NULL
+        self.eshfit_data = NULL
+        self.n_p = 0
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
         self.n_p = len(parameters)
         self.parameters = parameters
@@ -3919,6 +3971,13 @@ cdef class MESHFit(object):
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
     cdef public list weights_list
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.eshfit_array = NULL
+        self.meshfit_data = NULL
+        self.n_h = 0
+        self.n_p = 0
     def __init__(self, parameters, h_sh_list, **kwargs):
         self.n_h = len(h_sh_list)
         self.n_p = len(parameters)
