@@ -2229,7 +2229,7 @@ def _fd_jacobian_impl(fit_obj, x=None, *, delta=None,
     elif np.isscalar(delta):
         delta_vec = np.full(n_p, float(delta), dtype=np.float64)
     else:
-        delta_vec = np.asarray(delta, dtype=np.float64).copy()
+        delta_vec = np.asarray(delta, dtype=np.float64)
         if delta_vec.shape != (n_p,):
             raise ValueError(
                 "delta must be a scalar or shape (%d,) array; got %s" % (
@@ -2244,16 +2244,19 @@ def _fd_jacobian_impl(fit_obj, x=None, *, delta=None,
         E_base = fit_obj.get_edata().arr["e_calc"].astype(np.float64, copy=True)
 
     J = np.zeros((n_obs, n_p), dtype=np.float64)
+    # Single perturbation buffer reused across all parameters; the with-block
+    # in _temporary_x materialises fit state eagerly via _x_to_coeff_dict,
+    # so we may safely mutate x_pert between context exits.
+    x_pert = x_base.copy()
     for alpha in range(n_p):
         d = float(delta_vec[alpha])
-        x_p = x_base.copy()
-        x_p[alpha] = x_base[alpha] + d
-        x_m = x_base.copy()
-        x_m[alpha] = x_base[alpha] - d
-        with _temporary_x(fit_obj, x_p):
+        x_pert[alpha] = x_base[alpha] + d
+        with _temporary_x(fit_obj, x_pert):
             E_p = fit_obj.get_edata().arr["e_calc"]
-        with _temporary_x(fit_obj, x_m):
+        x_pert[alpha] = x_base[alpha] - d
+        with _temporary_x(fit_obj, x_pert):
             E_m = fit_obj.get_edata().arr["e_calc"]
+        x_pert[alpha] = x_base[alpha]
         J[:, alpha] = (E_p - E_m) / (2.0 * d)
 
     if check_swaps and n_obs > 0:
