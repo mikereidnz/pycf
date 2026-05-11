@@ -4958,9 +4958,6 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     summary += gen_completed_str(completed_at)
     print_completed_str(completed_at)
 
-    h.update_coeff(x)
-    (w, z) = h.diag()
-
     jacobian = None
     covariance = None
     sigma_vector = None
@@ -4976,6 +4973,12 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
             x=np.asarray(efit.x0, dtype=np.float64), jacobian=jacobian
         )
         sigma_by_param = map_sigma_by_parameter(efit, sigma_vector)
+
+    # Sync h to the fitted x and refresh w/z for the summary block.
+    # fd_jacobian / covariance restore h.coeff on exit but leave
+    # h.w/h.z at the last FD perturbation point.
+    h.update_coeff(x)
+    h.diag()
 
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(efit.n_obs - efit.n_p_real, 1)
@@ -5163,8 +5166,11 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         h_summary_kwargs["half_integer_states"] = h.half_integer_states
     summary += h.gen_summary(**h_summary_kwargs) + "\n\n"
     for i,h in enumerate(mhfit.h_list):
-        h.update_coeff(x)
-        (w, z) = h.diag()
+        if i > 0:
+            # h_list[0] was already synced + diagonalised above for the
+            # gen_summary block; avoid the redundant diag here.
+            h.update_coeff(x)
+            h.diag()
 
         name = "Hamiltonian %i" % i
         # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
