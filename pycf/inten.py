@@ -2184,10 +2184,25 @@ def fit_altp(
     summary_main += f"fmin = {fmin:.6e}\n"
     summary_main += f"Minimization method: {minimization_method}\n\n"
     summary_main += "All intensity parameters:\n"
-    summary_main += (
-        f"{'Parameter':<12} {'Initial':>22} {'Fitted':>22} {'Difference':>22} {'Uncertainty':>22}\n"
-    )
-    summary_main += "-" * 108 + "\n"
+
+    def _format_altp_table_value(value: Any) -> str:
+        if isinstance(value, (bool, np.bool_)):
+            return str(value)
+        if isinstance(value, (int, np.integer)):
+            return str(int(value))
+        if isinstance(value, (float, np.floating)):
+            return f"{float(value):.8e}"
+        if isinstance(value, (complex, np.complexfloating)):
+            cval = complex(value)
+            return f"{cval.real:.8e}{cval.imag:+.8e}j"
+        if (
+            isinstance(value, tuple)
+            and len(value) == 2
+            and all(isinstance(v, (int, float, np.integer, np.floating)) for v in value)
+        ):
+            return f"({float(value[0]):.8e}, {float(value[1]):.8e})"
+        return str(value)
+
     initial_altp_full = dict(fitter.base_altp_by_spectrum[0])
     fitted_altp_full = dict(getattr(fitter.spectra[0], "altp", {}) or {})
     all_param_names = list(initial_altp_full.keys())
@@ -2195,6 +2210,7 @@ def fit_altp(
         if pname not in all_param_names:
             all_param_names.append(pname)
     numeric_types = (int, float, complex, np.integer, np.floating, np.complexfloating)
+    table_rows: List[Tuple[str, str, str, str, str]] = []
     for pname in all_param_names:
         initial_val = initial_altp_full.get(pname, "n/a")
         value = fitted_altp_full.get(pname, "n/a")
@@ -2203,10 +2219,37 @@ def fit_altp(
         else:
             diff = "n/a"
         unc = uncertainties.get(pname, None)
-        unc_str = str(unc) if unc is not None else "n/a"
+        table_rows.append(
+            (
+                str(pname),
+                _format_altp_table_value(initial_val),
+                _format_altp_table_value(value),
+                _format_altp_table_value(diff),
+                _format_altp_table_value(unc) if unc is not None else "n/a",
+            )
+        )
+    headers = ("Parameter", "Initial", "Fitted", "Difference", "Uncertainty")
+    col_widths = [
+        max([len(headers[i])] + [len(row[i]) for row in table_rows])
+        for i in range(len(headers))
+    ]
+    for idx in range(1, len(headers)):
+        col_widths[idx] = max(col_widths[idx], 17)
+    summary_main += (
+        f"{headers[0]:<{col_widths[0]}}  "
+        f"{headers[1]:>{col_widths[1]}}  "
+        f"{headers[2]:>{col_widths[2]}}  "
+        f"{headers[3]:>{col_widths[3]}}  "
+        f"{headers[4]:>{col_widths[4]}}\n"
+    )
+    summary_main += "-" * (sum(col_widths) + 8) + "\n"
+    for row in table_rows:
         summary_main += (
-            f"{pname:<12} {str(initial_val):>22} {str(value):>22} "
-            f"{str(diff):>22} {unc_str:>22}\n"
+            f"{row[0]:<{col_widths[0]}}  "
+            f"{row[1]:>{col_widths[1]}}  "
+            f"{row[2]:>{col_widths[2]}}  "
+            f"{row[3]:>{col_widths[3]}}  "
+            f"{row[4]:>{col_widths[4]}}\n"
         )
     summary_main += "\n"
 
