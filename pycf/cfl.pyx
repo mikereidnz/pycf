@@ -2424,15 +2424,18 @@ cdef double mu_n_efit_obj(
     chi2 : double
         Sum of squared, weighted residuals (computed via compute_chi2_numpy).
     """
+    cdef double[::1] x_view
     try:
         # Retrieve EFit instance from thread-local storage
         efit = getattr(_efit_current, 'obj', None)
         if efit is None:
             return float('inf')
 
-        # Extract coefficients from x vector and update
-        x_arr = np.asarray(<double[:n]>x)
-        new_coeff = _x_to_coeff_dict(efit, x_arr)
+        # Extract coefficients from x vector and update.
+        # Pass the typed memoryview directly: _x_to_coeff_dict only needs
+        # x[i] -> float indexing, so we avoid an np.ndarray wrapper per call.
+        x_view = <double[:n]>x
+        new_coeff = _x_to_coeff_dict(efit, x_view)
         efit.coeff.update(new_coeff)
 
         # Set coefficients and diagonalize
@@ -2975,6 +2978,7 @@ cdef double mu_n_mhfit_obj(
         Sum of squared, weighted residuals across all Hamiltonians.
     """
     cdef Py_ssize_t i
+    cdef double[::1] x_view
 
     try:
         # Retrieve MHFit instance from thread-local storage
@@ -2982,9 +2986,11 @@ cdef double mu_n_mhfit_obj(
         if mhfit is None:
             return float('inf')
 
-        # Extract coefficients from x vector
-        x_arr = np.asarray(<double[:n]>x)
-        new_coeff = _x_to_coeff_dict(mhfit, x_arr)
+        # Extract coefficients from x vector.
+        # Pass the typed memoryview directly: _x_to_coeff_dict only needs
+        # x[i] -> float indexing, so we avoid an np.ndarray wrapper per call.
+        x_view = <double[:n]>x
+        new_coeff = _x_to_coeff_dict(mhfit, x_view)
         mhfit.coeff.update(new_coeff)
 
         # Update each Hamiltonian: set coefficients, diagonalize, update mu/n indices
