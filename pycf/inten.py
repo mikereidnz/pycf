@@ -730,6 +730,9 @@ class Spectrum:
 
     # Experimental data (optional): list of [group_idx, f_calc, f_expt]
     expt_data: Optional[List[List[float]]] = field(default=None)
+    fit_scale_to_group: Optional[int] = field(default=None)
+    fit_ignore_groups: List[int] = field(default_factory=list)
+    last_expt_scale_factor: Optional[float] = field(default=None, init=False)
     altp_uncertainties: Dict[str, Any] = field(default_factory=dict, init=False)
 
     # Computed fields
@@ -776,6 +779,50 @@ class Spectrum:
     def set_expt_data(self, expt_data: Optional[List[List[float]]]) -> None:
         """Set or replace experimental intensity data."""
         self.expt_data = expt_data
+
+    def scale_to(self, group_idx: Optional[int]) -> None:
+        """
+        Set one transition group used to scale experimental data to calculated values.
+
+        Parameters
+        ----------
+        group_idx : int or None
+            1-based group index to use as scaling anchor. Set to None to disable scaling.
+        """
+        if group_idx is None:
+            self.fit_scale_to_group = None
+            self.last_expt_scale_factor = None
+            return
+        if isinstance(group_idx, (bool, np.bool_)) or not isinstance(group_idx, (int, np.integer)):
+            raise TypeError("scale_to group index must be an integer or None.")
+        group_int = int(group_idx)
+        if group_int < 1:
+            raise ValueError("scale_to group index must be >= 1.")
+        self.fit_scale_to_group = group_int
+        self.last_expt_scale_factor = None
+
+    def set_ignored_groups(self, group_indices: Optional[Sequence[int]]) -> None:
+        """
+        Set transition groups to exclude from chi-square calculations.
+
+        Parameters
+        ----------
+        group_indices : sequence of int or None
+            1-based group indices to exclude. Set to None/empty to clear exclusions.
+        """
+        if not group_indices:
+            self.fit_ignore_groups = []
+            return
+        normalized: List[int] = []
+        for idx in group_indices:
+            if isinstance(idx, (bool, np.bool_)) or not isinstance(idx, (int, np.integer)):
+                raise TypeError("Ignored group indices must be integers.")
+            group_int = int(idx)
+            if group_int < 1:
+                raise ValueError("Ignored group indices must be >= 1.")
+            if group_int not in normalized:
+                normalized.append(group_int)
+        self.fit_ignore_groups = sorted(normalized)
 
     def _eigenvectors_match(self, z: np.ndarray) -> bool:
         return (
@@ -952,6 +999,131 @@ def gen_inten_summary(
         raise ValueError(
             f"Unknown format: {format}. Use 'text', 'brief', 'detailed', 'moments', or 'csv'."
         )
+
+
+def _build_expt_lookup(expt_data: Optional[List[List[float]]]) -> Dict[int, float]:
+    """Parse experimental data into a lookup map keyed by 1-based group index."""
+    expt_lookup: Dict[int, float] = {}
+    if not expt_data:
+        return expt_lookup
+    for entry in expt_data:
+        if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+            continue
+        try:
+            expt_lookup[int(entry[0])] = float(entry[1])
+        except (ValueError, TypeError):
+            continue
+    return expt_lookup
+
+
+def _get_fit_scale_group(spectrum: Any) -> Optional[int]:
+    """Return validated scale_to group index from a spectrum-like object."""
+    raw = getattr(spectrum, "fit_scale_to_group", None)
+    if raw is None:
+        return None
+    if isinstance(raw, (bool, np.bool_)):
+        return None
+    if isinstance(raw, (int, np.integer)):
+        group_idx = int(raw)
+        if group_idx >= 1:
+            return group_idx
+    return None
+
+
+def _get_fit_ignored_groups(spectrum: Any) -> List[int]:
+    """Return validated unique ignored-group indices from a spectrum-like object."""
+    raw = getattr(spectrum, "fit_ignore_groups", [])
+    if raw is None or isinstance(raw, (str, bytes)):
+        return []
+    if not isinstance(raw, SequenceABC):
+        return []
+    out: List[int] = []
+    for value in raw:
+        if isinstance(value, (bool, np.bool_)):
+            continue
+        if isinstance(value, (int, np.integer)):
+            idx = int(value)
+            if idx >= 1 and idx not in out:
+                out.append(idx)
+    return sorted(out)
+
+
+def _get_effective_expt_lookup(
+    spectrum: Spectrum,
+    *,
+    require_groups: bool,
+) -> Tuple[Dict[int, float], Dict[int, float], set[int], Optional[int], Optional[float]]:
+    """
+    Return raw and effective experimental lookups after applying fit controls.
+
+    Effective values are scaled when ``spectrum.fit_scale_to_group`` is set. Groups in
+    ``fit_ignore_groups`` (and the scaling anchor itself) are flagged as excluded from chi².
+    """
+    raw_lookup = _build_expt_lookup(spectrum.expt_data)
+    scale_group = _get_fit_scale_group(spectrum)
+    ignore_groups = set(_get_fit_ignored_groups(spectrum))
+
+    missing_ignored = sorted(g for g in ignore_groups if g not in raw_lookup)
+    if missing_ignored:
+        raise ValueError(
+            f"Spectrum '{spectrum.name}': ignored group(s) missing experimental data: "
+            f"{missing_ignored}."
+        )
+
+    excluded_groups = set(ignore_groups)
+    scale_factor: Optional[float] = None
+    effective_lookup = dict(raw_lookup)
+
+    if scale_group is not None:
+        if scale_group not in raw_lookup:
+            raise ValueError(
+                f"Spectrum '{spectrum.name}': scale_to group {scale_group} has no experimental data."
+            )
+        if require_groups:
+            if not spectrum.groups:
+                raise ValueError(
+                    f"Spectrum '{spectrum.name}': cannot apply scale_to without computed groups."
+                )
+            if scale_group < 1 or scale_group > len(spectrum.groups):
+                raise ValueError(
+                    f"Spectrum '{spectrum.name}': scale_to group {scale_group} is out of range "
+                    f"(1..{len(spectrum.groups)})."
+                )
+            is_absorption = spectrum.groups[0]["Energy"] > 0
+            key = "f" if is_absorption else "A"
+            calc_anchor = float(spectrum.groups[scale_group - 1].get(key, 0.0))
+            expt_anchor = raw_lookup[scale_group]
+            if expt_anchor == 0:
+                raise ValueError(
+                    f"Spectrum '{spectrum.name}': scale_to group {scale_group} has zero "
+                    "experimental intensity."
+                )
+            scale_factor = calc_anchor / expt_anchor
+            effective_lookup = {k: v * scale_factor for k, v in raw_lookup.items()}
+            spectrum.last_expt_scale_factor = scale_factor
+        excluded_groups.add(scale_group)
+    else:
+        spectrum.last_expt_scale_factor = None
+
+    return raw_lookup, effective_lookup, excluded_groups, scale_group, scale_factor
+
+
+def _compute_numerical_jacobian(fitter: "AltpFit", x_opt: np.ndarray) -> np.ndarray:
+    """Compute a finite-difference Jacobian for residuals."""
+    base = np.asarray(fitter.residuals(x_opt), dtype=float)
+    n_rows = int(base.size)
+    n_cols = int(x_opt.size)
+    jac = np.zeros((n_rows, n_cols), dtype=float)
+    eps = np.sqrt(np.finfo(float).eps) * (1.0 + np.abs(x_opt))
+    for idx in range(n_cols):
+        x_plus = np.array(x_opt, copy=True)
+        x_minus = np.array(x_opt, copy=True)
+        x_plus[idx] += eps[idx]
+        x_minus[idx] -= eps[idx]
+        r_plus = np.asarray(fitter.residuals(x_plus), dtype=float)
+        r_minus = np.asarray(fitter.residuals(x_minus), dtype=float)
+        jac[:, idx] = (r_plus - r_minus) / (2.0 * eps[idx])
+    return jac
 
 
 def _format_altp_param_line(spectrum: Spectrum, name: str, value: Any) -> str:
@@ -1398,19 +1570,21 @@ def _format_inten(
         raise ValueError("Cannot format spectrum with no groups")
     is_absorption = spectrum.groups[0]["Energy"] > 0
 
-    # Build expt_data lookup (group_idx -> f_expt) - only used in brief format
-    # Parse with error handling for type consistency
-    expt_lookup: dict[int, float] = {}
+    expt_lookup: Dict[int, float] = {}
+    excluded_groups: set[int] = set()
+    scale_group: Optional[int] = None
+    scale_factor: Optional[float] = None
+    ignored_groups = set(_get_fit_ignored_groups(spectrum))
     if spectrum.expt_data and format == "brief":
-        for expt_entry in spectrum.expt_data:
-            # Check if entry is iterable (list, tuple) and has at least 2 elements
-            try:
-                if isinstance(expt_entry, (list, tuple)) and len(expt_entry) >= 2:
-                    group_idx = int(expt_entry[0])  # Convert to int with validation
-                    f_expt = float(expt_entry[1])  # Convert to float with validation
-                    expt_lookup[group_idx] = f_expt
-            except (ValueError, TypeError, IndexError):
-                continue  # Skip malformed entries silently
+        _, expt_lookup, excluded_groups, scale_group, scale_factor = _get_effective_expt_lookup(
+            spectrum,
+            require_groups=True,
+        )
+        if scale_group is not None and scale_factor is not None:
+            lines.append(
+                f"Experimental scaling: group {scale_group} factor = {scale_factor:.8e}"
+            )
+            lines.append("")
 
     # Compute label column width from actual rendered labels
     min_label_w = max(len("Initial State"), len("Final State"))  # header text minimum
@@ -1457,7 +1631,6 @@ def _format_inten(
             f"{'':6}{'Final State':<{label_w - 6}} {'A_ED':<12} {'A_MD':<12} {'A_Total':<12}"
         )
 
-    # Append expt columns for brief format only
     if spectrum.expt_data and format == "brief":
         expt_label = "f_Expt" if is_absorption else "A_Expt"
         header += f" {expt_label:<12} {'chisqr':<12}"
@@ -1482,13 +1655,17 @@ def _format_inten(
             if f_expt_value is None:
                 group_line += f" {'---':<12} {'---':<12}"
             else:
-                # Calculate chisqr = ((calc - exp) / (calc + exp))^2
-                if f_calc + f_expt_value != 0:
-                    chi2 = ((f_calc - f_expt_value) / (f_calc + f_expt_value)) ** 2
+                if group_idx in excluded_groups:
+                    tag = "(scaled to)" if group_idx == scale_group else "(not used)"
+                    group_line += f" {f_expt_value:.6e} {tag:<12}"
                 else:
-                    chi2 = 0.0
-                total_chi2 += chi2
-                group_line += f" {f_expt_value:.6e} {chi2:.6e}"
+                    # Calculate chisqr = ((calc - exp) / (calc + exp))^2
+                    if f_calc + f_expt_value != 0:
+                        chi2 = ((f_calc - f_expt_value) / (f_calc + f_expt_value)) ** 2
+                    else:
+                        chi2 = 0.0
+                    total_chi2 += chi2
+                    group_line += f" {f_expt_value:.6e} {chi2:.6e}"
 
         lines.append(group_line)
 
@@ -1651,7 +1828,24 @@ class AltpFit:
 
         self.target_intensities = self._normalize_target_intensities(target_intensities)
         self.weights = weights
-        self.n_obs = sum(len(t) for t in self.target_intensities)
+        self.n_obs = 0
+        for spec, target_map in zip(self.spectra, self.target_intensities):
+            scale_group = _get_fit_scale_group(spec)
+            ignored_groups = set(_get_fit_ignored_groups(spec))
+            if scale_group is not None and scale_group not in target_map:
+                raise ValueError(
+                    f"Spectrum '{spec.name}': scale_to group {scale_group} has no experimental data."
+                )
+            missing_ignored = sorted(g for g in ignored_groups if g not in target_map)
+            if missing_ignored:
+                raise ValueError(
+                    f"Spectrum '{spec.name}': ignored group(s) missing experimental data: "
+                    f"{missing_ignored}."
+                )
+            excluded = set(ignored_groups)
+            if scale_group is not None:
+                excluded.add(scale_group)
+            self.n_obs += len([g for g in target_map.keys() if g not in excluded])
         self.base_altp_by_spectrum = [dict(spec.altp or {}) for spec in self.spectra]
 
         # Build parameter info: track which are complex, indices in flat vector
@@ -1769,10 +1963,10 @@ class AltpFit:
             altp[pname] = value
         return altp
 
-    def _compute_grouped_intensities(self, x: np.ndarray) -> List[np.ndarray]:
+    def _compute_grouped_intensities(self, x: np.ndarray) -> List[Dict[int, float]]:
         """Compute grouped intensities for all spectra for parameter vector x."""
         fitted_altp_subset = self._x_to_altp(x)
-        computed_all: List[np.ndarray] = []
+        computed_all: List[Dict[int, float]] = []
         for i, (spec, target_map) in enumerate(zip(self.spectra, self.target_intensities)):
             # Keep non-fitted Altp parameters fixed for each spectrum.
             full_altp = dict(self.base_altp_by_spectrum[i])
@@ -1780,7 +1974,7 @@ class AltpFit:
             spec.set_altp(full_altp)
             spec.recalculate(polarization="isotropic")
             if not spec.groups:
-                computed_all.append(np.full(len(target_map), np.nan))
+                computed_all.append({})
                 continue
             is_absorption = spec.groups[0]["Energy"] > 0
             key = "f" if is_absorption else "A"
@@ -1788,9 +1982,7 @@ class AltpFit:
                 group_idx: group.get(key, 0.0)
                 for group_idx, group in enumerate(spec.groups, start=1)
             }
-            indices = sorted(target_map.keys())
-            values = np.array([computed.get(i, np.nan) for i in indices], dtype=float)
-            computed_all.append(values)
+            computed_all.append(computed)
         return computed_all
 
     def per_spectrum_chi2(self, x: np.ndarray) -> List[Dict[str, Any]]:
@@ -1801,12 +1993,48 @@ class AltpFit:
         for spec_index, (spec, computed, target_map) in enumerate(
             zip(self.spectra, computed_all, self.target_intensities)
         ):
-            if np.any(np.isnan(computed)):
+            if not computed and target_map:
                 raise ValueError(f"Computation failed for spectrum '{spec.name}'.")
-            target_vals = np.array([target_map[i] for i in sorted(target_map.keys())], dtype=float)
+            scale_group = _get_fit_scale_group(spec)
+            ignored_groups = set(_get_fit_ignored_groups(spec))
+            excluded_groups = set(ignored_groups)
+            if scale_group is not None:
+                if scale_group not in target_map:
+                    raise ValueError(
+                        f"Spectrum '{spec.name}': scale_to group {scale_group} has no "
+                        "experimental data."
+                    )
+                if scale_group not in computed:
+                    raise ValueError(
+                        f"Spectrum '{spec.name}': scale_to group {scale_group} is out of range "
+                        f"(1..{len(spec.groups)})."
+                    )
+                expt_anchor = target_map[scale_group]
+                if expt_anchor == 0:
+                    raise ValueError(
+                        f"Spectrum '{spec.name}': scale_to group {scale_group} has zero "
+                        "experimental intensity."
+                    )
+                scale_factor = float(computed[scale_group]) / expt_anchor
+                spec.last_expt_scale_factor = scale_factor
+                excluded_groups.add(scale_group)
+            else:
+                scale_factor = 1.0
+                spec.last_expt_scale_factor = None
+            missing_ignored = sorted(g for g in ignored_groups if g not in target_map)
+            if missing_ignored:
+                raise ValueError(
+                    f"Spectrum '{spec.name}': ignored group(s) missing experimental data: "
+                    f"{missing_ignored}."
+                )
+            indices = sorted(i for i in target_map.keys() if i not in excluded_groups)
+            target_vals = np.array([target_map[i] * scale_factor for i in indices], dtype=float)
+            computed_vals = np.array([computed.get(i, np.nan) for i in indices], dtype=float)
+            if np.any(np.isnan(computed_vals)):
+                raise ValueError(f"Computation failed for spectrum '{spec.name}'.")
             epsilon = 1e-20
-            denominator = np.abs(computed) + np.abs(target_vals) + epsilon
-            residuals = (computed - target_vals) / denominator
+            denominator = np.abs(computed_vals) + np.abs(target_vals) + epsilon
+            residuals = (computed_vals - target_vals) / denominator
             local_weights = self._weights_for(spec_index, len(target_vals), offset)
             if local_weights is not None:
                 residuals = residuals * np.sqrt(local_weights)
@@ -1861,18 +2089,62 @@ class AltpFit:
         for spec_index, (spec, computed, target_map) in enumerate(
             zip(self.spectra, computed_all, self.target_intensities)
         ):
-            if np.any(np.isnan(computed)):
+            if not computed and target_map:
                 # Return large residuals on NaN
+                scale_group = _get_fit_scale_group(spec)
+                ignored_groups = set(_get_fit_ignored_groups(spec))
+                excluded_groups = set(ignored_groups)
+                if scale_group is not None:
+                    excluded_groups.add(scale_group)
                 target_vals = np.array(
-                    [target_map[i] for i in sorted(target_map.keys())], dtype=float
+                    [target_map[i] for i in sorted(target_map.keys()) if i not in excluded_groups],
+                    dtype=float,
                 )
                 residuals_list.append(np.full_like(target_vals, 1e5))
                 continue
 
-            target_vals = np.array([target_map[i] for i in sorted(target_map.keys())], dtype=float)
+            scale_group = _get_fit_scale_group(spec)
+            ignored_groups = set(_get_fit_ignored_groups(spec))
+            excluded_groups = set(ignored_groups)
+            if scale_group is not None:
+                if scale_group not in target_map:
+                    raise ValueError(
+                        f"Spectrum '{spec.name}': scale_to group {scale_group} has no "
+                        "experimental data."
+                    )
+                if scale_group not in computed:
+                    raise ValueError(
+                        f"Spectrum '{spec.name}': scale_to group {scale_group} is out of range "
+                        f"(1..{len(spec.groups)})."
+                    )
+                expt_anchor = target_map[scale_group]
+                if expt_anchor == 0:
+                    raise ValueError(
+                        f"Spectrum '{spec.name}': scale_to group {scale_group} has zero "
+                        "experimental intensity."
+                    )
+                scale_factor = float(computed[scale_group]) / expt_anchor
+                spec.last_expt_scale_factor = scale_factor
+                excluded_groups.add(scale_group)
+            else:
+                scale_factor = 1.0
+                spec.last_expt_scale_factor = None
+            missing_ignored = sorted(g for g in ignored_groups if g not in target_map)
+            if missing_ignored:
+                raise ValueError(
+                    f"Spectrum '{spec.name}': ignored group(s) missing experimental data: "
+                    f"{missing_ignored}."
+                )
+            indices = sorted(i for i in target_map.keys() if i not in excluded_groups)
+            target_vals = np.array([target_map[i] * scale_factor for i in indices], dtype=float)
+            computed_vals = np.array([computed.get(i, np.nan) for i in indices], dtype=float)
+            if np.any(np.isnan(computed_vals)):
+                residuals_list.append(np.full_like(target_vals, 1e5))
+                offset += len(target_vals)
+                continue
             epsilon = 1e-20
-            denominator = np.abs(computed) + np.abs(target_vals) + epsilon
-            r = (computed - target_vals) / denominator
+            denominator = np.abs(computed_vals) + np.abs(target_vals) + epsilon
+            r = (computed_vals - target_vals) / denominator
 
             local_weights = self._weights_for(spec_index, len(target_vals), offset)
             if local_weights is not None:
@@ -2153,20 +2425,23 @@ def fit_altp(
 
     jacobian = None
     jacobian_info: Dict[str, Any] = {}
+    jacobian_source = None
     if optimizer_result is not None and hasattr(optimizer_result, "jac"):
-        jac = getattr(optimizer_result, "jac")
-        if jac is not None:
+        jacobian_source = getattr(optimizer_result, "jac")
+    if jacobian_source is None and include_jacobian:
+        jacobian_source = _compute_numerical_jacobian(fitter, x_opt)
+    if jacobian_source is not None:
+        try:
             # least_squares may return a sparse Jacobian (e.g. with jac_sparsity).
             # Convert safely for diagnostics without breaking the fit result path.
-            try:
-                if hasattr(jac, "toarray"):
-                    jacobian = np.asarray(jac.toarray(), dtype=float)
-                else:
-                    jacobian = np.asarray(jac, dtype=float)
-                jacobian_info = jacobian_diagnostics(jacobian, fitter.n_p)
-            except Exception:
-                jacobian = None
-                jacobian_info = {}
+            if hasattr(jacobian_source, "toarray"):
+                jacobian = np.asarray(jacobian_source.toarray(), dtype=float)
+            else:
+                jacobian = np.asarray(jacobian_source, dtype=float)
+            jacobian_info = jacobian_diagnostics(jacobian, fitter.n_p)
+        except Exception:
+            jacobian = None
+            jacobian_info = {}
     chi2_rows = fitter.per_spectrum_chi2(x_opt)
     for spec in fitter.spectra:
         if hasattr(spec, "altp_uncertainties"):
@@ -2271,6 +2546,25 @@ def fit_altp(
     summary_diag += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"
     for row in chi2_rows:
         summary_diag += f"{row['name']:<40} {row['n_obs']:>8d} {row['chi2']:>16.6e}\n"
+    fit_control_lines: List[str] = []
+    for spec in fitter.spectra:
+        scale_group = _get_fit_scale_group(spec)
+        ignored_groups = _get_fit_ignored_groups(spec)
+        if scale_group is None and not ignored_groups:
+            continue
+        parts = [f"  {spec.name}:"]
+        if scale_group is not None:
+            scale_factor = getattr(spec, "last_expt_scale_factor", None)
+            if scale_factor is None:
+                parts.append(f"scale_to={scale_group}")
+            else:
+                parts.append(f"scale_to={scale_group} (factor={scale_factor:.8e})")
+        if ignored_groups:
+            parts.append(f"ignored={ignored_groups}")
+        fit_control_lines.append(" ".join(parts))
+    if fit_control_lines:
+        summary_diag += "\nFit controls:\n"
+        summary_diag += "\n".join(fit_control_lines) + "\n"
     if uncertainty_diagnostics:
         summary_diag += "\nUncertainty diagnostics:\n"
         summary_diag += (
@@ -2278,6 +2572,17 @@ def fit_altp(
             f"{uncertainty_diagnostics.get('n_params', 'n/a')}\n"
         )
         summary_diag += f"  cond(H): {uncertainty_diagnostics.get('condition_hessian', 'n/a')}\n"
+    if covariance is not None:
+        summary_diag += "\nCovariance matrix:\n"
+        summary_diag += np.array2string(covariance, precision=8, suppress_small=False) + "\n"
+    elif include_covariance or calculate_sigma:
+        if dry_run:
+            covariance_reason = "dry_run"
+        elif reverted_to_initial:
+            covariance_reason = "fit reverted to initial parameters"
+        else:
+            covariance_reason = "singular or ill-conditioned Hessian"
+        summary_diag += f"\nCovariance matrix: not available ({covariance_reason})\n"
     if jacobian_info:
         summary_diag += "\nJacobian diagnostics:\n"
         summary_diag += (
@@ -2285,6 +2590,8 @@ def fit_altp(
             f"{jacobian_info.get('n_params', 'n/a')}\n"
         )
         summary_diag += f"  cond(J^T J): {jacobian_info.get('condition_jtj', 'n/a')}\n"
+    elif include_jacobian:
+        summary_diag += "\nJacobian diagnostics: not available\n"
     # Build per-spectrum intensity summaries (single Altp table is already in summary_main).
     spectra_summary_blocks: List[str] = []
     for spec in fitter.spectra:
@@ -2371,15 +2678,14 @@ def inten_print(
     for spec in spectra:
         if spec.expt_data and spec.groups:
             has_any_expt = True
-            expt_lookup: Dict[int, float] = {}
-            for expt_entry in spec.expt_data:
-                try:
-                    if isinstance(expt_entry, (list, tuple)) and len(expt_entry) >= 2:
-                        expt_lookup[int(expt_entry[0])] = float(expt_entry[1])
-                except (ValueError, TypeError, IndexError):
-                    continue
+            _, expt_lookup, excluded_groups, _, _ = _get_effective_expt_lookup(
+                spec,
+                require_groups=True,
+            )
             is_absorption = spec.groups[0]["Energy"] > 0
             for group_idx, group in enumerate(spec.groups, start=1):
+                if group_idx in excluded_groups:
+                    continue
                 f_expt = expt_lookup.get(group_idx)
                 if f_expt is not None:
                     f_calc = group.get("f", 0.0) if is_absorption else group.get("A", 0.0)
@@ -2625,19 +2931,13 @@ def inten_plot(  # pragma: no cover
 
     # If experimental data available, plot as stick lines
     if spectrum.expt_data:
+        _, scaled_lookup, _, _, scale_factor = _get_effective_expt_lookup(
+            spectrum,
+            require_groups=True,
+        )
         expt_energies = []
         expt_intensities = []
-        for expt_entry in spectrum.expt_data:
-            # Check if entry is iterable (list, tuple) and has at least 2 elements
-            try:
-                if isinstance(expt_entry, (list, tuple)) and len(expt_entry) >= 2:
-                    group_idx = int(expt_entry[0])  # Convert to int with validation
-                    f_expt = float(expt_entry[1])  # Convert to float with validation
-                else:
-                    continue
-            except (ValueError, TypeError, IndexError):
-                continue  # Skip malformed entries
-
+        for group_idx, f_expt in sorted(scaled_lookup.items()):
             if 1 <= group_idx <= len(spectrum.groups):
                 e = abs(spectrum.groups[group_idx - 1].get("Energy", 0.0))
                 expt_energies.append(e)
@@ -2654,7 +2954,11 @@ def inten_plot(  # pragma: no cover
                 alpha=0.8,
                 linewidth=2,
                 linestyles="solid",
-                label="Experimental",
+                label=(
+                    f"Experimental (scaled x{scale_factor:.3e})"
+                    if scale_factor is not None
+                    else "Experimental"
+                ),
             )
 
     # Labels and formatting

@@ -429,6 +429,68 @@ class TestFitAltpDryRun:
         assert result["jacobian_diagnostics"] == {}
         assert result["sigma_forced"] is True
         assert "calculate_sigma assumed True" in capsys.readouterr().out
+        assert "Covariance matrix:" in result["summary"]
+
+    def test_fit_altp_reports_covariance_unavailable_in_dry_run(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+                self.altp_uncertainties = {}
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        result = fit_altp(["A10"], spec, dry_run=True, include_covariance=True)
+
+        assert result["covariance"] is None
+        assert "Covariance matrix: not available (dry_run)" in result["summary"]
+
+    def test_fit_altp_prints_covariance_and_jacobian_when_requested(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+                self.altp_uncertainties = {}
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        cov = np.array([[0.25]])
+        with (
+            patch("pycf.inten.minimize", return_value=SimpleNamespace(x=np.array([1.0]), fun=0.0)),
+            patch(
+                "pycf.inten._estimate_parameter_uncertainties",
+                return_value=({"A10": 0.5}, cov, {"rank": 1}),
+            ),
+        ):
+            result = fit_altp(
+                ["A10"],
+                spec,
+                dry_run=False,
+                calculate_sigma=False,
+                include_covariance=True,
+                include_jacobian=True,
+            )
+
+        assert result["covariance"] is cov
+        assert result["jacobian"] is not None
+        assert "Covariance matrix:" in result["summary"]
+        assert "Jacobian diagnostics:" in result["summary"]
 
 
 class TestFitAltpWrapperInputs:
@@ -733,6 +795,87 @@ class TestIntensitySummaryFormatting:
         summary = gen_inten_summary(spec, format="brief", state_labels=["|a>", "|b>", "|c>"])
         assert "A10" in summary
         assert "+/-" in summary
+
+    def test_brief_summary_shows_scaling_and_not_used_markers(self):
+        spec = self._make_fake_spectrum()
+        spec.expt_data = [[1, 0.5], [2, 1.0]]
+        spec.fit_scale_to_group = 1
+        spec.fit_ignore_groups = [2]
+
+        summary = gen_inten_summary(spec, format="brief", state_labels=["|a>", "|b>", "|c>"])
+
+        assert "Experimental scaling: group 1 factor =" in summary
+        assert "(scaled to)" in summary
+        assert "(not used)" in summary
+        assert " Note" not in summary
+        assert "Total" in summary
+        assert "0.000000e+00" in summary
+
+    def test_fit_altp_uses_scaled_targets_and_excludes_anchor_group(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0], [2, 3.0]]
+                self.fit_scale_to_group = None
+                self.fit_ignore_groups = []
+                self.last_expt_scale_factor = None
+                self.groups = [
+                    {"Energy": 1.0, "f": 2.0, "A": 0.0},
+                    {"Energy": 2.0, "f": 6.0, "A": 0.0},
+                ]
+                self.altp_uncertainties = {}
+
+            def scale_to(self, idx):
+                self.fit_scale_to_group = idx
+
+            def set_ignored_groups(self, groups):
+                self.fit_ignore_groups = list(groups)
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def update_altp(self, **updates):
+                self.altp.update(updates)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [
+                    {"Energy": 1.0, "f": 2.0, "A": 0.0},
+                    {"Energy": 2.0, "f": 6.0 * float(self.altp["A10"]), "A": 0.0},
+                ]
+                return self.groups
+
+        spec = FakeSpectrum()
+        spec.scale_to(1)
+        result = fit_altp(["A10"], spec, dry_run=True)
+
+        assert result["n_obs"] == 1
+        assert result["chi2"] == pytest.approx(0.0)
+        assert spec.last_expt_scale_factor == pytest.approx(2.0)
+
+    def test_fit_altp_scale_to_group_without_expt_data_raises(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[2, 3.0]]
+                self.fit_scale_to_group = 1
+                self.fit_ignore_groups = []
+                self.last_expt_scale_factor = None
+                self.groups = [{"Energy": 1.0, "f": 2.0, "A": 0.0}]
+                self.altp_uncertainties = {}
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def update_altp(self, **updates):
+                self.altp.update(updates)
+
+            def recalculate(self, polarization="isotropic"):
+                return self.groups
+
+        with pytest.raises(ValueError, match="scale_to group 1 has no experimental data"):
+            fit_altp(["A10"], FakeSpectrum(), dry_run=True)
 
 
 class TestConvenienceWrappers:

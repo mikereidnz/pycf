@@ -240,3 +240,34 @@ workflow (e.g., `mh_fit`) while prioritizing simple user-facing calls.
 2. `fit_altp(spec, ...)` refactor and summary return.
 3. Multi-spectrum `fit_altp([spec1, spec2, ...], ...)`.
 4. Tests/examples refresh and documentation update.
+
+### Phase 9 Fitting enhancements - taking ratios and ignoring data. 
+
+The calculation, fitting, and plotting of intensity data is working well. 
+
+However, in many cases, we do not have absolute data, only relative data that we scale to match one of the calculated transitions. 
+Usually this is a transition that only has magnetic dipole contributions. 
+The magnetic dipole intensity is fixed - there are no parameters. 
+This is different from the electric dipole that is calculated from the Altp parameters. 
+
+Furthermore, there can be several transitions that are dominated by the magnetic dipole contribution. These should not be fitted to, but it is helpful to have them in the data set for comparison and for plotting.  
+
+I can manually scale the data and add and subtract it from the dataset, but this is tedious. 
+
+#### Proposal: 
+
+1. For each spectrum, optionally allow the user to have the experimental data scaled to the calculated values for *one* transition group: 
+  "spectrum.scale_to(n)"
+  -  Obviously, this data/calculation would be excluded from the calculation of the chisquare. 
+  - It would be an error to try to scale to a transition that has no experimental data. 
+  - Output would indicate "(scaled to)". 
+
+
+2. For each spectrum, the user could give a list of groups to exclude from the chisquare calculation. 
+   - It would be an error if there was no data for that group. 
+   - Output would indicate "(not used)". 
+
+Please consider how to approach this change. 
+
+It might be helpful to keep in mind that we would also like to add weighting of data. The weighting would be similar to mh_fit - an overall weighting factor for each spectrum, and an optional list of weights within each spectrum.
+
