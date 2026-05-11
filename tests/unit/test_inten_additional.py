@@ -21,6 +21,7 @@ from pycf.inten import (
     gen_inten_summary,
     inten_calculate,
     inten_print,
+    inten_plot,
     inten_recalculate,
     inten_set_altp,
     inten_set_expt_data,
@@ -490,6 +491,7 @@ class TestFitAltpDryRun:
         assert result["covariance"] is cov
         assert result["jacobian"] is not None
         assert "Covariance matrix:" in result["summary"]
+        assert "2.50000000e-01" in result["summary"]
         assert "Jacobian diagnostics:" in result["summary"]
 
     def test_flat_weights_offset_advances_after_failed_spectrum(self):
@@ -1059,6 +1061,41 @@ class TestConvenienceWrappers:
         spec = self._make_mock_spec()
         inten_recalculate([spec], polarization="circular")
         spec.recalculate.assert_called_once_with(polarization="circular")
+
+    def test_inten_plot_uses_experimental_energies_when_provided(self):
+        matplotlib = pytest.importorskip("matplotlib")
+        matplotlib.use("Agg")
+
+        class DummyHamiltonian:
+            def diag(self):
+                return np.array([0.0, 1.0]), np.eye(2)
+
+        class DummySpectrum:
+            def __init__(self):
+                self.name = "demo"
+                self.groups = [
+                    {"Energy": 10.0, "f": 1.0, "A": 0.0},
+                    {"Energy": 20.0, "f": 2.0, "A": 0.0},
+                ]
+                self.expt_data = [
+                    {"group": 1, "intensity": 0.5, "energy": 15.0},
+                    {"group": 2, "intensity": 1.5, "energy": 25.0},
+                ]
+                self.hamiltonian = DummyHamiltonian()
+                self.nrefractive = 1.0
+
+        spec = DummySpectrum()
+        _, ax = inten_plot(spec, npoints=100)
+
+        red_collections = [
+            coll
+            for coll in ax.collections
+            if getattr(coll, "get_label", lambda: "")() == "Experimental"
+        ]
+        assert red_collections
+        segments = red_collections[0].get_segments()
+        xs = sorted(round(segment[0][0], 6) for segment in segments)
+        assert xs == [15.0, 25.0]
 
 
 if __name__ == "__main__":

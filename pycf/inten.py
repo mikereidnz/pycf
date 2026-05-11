@@ -687,8 +687,10 @@ class Spectrum:
         Include magnetic dipole transitions (default True).
     ed : bool, optional
         Include electric dipole transitions via altp (default False).
-    expt_data : list of [group_idx, f_calc, f_expt], optional
-        Experimental intensity data for comparison. When provided, BRIEF output includes
+    expt_data : list of dict or list/tuple, optional
+        Experimental intensity data for comparison. Recommended dict form:
+        {"group": 1, "intensity": 1.2, "energy": 15.3}. Legacy list/tuple rows are
+        also accepted for backward compatibility. When provided, BRIEF output includes
         experimental values and χ² residuals: χ² = ((f_calc - f_expt) / (f_calc + f_expt))².
 
     Attributes
@@ -697,7 +699,7 @@ class Spectrum:
         Altp coupling parameters for electric dipole calculation.
         Each element is [name_str, value], e.g., ['A210', 1e-10].
     expt_data : list, optional
-        Experimental data (format: [[group_idx, f_calc, f_expt], ...]).
+        Experimental data (dict rows preferred; legacy list/tuple rows also accepted).
     transformed_tensors : dict
         Cached transformed tensors (computed by calculate_intensities).
     groups : list of dict
@@ -729,7 +731,7 @@ class Spectrum:
     altp: Optional[Dict[str, Any]] = field(default=None)
 
     # Experimental data (optional): list of [group_idx, f_calc, f_expt]
-    expt_data: Optional[List[List[float]]] = field(default=None)
+    expt_data: Optional[List[Any]] = field(default=None)
     fit_scale_to_group: Optional[int] = field(default=None)
     fit_ignore_groups: List[int] = field(default_factory=list)
     last_expt_scale_factor: Optional[float] = field(default=None, init=False)
@@ -776,7 +778,7 @@ class Spectrum:
         for name in updates:
             self.altp_uncertainties.pop(name, None)
 
-    def set_expt_data(self, expt_data: Optional[List[List[float]]]) -> None:
+    def set_expt_data(self, expt_data: Optional[List[Any]]) -> None:
         """Set or replace experimental intensity data."""
         self.expt_data = expt_data
 
@@ -1001,19 +1003,62 @@ def gen_inten_summary(
         )
 
 
-def _build_expt_lookup(expt_data: Optional[List[List[float]]]) -> Dict[int, float]:
+def _parse_expt_entry(entry: Any) -> Optional[Tuple[int, float, Optional[float]]]:
+    """Parse a single experimental-data row."""
+    if isinstance(entry, MappingABC):
+        group_value = entry.get("group", entry.get("group_idx", entry.get("idx")))
+        intensity_value = entry.get("intensity", entry.get("value", entry.get("f_expt")))
+        energy_value = entry.get("energy", entry.get("e_expt"))
+        if group_value is None or intensity_value is None:
+            return None
+        try:
+            group_idx = int(group_value)
+            intensity = float(intensity_value)
+            energy = None if energy_value is None else float(energy_value)
+        except (ValueError, TypeError):
+            return None
+        return group_idx, intensity, energy
+
+    if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+        try:
+            group_idx = int(entry[0])
+            intensity = float(entry[1])
+            energy = float(entry[3]) if len(entry) >= 4 else None
+        except (ValueError, TypeError, IndexError):
+            return None
+        return group_idx, intensity, energy
+
+    return None
+
+
+def _build_expt_lookup(expt_data: Optional[List[Any]]) -> Dict[int, float]:
     """Parse experimental data into a lookup map keyed by 1-based group index."""
     expt_lookup: Dict[int, float] = {}
     if not expt_data:
         return expt_lookup
     for entry in expt_data:
-        if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+        parsed = _parse_expt_entry(entry)
+        if parsed is None:
             continue
-        try:
-            expt_lookup[int(entry[0])] = float(entry[1])
-        except (ValueError, TypeError):
-            continue
+        group_idx, intensity, _ = parsed
+        expt_lookup[group_idx] = intensity
     return expt_lookup
+
+
+def _build_expt_energy_lookup(expt_data: Optional[List[Any]]) -> Dict[int, float]:
+    """Parse optional experimental transition energies keyed by 1-based group index."""
+    expt_energies: Dict[int, float] = {}
+    if not expt_data:
+        return expt_energies
+    for entry in expt_data:
+        parsed = _parse_expt_entry(entry)
+        if parsed is None:
+            continue
+        group_idx, _, energy = parsed
+        if energy is None:
+            continue
+        expt_energies[group_idx] = energy
+    return expt_energies
 
 
 def _get_fit_scale_group(spectrum: Any) -> Optional[int]:
@@ -1866,8 +1911,11 @@ class AltpFit:
                     continue
                 mapped: Dict[int, float] = {}
                 for entry in spec.expt_data:
-                    if isinstance(entry, (list, tuple)) and len(entry) >= 2:
-                        mapped[int(entry[0])] = float(entry[1])
+                    parsed = _parse_expt_entry(entry)
+                    if parsed is None:
+                        continue
+                    group_idx, intensity, _ = parsed
+                    mapped[group_idx] = intensity
                 out.append(mapped)
             return out
 
@@ -2584,7 +2632,10 @@ def fit_altp(
         summary_diag += f"  cond(H): {uncertainty_diagnostics.get('condition_hessian', 'n/a')}\n"
     if covariance is not None:
         summary_diag += "\nCovariance matrix:\n"
-        summary_diag += np.array2string(covariance, precision=8, suppress_small=False) + "\n"
+        summary_diag += np.array2string(
+            covariance,
+            formatter={"float_kind": lambda x: f"{x:.8e}"},
+        ) + "\n"
     elif include_covariance or calculate_sigma:
         if dry_run:
             covariance_reason = "dry_run"
@@ -2945,11 +2996,12 @@ def inten_plot(  # pragma: no cover
             spectrum,
             require_groups=True,
         )
+        expt_energy_lookup = _build_expt_energy_lookup(spectrum.expt_data)
         expt_energies = []
         expt_intensities = []
         for group_idx, f_expt in sorted(scaled_lookup.items()):
             if 1 <= group_idx <= len(spectrum.groups):
-                e = abs(spectrum.groups[group_idx - 1].get("Energy", 0.0))
+                e = expt_energy_lookup.get(group_idx, abs(spectrum.groups[group_idx - 1].get("Energy", 0.0)))
                 expt_energies.append(e)
                 expt_intensities.append(f_expt)
 

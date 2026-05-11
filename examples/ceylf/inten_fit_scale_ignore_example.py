@@ -77,7 +77,14 @@ spec.calculate_intensities()
 known_altp = {"A210": 1.0e-10, "A230": -1.0e-10}
 spec.set_altp(known_altp)
 spec.recalculate()
-synthetic_expt = [[idx, 0.4 * group.get("f", 0.0)] for idx, group in enumerate(spec.groups, start=1)]
+synthetic_expt = [
+    {
+        "group": idx,
+        "intensity": 0.4 * group.get("f", 0.0),
+        "energy": abs(group.get("Energy", 0.0)),
+    }
+    for idx, group in enumerate(spec.groups, start=1)
+]
 
 # Restore initial guess before fitting.
 spec.set_altp(initial_altp)
