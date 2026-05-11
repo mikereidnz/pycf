@@ -2026,32 +2026,45 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     ValueError
         If any experimental level index (la) is invalid (<0).
     """
-    evals = efit.h.w  # NumPy array of eigenvalues
+    evals = efit.h.w
     ex = efit.ex
-    e_exp = ex.e  # Experimental energies (length n_a + n_d)
-    weights = ex.w  # Weights (length n_a + n_d)
     n_a = getattr(ex, "n_a", len(ex.la) if ex.la is not None else 0)
     n_d = getattr(ex, "n_d", 0)
 
     chi2 = 0.0
 
-    # Absolute energy contribution: sum_i w[i] * (eval[la[i]] - e[i])^2
+    # Absolute energies: sum_i w_i * (eval[la_i] - e_i)^2
     if n_a > 0:
-        la = ex.la[:n_a]
-        valid_a = la >= 0
-        if np.any(valid_a):
-            fitted_e = evals[la[valid_a]]
-            residuals = fitted_e - e_exp[:n_a][valid_a]
-            chi2 += float(np.sum(weights[:n_a][valid_a] * residuals**2))
+        if n_d == 0:
+            la_a = ex.la
+            e_a = ex.e
+            w_a = ex.w
+        else:
+            la_a = ex.la[:n_a]
+            e_a = ex.e[:n_a]
+            w_a = ex.w[:n_a]
+        if (la_a >= 0).all():
+            r = evals[la_a] - e_a
+            chi2 += float(np.dot(w_a, r * r))
+        else:
+            valid = la_a >= 0
+            if valid.any():
+                r = evals[la_a[valid]] - e_a[valid]
+                chi2 += float(np.dot(w_a[valid], r * r))
 
-    # Difference energy contribution: sum_i w[n_a+i] * (|eval[fld[i]] - eval[ild[i]]| - e[n_a+i])^2
+    # Difference energies: sum_i w_i * (|eval[fld_i] - eval[ild_i]| - dE_i)^2
     if n_d > 0:
         ild = ex.ild[:n_d]
         fld = ex.fld[:n_d]
-        valid_d = (ild >= 0) & (fld >= 0)
-        if np.any(valid_d):
-            diff_fitted = np.abs(evals[fld[valid_d]] - evals[ild[valid_d]])
-            residuals = diff_fitted - e_exp[n_a:n_a + n_d][valid_d]
-            chi2 += float(np.sum(weights[n_a:n_a + n_d][valid_d] * residuals**2))
+        e_d = ex.e[n_a:n_a + n_d]
+        w_d = ex.w[n_a:n_a + n_d]
+        if (ild >= 0).all() and (fld >= 0).all():
+            r = np.abs(evals[fld] - evals[ild]) - e_d
+            chi2 += float(np.dot(w_d, r * r))
+        else:
+            valid = (ild >= 0) & (fld >= 0)
+            if valid.any():
+                r = np.abs(evals[fld[valid]] - evals[ild[valid]]) - e_d[valid]
+                chi2 += float(np.dot(w_d[valid], r * r))
 
     return chi2
