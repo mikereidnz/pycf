@@ -2353,7 +2353,7 @@ cdef void _update_exdata_mu_n_indices(ex, h, bint skip_diag=False):
     skip_diag : bool
         If True, assume h.diag() has already been called.
     """
-    from .cfl_util import mu_n_to_level
+    from .cfl_util import _build_mu_groups, _resolve_mu_n_to_levels
 
     if not ex.has_mu_n:
         return
@@ -2367,26 +2367,18 @@ cdef void _update_exdata_mu_n_indices(ex, h, bint skip_diag=False):
     if not skip_diag:
         h.diag()
 
+    # Build the (mu -> sorted levels) grouping once and reuse for all
+    # absolute and difference lookups; previously each call rebuilt it.
+    mu_to_levels = _build_mu_groups(h, h.minimum_q, h.half_integer_states)
+
     if has_a_mu:
-        levels_1based = mu_n_to_level(
-            h, ex.mu_n_abs,
-            h.minimum_q,
-            h.half_integer_states,
-        )
+        levels_1based = _resolve_mu_n_to_levels(mu_to_levels, ex.mu_n_abs)
         for k, row in enumerate(ex.mu_row_indices):
             ex.la[row] = int(levels_1based[k]) - 1
 
     if has_d_mu:
-        ini_levels = mu_n_to_level(
-            h, ex.mu_n_diff[:, :2],
-            h.minimum_q,
-            h.half_integer_states,
-        )
-        fin_levels = mu_n_to_level(
-            h, ex.mu_n_diff[:, 2:4],
-            h.minimum_q,
-            h.half_integer_states,
-        )
+        ini_levels = _resolve_mu_n_to_levels(mu_to_levels, ex.mu_n_diff[:, :2])
+        fin_levels = _resolve_mu_n_to_levels(mu_to_levels, ex.mu_n_diff[:, 2:4])
         for k, row in enumerate(ex.mu_row_indices_d):
             ex.ild[row] = int(ini_levels[k]) - 1
             ex.fld[row] = int(fin_levels[k]) - 1

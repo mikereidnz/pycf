@@ -680,6 +680,72 @@ def get_eigenstate_mu_n(
     return mu, n  # type: ignore[return-value]
 
 
+def _build_mu_groups(
+    h: "cfl.Hamiltonian", minimum_q: int, half_integer_states: bool
+) -> Dict[int, List[Tuple[float, int]]]:
+    """Group eigenstates by mu value (sorted within each mu by energy).
+
+    Internal helper shared by :func:`mu_n_to_level` and the Cython hot
+    loop in ``_update_exdata_mu_n_indices``. Callers needing multiple
+    (mu, n) -> level lookups against the same Hamiltonian build the
+    grouping once and pass it to :func:`_resolve_mu_n_to_levels`.
+
+    Returns
+    -------
+    Dict[int, List[Tuple[float, int]]]
+        Mapping ``mu -> [(energy, level_idx_1based), ...]`` sorted by
+        ``(energy, level_idx)`` within each mu group.
+    """
+    if not h.tensors or not h.tensors[0].states:
+        raise ValueError("Hamiltonian must have state labels (SLJM format)")
+    state_labels_list = h.tensors[0].states.labels
+    z = h.z
+    if z is None:
+        raise ValueError("Hamiltonian must be diagonalized (call h.diag() first)")
+    if z.ndim != 2:
+        raise ValueError(
+            f"Eigenvector matrix must be 2D, got shape {z.shape}. "
+            "This should not happen with a properly diagonalized Hamiltonian."
+        )
+    n_states = len(state_labels_list)
+    if z.shape[0] != n_states:
+        raise ValueError(
+            f"Eigenvector matrix has {z.shape[0]} rows but state labels "
+            f"has {n_states} entries. Hamiltonian must be properly initialized."
+        )
+
+    mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
+    pc_idx = np.argmax(np.abs(z), axis=0)
+    w = h.w
+    for eigenstate_idx in range(z.shape[1]):
+        m_value = int(state_labels_list[pc_idx[eigenstate_idx]][-1])
+        mu = calc_mu(m_value, minimum_q, half_integer_states)
+        if mu not in mu_to_levels:
+            mu_to_levels[mu] = []
+        mu_to_levels[mu].append((w[eigenstate_idx], eigenstate_idx + 1))
+    for mu in mu_to_levels:
+        mu_to_levels[mu].sort(key=lambda x: (x[0], x[1]))
+    return mu_to_levels
+
+
+def _resolve_mu_n_to_levels(
+    mu_to_levels: Dict[int, List[Tuple[float, int]]], mu_n_array: np.ndarray
+) -> np.ndarray:
+    """Resolve (mu, n) pairs to 1-based level indices using a prebuilt grouping."""
+    level_indices = np.zeros(len(mu_n_array), dtype=np.int32)
+    for i in range(len(mu_n_array)):
+        mu_req = int(mu_n_array[i, 0])
+        n_req = int(mu_n_array[i, 1])
+        if mu_req not in mu_to_levels or n_req > len(mu_to_levels[mu_req]):
+            available = sorted([(m, len(lvls)) for m, lvls in mu_to_levels.items()])
+            raise ValueError(
+                f"No state found with (mu, n) = ({mu_req}, {n_req}). "
+                f"Available: {available}"
+            )
+        level_indices[i] = mu_to_levels[mu_req][n_req - 1][1]
+    return level_indices
+
+
 def mu_n_to_level(
     h: "cfl.Hamiltonian", mu_n_array: np.ndarray, minimum_q: int, half_integer_states: bool
 ) -> np.ndarray:
@@ -786,71 +852,8 @@ def mu_n_to_level(
     energy-level comparison workflow.
     """
     # Get basis state labels
-    if not h.tensors or not h.tensors[0].states:
-        raise ValueError("Hamiltonian must have state labels (SLJM format)")
-
-    state_labels_list = h.tensors[0].states.labels
-    state_labels = np.array(state_labels_list, dtype=np.int32)
-
-    # Get eigenvectors
-    z = h.z
-    if z is None:
-        raise ValueError("Hamiltonian must be diagonalized (call h.diag() first)")
-
-    if z.ndim != 2:
-        raise ValueError(
-            f"Eigenvector matrix must be 2D, got shape {z.shape}. "
-            "This should not happen with a properly diagonalized Hamiltonian."
-        )
-
-    n_states = len(state_labels)
-
-    if z.shape[0] != n_states:
-        raise ValueError(
-            f"Eigenvector matrix has {z.shape[0]} rows but state labels has {n_states} entries. "
-            "Hamiltonian must be properly initialized."
-        )
-
-    # Build mu grouping once (O(n) instead of O(n²))
-    # Step 1: Compute mu for each eigenstate (not n, just mu - we'll compute n after sorting)
-    n_eigenstates = z.shape[1]
-    mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
-
-    for eigenstate_idx in range(n_eigenstates):
-        # Extract m from principal component
-        col = z[:, eigenstate_idx]
-        abs_col = np.abs(col)
-        pc_idx = np.argmax(abs_col)
-        m_value = int(state_labels_list[pc_idx][-1])
-
-        # Compute mu from m
-        mu = calc_mu(m_value, minimum_q, half_integer_states)
-
-        # Group by mu, storing (energy, eigenstate_index)
-        if mu not in mu_to_levels:
-            mu_to_levels[mu] = []
-        mu_to_levels[mu].append((h.w[eigenstate_idx], eigenstate_idx + 1))
-
-    # Step 2: Sort each mu group by energy (with eigenstate index as tie-breaker for stability)
-    for mu in mu_to_levels:
-        mu_to_levels[mu].sort(key=lambda x: (x[0], x[1]))
-
-    # Match requested (mu, n) to level indices
-    level_indices = np.zeros(len(mu_n_array), dtype=np.int32)
-    for i in range(len(mu_n_array)):
-        mu_req = int(mu_n_array[i, 0])
-        n_req = int(mu_n_array[i, 1])
-
-        if mu_req not in mu_to_levels or n_req > len(mu_to_levels[mu_req]):
-            available = sorted([(m, len(lvls)) for m, lvls in mu_to_levels.items()])
-            raise ValueError(
-                f"No state found with (mu, n) = ({mu_req}, {n_req}). " f"Available: {available}"
-            )
-
-        # Get the level index (2nd element of tuple) for the n-th state in this mu group
-        level_indices[i] = mu_to_levels[mu_req][n_req - 1][1]
-
-    return level_indices
+    mu_to_levels = _build_mu_groups(h, minimum_q, half_integer_states)
+    return _resolve_mu_n_to_levels(mu_to_levels, mu_n_array)
 
 
 def gen_e_summary(
