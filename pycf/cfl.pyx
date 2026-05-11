@@ -50,6 +50,13 @@ from pycf.matel import matel
 _efit_current = threading.local()
 _mhfit_current = threading.local()
 
+
+class _ChiCtx:
+    """Lightweight (h, ex) holder used to call compute_chi2_numpy() from
+    hot-loop Cython objectives without re-defining a class per call.
+    """
+    __slots__ = ("h", "ex")
+
 # Global storage for Python error handler callback
 _python_error_handler = None
 
@@ -2438,7 +2445,6 @@ cdef double mu_n_efit_obj(
         # Compute chi² using vectorized NumPy (stays in Python context)
         # This is the same logic used by display functions, ensuring
         # fit and display share one source of truth for chi² calculation
-        from pycf.cfl_util import compute_chi2_numpy
         chi2 = compute_chi2_numpy(efit)
 
         return chi2
@@ -2996,13 +3002,9 @@ cdef double mu_n_mhfit_obj(
         # Compute chi² across all Hamiltonians using vectorized NumPy
         # This is the same logic used by display functions, ensuring
         # fit and display share one source of truth for chi² calculation
-        from pycf.cfl_util import compute_chi2_numpy
         total_chi2 = 0.0
+        temp = _ChiCtx()
         for i in range(mhfit.n_h):
-            # Create a temporary object with just h and ex for chi² computation
-            class _TempEFit:
-                pass
-            temp = _TempEFit()
             temp.h = mhfit.h_list[i]
             temp.ex = mhfit.ex_list[i]
             total_chi2 += compute_chi2_numpy(temp)
