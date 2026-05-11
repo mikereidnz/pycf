@@ -492,6 +492,77 @@ class TestFitAltpDryRun:
         assert "Covariance matrix:" in result["summary"]
         assert "Jacobian diagnostics:" in result["summary"]
 
+    def test_flat_weights_offset_advances_after_failed_spectrum(self):
+        class FailingSpectrum:
+            def __init__(self):
+                self.name = "fail"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = []
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = []
+                return self.groups
+
+        class WorkingSpectrum:
+            def __init__(self):
+                self.name = "ok"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 2.0, "A": 0.0}]
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": 2.0, "A": 0.0}]
+                return self.groups
+
+        fitter = AltpFit(
+            ["A10"],
+            [FailingSpectrum(), WorkingSpectrum()],
+            weights=np.array([4.0, 1.0]),
+        )
+
+        residuals = fitter.residuals(np.array([1.0]))
+
+        assert residuals[0] == pytest.approx(1e5)
+        assert residuals[1] == pytest.approx(1.0 / 3.0)
+
+    def test_fit_altp_ignores_one_dimensional_optimizer_jacobian(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+                self.altp_uncertainties = {}
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        with (
+            patch(
+                "pycf.inten.minimize",
+                return_value=SimpleNamespace(x=np.array([1.0]), fun=0.0, jac=np.array([99.0])),
+            ),
+            patch("pycf.inten._estimate_parameter_uncertainties", return_value={} ),
+        ):
+            result = fit_altp(["A10"], spec, include_jacobian=True)
+
+        assert result["jacobian"] is not None
+        assert result["jacobian"].ndim == 2
+        assert result["jacobian"].shape == (1, 1)
+        assert result["jacobian"][0, 0] != pytest.approx(99.0)
+
 
 class TestFitAltpWrapperInputs:
     """Test fit_altp wrapper input behavior."""

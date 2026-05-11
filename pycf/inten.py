@@ -2101,6 +2101,7 @@ class AltpFit:
                     dtype=float,
                 )
                 residuals_list.append(np.full_like(target_vals, 1e5))
+                offset += len(target_vals)
                 continue
 
             scale_group = _get_fit_scale_group(spec)
@@ -2426,7 +2427,11 @@ def fit_altp(
     jacobian = None
     jacobian_info: Dict[str, Any] = {}
     jacobian_source = None
-    if optimizer_result is not None and hasattr(optimizer_result, "jac"):
+    if (
+        optimizer_result is not None
+        and minimizer_name == "least_squares"
+        and hasattr(optimizer_result, "jac")
+    ):
         jacobian_source = getattr(optimizer_result, "jac")
     if jacobian_source is None and include_jacobian:
         jacobian_source = _compute_numerical_jacobian(fitter, x_opt)
@@ -2438,6 +2443,11 @@ def fit_altp(
                 jacobian = np.asarray(jacobian_source.toarray(), dtype=float)
             else:
                 jacobian = np.asarray(jacobian_source, dtype=float)
+            if jacobian.ndim != 2:
+                if include_jacobian:
+                    jacobian = _compute_numerical_jacobian(fitter, x_opt)
+                else:
+                    raise ValueError("Jacobian must be two-dimensional.")
             jacobian_info = jacobian_diagnostics(jacobian, fitter.n_p)
         except Exception:
             jacobian = None
