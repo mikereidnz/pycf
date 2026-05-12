@@ -4879,6 +4879,89 @@ cdef class CFLMin:
         return fmin
 
 
+def _parse_sigma_output_kwargs(kwargs):
+    """Pop sigma/covariance/jacobian output flags from ``kwargs``.
+
+    Returns ``(calculate_sigma, include_covariance, include_jacobian, sigma_forced)``.
+    ``sigma_forced`` is True if the caller explicitly disabled
+    ``calculate_sigma`` but requested covariance or jacobian output, in which
+    case sigma estimation is re-enabled and a one-line note is printed.
+    Mutates ``kwargs`` by popping the three output flags (``dry_run`` is left
+    in place because the underlying fit objects also consult it).
+    """
+    requested_calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    include_covariance = bool(kwargs.pop("include_covariance", False))
+    include_jacobian = bool(kwargs.pop("include_jacobian", False))
+    is_dry_run = bool(kwargs.get("dry_run", False))
+    sigma_forced = (
+        (not requested_calculate_sigma)
+        and (include_covariance or include_jacobian)
+        and (not is_dry_run)
+    )
+    if sigma_forced:
+        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+    calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
+    return calculate_sigma, include_covariance, include_jacobian, sigma_forced
+
+
+def _compute_jac_sigma_cov(fit_obj, cfl_min, calculate_sigma,
+                           include_covariance, include_jacobian):
+    """Compute post-fit Jacobian / covariance / sigma diagnostics.
+
+    Skipped (returns Nones / empty dicts) when ``cfl_min`` is in ``dry_run``
+    mode. Returns
+    ``(jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param)``.
+    """
+    jacobian = None
+    jacobian_info = {}
+    covariance = None
+    sigma_vector = None
+    sigma_by_param = {}
+    if cfl_min.kwargs.get('dry_run', False):
+        return jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param
+    if include_jacobian or calculate_sigma or include_covariance:
+        jacobian = fit_obj.fd_jacobian(x=np.asarray(fit_obj.x0, dtype=np.float64))
+        jacobian_info = jacobian_diagnostics(jacobian, fit_obj.n_p_real)
+    if calculate_sigma or include_covariance:
+        covariance, sigma_vector, _ = fit_obj.covariance(
+            x=np.asarray(fit_obj.x0, dtype=np.float64), jacobian=jacobian
+        )
+        sigma_by_param = map_sigma_by_parameter(fit_obj, sigma_vector)
+    return jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param
+
+
+def _build_e_summary_trunc_kwargs(ex, name, chi2, ndof, weighting, h, user_kwargs):
+    """Assemble kwargs for ``gen_e_summary_trunc`` with Hamiltonian and
+    user-display passthroughs (``minimum_q``, ``half_integer_states``,
+    ``max_levels``, ``nstates``).
+    """
+    out = {"ex": ex, "name": name, "chi2": chi2, "ndof": ndof, "weighting": weighting}
+    if h.minimum_q is not None:
+        out["minimum_q"] = h.minimum_q
+        out["half_integer_states"] = h.half_integer_states
+    if "max_levels" in user_kwargs:
+        out["max_levels"] = user_kwargs["max_levels"]
+    if "nstates" in user_kwargs:
+        out["nstates"] = user_kwargs["nstates"]
+    return out
+
+
+def _build_fit_summary_kwargs(cfl_min, covariance, include_jacobian, jacobian_info):
+    """Assemble extra kwargs for ``gen_fit_summary``."""
+    out = dict(cfl_min.kwargs)
+    if covariance is not None:
+        out["covar"] = covariance
+    if include_jacobian and jacobian_info:
+        out["jacobian_diagnostics"] = jacobian_info
+    return out
+
+
+def _ensure_diagonalised(h):
+    """Diagonalise ``h`` if its eigenvalues are unset (needed for mu/n mode)."""
+    if h.w is None or np.sum(np.abs(h.w)) == 0:
+        h.diag()
+
+
 def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit parameters to energy level data.
@@ -4931,14 +5014,9 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
           If covariance or Jacobian output is requested, sigma estimation is automatically enabled.
     """
     started_at = datetime.now()
-    requested_calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
-    include_covariance = bool(kwargs.pop("include_covariance", False))
-    include_jacobian = bool(kwargs.pop("include_jacobian", False))
-    is_dry_run = bool(kwargs.get("dry_run", False))
-    sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian) and (not is_dry_run)
-    if sigma_forced:
-        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
-    calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
+    calculate_sigma, include_covariance, include_jacobian, sigma_forced = (
+        _parse_sigma_output_kwargs(kwargs)
+    )
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
@@ -4946,8 +5024,7 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     print_pycf_details(started_at)
 
     # Auto-diagonalize if not already done (needed for mu/n index mode)
-    if h.w is None or np.sum(np.abs(h.w)) == 0:
-        h.diag()
+    _ensure_diagonalised(h)
 
     # Preserve pre-fit coefficients for summary display.
     initial_coeff = copy.deepcopy(h.coeff_dict) if h.coeff_dict is not None else {}
@@ -4958,21 +5035,10 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     summary += gen_completed_str(completed_at)
     print_completed_str(completed_at)
 
-    jacobian = None
-    covariance = None
-    sigma_vector = None
-    sigma_by_param = {}
-    jacobian_info = {}
-    # Only compute sigma/jacobian if fit actually ran (not in dry_run mode)
-    is_dry_run = cfl_min.kwargs.get('dry_run', False)
-    if not is_dry_run and (include_jacobian or calculate_sigma or include_covariance):
-        jacobian = efit.fd_jacobian(x=np.asarray(efit.x0, dtype=np.float64))
-        jacobian_info = jacobian_diagnostics(jacobian, efit.n_p_real)
-    if not is_dry_run and (calculate_sigma or include_covariance):
-        covariance, sigma_vector, _ = efit.covariance(
-            x=np.asarray(efit.x0, dtype=np.float64), jacobian=jacobian
-        )
-        sigma_by_param = map_sigma_by_parameter(efit, sigma_vector)
+    jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param = (
+        _compute_jac_sigma_cov(efit, cfl_min, calculate_sigma,
+                               include_covariance, include_jacobian)
+    )
 
     # Sync h to the fitted x and refresh w/z for the summary block.
     # fd_jacobian / covariance restore h.coeff on exit but leave
@@ -4993,16 +5059,9 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     summary += f"fmin = {fmin:.6e}\n\n"
     if efit.ex.n_d != 0:
         summary += h.gen_summary(**kwargs) + "\n\n"
-        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
-        summary_kwargs = {"ex": efit.ex, "name": "Fitted energy levels", "chi2": efit.chi2[0], "ndof": ndof, "weighting": 1}
-        if h.minimum_q is not None:
-            summary_kwargs["minimum_q"] = h.minimum_q
-            summary_kwargs["half_integer_states"] = h.half_integer_states
-        # Merge display kwargs if provided
-        if "max_levels" in kwargs:
-            summary_kwargs["max_levels"] = kwargs["max_levels"]
-        if "nstates" in kwargs:
-            summary_kwargs["nstates"] = kwargs["nstates"]
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            efit.ex, "Fitted energy levels", efit.chi2[0], ndof, 1, h, kwargs
+        )
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
                 h.tensors[0].states.label_key, **summary_kwargs)
     else:
@@ -5013,11 +5072,9 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
             gen_summary_kwargs["half_integer_states"] = h.half_integer_states
         summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **gen_summary_kwargs)
 
-    fit_summary_kwargs = dict(cfl_min.kwargs)
-    if covariance is not None:
-        fit_summary_kwargs["covar"] = covariance
-    if include_jacobian and jacobian_info:
-        fit_summary_kwargs["jacobian_diagnostics"] = jacobian_info
+    fit_summary_kwargs = _build_fit_summary_kwargs(
+        cfl_min, covariance, include_jacobian, jacobian_info
+    )
     summary += gen_fit_summary(
         x,
         efit,
@@ -5101,14 +5158,9 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
           If covariance or Jacobian output is requested, sigma estimation is automatically enabled.
     """
     started_at = datetime.now()
-    requested_calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
-    include_covariance = bool(kwargs.pop("include_covariance", False))
-    include_jacobian = bool(kwargs.pop("include_jacobian", False))
-    is_dry_run = bool(kwargs.get("dry_run", False))
-    sigma_forced = (not requested_calculate_sigma) and (include_covariance or include_jacobian) and (not is_dry_run)
-    if sigma_forced:
-        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
-    calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
+    calculate_sigma, include_covariance, include_jacobian, sigma_forced = (
+        _parse_sigma_output_kwargs(kwargs)
+    )
     summary = "==============\n"
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
@@ -5117,8 +5169,7 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
 
     # Auto-diagonalize all Hamiltonians if not already done (needed for mu/n index mode)
     for h in h_list:
-        if h.w is None or np.sum(np.abs(h.w)) == 0:
-            h.diag()
+        _ensure_diagonalised(h)
 
     # Preserve pre-fit coefficients for summary display.
     initial_coeff = copy.deepcopy(h_list[0].coeff_dict) if h_list[0].coeff_dict is not None else {}
@@ -5129,21 +5180,10 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
     summary += gen_completed_str(completed_at)
     print_completed_str(completed_at)
 
-    jacobian = None
-    covariance = None
-    sigma_vector = None
-    sigma_by_param = {}
-    jacobian_info = {}
-    # Only compute sigma/jacobian if fit actually ran (not in dry_run mode)
-    is_dry_run = cfl_min.kwargs.get('dry_run', False)
-    if not is_dry_run and (include_jacobian or calculate_sigma or include_covariance):
-        jacobian = mhfit.fd_jacobian(x=np.asarray(mhfit.x0, dtype=np.float64))
-        jacobian_info = jacobian_diagnostics(jacobian, mhfit.n_p_real)
-    if not is_dry_run and (calculate_sigma or include_covariance):
-        covariance, sigma_vector, _ = mhfit.covariance(
-            x=np.asarray(mhfit.x0, dtype=np.float64), jacobian=jacobian
-        )
-        sigma_by_param = map_sigma_by_parameter(mhfit, sigma_vector)
+    jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param = (
+        _compute_jac_sigma_cov(mhfit, cfl_min, calculate_sigma,
+                               include_covariance, include_jacobian)
+    )
 
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(mhfit.n_obs - mhfit.n_p_real, 1)
@@ -5173,24 +5213,16 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
             h.diag()
 
         name = "Hamiltonian %i" % i
-        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
-        summary_kwargs = {"ex": mhfit.ex_list[i], "name": name, "chi2": mhfit.chi2[i], "ndof": ndof, "weighting": mhfit.weights_list[i]}
-        if h.minimum_q is not None:
-            summary_kwargs["minimum_q"] = h.minimum_q
-            summary_kwargs["half_integer_states"] = h.half_integer_states
-        # Merge display kwargs if provided
-        if "max_levels" in kwargs:
-            summary_kwargs["max_levels"] = kwargs["max_levels"]
-        if "nstates" in kwargs:
-            summary_kwargs["nstates"] = kwargs["nstates"]
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            mhfit.ex_list[i], name, mhfit.chi2[i], ndof,
+            mhfit.weights_list[i], h, kwargs,
+        )
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **summary_kwargs)
 
         summary += "\n"
-    fit_summary_kwargs = dict(cfl_min.kwargs)
-    if covariance is not None:
-        fit_summary_kwargs["covar"] = covariance
-    if include_jacobian and jacobian_info:
-        fit_summary_kwargs["jacobian_diagnostics"] = jacobian_info
+    fit_summary_kwargs = _build_fit_summary_kwargs(
+        cfl_min, covariance, include_jacobian, jacobian_info
+    )
     summary += gen_fit_summary(
         x,
         mhfit,
@@ -5281,8 +5313,7 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
     print_pycf_details(started_at)
 
     # Auto-diagonalize if not already done (needed for mu/n index mode)
-    if h.w is None or np.sum(np.abs(h.w)) == 0:
-        h.diag()
+    _ensure_diagonalised(h)
 
     eshfit = ESHFit(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
@@ -5304,16 +5335,10 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, 
 
     if eshfit.ex.n_d != 0:
         summary += h.gen_summary(**kwargs) + "\n\n"
-        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
-        summary_kwargs = {"ex": eshfit.ex, "name": "Fitted energy levels", "chi2": eshfit.chi2[0], "ndof": ndof, "weighting": eshfit.weights['energy']}
-        if h.minimum_q is not None:
-            summary_kwargs["minimum_q"] = h.minimum_q
-            summary_kwargs["half_integer_states"] = h.half_integer_states
-        # Merge display kwargs if provided
-        if "max_levels" in kwargs:
-            summary_kwargs["max_levels"] = kwargs["max_levels"]
-        if "nstates" in kwargs:
-            summary_kwargs["nstates"] = kwargs["nstates"]
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            eshfit.ex, "Fitted energy levels", eshfit.chi2[0], ndof,
+            eshfit.weights['energy'], h, kwargs,
+        )
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
                 h.tensors[0].states.label_key, **summary_kwargs)
     else:
@@ -5381,9 +5406,7 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
 
     # Auto-diagonalize all Hamiltonians if not already done (needed for mu/n index mode)
     for h_sh_dict in h_sh_list:
-        h = h_sh_dict['h']
-        if h.w is None or np.sum(np.abs(h.w)) == 0:
-            h.diag()
+        _ensure_diagonalised(h_sh_dict['h'])
 
     meshfit = MESHFit(parameters, h_sh_list, **kwargs)
     (x, fmin) = meshfit.fit(cfl_min)
@@ -5407,16 +5430,10 @@ def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
-        # Pass minimum_q and half_integer_states from Hamiltonian to gen_e_summary_trunc
-        summary_kwargs = {"ex": meshfit.ex_list[i], "name": name, "chi2": meshfit.chi2[chi2_offset], "ndof": ndof, "weighting": meshfit.weights_list[i]['energy']}
-        if h.minimum_q is not None:
-            summary_kwargs["minimum_q"] = h.minimum_q
-            summary_kwargs["half_integer_states"] = h.half_integer_states
-        # Merge display kwargs if provided
-        if "max_levels" in kwargs:
-            summary_kwargs["max_levels"] = kwargs["max_levels"]
-        if "nstates" in kwargs:
-            summary_kwargs["nstates"] = kwargs["nstates"]
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            meshfit.ex_list[i], name, meshfit.chi2[chi2_offset], ndof,
+            meshfit.weights_list[i]['energy'], h, kwargs,
+        )
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
                 h.tensors[0].states.label_key, **summary_kwargs)
         chi2_offset += 1
