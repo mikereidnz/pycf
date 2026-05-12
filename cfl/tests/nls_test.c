@@ -192,7 +192,25 @@ int main (void) {
   for (i=0; i<4; i++) {
     printf("%f ", ce_x0[i]);
   }
-  printf("\n");
+  printf("\nfmin = %g, status = %d\n", fmin, status);
+
+  /* Basic sanity assertions: cfl_min should return success, fmin must be
+   * finite and non-negative, and fitted parameters must be finite. */
+  int test_failed = 0;
+  if (status != 0) {
+    printf("fail: cfl_min returned non-success status %d\n", status);
+    test_failed = 1;
+  }
+  if (!isfinite(fmin) || fmin < 0.0) {
+    printf("fail: fmin not finite/non-negative (fmin=%g)\n", fmin);
+    test_failed = 1;
+  }
+  for (i = 0; i < 4; i++) {
+    if (!isfinite(ce_x0[i])) {
+      printf("fail: ce_x0[%d] is not finite (%g)\n", i, ce_x0[i]);
+      test_failed = 1;
+    }
+  }
   free(covar);
   cfl_min_free(efit_min_obj);
   efit_data_free(efit_d);
@@ -209,5 +227,5 @@ int main (void) {
   sl_free(states);
   free(l);
 
-  return 0;
+  return test_failed;
 }
