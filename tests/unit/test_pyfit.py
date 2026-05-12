@@ -250,3 +250,50 @@ def test_pyfit_fit_res_forces_sigma_for_covariance(capsys):
     assert res["covariance"] is not None
     assert res["sigma_forced"] is True
     assert "calculate_sigma assumed True" in capsys.readouterr().out
+
+
+def test_pyfit_fit_res_mhfit_produces_multi_hamiltonian_summary():
+    """PyFit.fit_res on MHFit exercises the multi-Hamiltonian summary path.
+
+    Covers ``pycf/pyfit.py`` lines 311-318 (initial_coeff sourced from
+    ``efit.h_list[0]``) and 469-500 (multi-Hamiltonian summary block).
+    """
+    h0_t = _diag_tensor("EAVG", [0.0, 5.0])
+    h1_t = _diag_tensor("EAVG", [0.0, 7.0])
+    H0 = cfl.Hamiltonian([h0_t])
+    H0.set_coeff({"EAVG": 1.0})
+    H1 = cfl.Hamiltonian([h1_t])
+    H1.set_coeff({"EAVG": 1.0})
+    ex0 = cfl.ExData(np.array([[1, 0.0], [2, 3.5]]))
+    ex1 = cfl.ExData(np.array([[1, 0.0], [2, 4.9]]))
+    mhfit = cfl.MHFit(["EAVG"], [H0, H1], [1.0, 1.0], [ex0, ex1])
+    py = PyFit(mhfit)
+
+    res = py.fit_res(method="lm")
+    assert "coeff" in res
+    assert "summary" in res
+    summary = res["summary"]
+    assert "Multi-Hamiltonian fit" in summary
+    assert "Hamiltonian 0" in summary
+    assert "Hamiltonian 1" in summary
+    assert "All Hamiltonian parameters" in summary
+    # initial_coeff should have been picked up from h_list[0].coeff_dict.
+    assert "EAVG" in res["coeff"]
+
+
+def test_pyfit_fit_res_mhfit_with_max_levels():
+    """MHFit + ``max_levels`` exercises the ``kwargs["max_levels"]`` branch
+    inside the multi-Hamiltonian summary loop (pyfit.py line 495-496)."""
+    h0_t = _diag_tensor("EAVG", [0.0, 5.0, 10.0])
+    h1_t = _diag_tensor("EAVG", [0.0, 7.0, 14.0])
+    H0 = cfl.Hamiltonian([h0_t])
+    H0.set_coeff({"EAVG": 1.0})
+    H1 = cfl.Hamiltonian([h1_t])
+    H1.set_coeff({"EAVG": 1.0})
+    ex0 = cfl.ExData(np.array([[1, 0.0], [2, 3.5]]))
+    ex1 = cfl.ExData(np.array([[1, 0.0], [2, 4.9]]))
+    mhfit = cfl.MHFit(["EAVG"], [H0, H1], [1.0, 1.0], [ex0, ex1])
+    py = PyFit(mhfit)
+
+    res = py.fit_res(method="lm", max_levels=2)
+    assert "Multi-Hamiltonian fit" in res["summary"]

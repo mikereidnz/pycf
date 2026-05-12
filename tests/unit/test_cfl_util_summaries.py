@@ -648,3 +648,51 @@ class TestBannerHelpers:
             cfl_util.print_completed_str()
         out = buf.getvalue()
         assert "Calculation completed at:" in out
+
+
+# ---------------------------------------------------------------------------
+# Error-path coverage for shared summary helpers
+# ---------------------------------------------------------------------------
+
+
+class TestSummaryErrorPaths:
+    """Cover defensive raises that have historically been untested."""
+
+    def test_gen_e_summary_rejects_max_levels_zero(self):
+        w, z = _diag_eigenpair([0.0, 100.0])
+        labels = [(0, 0), (0, 1)]
+        with pytest.raises(ValueError, match="max_levels must be >= 1"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", max_levels=0)
+
+    def test_gen_e_summary_rejects_max_levels_negative(self):
+        w, z = _diag_eigenpair([0.0, 100.0])
+        labels = [(0, 0), (0, 1)]
+        with pytest.raises(ValueError, match="max_levels must be >= 1"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", max_levels=-3)
+
+    def test_gen_e_summary_duplicate_ex_indices_raises(self):
+        w, z = _diag_eigenpair([0.0, 100.0, 200.0])
+        labels = [(0, i) for i in range(3)]
+        # Duplicate level index 1 — should be flagged before any formatting.
+        ex = _make_index_exdata(
+            n_a=2, n_d=0, e=[0.0, 0.0, 999.0, 999.0], la=[1, 1]
+        )
+        with pytest.raises(ValueError, match="duplicate entries"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", ex=ex)
+
+    def test_gen_e_summary_ndof_without_weighting_raises(self):
+        """``_format_summary_footer`` requires ``weighting`` when ndof is given."""
+        w, z = _diag_eigenpair([0.0, 100.0])
+        labels = [(0, 0), (0, 1)]
+        ex = _make_index_exdata(n_a=1, n_d=0, e=[0.0, 999.0], la=[1])
+        with pytest.raises(ValueError, match="weight argument needs to be provided"):
+            cfl_util.gen_e_summary(w, z, labels, "JM", ex=ex, chi2=1.0, ndof=1)
+
+    def test_gen_e_summary_trunc_ndof_without_weighting_raises(self):
+        w, z = _diag_eigenpair([0.0, 100.0])
+        labels = [(0, 0), (0, 1)]
+        ex = _make_index_exdata(n_a=1, n_d=0, e=[0.0, 999.0], la=[1])
+        with pytest.raises(ValueError, match="weight argument needs to be provided"):
+            cfl_util.gen_e_summary_trunc(
+                w, z, labels, "JM", ex, "Test", chi2=1.0, ndof=1
+            )

@@ -374,7 +374,7 @@ class PyFit:
             print(summary)
 
         all_coeff: Dict[str, Any] = {}
-        if hasattr(self.efit, "h"):
+        if hasattr(self.efit, "h") and self.efit.h is not None:
             self.efit.h.update_coeff(coeff)
             self.efit.h.diag()
             all_coeff = (
@@ -427,7 +427,7 @@ class PyFit:
         summary = "\n=============\npyfit summary\n=============\n"
         summary += gen_pycf_summary(started_at, suppress_input=True)
         summary += gen_completed_str(completed_at)
-        if hasattr(self.efit, "h"):
+        if hasattr(self.efit, "h") and self.efit.h is not None:
             h = self.efit.h
             h.update_coeff(coeff)
             h.diag()
