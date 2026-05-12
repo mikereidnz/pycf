@@ -894,6 +894,80 @@ def mu_n_to_level(
     return _resolve_mu_n_to_levels(mu_to_levels, mu_n_array)
 
 
+def _build_ex_parse_kwargs(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract ``h`` / ``minimum_q`` / ``half_integer_states`` from a summary
+    kwargs dict for passing through to :func:`ex_parse_abs` /
+    :func:`ex_parse_diff`. ``h`` and ``minimum_q`` are only included when not
+    ``None``; ``half_integer_states`` is forwarded whenever it is present.
+    """
+    out: Dict[str, Any] = {}
+    if kwargs.get("h") is not None:
+        out["h"] = kwargs["h"]
+    if kwargs.get("minimum_q") is not None:
+        out["minimum_q"] = kwargs["minimum_q"]
+    if "half_integer_states" in kwargs:
+        out["half_integer_states"] = kwargs["half_integer_states"]
+    return out
+
+
+def _format_eigenstate_row(
+    i: int,
+    z: np.ndarray,
+    labels: List[Any],
+    label_key: str,
+    sort_list: List[np.ndarray],
+    nstates: int,
+    mu_values: Optional[List[int]],
+    n_values: Optional[List[int]],
+) -> str:
+    """Format the leading portion of one eigenstate row:
+    ``"Lev   [mu n]  (amp) pct% idx label  (amp) ..."`` (no trailing energy or
+    newline). Shared by :func:`gen_e_summary` and :func:`gen_e_summary_trunc`.
+    """
+    line = "{0:<6}".format(i + 1)
+    if mu_values is not None:
+        line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
+    N = np.sum(np.abs(z[:, i]) ** 2)
+    for j in range(nstates):
+        si = sort_list[i][j]
+        line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
+            z[si, i],
+            np.abs(z[si, i]) ** 2 / N,
+            si + 1,
+            format_state_label(si, labels, label_key),
+        )
+    return line
+
+
+def _format_summary_footer(label_key: str, kwargs: Dict[str, Any]) -> str:
+    """Format the ``Label key: ... / chi2 / sigma / weighting factor`` block
+    that closes both energy-level summaries.
+    """
+    s = "Label key: {}".format(label_key)
+    if kwargs.get("minimum_q") is not None:
+        s += ", minimum_q={}, half_integer_states={}".format(
+            kwargs["minimum_q"], kwargs.get("half_integer_states", False)
+        )
+    s += "\n"
+    if "chi2" in kwargs:
+        s += "weighted chi2 = {:.4f}\n".format(kwargs["chi2"])
+        if "ndof" in kwargs:
+            if "weighting" not in kwargs:
+                raise ValueError("The weight argument needs to be provided if you provide ndof.")
+            weighting = kwargs["weighting"]
+            # sigma is an RMS quantity, so ndof belongs inside the square root.
+            if kwargs["ndof"] == 0:
+                s += "sigma = N/A (ndof=0)\n"
+            else:
+                s += "sigma = {:.4f}\n".format(
+                    np.sqrt(kwargs["chi2"] / (weighting * kwargs["ndof"]))
+                )
+            if weighting != 1:
+                s += "weighting factor = {:.2e}\n".format(weighting)
+    s += "\n"
+    return s
+
+
 def gen_e_summary(
     w: np.ndarray, z: np.ndarray, labels: List[Any], label_key: str, **kwargs: Any
 ) -> str:
@@ -966,15 +1040,7 @@ def gen_e_summary(
             # Change to zero based indexing
             ex[:, 0] = ex[:, 0] - 1
         else:
-            # Pass Hamiltonian and related parameters to ex_parse_abs for mu/n conversion
-            ex_kwargs = {}
-            if "h" in kwargs:
-                ex_kwargs["h"] = kwargs["h"]
-            if "minimum_q" in kwargs:
-                ex_kwargs["minimum_q"] = kwargs["minimum_q"]
-            if "half_integer_states" in kwargs:
-                ex_kwargs["half_integer_states"] = kwargs["half_integer_states"]
-            ex = ex_parse_abs(ex, z, labels, **ex_kwargs)
+            ex = ex_parse_abs(ex, z, labels, **_build_ex_parse_kwargs(kwargs))
             # ex_parse_abs already returns 0-based indices (sorted for regular data,
             # in user-specified order for marker-column data). Do not subtract or sort here.
         if len(ex[:, 0]) != len(set(ex[:, 0])):
@@ -1093,19 +1159,7 @@ def gen_e_summary(
             multiplet_start_by_end[end_level] = prev_end + 1
             prev_end = end_level
     for i in range(n_display):
-        line = "{0:<6}".format(i + 1)
-        # Add mu and n columns if calculated
-        if mu_values is not None:
-            line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
-        N = np.sum(np.abs(z[:, i]) ** 2)
-        for j in range(nstates):
-            si = sort_list[i][j]
-            line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                z[si, i],
-                np.abs(z[si, i]) ** 2 / N,
-                si + 1,
-                format_state_label(si, labels, label_key),
-            )
+        line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
         s += line + " {: >12.4f}".format(w[i])
         if ex.size != 0:
             if i in ex_dict:
@@ -1143,29 +1197,7 @@ def gen_e_summary(
                     f"  sigma_crystal_field = {sigma_crystal_field:>9.4f}"
                 )
             s += diag_line + "\n"
-    s += "Label key: {}".format(label_key)
-    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
-        minimum_q = kwargs["minimum_q"]
-        half_integer = kwargs.get("half_integer_states", False)
-        s += ", minimum_q={}, half_integer_states={}".format(minimum_q, half_integer)
-    s += "\n"
-    if "chi2" in kwargs:
-        s += "weighted chi2 = {:.4f}\n".format(kwargs["chi2"])
-        if "ndof" in kwargs:
-            if "weighting" not in kwargs:
-                raise ValueError("The weight argument needs to be provided if you provide ndof.")
-            else:
-                weighting = kwargs["weighting"]
-            # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
-            if kwargs["ndof"] == 0:
-                s += "sigma = N/A (ndof=0)\n"
-            else:
-                s += "sigma = {:.4f}\n".format(
-                    np.sqrt(kwargs["chi2"] / (weighting * kwargs["ndof"]))
-                )
-            if weighting != 1:
-                s += "weighting factor = {:.2e}\n".format(weighting)
-    s += "\n"
+    s += _format_summary_footer(label_key, kwargs)
     if "e_shift" in kwargs:
         if kwargs["e_shift"]:
             s += "Energy level shift: {:.4f}\n".format(e_shift)
@@ -1281,15 +1313,7 @@ def gen_e_summary_trunc(
     if ex.n_a != 0:
         if ex.n_d != 0:
             s += uline_char("Absolute energy levels:\n")
-        # Pass Hamiltonian and related parameters to ex_parse_abs for mu/n conversion
-        ex_abs_kwargs = {}
-        if "h" in kwargs and kwargs["h"] is not None:
-            ex_abs_kwargs["h"] = kwargs["h"]
-        if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
-            ex_abs_kwargs["minimum_q"] = kwargs["minimum_q"]
-        if "half_integer_states" in kwargs:
-            ex_abs_kwargs["half_integer_states"] = kwargs["half_integer_states"]
-        exa = ex_parse_abs(ex, z, labels, **ex_abs_kwargs)
+        exa = ex_parse_abs(ex, z, labels, **_build_ex_parse_kwargs(kwargs))
 
         heading = (
             "Lev.  "
@@ -1305,19 +1329,7 @@ def gen_e_summary_trunc(
         s += uline_char(heading)
         for ii in range(ex.n_a):
             i = int(exa[ii, 0])
-            line = "{0:<6}".format(i + 1)
-            # Add mu and n columns if calculated
-            if mu_values is not None:
-                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
-            N = np.sum(np.abs(z[:, i]) ** 2)
-            for j in range(nstates):
-                si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i],
-                    np.abs(z[si, i]) ** 2 / N,
-                    si + 1,
-                    format_state_label(si, labels, label_key),
-                )
+            line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
             s += line + " {: >12.4f}".format(w[i])
             s += "   {: >12.4f}  {: >12.4f}".format(exa[ii, 1], exa[ii, 1] - w[i]) + "\n"
         s += "\n"
@@ -1325,15 +1337,7 @@ def gen_e_summary_trunc(
     if ex.n_d != 0:
         if ex.n_a != 0:
             s += uline_char("Energy level differences:\n")
-        # Pass Hamiltonian and related parameters to ex_parse_diff for mu/n conversion
-        ex_diff_kwargs = {}
-        if "h" in kwargs and kwargs["h"] is not None:
-            ex_diff_kwargs["h"] = kwargs["h"]
-        if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
-            ex_diff_kwargs["minimum_q"] = kwargs["minimum_q"]
-        if "half_integer_states" in kwargs:
-            ex_diff_kwargs["half_integer_states"] = kwargs["half_integer_states"]
-        exd = ex_parse_diff(ex, z, labels, **ex_diff_kwargs)
+        exd = ex_parse_diff(ex, z, labels, **_build_ex_parse_kwargs(kwargs))
         heading = (
             "Lev.  "
             + (
@@ -1360,62 +1364,16 @@ def gen_e_summary_trunc(
         s += uline_char(heading)
         for ii in range(ex.n_d):
             i = int(exd[ii, 0])
-            line = "{0:<6}".format(i + 1)
-            # Add mu and n columns if calculated
-            if mu_values is not None:
-                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
-            N = np.sum(np.abs(z[:, i]) ** 2)
-            for j in range(nstates):
-                si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i],
-                    np.abs(z[si, i]) ** 2 / N,
-                    si + 1,
-                    format_state_label(si, labels, label_key),
-                )
+            line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
             s += line + "\n"
             tmp_w = w[i]
             i = int(exd[ii, 1])
-            line = "{0:<6}".format(i + 1)
-            # Add mu and n columns if calculated
-            if mu_values is not None:
-                line += "{0:>2} {1:>5} ".format(mu_values[i], n_values[i])  # type: ignore[index]
-            N = np.sum(np.abs(z[:, i]) ** 2)
-            for j in range(nstates):
-                si = sort_list[i][j]
-                line += "({0: .2f}) {1:6.1%} {2:>5} {3} ".format(
-                    z[si, i],
-                    np.abs(z[si, i]) ** 2 / N,
-                    si + 1,
-                    format_state_label(si, labels, label_key),
-                )
+            line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
             tmp_w = w[i] - tmp_w
             s += line + " {: >12.4g}".format(tmp_w)
             s += "   {: >12.4g}  {: >12.4g}".format(exd[ii, 2], exd[ii, 2] - tmp_w) + "\n"
         s += "\n"
-    s += "Label key: {}".format(label_key)
-    if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
-        minimum_q = kwargs["minimum_q"]
-        half_integer = kwargs.get("half_integer_states", False)
-        s += ", minimum_q={}, half_integer_states={}".format(minimum_q, half_integer)
-    s += "\n"
-    if "chi2" in kwargs:
-        s += "weighted chi2 = {:.4f}\n".format(kwargs["chi2"])
-        if "ndof" in kwargs:
-            if "weighting" not in kwargs:
-                raise ValueError("The weight argument needs to be provided if you provide ndof.")
-            else:
-                weighting = kwargs["weighting"]
-            # Fix: sigma is an RMS quantity, so ndof belongs inside the square root.
-            if kwargs["ndof"] == 0:
-                s += "sigma = N/A (ndof=0)\n"
-            else:
-                s += "sigma = {:.4f}\n".format(
-                    np.sqrt(kwargs["chi2"] / (weighting * kwargs["ndof"]))
-                )
-            if weighting != 1:
-                s += "weighting factor = {:.2e}\n".format(weighting)
-    s += "\n"
+    s += _format_summary_footer(label_key, kwargs)
     return s
 
 
