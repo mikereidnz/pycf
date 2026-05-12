@@ -297,3 +297,28 @@ def test_pyfit_fit_res_mhfit_with_max_levels():
 
     res = py.fit_res(method="lm", max_levels=2)
     assert "Multi-Hamiltonian fit" in res["summary"]
+
+
+def test_pyfit_rejects_object_missing_get_edata():
+    """PyFit requires a get_edata() accessor on the fit object (pyfit.py L82-86)."""
+    class _FakeFit:
+        n_p_real = 1
+        x0 = np.array([1.0])
+
+    with pytest.raises(TypeError, match="get_edata"):
+        PyFit(_FakeFit())
+
+
+def test_pyfit_fit_res_with_difference_data():
+    """Single-Hamiltonian fit_res with difference data exercises the
+    ``self.efit.ex.n_d != 0`` branch (pyfit.py lines 443-457)."""
+    diag = np.array([0.0, 5.0, 12.0])
+    diff = np.array([[1, 2, 5.0], [1, 3, 12.0]])
+    ex = cfl.ExData(diff, key="D")
+    efit = _make_efit(diag, ex)
+    py = PyFit(efit)
+
+    res = py.fit_res(method="lm", max_levels=3)
+    assert "Fitted energy levels" in res["summary"]
+    # gen_summary header from h.gen_summary() should appear.
+    assert "Hamiltonian" in res["summary"]
