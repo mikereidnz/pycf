@@ -520,6 +520,19 @@ class TestAltpData:
         assert isinstance(A_list, list)
         assert len(A_list) > 0
 
+    def test_altpdata_gen_summary(self) -> None:
+        """gen_summary returns a formatted text table after eval_params."""
+        coords_list = [[2.5, i * np.pi / 3, 0] for i in range(6)]
+        ligands = [Ligand(np.array(c), -2.0, 0.5) for c in coords_list]
+        altp_data = AltpData("Pr", -3, ligands)
+        altp_data.eval_params()
+        summary = altp_data.gen_summary()
+        assert isinstance(summary, str)
+        assert "A_statchg" in summary
+        assert "A_total" in summary
+        # at least one parameter row (e.g. A2xx) should appear
+        assert "A2" in summary or "A4" in summary or "A6" in summary
+
 
 class TestParameterConsistency:
     """Integration tests for parameter consistency."""

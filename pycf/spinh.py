@@ -658,6 +658,8 @@ class SpinH(object):
                     "valid values are either True or False."
                 )
             self.inv = kwargs["inv"]
+        else:
+            self.inv = False
 
     def add_term(self, term, m):
         r"""
