@@ -71,6 +71,48 @@ def principal_components(z: np.ndarray) -> np.ndarray:
     return np.argmax(np.abs(z), axis=0)
 
 
+def _resolve_state_label_to_eigenstate(
+    target_label: np.ndarray,
+    pc: np.ndarray,
+    labels_array: np.ndarray,
+    label_kind: str = "State",
+) -> int:
+    """Return the eigenstate index whose principal-component basis-state
+    label matches ``target_label``.
+
+    Raises RuntimeError with a label-kind-specific message when no
+    eigenvector has the requested label as its principal component.
+    Used by :func:`ex_parse_abs` and :func:`ex_parse_diff` to resolve
+    state-label experimental data against the diagonalised basis.
+    """
+    idxs = np.where((labels_array[pc] == target_label).all(axis=1))[0]
+    if len(idxs) == 0:
+        raise RuntimeError(
+            "{} label {} not found in computed eigenvectors; check that "
+            "the label is correct and that the basis is large enough.".format(
+                label_kind, target_label
+            )
+        )
+    return int(idxs[0])
+
+
+def _resolve_mu_n_kwargs(
+    ex: Any, kwargs: Dict[str, Any]
+) -> Optional[Tuple[Any, int, bool]]:
+    """Extract ``(h, minimum_q, half_integer_states)`` from ``kwargs`` for
+    the marker-column mu/n path.
+
+    Returns ``None`` if no Hamiltonian was provided in ``kwargs``; in that
+    case callers fall back to cached level indices on ``ex``.
+    """
+    if "h" not in kwargs:
+        return None
+    h = kwargs["h"]
+    minimum_q = kwargs.get("minimum_q", h.minimum_q if h.minimum_q is not None else 2)
+    half_integer_states = kwargs.get("half_integer_states", h.half_integer_states)
+    return h, minimum_q, half_integer_states
+
+
 def uline_char(s: str) -> str:
     """Underline all non-whitespace characters in a string, except for single
     spaces between non-whitespace characters."""
@@ -265,19 +307,11 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> np
         # Validate that pc indices are within bounds of labels
         if np.any(pc >= len(labels)):
             raise ValueError("Principal component index exceeds bounds of labels array")
+        labels_array = np.array(labels)
         for i, r in enumerate(ex.a_states):
-            # Find the index of the principal component of each state label.
-            # Guard against a missing match: np.where returns an empty array
-            # when no eigenvector has the requested label as its principal
-            # component, which would produce a bare IndexError without context.
-            idxs = np.where((np.array(labels)[pc] == r).all(axis=1))[0]
-            if len(idxs) == 0:
-                raise RuntimeError(
-                    "Experimental state label {} not found in computed "
-                    "eigenvectors; check that the label is correct and that "
-                    "the basis is large enough.".format(r)
-                )
-            parsed_ex[i, 0] = idxs[0]
+            parsed_ex[i, 0] = _resolve_state_label_to_eigenstate(
+                r, pc, labels_array, "Experimental state"
+            )
     else:
         parsed_ex = np.zeros((ex.n_a, 2))
         # Abs. energy values are ordered to preceed diff. values.
@@ -285,13 +319,12 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> np
 
         # Check if marker-column mu/n data is present
         has_marker_mu_n = hasattr(ex, "mu_n_abs") and len(ex.mu_n_abs) > 0
+        mu_n_kw = _resolve_mu_n_kwargs(ex, kwargs) if has_marker_mu_n else None
 
-        if has_marker_mu_n and "h" in kwargs:
+        if mu_n_kw is not None:
             # Marker-column mu/n data: compute eigenstate indices dynamically
             # This mirrors the sl_index approach: recompute for every summary call
-            h = kwargs["h"]
-            minimum_q = kwargs.get("minimum_q", h.minimum_q if h.minimum_q is not None else 2)
-            half_integer_states = kwargs.get("half_integer_states", h.half_integer_states)
+            h, minimum_q, half_integer_states = mu_n_kw
 
             # Compute mu_n_to_level for all user-provided (mu, n) pairs
             level_indices = mu_n_to_level(h, ex.mu_n_abs, minimum_q, half_integer_states)
@@ -356,28 +389,15 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> n
         # Determine the index of the principal component of each
         # eigenvector.
         pc = principal_components(z)
-        # Find the index of the principal component of each state label.
-        # Both loops guard against missing matches for the same reason as
-        # ex_parse_abs: a bare IndexError gives no hint about which label
-        # failed or why.
+        labels_array = np.array(labels)
         for i, s in enumerate(ex.id_states):
-            idxs = np.where((np.array(labels)[pc] == s).all(axis=1))[0]
-            if len(idxs) == 0:
-                raise RuntimeError(
-                    "Initial-state label {} not found in computed "
-                    "eigenvectors; check that the label is correct and that "
-                    "the basis is large enough.".format(s)
-                )
-            parsed_ex[i, 0] = idxs[0]
+            parsed_ex[i, 0] = _resolve_state_label_to_eigenstate(
+                s, pc, labels_array, "Initial-state"
+            )
         for i, s in enumerate(ex.fd_states):
-            idxs = np.where((np.array(labels)[pc] == s).all(axis=1))[0]
-            if len(idxs) == 0:
-                raise RuntimeError(
-                    "Final-state label {} not found in computed "
-                    "eigenvectors; check that the label is correct and that "
-                    "the basis is large enough.".format(s)
-                )
-            parsed_ex[i, 1] = idxs[0]
+            parsed_ex[i, 1] = _resolve_state_label_to_eigenstate(
+                s, pc, labels_array, "Final-state"
+            )
     else:
         parsed_ex = np.zeros((ex.n_d, 3))
         # Diff. energy values are ordered to come after abs. values.
@@ -385,12 +405,11 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> n
 
         # Check if marker-column mu/n data is present
         has_marker_mu_n = hasattr(ex, "mu_n_diff") and len(ex.mu_n_diff) > 0
+        mu_n_kw = _resolve_mu_n_kwargs(ex, kwargs) if has_marker_mu_n else None
 
-        if has_marker_mu_n and "h" in kwargs:
+        if mu_n_kw is not None:
             # Marker-column mu/n data: compute eigenstate indices dynamically
-            h = kwargs["h"]
-            minimum_q = kwargs.get("minimum_q", h.minimum_q if h.minimum_q is not None else 2)
-            half_integer_states = kwargs.get("half_integer_states", h.half_integer_states)
+            h, minimum_q, half_integer_states = mu_n_kw
 
             mu_n_initial = ex.mu_n_diff[:, :2]
             mu_n_final = ex.mu_n_diff[:, 2:4]
