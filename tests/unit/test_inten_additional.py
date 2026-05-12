@@ -884,6 +884,46 @@ class TestIntensitySummaryFormatting:
         assert "Total" in summary
         assert "0.000000e+00" in summary
 
+    def test_detailed_summary_includes_per_transition_lines(self):
+        """format='detailed' exercises _format_transition_line (pyfit lines 1494-1540)
+        and the transition-listing loop (lines 1720-1750)."""
+        spec = self._make_fake_spectrum()
+        summary = gen_inten_summary(
+            spec, format="detailed", state_labels=["|a>", "|b>", "|c>"]
+        )
+        assert "Individual transitions:" in summary
+        # Header for absorption (Energy > 0): f_ED column.
+        assert "f_ED" in summary
+        # 1-based level indices for the synthetic transitions.
+        assert "1   " in summary
+
+    def test_moments_summary_includes_dipole_components(self):
+        """format='moments' additionally exercises _format_dipole_moments
+        (lines 1543-1591) via the moments branch at line 1746."""
+        spec = self._make_fake_spectrum()
+        # Inject dipole components so the moments block renders non-trivially.
+        spec.groups[0]["t_list"][0].update(
+            {"ed_-1": 0.0, "ed_0": 0.1, "ed_+1": 0.0,
+             "md_-1": 0.0, "md_0": 0.05, "md_+1": 0.0}
+        )
+        summary = gen_inten_summary(
+            spec, format="moments", state_labels=["|a>", "|b>", "|c>"]
+        )
+        assert "D_ED" in summary
+        assert "D_MD" in summary
+
+    def test_detailed_summary_handles_out_of_range_pc_indices(self):
+        """Out-of-range pc_i/pc_f fall through to 'State N' fallback labels
+        (lines 1514-1515, 1519-1520)."""
+        spec = self._make_fake_spectrum()
+        # Force pc_i out of range; pc_f stays in range.
+        spec.groups[0]["t_list"][0]["pc_i"] = 99
+        spec.groups[0]["t_list"][0]["pc_f"] = -1
+        summary = gen_inten_summary(
+            spec, format="detailed", state_labels=["|a>", "|b>", "|c>"]
+        )
+        assert "State 1" in summary or "State 2" in summary
+
     def test_fit_altp_uses_scaled_targets_and_excludes_anchor_group(self):
         class FakeSpectrum:
             def __init__(self):
