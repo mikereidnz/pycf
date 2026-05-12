@@ -2086,12 +2086,12 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
             w_a = ex.w[:n_a]
         if (la_a >= 0).all():
             r = evals[la_a] - e_a
-            chi2 += float(np.dot(w_a, r * r))
+            chi2 += float(np.sum(w_a * r * r))
         else:
             valid = la_a >= 0
             if valid.any():
                 r = evals[la_a[valid]] - e_a[valid]
-                chi2 += float(np.dot(w_a[valid], r * r))
+                chi2 += float(np.sum(w_a[valid] * r * r))
 
     # Difference energies: sum_i w_i * (|eval[fld_i] - eval[ild_i]| - dE_i)^2
     if n_d > 0:
@@ -2101,11 +2101,11 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
         w_d = ex.w[n_a:n_a + n_d]
         if (ild >= 0).all() and (fld >= 0).all():
             r = np.abs(evals[fld] - evals[ild]) - e_d
-            chi2 += float(np.dot(w_d, r * r))
+            chi2 += float(np.sum(w_d * r * r))
         else:
             valid = (ild >= 0) & (fld >= 0)
             if valid.any():
                 r = np.abs(evals[fld[valid]] - evals[ild[valid]]) - e_d[valid]
-                chi2 += float(np.dot(w_d[valid], r * r))
+                chi2 += float(np.sum(w_d[valid] * r * r))
 
     return chi2
