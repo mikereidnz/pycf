@@ -52,6 +52,25 @@ from math import fsum
 from scipy.special import factorial  # type: ignore[import-untyped]
 
 
+def principal_components(z: np.ndarray) -> np.ndarray:
+    """Return the basis-state index of the largest-magnitude entry in each
+    eigenvector column.
+
+    Parameters
+    ----------
+    z : np.ndarray
+        Eigenvector matrix; columns are eigenvectors expressed in the basis
+        indexed by rows.
+
+    Returns
+    -------
+    np.ndarray
+        1-D integer array of length ``z.shape[1]`` giving the principal-
+        component row index for each column.
+    """
+    return np.argmax(np.abs(z), axis=0)
+
+
 def uline_char(s: str) -> str:
     """Underline all non-whitespace characters in a string, except for single
     spaces between non-whitespace characters."""
@@ -242,7 +261,7 @@ def ex_parse_abs(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> np
         parsed_ex[:, 1] = ex.e[: ex.n_a]
         # Determine the index of the principal component of each
         # eigenvector.
-        pc = np.argmax(np.abs(z), axis=0)
+        pc = principal_components(z)
         # Validate that pc indices are within bounds of labels
         if np.any(pc >= len(labels)):
             raise ValueError("Principal component index exceeds bounds of labels array")
@@ -336,7 +355,7 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> n
         parsed_ex[:, 2] = ex.e[ex.n_a :]
         # Determine the index of the principal component of each
         # eigenvector.
-        pc = np.argmax(np.abs(z), axis=0)
+        pc = principal_components(z)
         # Find the index of the principal component of each state label.
         # Both loops guard against missing matches for the same reason as
         # ex_parse_abs: a bare IndexError gives no hint about which label
@@ -715,7 +734,7 @@ def _build_mu_groups(
         )
 
     mu_to_levels: Dict[int, List[Tuple[float, int]]] = {}
-    pc_idx = np.argmax(np.abs(z), axis=0)
+    pc_idx = principal_components(z)
     w = h.w
     for eigenstate_idx in range(z.shape[1]):
         m_value = int(state_labels_list[pc_idx[eigenstate_idx]][-1])

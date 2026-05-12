@@ -28,6 +28,7 @@ from pycf.cfl_util import (
     gen_completed_str,
     gen_pycf_summary,
     jacobian_diagnostics,
+    principal_components,
     print_completed_str,
     print_pycf_details,
 )
@@ -246,7 +247,7 @@ def dipole_str(
             "Eigenvector V must be 2-dimensional (nstates x nstates), got shape %s" % (shape,)
         )
     # find principal components
-    pc = np.argmax(np.abs(z), axis=0)
+    pc = principal_components(z)
     if ed:
         D_factor = {}
         if Altp is None:
@@ -873,7 +874,7 @@ class Spectrum:
         # Extract eigenvectors and eigenvalues
         w, z = self.hamiltonian.diag()
         self.eigenvalues = w
-        self.principal_components = np.argmax(np.abs(z), axis=0)
+        self.principal_components = principal_components(z)
 
         # Validate eigenvectors
         if not isinstance(z, np.ndarray) or z.ndim != 2:
@@ -979,7 +980,7 @@ def gen_inten_summary(
     pc = (
         spectrum.principal_components
         if spectrum.principal_components is not None
-        else np.argmax(np.abs(hamiltonian.diag()[1]), axis=0)
+        else principal_components(hamiltonian.diag()[1])
     )
 
     if format == "text":
