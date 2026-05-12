@@ -193,6 +193,21 @@ def format_state_label(li: int, labels: List[Any], label_key: str) -> str:
 
 
 def fmt_timestamp(timestamp: Optional[Union[datetime, str]] = None) -> str:
+    r"""
+    Format a timestamp for display in pycf summary headers.
+
+    Parameters
+    ----------
+    timestamp : datetime or str, optional
+        If a ``datetime``, formatted as ``"%Y-%m-%d %H:%M:%S"``.  If a string,
+        returned unchanged.  If ``None`` (default), the current local time is
+        used.
+
+    Returns
+    -------
+    str
+        Formatted timestamp string.
+    """
     if timestamp is None:
         timestamp = datetime.now()
     if isinstance(timestamp, str):
@@ -251,6 +266,7 @@ def gen_pycf_summary(
 
 
 def print_pycf_details(started_at: Optional[Union[datetime, str]] = None) -> None:
+    r"""Print the pycf metadata block produced by ``gen_pycf_details``."""
     print(gen_pycf_details(started_at), end="")
 
 
@@ -263,6 +279,7 @@ def gen_completed_str(completed_at: Optional[Union[datetime, str]] = None) -> st
 
 
 def print_completed_str(completed_at: Optional[Union[datetime, str]] = None) -> None:
+    r"""Print the completion-time string produced by ``gen_completed_str``."""
     print(gen_completed_str(completed_at), end="")
 
 

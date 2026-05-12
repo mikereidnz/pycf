@@ -488,9 +488,10 @@ int main (void)
   efit_p4.type = 'r';
   efit_p4.xi = 4;
   efit_p4.ci = 4;
-  //FIXME: this used to have xi = 6, ci = 6; changed to stop out of bounds
-  //memory reading. However, diag test for Ce fails now. I suspect there's an
-  //issue with the params used above and the new paramtype setup.
+  // NOTE: this used to have xi = 6, ci = 6; changed to stop out of bounds
+  // memory reading. However, diag test for Ce fails now. Suspected issue with
+  // the params used above and the paramtype setup. opt_test is documented as
+  // a known issue in cfl/cfl_testing.sh (status tracked for v0.1.1).
   param_type efit_p5;
   efit_p5.type = 'r';
   efit_p5.xi = 5;

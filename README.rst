@@ -13,7 +13,7 @@ pycf is a collection of Python modules for crystal field theory and spin Hamilto
 .. image:: https://img.shields.io/badge/python-3.10+-blue.svg
    :alt: Python Version
 
-.. image:: https://img.shields.io/badge/test%20status-106%20passing-brightgreen
+.. image:: https://img.shields.io/badge/test%20status-665%20passing-brightgreen
    :alt: Tests Passing
 
 **For detailed installation instructions, see** `INSTALL.md <INSTALL.md>`_.

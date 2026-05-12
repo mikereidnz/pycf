@@ -499,6 +499,25 @@ def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> flo
 
 
 def param_ten_svd(t: np.ndarray) -> np.ndarray:
+    r"""
+    Apply a symmetrising SVD rotation to a parameter tensor.
+
+    Computes the SVD ``t = U @ diag(s) @ Vh`` and returns
+    ``t' = t @ Vh.T @ U.T``, which leaves the singular values of ``t``
+    unchanged while rotating the input/output bases. Used inside the
+    spin-Hamiltonian inversion to bring the parameter matrix into a canonical
+    frame before further analysis.
+
+    Parameters
+    ----------
+    t : numpy.ndarray
+        Square real or complex parameter matrix.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotated parameter matrix with the same singular values as ``t``.
+    """
     U, s, Vh = svd(t)
     t = np.dot(t, Vh.T).dot(U.T)
     return t
@@ -789,11 +808,13 @@ class SpinH(object):
         if sym:
 
             def print_fun(x, f, accepted):
+                """Basinhopping callback: print each accepted symmetrisation step."""
                 print("Symmeterization minimum %.4f accepted %d" % (f, int(accepted)))
 
             if sym_phase is None:
 
                 def fmin(p):
+                    """Residual function minimised by basinhopping over SU(2) angles."""
                     return su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
 
                 r = basinhopping(

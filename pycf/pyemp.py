@@ -90,7 +90,7 @@ def _require_matplotlib() -> None:
         ) from _MATPLOTLIB_IMPORT_ERROR
 
 
-# TODO:
+# Possible future enhancements (legacy module; not actively pursued):
 #   - Add jmcalc and sljcalc GenericErun subclasses.  This should work well
 #     with the BaseEmp execution order checking.
 #   - Add Ce example to documentation.

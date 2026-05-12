@@ -23,6 +23,24 @@ def _normalize(v: np.ndarray) -> np.ndarray:
 
 
 def polarization_vector(name: str) -> np.ndarray:
+    """Return a normalized 2-component Jones vector for a named polarization.
+
+    Parameters
+    ----------
+    name : str
+        Polarization name. Supported values (case-insensitive):
+        ``"x"``, ``"y"``, ``"45"``, ``"sigma_plus"``, ``"sigma_minus"``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Length-2 complex Jones vector with unit total intensity.
+
+    Raises
+    ------
+    KeyError
+        If ``name`` is not one of the supported polarization names.
+    """
     name = name.lower()
     if name == "x":
         v = np.array([1.0, 0.0], dtype=complex)
@@ -40,6 +58,18 @@ def polarization_vector(name: str) -> np.ndarray:
 
 
 def stokes_from_jones(E: Iterable[complex]) -> np.ndarray:
+    """Convert a 2-component Jones vector to its 4-component Stokes vector.
+
+    Parameters
+    ----------
+    E : iterable of complex
+        Length-2 Jones vector ``(Ex, Ey)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Length-4 real Stokes vector ``[S0, S1, S2, S3]``.
+    """
     E = np.asarray(E, dtype=np.complex128)
     if E.shape != (2,):
         raise ValueError("Jones vector must be length-2 array-like")
@@ -52,12 +82,18 @@ def stokes_from_jones(E: Iterable[complex]) -> np.ndarray:
 
 
 def rotator(theta: float) -> np.ndarray:
+    """Return a 2x2 rotation matrix for the given angle in radians."""
     c = math.cos(theta)
     s = math.sin(theta)
     return np.array([[c, -s], [s, c]], dtype=complex)
 
 
 def quarter_wave_plate(phi: float = 0.0) -> np.ndarray:
+    """Return the Jones matrix of a quarter-wave plate rotated by ``phi`` rad.
+
+    With the sign convention used here, a QWP at ``+45deg`` converts linear
+    polarization at 45deg into right-circular (``sigma_minus``).
+    """
     Rm = rotator(-phi)
     R = rotator(phi)
     # Use -1j so a QWP at +45deg converts linear 45deg -> circular

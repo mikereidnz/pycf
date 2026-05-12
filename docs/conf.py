@@ -164,8 +164,36 @@ napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
 napoleon_use_param = True
 napoleon_use_rtype = True
-napoleon_preprocess_types = False
-napoleon_type_aliases = None
+napoleon_preprocess_types = True
+napoleon_type_aliases = {
+    "string": "str",
+    "integer": "int",
+    "boolean": "bool",
+    "callable": "typing.Callable",
+    "dictionary": "dict",
+    "dictionaries": "dict",
+    "sequence": "typing.Sequence",
+    "ndarray": "numpy.ndarray",
+    "np.ndarray": "numpy.ndarray",
+    "np.array": "numpy.ndarray",
+    "numpy array": "numpy.ndarray",
+    "array": "numpy.ndarray",
+    "iterable": "Iterable",
+    # Internal short names used in docstrings → fully qualified targets
+    "EData": "pycf.cfl_util.EData",
+    "Hamiltonian": "pycf.cfl.Hamiltonian",
+    "SpinHamiltonian": "pycf.cfl.SpinHamiltonian",
+    "Tensor": "pycf.cfl.Tensor",
+    "EFit": "pycf.cfl.EFit",
+    "MHFit": "pycf.cfl.MHFit",
+    "ExData": "pycf.cfl.ExData",
+    "Spectrum": "pycf.inten.Spectrum",
+    "ImportSLJM": "pycf.import_sljm.ImportSLJM",
+    "EFitRunner": "pycf.pyfit.EFitRunner",
+    "MHFitRunner": "pycf.pyfit.MHFitRunner",
+    "ESHFitRunner": "pycf.pyfit.ESHFitRunner",
+    "MESHFitRunner": "pycf.pyfit.MESHFitRunner",
+}
 napoleon_attr_annotations = True
 
 # Intersphinx mappings
@@ -179,6 +207,48 @@ intersphinx_mapping = {
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+
+# Nitpick (sphinx-build -n) suppressions for conventional NumPy-doc types and
+# external symbols that have no Python class to link to. The strict CI build
+# uses -W but not -n, so these only matter for local nitpicky-mode runs;
+# silencing them keeps that mode useful for spotting real broken xrefs.
+nitpick_ignore_regex = [
+    # Conventional NumPy-doc type strings (not actual classes)
+    (r"py:class", r"optional"),
+    (r"py:class", r"array_?[- ]?like"),
+    (r"py:class", r"half[- ]?int(eger)?"),
+    (r"py:class", r"list/tuple"),
+    (r"py:class", r"list with .*"),
+    (r"py:class", r"object with .*"),
+    (r"py:class", r"^N$"),
+    (r"py:class", r"^len$"),
+    # Anything containing whitespace, parentheses, brackets, commas, pipes,
+    # backticks, or quote marks is not a real class name — usually a stray
+    # fragment from a compound type spec that Napoleon couldn't fully parse.
+    (r"py:class", r".*[\s(){}\[\]|,`\"].*"),
+    # External EMP tooling executables, not Python symbols
+    (r"py:.*", r"^(cfit|vtrans|inten|spectrum)$"),
+    # napoleon internal artifact when resolving type aliases
+    (r"py:class", r"^TypeAliasForwardRef$"),
+    # matplotlib private path; SpectrumAxes inherits these docstrings verbatim
+    (r"py:class", r"matplotlib\.axes\._axes\.Axes"),
+    # Internal short references that appear in :class:/:func:/:meth:/:attr:
+    # roles inside docstrings (any reftype). These resolve correctly in the
+    # generated HTML via autodoc's local scope but Sphinx can't validate them
+    # without fully-qualified paths.
+    (r"py:.*", r"^(EData|EFit|MHFit|Hamiltonian|SpinHamiltonian|Tensor|ExData|Spectrum)$"),
+    (r"py:.*", r"^(EData\.(DTYPE|to_str)|EFit\.(get_edata|last_jacobian)|MHFit\.get_edata)$"),
+    (r"py:.*", r"^(bgs_coeff_array|fd_jacobian|gen_edata_summary|dipole_str|lstsq|datetime)$"),
+    (r"py:.*", r"^cfl_util\.gen_e_summary$"),
+    (r"py:.*", r"^cfl\.(EFit|Tensor|Hamiltonian|SpinHamiltonian|SpinHamiltonian\.calc_param|CFLMin)$"),
+    (r"py:.*", r"^import_sljm\.ImportSLJM$"),
+    (r"py:.*", r"^spinhamiltonian\.sh_lsq_func$"),
+    (r"py:.*", r"^pycf\.cfl\._(temporary_x|x_to_coeff_dict)$"),
+    (r"py:.*", r"^scipy\.optimize\.least_squares$"),
+    (r"py:.*", r"^(last_result|2-tuple)$"),
+    (r"py:.*", r"^pycf\.(cfl_util\.EData|inten\.(dipole_str|group_transitions|Spectrum)|pyfit\.(EFitRunner|MHFitRunner|ESHFitRunner|MESHFitRunner))$"),
+]
 
 
 # Register matplotlib's custom :mpltype: role as a no-op so that inherited

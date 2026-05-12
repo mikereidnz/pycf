@@ -377,6 +377,21 @@ class AltpData(object):
         return A_list
 
     def gen_summary(self):
+        r"""
+        Return a formatted text table of the Altp parameters.
+
+        Each row of the table lists, for one ``A_lambda_t_p`` parameter, the
+        static-charge, static-polarization, dynamic-coupling, combined
+        static-charge-plus-dynamic and total contributions.
+
+        :meth:`eval_params` must be called before this method so that
+        ``self.A_list`` is populated.
+
+        Returns
+        -------
+        str
+            Multi-line formatted summary suitable for printing.
+        """
         s = ""
         heading = "Param   A_statchg    A_statpol     A_dyniso  A_statchg+A_dyniso      A_total\n"
         s += uline_char(heading)

@@ -14,6 +14,7 @@ Core Modules
    import_sljm
    inten
    paramcalc
+   pyfit
 
 Utility Modules
 ===============
@@ -26,6 +27,8 @@ Utility Modules
    cfl_util
    njsymbols
    matel
+   polarization
+   constants
 
 Quick Reference
 ================
