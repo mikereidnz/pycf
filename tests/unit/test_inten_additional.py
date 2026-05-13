@@ -1178,6 +1178,72 @@ class TestConvenienceWrappers:
         xs = sorted(round(segment[0][0], 6) for segment in segments)
         assert xs == [15.0, 25.0]
 
+    def test_inten_plot_separates_used_scaled_to_and_not_used(self):
+        matplotlib = pytest.importorskip("matplotlib")
+        matplotlib.use("Agg")
+        from matplotlib.colors import to_rgba
+
+        class DummyHamiltonian:
+            def diag(self):
+                return np.array([0.0, 1.0]), np.eye(2)
+
+        class DummySpectrum:
+            def __init__(self):
+                self.name = "demo"
+                self.groups = [
+                    {"Energy": 10.0, "f": 1.0, "A": 0.0},
+                    {"Energy": 20.0, "f": 2.0, "A": 0.0},
+                    {"Energy": 30.0, "f": 3.0, "A": 0.0},
+                ]
+                self.expt_data = [
+                    {"group": 1, "intensity": 1.0, "energy": 11.0},
+                    {"group": 2, "intensity": 0.4, "energy": 22.0},
+                    {"group": 3, "intensity": 0.5, "energy": 33.0},
+                ]
+                self.fit_scale_to_group = 2
+                self.fit_ignore_groups = [3]
+                self.last_expt_scale_factor = None
+                self.hamiltonian = DummyHamiltonian()
+                self.nrefractive = 1.0
+
+        spec = DummySpectrum()
+        _, ax = inten_plot(spec, npoints=100)
+
+        labelled_collections = {
+            getattr(coll, "get_label", lambda: "")(): coll for coll in ax.collections
+        }
+        exp_label = next(
+            (label for label in labelled_collections if label.startswith("Experimental (scaled x")),
+            None,
+        )
+        assert exp_label is not None
+        assert "Scaled to" in labelled_collections
+        assert "Not used" in labelled_collections
+
+        exp_segments = labelled_collections[exp_label].get_segments()
+        scaled_to_segments = labelled_collections["Scaled to"].get_segments()
+        not_used_segments = labelled_collections["Not used"].get_segments()
+
+        assert [round(seg[0][0], 6) for seg in exp_segments] == [11.0]
+        assert [round(seg[0][0], 6) for seg in scaled_to_segments] == [22.0]
+        assert [round(seg[0][0], 6) for seg in not_used_segments] == [33.0]
+
+        assert np.allclose(labelled_collections[exp_label].get_colors()[0][:3], to_rgba("red")[:3])
+        assert np.allclose(
+            labelled_collections["Scaled to"].get_colors()[0][:3], to_rgba("green")[:3]
+        )
+        assert np.allclose(
+            labelled_collections["Not used"].get_colors()[0][:3], to_rgba("black")[:3]
+        )
+
+        calc_line = next((line for line in ax.lines if line.get_label() == "Calculated"), None)
+        assert calc_line is not None
+        assert np.allclose(to_rgba(calc_line.get_color()), to_rgba("blue"))
+
+        star_texts = [t for t in ax.texts if t.get_text() == "*"]
+        assert len(star_texts) == 1
+        assert round(star_texts[0].get_position()[0], 6) == 22.0
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -3032,38 +3032,65 @@ def inten_plot(  # pragma: no cover
     # Mark each transition position on the x-axis
     ax.plot(energies_arr, np.zeros_like(energies_arr), "o", color="blue", markersize=4, alpha=0.7)
 
-    # If experimental data available, plot as stick lines
+    # If experimental data available, plot as stick lines.
+    # Fit controls (scale_to / ignored groups) are shown as separate traces so the
+    # user can immediately see what was used for fitting vs reference-only points.
     if spectrum.expt_data:
-        _, scaled_lookup, _, _, scale_factor = _get_effective_expt_lookup(
+        _, scaled_lookup, excluded_groups, scale_group, scale_factor = _get_effective_expt_lookup(
             spectrum,
             require_groups=True,
         )
         expt_energy_lookup = _build_expt_energy_lookup(spectrum.expt_data)
-        expt_energies = []
-        expt_intensities = []
-        for group_idx, f_expt in sorted(scaled_lookup.items()):
-            if 1 <= group_idx <= len(spectrum.groups):
-                e = expt_energy_lookup.get(group_idx, abs(spectrum.groups[group_idx - 1].get("Energy", 0.0)))
+
+        def _plot_expt_groups(
+            group_indices: Sequence[int], *, color: str, label: str
+        ) -> List[Tuple[float, float]]:
+            expt_energies: List[float] = []
+            expt_intensities: List[float] = []
+            for group_idx in sorted(group_indices):
+                f_expt = scaled_lookup.get(group_idx)
+                if f_expt is None:
+                    continue
+                if not (1 <= group_idx <= len(spectrum.groups)):
+                    continue
+                e = expt_energy_lookup.get(
+                    group_idx,
+                    abs(spectrum.groups[group_idx - 1].get("Energy", 0.0)),
+                )
                 expt_energies.append(e)
                 expt_intensities.append(f_expt)
-
-        if expt_energies:
-            expt_energies_arr = np.array(expt_energies)
-            expt_intensities_arr = np.array(expt_intensities)
+            if not expt_energies:
+                return []
             ax.vlines(
-                expt_energies_arr,
+                np.array(expt_energies),
                 0,
-                expt_intensities_arr,
-                colors="red",
-                alpha=0.8,
+                np.array(expt_intensities),
+                colors=color,
+                alpha=0.85,
                 linewidth=2,
                 linestyles="solid",
-                label=(
-                    f"Experimental (scaled x{scale_factor:.3e})"
-                    if scale_factor is not None
-                    else "Experimental"
-                ),
+                label=label,
             )
+            return list(zip(expt_energies, expt_intensities))
+
+        available_indices = {idx for idx in scaled_lookup if 1 <= idx <= len(spectrum.groups)}
+        anchor_indices: set[int] = set()
+        if scale_group is not None and scale_group in available_indices:
+            anchor_indices.add(scale_group)
+        excluded_indices = set(excluded_groups) & available_indices
+        ignored_indices = excluded_indices - anchor_indices
+        used_indices = available_indices - excluded_indices
+
+        experimental_label = (
+            f"Experimental (scaled x{scale_factor:.3e})"
+            if scale_factor is not None
+            else "Experimental"
+        )
+        _plot_expt_groups(used_indices, color="red", label=experimental_label)
+        anchor_points = _plot_expt_groups(anchor_indices, color="green", label="Scaled to")
+        _plot_expt_groups(ignored_indices, color="black", label="Not used")
+    else:
+        anchor_points = []
 
     # Labels and formatting
     ax.set_xlabel("Energy (cm$^{-1}$)", fontsize=14)
@@ -3081,6 +3108,20 @@ def inten_plot(  # pragma: no cover
         ax.set_ylim(ylim)
     else:
         ax.set_ylim(bottom=0)
+    if anchor_points:
+        y_min, y_max = ax.get_ylim()
+        y_offset = 0.02 * (y_max - y_min) if y_max > y_min else 0.02
+        for anchor_energy, anchor_intensity in anchor_points:
+            ax.text(
+                anchor_energy,
+                anchor_intensity + y_offset,
+                "*",
+                color="green",
+                fontsize=14,
+                fontweight="bold",
+                ha="center",
+                va="bottom",
+            )
     ax.legend(loc="upper right", fontsize=11)
     ax.grid(True, alpha=0.3)
 
