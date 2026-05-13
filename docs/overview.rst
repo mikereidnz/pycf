@@ -123,7 +123,7 @@ Performance Characteristics
 
 - **Matrix operations**: 10-100x faster in C vs pure Python
 - **Diagonalization**: O(N³) via LAPACK (N = basis dimension)
-- **Fitting**: Nelder-Mead or user-provided optimizer
+- **Fitting**: C-side optimizers for energy-level fits; SciPy Nelder-Mead/COBYQA or a user-provided optimizer for intensity-style fits
 - **Memory**: ~100 KB per moderate-sized crystal field problem
 
 Optimization is available through environment variables:

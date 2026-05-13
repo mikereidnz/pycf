@@ -93,6 +93,12 @@ Fit multiple CF parameters (e.g., B⁰₂ and B⁰₄):
     result = minimize(residual_multi, x0=[1.0, 0.1], method='Nelder-Mead')
     print(f"B20 = {result.x[0]:.4f}, B40 = {result.x[1]:.4f}")
 
+For hard intensity fits, start with derivative-free methods such as
+``Nelder-Mead`` or ``COBYQA``; they are often more forgiving than
+least-squares when the residual surface is rough or poorly scaled.
+For energy-level fits, prefer the C-side minimizers such as
+``nlopt_bobyqa`` when robustness matters most.
+
 Temperature-Dependent Fitting
 ==============================
 

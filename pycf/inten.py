@@ -9,6 +9,7 @@ from collections.abc import Sequence as SequenceABC
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import itemgetter
+import warnings
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
 from uuid import uuid4
 
@@ -2243,7 +2244,9 @@ def fit_altp(
               Pass ``method`` (``"lm"``, ``"trf"``, or ``"dogbox"``,
               default ``"lm"``). Efficient for well-behaved least-squares
               problems; ``"lm"`` is Levenberg-Marquardt. ``"trf"`` and
-              ``"dogbox"`` support ``bounds``.
+              ``"dogbox"`` support ``bounds``. For rough intensity
+              landscapes, ``"Nelder-Mead"`` or ``"COBYQA"`` under
+              ``"minimize"`` are often a safer starting point.
             * ``"basinhopping"`` — global search via random perturbations +
               local minimization. Pass ``minimizer_kwargs`` (dict with
               ``method``, ``options``) and ``niter`` (default 100).
@@ -2438,12 +2441,29 @@ def fit_altp(
         else:
             fmin = result.fun
         optimizer_result = result
+        optimizer_success = bool(getattr(result, "success", True))
+        optimizer_status = getattr(result, "status", None)
+        optimizer_message = str(getattr(result, "message", ""))
         # Guard against regressions from non-smooth objectives/group re-ordering:
         # never accept a solution worse than the starting point.
-        if fmin > initial_chi2:
+        if fmin >= initial_chi2:
             x_opt = initial_x
             fmin = initial_chi2
             reverted_to_initial = True
+            warnings.warn(
+                "fit_altp reverted to the initial parameters because the optimizer did "
+                "not improve chi2. Consider a different optimizer or looser constraints "
+                "for this fit.",
+                UserWarning,
+                stacklevel=2,
+            )
+        elif not optimizer_success:
+            warnings.warn(
+                "fit_altp returned a non-success SciPy result: status=%s, message=%s"
+                % (optimizer_status, optimizer_message),
+                UserWarning,
+                stacklevel=2,
+            )
 
     # Reconstruct fitted Altp
     fitted_dict = fitter._x_to_altp(x_opt)
@@ -2602,6 +2622,14 @@ def fit_altp(
         summary_diag += "Mode: dry_run (no optimization performed)\n"
     elif reverted_to_initial:
         summary_diag += "Mode: optimization reverted to initial parameters (no improvement)\n"
+    if optimizer_result is not None:
+        summary_diag += (
+            f"Optimizer success: {bool(getattr(optimizer_result, 'success', True))}\n"
+        )
+        if getattr(optimizer_result, "status", None) is not None:
+            summary_diag += f"Optimizer status: {getattr(optimizer_result, 'status')}\n"
+        if getattr(optimizer_result, "message", None):
+            summary_diag += f"Optimizer message: {getattr(optimizer_result, 'message')}\n"
     summary_diag += f"Final chisqr: {fmin:.6e}\n"
     summary_diag += f"Minimization method: {minimization_method}\n\n"
     summary_diag += "Per-spectrum chisqr contributions:\n"
@@ -2694,6 +2722,15 @@ def fit_altp(
         "initial_chi2": initial_chi2,
         "improved": fmin < initial_chi2,
         "reverted_to_initial": reverted_to_initial,
+        "optimizer_success": bool(getattr(optimizer_result, "success", True))
+        if optimizer_result is not None
+        else None,
+        "optimizer_status": getattr(optimizer_result, "status", None)
+        if optimizer_result is not None
+        else None,
+        "optimizer_message": getattr(optimizer_result, "message", None)
+        if optimizer_result is not None
+        else None,
         "dry_run": dry_run,
         "summary_main": summary_main,
         "summary_spectra": summary_spectra,

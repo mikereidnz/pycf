@@ -302,9 +302,19 @@ class TestFitAltpDryRun:
                 return self.groups
 
         spec = FakeSpectrum()
-        fake_result = SimpleNamespace(x=np.array([2.0]), fun=0.2)
-        with patch("pycf.inten.minimize", return_value=fake_result):
-            result = fit_altp(["A10"], spec, dry_run=False, method="Nelder-Mead")
+        fake_result = SimpleNamespace(
+            x=np.array([2.0]), fun=0.2, success=False, status=2, message="did not converge"
+        )
+        with pytest.warns(UserWarning, match="reverted to the initial parameters"):
+            with patch("pycf.inten.minimize", return_value=fake_result):
+                result = fit_altp(["A10"], spec, dry_run=False, method="Nelder-Mead")
+
+        assert result["optimizer_success"] is False
+        assert result["optimizer_status"] == 2
+        assert result["optimizer_message"] == "did not converge"
+        assert "Optimizer success: False" in result["summary_diagnostics"]
+        assert "Optimizer status: 2" in result["summary_diagnostics"]
+        assert "Optimizer message: did not converge" in result["summary_diagnostics"]
 
         assert result["initial_chi2"] == pytest.approx(0.0)
         assert result["chi2"] == pytest.approx(0.0)
@@ -312,6 +322,37 @@ class TestFitAltpDryRun:
         assert result["reverted_to_initial"] is True
         assert result["improved"] is False
         assert result["uncertainties"] == {}
+
+    def test_fit_altp_reverts_when_optimizer_reports_success_without_improvement(self):
+        class FakeSpectrum:
+            def __init__(self):
+                self.name = "fake"
+                self.altp = {"A10": 1.0}
+                self.expt_data = [[1, 1.0]]
+                self.groups = [{"Energy": 1.0, "f": 1.0, "A": 0.0}]
+
+            def set_altp(self, altp):
+                self.altp = dict(altp)
+
+            def recalculate(self, polarization="isotropic"):
+                self.groups = [{"Energy": 1.0, "f": float(self.altp["A10"]), "A": 0.0}]
+                return self.groups
+
+        spec = FakeSpectrum()
+        fake_result = SimpleNamespace(
+            x=np.array([2.0]), fun=0.0, success=True, status=0, message="The lower bound for the trust-region radius has been reached"
+        )
+        with pytest.warns(UserWarning, match="did not improve chi2"):
+            with patch("pycf.inten.minimize", return_value=fake_result):
+                result = fit_altp(["A10"], spec, dry_run=False, method="COBYQA")
+
+        assert result["optimizer_success"] is True
+        assert result["optimizer_status"] == 0
+        assert "trust-region radius" in result["optimizer_message"]
+        assert result["reverted_to_initial"] is True
+        assert result["improved"] is False
+        assert result["chi2"] == pytest.approx(0.0)
+        assert result["fitted_params"]["A10"] == pytest.approx(1.0)
 
     def test_fit_altp_keeps_nonfitted_altp_terms_fixed(self):
         class FakeSpectrum:

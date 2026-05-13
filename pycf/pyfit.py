@@ -12,6 +12,11 @@ Why a separate Python wrapper?
   small, a pure-Python loop over scipy methods (``lm``, ``trf``,
   ``dogbox``) gives easy access to bounds, custom Jacobians, and
   alternative regularisation strategies.
+* It is more fragile than the C optimizers on difficult crystal-field
+  problems.  For production energy-level fits, prefer the C-side
+  minimizers such as ``nlopt_bobyqa`` or ``basinhopping`` with a C
+  local optimizer; SciPy least-squares is best treated as a reference
+  or convenience path.
 * It is a reference implementation that is easy to extend — for
   example with state-label / irrep-aware residuals, alternative
   loss functions, or pre-conditioning — without touching the C code.
@@ -178,6 +183,10 @@ class PyFit:
             SciPy method.  ``'lm'`` is the closest analogue to the C
             GSL non-linear least-squares minimiser.  ``'trf'`` and
             ``'dogbox'`` support bounds.
+            For hard crystal-field problems, SciPy's least-squares
+            methods can be more fragile than the C optimizers; prefer
+            the C-side ``nlopt_bobyqa``/``basinhopping`` paths when you
+            want the most robust energy-level fits.
         bounds : 2-tuple of array_like, optional
             ``(lower, upper)`` bounds; passed straight to SciPy.  Only
             valid with ``method != 'lm'``.
