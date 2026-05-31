@@ -237,7 +237,7 @@ class CleanCommand(Command):
         for path in [
             ROOT / "build",
             ROOT / "dist",
-            ROOT / "pycf.egg-info",
+            ROOT / "pycf_crystalfield.egg-info",
         ]:
             if path.exists():
                 rmtree(path)
@@ -272,7 +272,7 @@ ext_modules = cythonize(
 )
 
 setup(
-    name="pycf",
+    name="pycf-crystalfield",
     description="Python crystal field theory modules",
     long_description=(ROOT / "README.rst").read_text(encoding="utf-8"),
     long_description_content_type="text/x-rst",
