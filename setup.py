@@ -55,9 +55,9 @@ def write_version_file() -> str:
     build_comment = os.environ.get("PYCF_BUILD_COMMENT", "Build via setup.py")
 
     # Use a valid PEP 440 version format
-    # For release tags (v0.1.0), use just the base version
+    # For release tags (v0.2.0), use just the base version
     # For dev builds, add .dev0+git_hash
-    base_version = "0.1.0"
+    base_version = "0.2.0"
     if is_release_tag():
         version_str = base_version
     elif git_revision != "unknown":

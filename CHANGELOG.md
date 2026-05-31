@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Bumped the project release line to `0.2.0`.
+
+## [0.2.0]
+
 ### Added
 - **Hamiltonian data accessors.** New Python-side helpers for
   inspecting fit residuals and parameter uncertainties without
