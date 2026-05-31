@@ -19,6 +19,7 @@ Hamiltonians simultaneously. With identical H's and identical ExData
 the converged coefficients must match the single-H mu fit; the chi²
 must also be deterministic across runs.
 """
+
 from pathlib import Path
 
 import numpy as np
@@ -131,9 +132,7 @@ def test_mh_fit_mu_n_matches_single_h_efit() -> None:
     ex_b = _build_mu_exdata()
     cfl_min_b = cfl.CFLMin("nlopt_bobyqa", xtol=1e-6)
 
-    res_multi = cfl.mh_fit(
-        param, [h_a, h_b], [1.0, 1.0], [ex_a, ex_b], cfl_min_b
-    )
+    res_multi = cfl.mh_fit(param, [h_a, h_b], [1.0, 1.0], [ex_a, ex_b], cfl_min_b)
 
     print("\n[single-H vs two-H mu/n equivalence]")
     print(f"    single-H fmin = {res_single['fmin']:.10f}")
@@ -152,9 +151,7 @@ def test_mh_fit_mu_n_matches_single_h_efit() -> None:
     assert res_multi["fmin"] == pytest.approx(2.0 * res_single["fmin"], rel=1e-3)
 
     for label in ["EAVG", "C20", "C40", "C44"]:
-        assert res_multi["coeff"][label] == pytest.approx(
-            res_single["coeff"][label], rel=1e-3
-        )
+        assert res_multi["coeff"][label] == pytest.approx(res_single["coeff"][label], rel=1e-3)
 
 
 def test_mh_fit_mu_n_is_deterministic() -> None:
@@ -162,6 +159,7 @@ def test_mh_fit_mu_n_is_deterministic() -> None:
     and coefficients. Detects any non-deterministic allocation/caching
     bug introduced into the hot loop.
     """
+
     def _run() -> dict:
         h_a = _build_hamiltonian()
         h_b = _build_hamiltonian()
@@ -182,10 +180,7 @@ def test_mh_fit_mu_n_is_deterministic() -> None:
     print("[determinism] run-2 fmin =", repr(res2["fmin"]))
     print("[determinism] coefficients (run-1 == run-2 required):")
     for label in res1["coeff"]:
-        print(
-            f"    {label:<6s} {res1['coeff'][label]!r:>30s}  "
-            f"{res2['coeff'][label]!r:>30s}"
-        )
+        print(f"    {label:<6s} {res1['coeff'][label]!r:>30s}  " f"{res2['coeff'][label]!r:>30s}")
     assert res1["fmin"] == res2["fmin"]
     for label in res1["coeff"]:
         assert res1["coeff"][label] == res2["coeff"][label], (

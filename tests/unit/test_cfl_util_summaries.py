@@ -674,9 +674,7 @@ class TestSummaryErrorPaths:
         w, z = _diag_eigenpair([0.0, 100.0, 200.0])
         labels = [(0, i) for i in range(3)]
         # Duplicate level index 1 — should be flagged before any formatting.
-        ex = _make_index_exdata(
-            n_a=2, n_d=0, e=[0.0, 0.0, 999.0, 999.0], la=[1, 1]
-        )
+        ex = _make_index_exdata(n_a=2, n_d=0, e=[0.0, 0.0, 999.0, 999.0], la=[1, 1])
         with pytest.raises(ValueError, match="duplicate entries"):
             cfl_util.gen_e_summary(w, z, labels, "JM", ex=ex)
 
@@ -693,6 +691,4 @@ class TestSummaryErrorPaths:
         labels = [(0, 0), (0, 1)]
         ex = _make_index_exdata(n_a=1, n_d=0, e=[0.0, 999.0], la=[1])
         with pytest.raises(ValueError, match="weight argument needs to be provided"):
-            cfl_util.gen_e_summary_trunc(
-                w, z, labels, "JM", ex, "Test", chi2=1.0, ndof=1
-            )
+            cfl_util.gen_e_summary_trunc(w, z, labels, "JM", ex, "Test", chi2=1.0, ndof=1)

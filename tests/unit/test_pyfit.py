@@ -301,6 +301,7 @@ def test_pyfit_fit_res_mhfit_with_max_levels():
 
 def test_pyfit_rejects_object_missing_get_edata():
     """PyFit requires a get_edata() accessor on the fit object (pyfit.py L82-86)."""
+
     class _FakeFit:
         n_p_real = 1
         x0 = np.array([1.0])
