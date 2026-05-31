@@ -20,8 +20,8 @@ from pycf.inten import (
     fit_altp,
     gen_inten_summary,
     inten_calculate,
-    inten_print,
     inten_plot,
+    inten_print,
     inten_recalculate,
     inten_set_altp,
     inten_set_expt_data,
@@ -340,7 +340,11 @@ class TestFitAltpDryRun:
 
         spec = FakeSpectrum()
         fake_result = SimpleNamespace(
-            x=np.array([2.0]), fun=0.0, success=True, status=0, message="The lower bound for the trust-region radius has been reached"
+            x=np.array([2.0]),
+            fun=0.0,
+            success=True,
+            status=0,
+            message="The lower bound for the trust-region radius has been reached",
         )
         with pytest.warns(UserWarning, match="did not improve chi2"):
             with patch("pycf.inten.minimize", return_value=fake_result):
@@ -349,10 +353,11 @@ class TestFitAltpDryRun:
         assert result["optimizer_success"] is True
         assert result["optimizer_status"] == 0
         assert "trust-region radius" in result["optimizer_message"]
-        assert result["reverted_to_initial"] is True
+        assert result["no_improvement"] is True
+        assert result["reverted_to_initial"] is False
         assert result["improved"] is False
         assert result["chi2"] == pytest.approx(0.0)
-        assert result["fitted_params"]["A10"] == pytest.approx(1.0)
+        assert result["fitted_params"]["A10"] == pytest.approx(2.0)
 
     def test_fit_altp_keeps_nonfitted_altp_terms_fixed(self):
         class FakeSpectrum:
@@ -597,7 +602,7 @@ class TestFitAltpDryRun:
                 "pycf.inten.minimize",
                 return_value=SimpleNamespace(x=np.array([1.0]), fun=0.0, jac=np.array([99.0])),
             ),
-            patch("pycf.inten._estimate_parameter_uncertainties", return_value={} ),
+            patch("pycf.inten._estimate_parameter_uncertainties", return_value={}),
         ):
             result = fit_altp(["A10"], spec, include_jacobian=True)
 
@@ -929,9 +934,7 @@ class TestIntensitySummaryFormatting:
         """format='detailed' exercises _format_transition_line (pyfit lines 1494-1540)
         and the transition-listing loop (lines 1720-1750)."""
         spec = self._make_fake_spectrum()
-        summary = gen_inten_summary(
-            spec, format="detailed", state_labels=["|a>", "|b>", "|c>"]
-        )
+        summary = gen_inten_summary(spec, format="detailed", state_labels=["|a>", "|b>", "|c>"])
         assert "Individual transitions:" in summary
         # Header for absorption (Energy > 0): f_ED column.
         assert "f_ED" in summary
@@ -944,12 +947,9 @@ class TestIntensitySummaryFormatting:
         spec = self._make_fake_spectrum()
         # Inject dipole components so the moments block renders non-trivially.
         spec.groups[0]["t_list"][0].update(
-            {"ed_-1": 0.0, "ed_0": 0.1, "ed_+1": 0.0,
-             "md_-1": 0.0, "md_0": 0.05, "md_+1": 0.0}
+            {"ed_-1": 0.0, "ed_0": 0.1, "ed_+1": 0.0, "md_-1": 0.0, "md_0": 0.05, "md_+1": 0.0}
         )
-        summary = gen_inten_summary(
-            spec, format="moments", state_labels=["|a>", "|b>", "|c>"]
-        )
+        summary = gen_inten_summary(spec, format="moments", state_labels=["|a>", "|b>", "|c>"])
         assert "D_ED" in summary
         assert "D_MD" in summary
 
@@ -960,9 +960,7 @@ class TestIntensitySummaryFormatting:
         # Force pc_i out of range; pc_f stays in range.
         spec.groups[0]["t_list"][0]["pc_i"] = 99
         spec.groups[0]["t_list"][0]["pc_f"] = -1
-        summary = gen_inten_summary(
-            spec, format="detailed", state_labels=["|a>", "|b>", "|c>"]
-        )
+        summary = gen_inten_summary(spec, format="detailed", state_labels=["|a>", "|b>", "|c>"])
         assert "State 1" in summary or "State 2" in summary
 
     def test_fit_altp_uses_scaled_targets_and_excludes_anchor_group(self):

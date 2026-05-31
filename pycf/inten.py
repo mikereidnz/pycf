@@ -4,13 +4,13 @@
 A rewrite of the intensity calculation to follow the old Pascal code more closely,
 """
 
+import warnings
 from collections.abc import Mapping as MappingABC
 from collections.abc import Sequence as SequenceABC
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import itemgetter
-import warnings
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union, cast
 from uuid import uuid4
 
 import numpy as np
@@ -1124,7 +1124,8 @@ def _get_effective_expt_lookup(
     if scale_group is not None:
         if scale_group not in raw_lookup:
             raise ValueError(
-                f"Spectrum '{spectrum.name}': scale_to group {scale_group} has no experimental data."
+                f"Spectrum '{spectrum.name}': scale_to group {scale_group} "
+                "has no experimental data."
             )
         if require_groups:
             if not spectrum.groups:
@@ -1621,16 +1622,13 @@ def _format_inten(
     excluded_groups: set[int] = set()
     scale_group: Optional[int] = None
     scale_factor: Optional[float] = None
-    ignored_groups = set(_get_fit_ignored_groups(spectrum))
     if spectrum.expt_data and format == "brief":
         _, expt_lookup, excluded_groups, scale_group, scale_factor = _get_effective_expt_lookup(
             spectrum,
             require_groups=True,
         )
         if scale_group is not None and scale_factor is not None:
-            lines.append(
-                f"Experimental scaling: group {scale_group} factor = {scale_factor:.8e}"
-            )
+            lines.append(f"Experimental scaling: group {scale_group} factor = {scale_factor:.8e}")
             lines.append("")
 
     # Compute label column width from actual rendered labels
@@ -1881,7 +1879,8 @@ class AltpFit:
             ignored_groups = set(_get_fit_ignored_groups(spec))
             if scale_group is not None and scale_group not in target_map:
                 raise ValueError(
-                    f"Spectrum '{spec.name}': scale_to group {scale_group} has no experimental data."
+                    f"Spectrum '{spec.name}': scale_to group {scale_group} "
+                    "has no experimental data."
                 )
             missing_ignored = sorted(g for g in ignored_groups if g not in target_map)
             if missing_ignored:
@@ -2335,6 +2334,7 @@ def fit_altp(
             method_hint = "Nelder-Mead"
         minimization_method = f"{minimizer_name}/{method_hint}"
     reverted_to_initial = False
+    no_improvement = False
     optimizer_result = None
 
     if dry_run:
@@ -2446,14 +2446,23 @@ def fit_altp(
         optimizer_message = str(getattr(result, "message", ""))
         # Guard against regressions from non-smooth objectives/group re-ordering:
         # never accept a solution worse than the starting point.
-        if fmin >= initial_chi2:
+        if fmin > initial_chi2:
             x_opt = initial_x
             fmin = initial_chi2
             reverted_to_initial = True
+            no_improvement = True
             warnings.warn(
                 "fit_altp reverted to the initial parameters because the optimizer did "
                 "not improve chi2. Consider a different optimizer or looser constraints "
                 "for this fit.",
+                UserWarning,
+                stacklevel=2,
+            )
+        elif fmin == initial_chi2:
+            no_improvement = True
+            warnings.warn(
+                "fit_altp did not improve chi2. Consider a different optimizer or "
+                "looser constraints for this fit.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -2525,7 +2534,7 @@ def fit_altp(
         except Exception:
             jacobian = None
             jacobian_info = {}
-    chi2_rows = fitter.per_spectrum_chi2(x_opt)
+    chi2_rows: List[Dict[str, Any]] = list(fitter.per_spectrum_chi2(x_opt))
     for spec in fitter.spectra:
         if hasattr(spec, "altp_uncertainties"):
             spec.altp_uncertainties = dict(uncertainties)
@@ -2588,8 +2597,7 @@ def fit_altp(
         )
     headers = ("Parameter", "Initial", "Fitted", "Difference", "Uncertainty")
     col_widths = [
-        max([len(headers[i])] + [len(row[i]) for row in table_rows])
-        for i in range(len(headers))
+        max([len(headers[i])] + [len(row[i]) for row in table_rows]) for i in range(len(headers))
     ]
     for idx in range(1, len(headers)):
         col_widths[idx] = max(col_widths[idx], 17)
@@ -2622,10 +2630,10 @@ def fit_altp(
         summary_diag += "Mode: dry_run (no optimization performed)\n"
     elif reverted_to_initial:
         summary_diag += "Mode: optimization reverted to initial parameters (no improvement)\n"
+    elif no_improvement:
+        summary_diag += "Mode: optimization did not improve chisqr\n"
     if optimizer_result is not None:
-        summary_diag += (
-            f"Optimizer success: {bool(getattr(optimizer_result, 'success', True))}\n"
-        )
+        summary_diag += f"Optimizer success: {bool(getattr(optimizer_result, 'success', True))}\n"
         if getattr(optimizer_result, "status", None) is not None:
             summary_diag += f"Optimizer status: {getattr(optimizer_result, 'status')}\n"
         if getattr(optimizer_result, "message", None):
@@ -2635,8 +2643,10 @@ def fit_altp(
     summary_diag += "Per-spectrum chisqr contributions:\n"
     summary_diag += f"{'Spectrum':<40} {'n_obs':>8} {'chi2':>16}\n"
     summary_diag += f"{'-'*40} {'-'*8:>8} {'-'*16:>16}\n"
-    for row in chi2_rows:
-        summary_diag += f"{row['name']:<40} {row['n_obs']:>8d} {row['chi2']:>16.6e}\n"
+    for chi2_row in chi2_rows:
+        summary_diag += (
+            f"{chi2_row['name']:<40} {chi2_row['n_obs']:>8d} {chi2_row['chi2']:>16.6e}\n"
+        )
     fit_control_lines: List[str] = []
     for spec in fitter.spectra:
         scale_group = _get_fit_scale_group(spec)
@@ -2665,10 +2675,13 @@ def fit_altp(
         summary_diag += f"  cond(H): {uncertainty_diagnostics.get('condition_hessian', 'n/a')}\n"
     if covariance is not None:
         summary_diag += "\nCovariance matrix:\n"
-        summary_diag += np.array2string(
-            covariance,
-            formatter={"float_kind": lambda x: f"{x:.8e}"},
-        ) + "\n"
+        summary_diag += (
+            np.array2string(
+                covariance,
+                formatter={"float_kind": lambda x: f"{x:.8e}"},
+            )
+            + "\n"
+        )
     elif include_covariance or calculate_sigma:
         if dry_run:
             covariance_reason = "dry_run"
@@ -2721,16 +2734,19 @@ def fit_altp(
         "initial_altp": {pname: fitter.param_info[pname]["initial_value"] for pname in param_names},
         "initial_chi2": initial_chi2,
         "improved": fmin < initial_chi2,
+        "no_improvement": no_improvement,
         "reverted_to_initial": reverted_to_initial,
-        "optimizer_success": bool(getattr(optimizer_result, "success", True))
-        if optimizer_result is not None
-        else None,
-        "optimizer_status": getattr(optimizer_result, "status", None)
-        if optimizer_result is not None
-        else None,
-        "optimizer_message": getattr(optimizer_result, "message", None)
-        if optimizer_result is not None
-        else None,
+        "optimizer_success": (
+            bool(getattr(optimizer_result, "success", True))
+            if optimizer_result is not None
+            else None
+        ),
+        "optimizer_status": (
+            getattr(optimizer_result, "status", None) if optimizer_result is not None else None
+        ),
+        "optimizer_message": (
+            getattr(optimizer_result, "message", None) if optimizer_result is not None else None
+        ),
         "dry_run": dry_run,
         "summary_main": summary_main,
         "summary_spectra": summary_spectra,
@@ -3043,7 +3059,7 @@ def inten_plot(  # pragma: no cover
         expt_energy_lookup = _build_expt_energy_lookup(spectrum.expt_data)
 
         def _plot_expt_groups(
-            group_indices: Sequence[int], *, color: str, label: str
+            group_indices: Iterable[int], *, color: str, label: str
         ) -> List[Tuple[float, float]]:
             expt_energies: List[float] = []
             expt_intensities: List[float] = []

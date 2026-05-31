@@ -96,9 +96,7 @@ def _resolve_state_label_to_eigenstate(
     return int(idxs[0])
 
 
-def _resolve_mu_n_kwargs(
-    ex: Any, kwargs: Dict[str, Any]
-) -> Optional[Tuple[Any, int, bool]]:
+def _resolve_mu_n_kwargs(ex: Any, kwargs: Dict[str, Any]) -> Optional[Tuple[Any, int, bool]]:
     """Extract ``(h, minimum_q, half_integer_states)`` from ``kwargs`` for
     the marker-column mu/n path.
 
@@ -412,9 +410,7 @@ def ex_parse_diff(ex: Any, z: np.ndarray, labels: List[Any], **kwargs: Any) -> n
                 s, pc, labels_array, "Initial-state"
             )
         for i, s in enumerate(ex.fd_states):
-            parsed_ex[i, 1] = _resolve_state_label_to_eigenstate(
-                s, pc, labels_array, "Final-state"
-            )
+            parsed_ex[i, 1] = _resolve_state_label_to_eigenstate(s, pc, labels_array, "Final-state")
     else:
         parsed_ex = np.zeros((ex.n_d, 3))
         # Diff. energy values are ordered to come after abs. values.
@@ -794,8 +790,7 @@ def _resolve_mu_n_to_levels(
         if mu_req not in mu_to_levels or n_req > len(mu_to_levels[mu_req]):
             available = sorted([(m, len(lvls)) for m, lvls in mu_to_levels.items()])
             raise ValueError(
-                f"No state found with (mu, n) = ({mu_req}, {n_req}). "
-                f"Available: {available}"
+                f"No state found with (mu, n) = ({mu_req}, {n_req}). " f"Available: {available}"
             )
         level_indices[i] = mu_to_levels[mu_req][n_req - 1][1]
     return level_indices
@@ -1080,8 +1075,8 @@ def gen_e_summary(
         sort_list += [np.argsort(np.abs(z[:, i]))[::-1]]
 
     # Calculate mu and n if minimum_q is provided
-    mu_values = None
-    n_values = None
+    mu_values: Optional[List[int]] = None
+    n_values: Optional[List[int]] = None
     if "minimum_q" in kwargs and kwargs["minimum_q"] is not None:
         minimum_q = kwargs["minimum_q"]
         half_integer = kwargs.get("half_integer_states", False)
@@ -1176,7 +1171,9 @@ def gen_e_summary(
             multiplet_start_by_end[end_level] = prev_end + 1
             prev_end = end_level
     for i in range(n_display):
-        line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
+        line = _format_eigenstate_row(
+            i, z, labels, label_key, sort_list, nstates, mu_values, n_values
+        )
         s += line + " {: >12.4f}".format(w[i])
         if ex.size != 0:
             if i in ex_dict:
@@ -1309,8 +1306,8 @@ def gen_e_summary_trunc(
             mu_to_levels[mu_key].sort(key=lambda x: (x[0], x[1]))
 
         # Now compute (mu, n) for each eigenstate
-        mu_values = [None] * len(z)
-        n_values = [None] * len(z)
+        mu_values = [0] * len(z)
+        n_values = [0] * len(z)
         for eigenstate_idx in range(len(z)):
             col = z[:, eigenstate_idx]
             abs_col = np.abs(col)
@@ -1325,8 +1322,8 @@ def gen_e_summary_trunc(
                     n = rank
                     break
 
-            mu_values[eigenstate_idx] = mu  # type: ignore[index,call-overload]
-            n_values[eigenstate_idx] = n  # type: ignore[index,assignment,call-overload]
+            mu_values[eigenstate_idx] = mu
+            n_values[eigenstate_idx] = 0 if n is None else n
     if ex.n_a != 0:
         if ex.n_d != 0:
             s += uline_char("Absolute energy levels:\n")
@@ -1346,7 +1343,9 @@ def gen_e_summary_trunc(
         s += uline_char(heading)
         for ii in range(ex.n_a):
             i = int(exa[ii, 0])
-            line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
+            line = _format_eigenstate_row(
+                i, z, labels, label_key, sort_list, nstates, mu_values, n_values
+            )
             s += line + " {: >12.4f}".format(w[i])
             s += "   {: >12.4f}  {: >12.4f}".format(exa[ii, 1], exa[ii, 1] - w[i]) + "\n"
         s += "\n"
@@ -1381,11 +1380,15 @@ def gen_e_summary_trunc(
         s += uline_char(heading)
         for ii in range(ex.n_d):
             i = int(exd[ii, 0])
-            line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
+            line = _format_eigenstate_row(
+                i, z, labels, label_key, sort_list, nstates, mu_values, n_values
+            )
             s += line + "\n"
             tmp_w = w[i]
             i = int(exd[ii, 1])
-            line = _format_eigenstate_row(i, z, labels, label_key, sort_list, nstates, mu_values, n_values)
+            line = _format_eigenstate_row(
+                i, z, labels, label_key, sort_list, nstates, mu_values, n_values
+            )
             tmp_w = w[i] - tmp_w
             s += line + " {: >12.4g}".format(tmp_w)
             s += "   {: >12.4g}  {: >12.4g}".format(exd[ii, 2], exd[ii, 2] - tmp_w) + "\n"
@@ -2072,8 +2075,8 @@ def compute_chi2_numpy(efit: "cfl.EFit") -> float:
     if n_d > 0:
         ild = ex.ild[:n_d]
         fld = ex.fld[:n_d]
-        e_d = ex.e[n_a:n_a + n_d]
-        w_d = ex.w[n_a:n_a + n_d]
+        e_d = ex.e[n_a : n_a + n_d]
+        w_d = ex.w[n_a : n_a + n_d]
         if (ild >= 0).all() and (fld >= 0).all():
             r = np.abs(evals[fld] - evals[ild]) - e_d
             chi2 += float(np.sum(w_d * r * r))

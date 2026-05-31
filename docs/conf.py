@@ -241,13 +241,22 @@ nitpick_ignore_regex = [
     (r"py:.*", r"^(EData\.(DTYPE|to_str)|EFit\.(get_edata|last_jacobian)|MHFit\.get_edata)$"),
     (r"py:.*", r"^(bgs_coeff_array|fd_jacobian|gen_edata_summary|dipole_str|lstsq|datetime)$"),
     (r"py:.*", r"^cfl_util\.gen_e_summary$"),
-    (r"py:.*", r"^cfl\.(EFit|Tensor|Hamiltonian|SpinHamiltonian|SpinHamiltonian\.calc_param|CFLMin)$"),
+    (
+        r"py:.*",
+        r"^cfl\.(EFit|Tensor|Hamiltonian|SpinHamiltonian|SpinHamiltonian\.calc_param|CFLMin)$",
+    ),
     (r"py:.*", r"^import_sljm\.ImportSLJM$"),
     (r"py:.*", r"^spinhamiltonian\.sh_lsq_func$"),
     (r"py:.*", r"^pycf\.cfl\._(temporary_x|x_to_coeff_dict)$"),
     (r"py:.*", r"^scipy\.optimize\.least_squares$"),
     (r"py:.*", r"^(last_result|2-tuple)$"),
-    (r"py:.*", r"^pycf\.(cfl_util\.EData|inten\.(dipole_str|group_transitions|Spectrum)|pyfit\.(EFitRunner|MHFitRunner|ESHFitRunner|MESHFitRunner))$"),
+    (
+        r"py:.*",
+        (
+            r"^pycf\.(cfl_util\.EData|inten\.(dipole_str|group_transitions|Spectrum)"
+            r"|pyfit\.(EFitRunner|MHFitRunner|ESHFitRunner|MESHFitRunner))$"
+        ),
+    ),
 ]
 
 
