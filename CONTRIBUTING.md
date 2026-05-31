@@ -72,7 +72,7 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
    - Use Google-style docstrings with proper formatting
 
 3. **Add tests for your changes**:
-   - For Python: Add tests to `tests/test_*.py` files
+   - For Python: Add module-level unit tests to `tests/unit/test_*.py` (or to a new example-based subdirectory of `tests/` for integration tests)
    - For C: Add tests to `cfl/tests/*_test.c`
    - Aim for high coverage of new code
    - Test both happy path and error cases
@@ -85,7 +85,7 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
 5. **Commit with clear messages**:
    ```bash
    git commit -m "Brief description (50 chars max)
-   
+
    Longer explanation if needed. Reference issues with #123.
    Co-authored-by: Your Name <your.email@example.com>"
    ```
@@ -105,7 +105,7 @@ make -C cfl test
 # Type checking (non-blocking but good to fix warnings)
 mypy pycf/ --ignore-missing-imports
 
-# Build documentation
+# Build documentation (requires the [docs] extra: pip install -e ".[docs]")
 cd docs && sphinx-build -b html . _build/html
 
 # Verify no deprecation warnings
@@ -134,22 +134,22 @@ Use Google-style docstrings:
 ```python
 def complex_function(a: np.ndarray, b: float) -> Dict[str, Any]:
     """Brief one-line description.
-    
+
     Longer description explaining the function, its purpose,
     and any important notes about usage.
-    
+
     Parameters
     ----------
     a : np.ndarray
         Description of parameter a.
     b : float
         Description of parameter b.
-    
+
     Returns
     -------
     dict
         Dictionary with keys 'result' and 'status'.
-        
+
     Raises
     ------
     ValueError
@@ -175,10 +175,115 @@ def process_tensor(tensor, scale: float) -> Tensor:
         raise ValueError("tensor cannot be None")
     if tensor.size == 0:
         raise ValueError("tensor cannot be empty")
-    
+
     # ... process tensor ...
     return result
 ```
+
+### Parameter Validation for (mu, n) Fitting
+
+When adding or modifying code that uses the (mu, n) experimental data format
+for fitting, ensure proper validation of `Hamiltonian` parameters:
+
+**Required parameters for (mu, n) fitting:**
+
+- `h.minimum_q` (int): Smallest non-zero q in crystal field expansion (typically 2)
+- `h.half_integer_states` (bool): Whether m values are half-integers stored as doubled integers
+
+**Validation checklist:**
+
+1. In `Hamiltonian` class initialization:
+   - `minimum_q` defaults to `None` (no default value — must be explicitly set)
+   - `half_integer_states` defaults to `False` (reasonable default for integer m)
+
+2. In fitting code (`EFit.__init__`):
+   ```python
+   if self.h.minimum_q is None:
+       raise ValueError("Hamiltonian.minimum_q must be set before fitting with (mu, n) data...")
+   if not isinstance(self.h.half_integer_states, bool):
+       raise ValueError("Hamiltonian.half_integer_states must be a bool...")
+   ```
+
+3. In conversion functions (`mu_n_to_level`):
+   - Validate eigenvector matrix shape matches state labels
+   - Provide clear error messages if (mu, n) pairs don't exist in spectrum
+
+**User guidance:**
+
+- Always set `minimum_q` and `half_integer_states` explicitly before using (mu, n) format
+- For f-electrons (J=5/2, 7/2): use `half_integer_states=True`
+- For d-electrons with integer m: use `half_integer_states=False`
+- See EXAMPLES.md section "Using (mu, n) Format for Low-Symmetry Crystal Fields" for workflow
+
+**Related code:**
+
+- `pycf/cfl_util.py::mu_n_to_level()` — Conversion implementation and detailed documentation
+- `pycf/cfl.pyx::Hamiltonian` — Parameter definition
+- `pycf/cfl.pyx::EFit.__init__()` — Validation enforcement
+- `tests/integration/ceylf/test_exdata.py` — Test examples
+
+### Legacy modules
+
+Some files are kept for backwards compatibility but are not actively
+maintained (for example, thin wrappers around external legacy
+executables).  These modules are flagged with the `LEGACY:` convention
+and receive only minimal audit attention.
+
+A module is considered **legacy** when its module-level docstring's
+first line begins with the literal token `LEGACY:`, e.g.:
+
+```python
+"""LEGACY: short summary of the module's historical purpose.
+
+Longer description...
+"""
+```
+
+For legacy modules:
+
+- Only **security-critical** issues (e.g. command injection, arbitrary
+  file write, credential leakage) and import-time crashes are fixed.
+- Type hints, coverage gaps, lint/style warnings, and dead-code clean-up
+  are **not** addressed; mypy / coverage / bandit are configured to skip
+  these files (see `pyproject.toml`, `pytest.ini`, `.bandit`).
+- New code **must not** add dependencies on legacy modules.  Prefer the
+  actively maintained alternatives (`pycf.cfl`, `pycf.import_sljm`,
+  etc.).
+- When auditing the codebase, treat the contents of `LEGACY:` modules
+  as out-of-scope unless a finding is `critical` severity.
+
+Currently flagged as legacy:
+
+- `pycf/pyemp.py` — Python wrapper around Michael F. Reid's external
+  EMP executables (`cfit`, `inten`, `vtrans`, `spectrum`).
+
+To **add** a new module to the legacy list:
+
+1. Prepend `LEGACY:` to the first line of its docstring with a brief
+   reason.
+2. Add an entry to `[[tool.mypy.overrides]]` in `pyproject.toml` with
+   `ignore_errors = true`.
+3. Add the path to the `omit` list in `pytest.ini` `[coverage:run]`.
+4. Add the path to `exclude_dirs` in `.bandit`.
+5. Update the list above and note the addition in `CHANGELOG.md`.
+
+To **remove** a module from the legacy list, reverse those steps and
+fix any issues that the audit tools subsequently report.
+
+### Preserving legacy data files byte-faithfully
+
+Some files must stay byte-identical to the producing tool: the JMCALC/
+SLJM matrix-element fixtures, sample output from legacy pascal programs
+kept for comparison, etc. **Place any such file under a `matel/`
+subdirectory anywhere in the tree.** All `matel/` directories are
+excluded from every formatter, whitespace fixer, and lint hook in
+`.pre-commit-config.yaml`. The same convention applies to test
+fixtures (`tests/integration/<dir>/matel/`) and example data
+(`examples/<dir>/matel/`).
+
+The historical Sphinx documentation under `docs/legacy/` is also kept
+as a record and is excluded from the Sphinx build (via
+`exclude_patterns` in `docs/conf.py`) and from pre-commit hooks.
 
 ## Submitting a Pull Request
 
@@ -225,10 +330,10 @@ Example C test:
 void test_function_name() {
     // Arrange
     int expected = 42;
-    
+
     // Act
     int result = my_function();
-    
+
     // Assert
     if (result != expected) {
         printf("fail: expected %d, got %d\n", expected, result);
@@ -241,6 +346,7 @@ void test_function_name() {
 ## Documentation Contributions
 
 - Update `.rst` files in `docs/` directory
+- Install the docs dependencies: `pip install -e ".[docs]"`
 - Build with `sphinx-build -b html docs/ docs/_build/html`
 - Check HTML output at `docs/_build/html/index.html`
 - For API docs, docstrings are auto-extracted via Sphinx autodoc

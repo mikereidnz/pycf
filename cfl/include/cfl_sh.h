@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -89,7 +89,7 @@ typedef struct {
   complex double *a;
   /* Array used for storing the final values of the projection. */
   complex double *b;
-} zshp_p_w; 
+} zshp_p_w;
 
 /* Workspace for symmeterizing spin Hamiltonian parameter tensors using an SVD
  * of the form A = U * SIGMA * conjugate-transpose(V). */
@@ -150,10 +150,10 @@ typedef struct {
 
 /* Function prototypes. */
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif /* __cplusplus */
 
-zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers, 
+zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers,
     complex double **a);
 void zsh_free(zsh *sh);
 int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling);

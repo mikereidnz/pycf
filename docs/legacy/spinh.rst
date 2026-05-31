@@ -28,13 +28,13 @@ projection `S_z` and the nuclear spin projection `I_z`; see the :class:`SpinH`
 reference for further details.
 
 The following code will create a :class:`SpinH` object::
-  
+
   sh = SpinH(['ias', 'iqi'], S = 1/2, I = 7/2)
 
 We can now add the experimental data for the `IAS` and `IQI` terms using the
 :func:`SpinH.add_term` method::
 
-  # Define the A and Q parameter matrices. 
+  # Define the A and Q parameter matrices.
   A = np.array([[69.35, -580.73, -248.83], [-580.73, 696.30, 682.49], [-248.83,
       682.49, 495.54]])
   Q = np.array([[21.40, -8.18, -15.27], [-8.18, 3.79, 0.60], [-15.27, 0.60,
@@ -50,11 +50,11 @@ method::
   w, v = LA.eig(sh.get_H())
   E = w.real
   E = np.sort(E - min(E))
-  
+
   print("Energy spectrum:\n{}".format(E))
 
 To plot the energy levels we can use matplotlib::
-  
+
   fig = plt.figure()
   ax = fig.add_subplot(111)
   ax.hlines(E, [0], [1])
@@ -75,7 +75,7 @@ inversion is under-determined for a single spin Hamiltonian term with a given
 magnetic field strength.  For a complete inversion, one requires a minimum of
 three spin Hamiltonian terms for linearly independent magnetic field strengths.
 A toy example of such an inversion is given in the section `Zeeman interaction
-spin Hamiltonian inversion`_.  
+spin Hamiltonian inversion`_.
 
 Dipole and quadrupole hyperfine spin Hamiltonian inversion
 ----------------------------------------------------------
@@ -100,10 +100,10 @@ which returns a `9` by `1` array and consequently is reshaped; this shape is
 returned since it allows for convenient least squares fitting.  To finish the
 example we invert both terms and print the original and the calculated parameter
 matrices for comparison::
-  
+
   A_c = np.reshape(sh_inv.inv_term('ias'), (3, 3))
   Q_c = np.reshape(sh_inv.inv_term('iqi'), (3, 3))
-  
+
   print("Calculated A:\n{}".format(np.reshape(A_c, (3, 3))))
   print("Original A:\n{}".format(A))
   print("Calculated Q:\n{}".format(np.reshape(Q_c, (3, 3))))
@@ -130,13 +130,12 @@ the magnetic field keyword argument.  In the below example we do this using
   sh_inv = SpinH(['bgs'], B = [B_m[:, i] for i in range(3)], S = 1/2, I
           = 7/2, inv = True)
   sh_inv.add_H_term('bgs', bgs)
-  
+
 The result can now be calculated just as in the dipole and quadrupole hyperfine
 spin Hamiltonian example::
-  
+
   g_c = np.reshape(sh_inv.inv_term('bgs'), (3, 3))
   print("Calculated g:\n{}".format(np.reshape(g_c, (3, 3))))
-  print("Original g:\n{}".format(g)) 
+  print("Original g:\n{}".format(g))
 
 .. _List Comprehensions: http://docs.python.org/2/tutorial/datastructures.html#list-comprehensions
-

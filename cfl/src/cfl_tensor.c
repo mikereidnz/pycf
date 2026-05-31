@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -44,14 +44,14 @@
  *
  * Parameters
  * ----------
- *  buf       The start of the buffer to be hashed. 
+ *  buf       The start of the buffer to be hashed.
  *  len       The length of buf in octets.
  */
 uint32_t fnv_hash(void *buf, int len) {
   unsigned char *bp = (unsigned char *)buf;	/* start of buffer */
   unsigned char *be;
   uint32_t hval;
-  
+
   /* Validate preconditions */
   if (buf == NULL) {
     CFL_ERROR_VAL("fnv_hash: buf is NULL", 0);
@@ -59,7 +59,7 @@ uint32_t fnv_hash(void *buf, int len) {
   if (len < 0) {
     CFL_ERROR_VAL("fnv_hash: len must be non-negative", 0);
   }
-  
+
   be = bp + len;		        /* beyond end of buffer */
   hval = FNV1_32_INIT;
   /* FNV-1 hash each octet in the buffer. */
@@ -69,25 +69,25 @@ uint32_t fnv_hash(void *buf, int len) {
     /* xor the bottom with the current octet */
     hval ^= (uint32_t)*bp++;
   }
-  
+
   /* return our new hash value */
   return hval;
 }
 
 /*
- * Allocate storage for state labels. 
+ * Allocate storage for state labels.
  *
  * Parameters
  * ----------
  *  n         The number of states.
  *  key       String identifying the type of each state label.  Valid keys are:
  *            S, L, J, M and I, and the order in which they are listed must
- *            correspond to the order used in the label array for each state. 
+ *            correspond to the order used in the label array for each state.
  *  labels    Char array corresponding to the value of each state label.
  *            The order is dictade by the key array.  To avoid half integers,
  *            label values are always stored as twice their real value.  N.B.:
  *            label arrays are not strings, since 0 is a perfectly valid state
- *            label yet would yield a premature string termination. 
+ *            label yet would yield a premature string termination.
  */
 sl *sl_alloc(int n, char *key, int **labels) {
   sl *l;
@@ -174,12 +174,12 @@ void sl_free(sl *l) {
 
 
 /*
- * Allocate storage for complex valued tensors. 
+ * Allocate storage for complex valued tensors.
  *
  * Parameters
  * ----------
- *  name    A unique identifier of the tensor. 
- *  a       Pointer to array containing the matrix elements. 
+ *  name    A unique identifier of the tensor.
+ *  a       Pointer to array containing the matrix elements.
  *  n       The dimension of the matrix element matrix.
  *  slabels Pointer to state labels struct.
  */
@@ -210,18 +210,18 @@ zt *zt_alloc(char *name, complex double *a, int n, sl *slabels) {
 
 /*
  * Allocate storage for complex valued tensors for matrix elements stored in CSR
- * form. 
+ * form.
  *
  * Parameters
  * ----------
- *  name      A unique identifier of the tensor. 
+ *  name      A unique identifier of the tensor.
  *  n         The dimension of the matrix element matrix.
- *  row_ptr   The CSR row pointer. 
- *  col_in    The CSR column index array. 
+ *  row_ptr   The CSR row pointer.
+ *  col_in    The CSR column index array.
  *  val       Array containing the values of the non-zero elements.
  *  slabels   Pointer to state labels struct.
  */
-zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in, 
+zt *zt_csr_alloc(char *name, int n, int *row_ptr, int *col_in,
     complex double *val, sl *slabels) {
   int sl_len;
   zhcsr *ma;
@@ -260,12 +260,12 @@ void zt_get_matel(zt *t, complex double *a) {
 
 /*
  * Add and scale the matrix elements of two tensors, write the result to a newly
- * allocated tensor, and return a pointer to it. 
+ * allocated tensor, and return a pointer to it.
  *
  * Parameters
  * ----------
- *  name    Name of the resulting third tensor. 
- *  t1      Pointer to the first tensor struct. 
+ *  name    Name of the resulting third tensor.
+ *  t1      Pointer to the first tensor struct.
  *  t2      Pointer to the second tensor struct.
  *  s1      A complex valued scale factor for the first tensor.
  *  s2      A complex valued scale factor for the second tensor.
@@ -301,11 +301,11 @@ zt *zt_sa(char *name, zt *t1, zt *t2, complex double s1, complex double s2) {
 
 /*
  * Allocate storage for a new tensor, and write to it the scaled matrix elements
- * of the provided tensor.  
+ * of the provided tensor.
  *
  * Parameters
  * ----------
- *  name    The name of the new tensor. 
+ *  name    The name of the new tensor.
  *  t       Pointer to the input tensor.
  *  s       A complex valued scale factor.
  */
@@ -329,4 +329,4 @@ zt *zt_s(char *name, zt *t, complex double s) {
   ts->slabels = t->slabels;
 
   return ts;
-} 
+}

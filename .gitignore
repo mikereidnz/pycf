@@ -13,7 +13,7 @@ perf.*
 
 *.directory
 work
-build 
+build
 dist
 *.egg-info/
 pycf.egg-info/
@@ -21,6 +21,8 @@ pycf/__pycache__/
 env/
 venv/
 docs/legacy/_build
+docs/_build/
+.coverage
 pycf/cfl.c
 pycf/__version__.py
 pycf/cfl*.so
@@ -28,3 +30,7 @@ pycf.egg-info/
 cfl/*_test
 .vscode/
 tests/logs/
+
+# One-off example-script test reports
+examples_test_results.txt
+/tmp

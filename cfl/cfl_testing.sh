@@ -1,6 +1,11 @@
 echo "Executing cfl tests:"
 echo "--------------------"
 
+# Cap thread count to avoid fork/join overhead dominating tiny per-iteration
+# work in tests like siman_test (3M iterations of a 4-level chisq). Honour
+# any caller-provided value. See F-016 in plan/audit_2026-04-27_171732_*.md.
+export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
+
 failed=0
 known_issues=0
 for f in *_test
@@ -40,4 +45,4 @@ if [ $failed -ne 0 ]; then
     exit 1
 fi
 
-echo 
+echo

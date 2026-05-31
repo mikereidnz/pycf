@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -24,7 +24,7 @@
 #include "cfl_sh.h"
 #include "cfl_min.h"
 
-#ifndef _CFL_H_FIT_H_ 
+#ifndef _CFL_H_FIT_H_
 #define _CFL_H_FIT_H_
 
 /* Parameter type, used for conversion of real parameters returned by
@@ -134,7 +134,7 @@ typedef struct {
   int *n_zx;
   /* Array of length n to arrays of pointers to parameter type structs. */
   param_type ***p;
-  /* Running total of number of real-valued params, up to nth Hamiltonian. */ 
+  /* Running total of number of real-valued params, up to nth Hamiltonian. */
   int *n_rx_rt;
 } mhfit_data;
 
@@ -173,7 +173,7 @@ typedef struct {
   /* Array of pointers to parameter type structs. */
   param_type **p;
   /* The number of observables corresponding to this spin Hamiltonian. */
-  int n_obs; 
+  int n_obs;
   /* Used for covariance matrix estimate and is not alloced unless one of the esh
    * cov functions is called.  Array that maps obs_index, minus the number of
    * energy level observables, to the correct spin Hamiltonian interaction. */
@@ -195,16 +195,16 @@ typedef struct {
 
 /* Function prototypes. */
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif /* __cplusplus */
 efit_data *efit_data_alloc(char job, zh *h, ex_data *ex, int n_zx,
     param_type **p);
 void efit_data_free(efit_data *data);
-mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, 
+mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
     int *n_zx, param_type ***p);
 void mhfit_data_free(mhfit_data *data);
-eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, 
-    ex_data *ex, zsh *sh, shx_data **shx, int n_zx, param_type **p); 
+eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro,
+    ex_data *ex, zsh *sh, shx_data **shx, int n_zx, param_type **p);
 void eshfit_data_free(eshfit_data *data);
 meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d);
 void meshfit_data_free(meshfit_data *data);
@@ -218,7 +218,7 @@ void mhfit_chi2(double *x, void *data, double *chi2);
 void eshfit_chi2(double *x, void *data, double *chi2);
 void eshfit_hpro_chi2(double *x, void *data, double *chi2);
 void meshfit_chi2(double *x, void *data, double *chi2);
-void efit_nls(double *x, void *data, double *y); 
+void efit_nls(double *x, void *data, double *y);
 void mhfit_nls(double *x, void *data, double *y);
 #ifdef __cplusplus
 }

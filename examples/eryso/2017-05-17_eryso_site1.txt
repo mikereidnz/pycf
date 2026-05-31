@@ -39,11 +39,11 @@ thfs = ImportSLJM(str(Path(__file__).parent / "matel" / "erhfs"))
 #t.print_names()
 
 MTOT = t.M0 + 0.56*t.M2 + 0.31*t.M4
-PTOT = t.P2 + 0.5*t.P4 + 0.1*t.P6  
+PTOT = t.P2 + 0.5*t.P4 + 0.1*t.P6
 
 hfsMTOT = thfs.M0 + 0.56*thfs.M2 + 0.31*thfs.M4
 hfsMTOT.name = 'MTOT'
-hfsPTOT =  thfs.P2 + 0.5*thfs.P4 + 0.1*thfs.P6  
+hfsPTOT =  thfs.P2 + 0.5*thfs.P4 + 0.1*thfs.P6
 hfsPTOT.name = 'PTOT'
 
 # Z, X, and Y magnetic fields times Bohr magnetion in cm-1/T.
@@ -64,17 +64,17 @@ thfs_list = [thfs.EAVG, thfs.F2, thfs.F4, thfs.F6, thfs.ALPHA, thfs.BETA,
 
 
 coeff = {
-'ALPHA':                      17.79,    
-'BETA' :                    -582.10,    
-'GAMMA':                    1800.00,    
-'T2'   :                     400.00,    
-'T3'   :                      43.00,    
-'T4'   :                      73.00,    
-'T6'   :                    -271.00,    
-'T7'   :                     308.00,    
-'T8'   :                     299.00,    
+'ALPHA':                      17.79,
+'BETA' :                    -582.10,
+'GAMMA':                    1800.00,
+'T2'   :                     400.00,
+'T3'   :                      43.00,
+'T4'   :                      73.00,
+'T6'   :                    -271.00,
+'T7'   :                     308.00,
+'T8'   :                     299.00,
 'ZETA' :                    2376.00,
-'MTOT' :                       3.86,    
+'MTOT' :                       3.86,
 'PTOT' :                     594.00,
 'MZ'   :                       0.00,
 'MX'   :                       0.00,
@@ -145,9 +145,9 @@ weights2 = {'zeeman': 20.0, 'hyperfine': 5e5, 'quadrupole': 3e5}
 h_sh_list += [{'h': h2, 'sh': sh2, 'shx': shx2, 'weights': weights2, 'svd_sym': True}]
 
 bounds = bal_bounds(coeff, {
-'EAVG' :  500.00,    
-'F2'   :  500.00,    
-'F4'   :  500.00,    
+'EAVG' :  500.00,
+'F2'   :  500.00,
+'F4'   :  500.00,
 'F6'   :  500.00,
 'ZETA' :    5.00,
 'C20'  :  1000.00,
@@ -158,7 +158,7 @@ bounds = bal_bounds(coeff, {
 'C42'  :  1300.00 + 1300.00j,
 'C43'  :  1300.00 + 1300.00j,
 'C44'  :  1300.00 + 1300.00j,
-'C60'  :  500.00, 
+'C60'  :  500.00,
 'C61'  :  500.00 + 500.00j,
 'C62'  :  500.00 + 500.00j,
 'C63'  :  500.00 + 500.00j,
@@ -169,10 +169,10 @@ bounds = bal_bounds(coeff, {
 'EQHYP':  0.01,
 })
 
-stepsize = { 
-'EAVG' :  50.00,    
-'F2'   :  50.00,    
-'F4'   :  50.00,    
+stepsize = {
+'EAVG' :  50.00,
+'F2'   :  50.00,
+'F4'   :  50.00,
 'F6'   :  50.00,
 'ZETA' :  0.500,
 'C20'  :  100.00,
@@ -183,7 +183,7 @@ stepsize = {
 'C42'  :  130.00 + 130.00j,
 'C43'  :  130.00 + 130.00j,
 'C44'  :  130.00 + 130.00j,
-'C60'  :  50.00, 
+'C60'  :  50.00,
 'C61'  :  50.00 + 50.00j,
 'C62'  :  50.00 + 50.00j,
 'C63'  :  50.00 + 50.00j,
@@ -221,8 +221,8 @@ Calculation completed at: 2026-04-26 07:47:13
 Energy level summary
 ====================
 
-Lev.  Percentage                 State        Percentage                 State               Theory 
-----  ----------                 -----        ----------                 -----               ------ 
+Lev.  Percentage                 State        Percentage                 State               Theory
+----  ----------                 -----        ----------                 -----               ------
 1     ( 0.17-0.39j)  18.3%   328 |0,4I15, -9> (-0.41-0.10j)  18.0%   305 |0,4I15, -7>        5.3723
 2     ( 0.01+0.43j)  18.3%    31 |0,4I15,  9> ( 0.42+0.05j)  18.0%    53 |0,4I15,  7>        5.3723
 3     (-0.16-0.59j)  37.3%   354 |0,4I15,-13> ( 0.40+0.10j)  17.2%   305 |0,4I15, -7>       44.1371

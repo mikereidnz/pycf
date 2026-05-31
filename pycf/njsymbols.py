@@ -2,25 +2,36 @@
 # Filename = njsymbols.py
 """
 Angular momentum coupling and Wigner-Racah algebra symbols.
+
 Implements efficient algorithms for calculating Wigner symbols commonly used
 in atomic and nuclear physics calculations:
+
 **Wigner 3j Symbols:**
+
 - Couples two angular momenta j1, j2 to resultant j3
 - Used in matrix element calculations and recoupling transformations
 - Implementation: Rational arithmetic method by Rasch (2003)
+
 **Wigner 6j Symbols:**
+
 - Recoupling coefficients for three coupled angular momenta
 - Used in multi-electron atom coupling schemes
 - Implementation: Calculation via 3j symbols and factorials
+
 **Wigner 9j Symbols:**
+
 - Recoupling coefficients for four coupled angular momenta
 - Used in rare-earth ion (multiple f-electrons) calculations
 - Implementation: Expansion in 6j symbols
+
 **Triangular Condition Check:**
+
 - Validates quantum number triangle inequalities
 - Pre-screens invalid symbol combinations
+
 All symbols support both integer and half-integer quantum numbers
 (internally stored as doubled integers for precision).
+
 Used throughout pycf for building tensor operators and calculating
 matrix elements in crystal field Hamiltonians.
 """
@@ -46,10 +57,10 @@ matrix elements in crystal field Hamiltonians.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 from math import fsum
+from typing import Union
 
 import numpy as np
-from scipy.special import factorial
-from typing import Union
+from scipy.special import factorial  # type: ignore[import-untyped]
 
 
 def tricon_ck(a: Union[float, int], b: Union[float, int], c: Union[float, int]) -> bool:
@@ -71,12 +82,14 @@ def wigner_3j(
     r"""
     Calculate the Wigner 3j symbol, given in terms of the Clebsch-Gordon
     coefficents as
+
     .. math::
         \begin{pmatrix}
         j_1 & j_2 & j_3 \\
         m_1 & m_2 & m_3
         \end{pmatrix} = \frac{(-1)^{(j_1 - j_2 - m_3)}}{\sqrt{2j_3 +1}}
         \langle j_1 m_1 j_2 m_2 | j_3 - m_3 \rangle.
+
     Parameters
     ----------
     j1 : integer or half-integer
@@ -91,10 +104,12 @@ def wigner_3j(
         The value of `m_2`.
     m3 : integer or half-integer
         The value of `m_3`.
+
     Returns
     -------
     result : float
         The numerical value of the 3j symbol.
+
     Notes
     -----
     Uses the algorithm from Wybourne, notes on "Analysis of Hyperfine Structure
@@ -168,11 +183,13 @@ def wigner_6j(
 ) -> float:
     r"""
     Calculate the Wigner 6j symbol
+
     .. math::
         \begin{Bmatrix}
         j_1 & j_2 & j_3 \\
         l_1 & l_2 & l_3
         \end{Bmatrix}.
+
     Parameters
     ----------
     a : integer or half-integer
@@ -187,10 +204,12 @@ def wigner_6j(
         The value of `l_2`.
     f : integer or half-integer
         The value of `l_3`.
+
     Returns
     -------
     result : float
         The numerical value of the 6j symbol.
+
     Notes
     -----
     Uses the algorithm on page 99 of Edmonds - Angular Momentum in Quantum
@@ -250,12 +269,14 @@ def wigner_9j(
 ) -> float:
     r"""
     Calculate the Wigner 9j symbol
+
     .. math::
         \begin{Bmatrix}
         j_{11} & j_{12} & j_{13} \\
         j_{21} & j_{22} & j_{23} \\
         j_{31} & j_{32} & j_{33}
         \end{Bmatrix}.
+
     Parameters
     ----------
     a : integer or half-integer
@@ -276,10 +297,12 @@ def wigner_9j(
         The value of `j_{32}`.
     i : integer or half-integer
         The value of `j_{33}`.
+
     Returns
     -------
     result : float
         The numerical value of the 9j symbol.
+
     Notes
     -----
     Uses the definition on page 101 in terms of 6j symbols of Edmonds - Angular

@@ -14,6 +14,7 @@ Core Modules
    import_sljm
    inten
    paramcalc
+   pyfit
 
 Utility Modules
 ===============
@@ -26,6 +27,8 @@ Utility Modules
    cfl_util
    njsymbols
    matel
+   polarization
+   constants
 
 Quick Reference
 ================
@@ -83,6 +86,7 @@ Main class for crystal field calculations.
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Tensor
 ------
@@ -93,6 +97,7 @@ Sparse matrix representation of operators.
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 ExData
 ------
@@ -103,6 +108,7 @@ Experimental data container.
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 ImportSLJM
 ----------
@@ -113,31 +119,32 @@ SLJM file parser and tensor loader.
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Key Functions
 =============
 
 Crystal Field
-~~~~~~~~~~~~~
+-------------
 
 .. autosummary::
 
-   pycf.cfl.Hamiltonian.add_term
    pycf.cfl.Hamiltonian.diag
-   pycf.cfl.Hamiltonian.eigenvalues
-   pycf.cfl.Hamiltonian.eigenvectors
+   pycf.cfl.Hamiltonian.set_coeff
+   pycf.cfl.Hamiltonian.update_coeff
+   pycf.cfl.Hamiltonian.gen_summary
 
 Intensity
-~~~~~~~~~
+---------
 
 .. autosummary::
 
    pycf.inten.dipole_str
    pycf.inten.group_transitions
-   pycf.inten.inten
+   pycf.inten.Spectrum
 
 Parameters
-~~~~~~~~~~
+----------
 
 .. autosummary::
 
@@ -146,7 +153,7 @@ Parameters
    pycf.paramcalc.Ckq
 
 Wigner Symbols
-~~~~~~~~~~~~~~
+--------------
 
 .. autosummary::
 
@@ -155,7 +162,7 @@ Wigner Symbols
    pycf.njsymbols.wigner_9j
 
 Matrix Elements
-~~~~~~~~~~~~~~~
+---------------
 
 .. autosummary::
 
@@ -163,11 +170,10 @@ Matrix Elements
    pycf.matel.t_q
 
 Data Import
-~~~~~~~~~~~
+-----------
 
 .. autosummary::
 
-   pycf.import_sljm.ImportSLJM.get_tensor_dim
-   pycf.import_sljm.ImportSLJM.get_state_number
+   pycf.import_sljm.ImportSLJM.print_names
 
 See individual module pages for detailed documentation.

@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2015 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -63,7 +63,7 @@ typedef struct {
 } zhcsrsama_data;
 
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif /* __cplusplus */
 
 zhcsr *zhcsr_gen(complex double *a, int n);
@@ -71,7 +71,7 @@ zhcsr *zhcsr_alloc(int n, int *row_ptr, int *col_in, complex double *val);
 void zhcsr_free(zhcsr *m);
 zcsr *zhcsr2zcsr_alloc(zhcsr *hcsr_m);
 void zhcsr2zcsr(zhcsr *hcsr_m, zcsr *csr_m);
-void zcsr_free(zcsr *m); 
+void zcsr_free(zcsr *m);
 void zhcsr2zhpa(zhcsr *hcsr_m, complex double *ap);
 void zhcsr2zha(zhcsr *hcsr_m, complex double *a);
 void zcsr2zha(zcsr *csr_m, complex double *a);

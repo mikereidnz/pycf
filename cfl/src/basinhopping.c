@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -27,7 +27,7 @@
  * The easiest method to run an optimization is to create a cfl_min_obj object
  * using cfl_bh_min_setup and then passing it to cfl_min, prior to freeing it
  * with cfl_min_free (see cfl_min.c).  Alternatively, manually alloc workspace
- * and call bh_min.  
+ * and call bh_min.
  */
 
 #include <stdlib.h>
@@ -42,8 +42,8 @@
 #include "cfl_min.h"
 #include "basinhopping.h"
 
-/* 
- * Allocate workspace for the basinhopping procedure. 
+/*
+ * Allocate workspace for the basinhopping procedure.
  *
  * Parameters
  * ----------
@@ -57,7 +57,7 @@
  *  target_accept_rate  The accept target accept rate for adaptive stepsize; set
  *                      to zero to disable adaptive stepsize.
  *  step_adapt_int      The number of iterations between adaptive step checks.
- *  lmin_f              Pointer to the local minimization routine. 
+ *  lmin_f              Pointer to the local minimization routine.
  *  lmin_data           Pointer to the workspace for the local minimization
  *                      routine.
  *  bounds              Pointer to a bounds object; in case of no bounds, pass a
@@ -137,16 +137,16 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
     for (i=0; i<n; i++) {
       w->step_data->stepsize[i] = BH_DEF_STEP;
     }
-  } 
+  }
   else {
     memcpy(w->step_data->stepsize, stepsize, n*sizeof(double));
   }
-  
+
   w->step_data->nstep = 0;
   w->step_data->naccept = 0;
   if (target_accept_rate) {
     w->step_data->target_accept_rate = target_accept_rate;
-  } 
+  }
   else {
     w->step_data->target_accept_rate = BH_DEF_TARGET_ACCEPT;
   }
@@ -155,14 +155,14 @@ bh_work *bh_work_alloc(size_t niter, double *stepsize, float target_accept_rate,
   }
   else {
     w->step_data->interval = BH_DEF_ADAPT_INT;
-  } 
+  }
 
   w->x = x;
   w->n = n;
   w->niter = niter;
   w->lmin_obj = lmin_obj;
   w->bounds = bounds;
-  
+
   return w;
 }
 
@@ -178,22 +178,22 @@ void bh_work_free(void *work) {
 }
 
 
-/* The Metropolis criterion. */ 
-inline int metropolis(double e_new, double e_old, gsl_rng *r) {
+/* The Metropolis criterion. */
+static inline int metropolis(double e_new, double e_old, gsl_rng *r) {
   double p, u;
   p = fmin(1, exp(-(e_new - e_old)/BH_T));
   u = gsl_rng_uniform(r);
-  
-  if (p>=u) 
+
+  if (p>=u)
     return 0;
-  else 
+  else
     return 1;
 }
 
 /* Check that the boundary constraints have been satisfied. */
-inline int bh_bounds_check(double *x, bh_work *w) {
+static inline int bh_bounds_check(double *x, bh_work *w) {
   int i;
-  
+
   for (i=0; i<w->n; i++) {
     if (x[i] > w->bounds->u[i] || x[i] < w->bounds->l[i]) {
       return 1;
@@ -206,7 +206,7 @@ inline int bh_bounds_check(double *x, bh_work *w) {
 /* Take a basinhopping step; checks whether adaptive stepsize is enabled, and,
  * if so, adjust the stepsize to meet the set target_accept_rate every interval
  * number of steps. */
-inline void bh_takestep(double *x, bh_work *w) {
+static inline void bh_takestep(double *x, bh_work *w) {
   int i;
   float accept_rate;
 
@@ -220,7 +220,7 @@ inline void bh_takestep(double *x, bh_work *w) {
         for (i=0; i<w->n; i++) {
           w->step_data->stepsize[i] /= BH_STEP_FACTOR;
         }
-      } 
+      }
       else {
         /* We're accepting too few steps; decrease the stepsize. */
         for (i=0; i<w->n; i++) {
@@ -238,16 +238,16 @@ inline void bh_takestep(double *x, bh_work *w) {
 
 
 /*
- * The basinhopping routine. 
+ * The basinhopping routine.
  *
  * Parameters
- * ---------- 
+ * ----------
  *  x       The initial parameter array; if the routine succeeds, this is
  *          overwritten with the result upon exit.
  *  fmin    Pointer to a double valued variable; if successful, this will be
  *          overwritten with the objective function value for the best-fit
- *          parameters. 
- *  w       Pointer to the workspace allocated with bh_work_alloc. 
+ *          parameters.
+ *  w       Pointer to the workspace allocated with bh_work_alloc.
  */
 int bh_min(double *x, double *fmin, void *work) {
 
@@ -266,7 +266,7 @@ int bh_min(double *x, double *fmin, void *work) {
   memcpy(w->x, x, n*sizeof(double));
   w->emin->e = e;
   memcpy(w->emin->x, x, n*sizeof(double));
-  
+
   for (i=0; i<w->niter; i++) {
     bh_takestep(x, w);
     status = w->lmin_obj->min_f(x, &e, w->lmin_obj->min_data);
@@ -302,7 +302,7 @@ int bh_min(double *x, double *fmin, void *work) {
  *
  * Parameters
  * ----------
- *  niter               The number of basinhopping iterations to complete. 
+ *  niter               The number of basinhopping iterations to complete.
  *  stepsize            Array of length n.  If adaptive stepsize is enabled
  *                      (non-zero target_accept_rate), this will be the initial
  *                      stepsize for each parameter; if target_accept_rate is
@@ -323,7 +323,7 @@ cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accep
   if (bh_w == 0) {
     CFL_ERROR_NULL("bh_work_alloc failed for bh_w");
   }
-  
+
   obj = (cfl_min_obj *) malloc(sizeof(cfl_min_obj));
   if (obj == 0) {
     bh_work_free(bh_w);

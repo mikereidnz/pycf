@@ -42,6 +42,32 @@ void int_equ_chk(int *a, int *b, size_t n) {
   }
 }
 
+/*
+ * Compare only the row-major upper triangle (j >= i) of two n x n complex
+ * matrices, ignoring the strict lower triangle. Used to check the output of
+ * zhcsr2zha, which since 2026-04 writes the upper triangle verbatim and
+ * leaves the strict lower triangle zeroed (it no longer Hermitian-completes
+ * the dense block; see comment in cfl_csr.c::zhcsr2zha).
+ */
+void equ_chk_upper(complex double *expected, complex double *got, int n) {
+  int i, j;
+  int p = 0;
+
+  for (i=0; i<n; i++) {
+    for (j=i; j<n; j++) {
+      if (cabs(expected[i*n+j] - got[i*n+j]) != 0) {
+        p = 1;
+      }
+    }
+  }
+  if (p==0) {
+    printf("pass\n");
+  }
+  else {
+    printf("fail\n");
+  }
+}
+
 void print_matrix(char *desc, int m, int n, complex double *a) {
   int i, j;
   printf( "\n %s\n", desc );
@@ -73,7 +99,7 @@ int main (void) {
   }
   zhcsr2zha(ma, aa);
   printf("zhcsr2zha:\n");
-  equ_chk(a, aa, 16);
+  equ_chk_upper(a, aa, 4);
 
   /* zhcsr2zcsr test. */
   zcsr *mac = zhcsr2zcsr_alloc(ma);
@@ -93,8 +119,8 @@ int main (void) {
   printf("zhcsr_alloc (depends on zcsr2zha and zhcsr2zcsr):\n");
   equ_chk(a, aa, 16);
   zhcsr_free(maa);
-  zcsr_free(maac); 
-  
+  zcsr_free(maac);
+
   /* zhcsr2zhpa test. */
   complex double bp[10] = {0, 0+1*I, 0, 0, 0, 1+2*I, 0, 0, 2+3*I, 0};
   complex double *bbp;
@@ -122,7 +148,7 @@ int main (void) {
   zhcsr2zha(mc, c);
 
   printf("zhcsrsam (depends on zhcsr2zha):\n");
-  equ_chk(c, zhsam_res, 16);
+  equ_chk_upper(zhsam_res, c, 4);
 
   zhcsr_free(mc);
   free(c);
@@ -180,22 +206,22 @@ int main (void) {
 
   ce_res_a = (complex double *) calloc(196,sizeof(complex double));
   zhcsr2zha(ce_res, ce_res_a);
-  
+
   printf("ce zhsam:\n");
-  equ_chk(ce_res_a, ce_zhsam_res, 196);
+  equ_chk_upper(ce_zhsam_res, ce_res_a, 14);
 
   /* Cerium EAVG + C44 zhcsrsama test. */
   zhcsrsama_data *zhcsrsama_d;
   zhcsr *csr_ma[2] = {ce_eavg, ce_c44};
   complex double ce_ca[2] = {ce_alpha, ce_beta};
-  
+
   zhcsrsama_d = zhcsrsama_alloc(2, csr_ma);
-  zhcsrsama(csr_ma, ce_ca, zhcsrsama_d); 
+  zhcsrsama(csr_ma, ce_ca, zhcsrsama_d);
 
   printf("ce zhcsrsama:\n");
   zhcsr2zha(zhcsrsama_d->hcsr_m, ce_res_a);
-  equ_chk(ce_res_a, ce_zhsam_res, 196);
-  
+  equ_chk_upper(ce_zhsam_res, ce_res_a, 14);
+
   zhcsrsama_free(zhcsrsama_d);
   zhcsr_free(ce_eavg);
   zhcsr_free(ce_c44);
@@ -217,7 +243,7 @@ int main (void) {
   zhcsr2zha(md, d);
 
   printf("zhcsrsm (depends on zhcsr2zha):\n");
-  equ_chk(d, zhsm_res, 16);
+  equ_chk_upper(zhsm_res, d, 4);
 
   zhcsr_free(md);
   free(d);
@@ -317,7 +343,7 @@ int main (void) {
 
   complex double pma[16] = {1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 1, 4, 0, 0, 4, 1};
   complex double pmaa[16] = {1, 2, 0, 0, 2, 1, 0, 4, 0, 0, 1, 0, 0, 4, 0, 1};
-  int pm_p[4] = {0, 2, 1, 3}; 
+  int pm_p[4] = {0, 2, 1, 3};
   zhcsr *pmh;
   zcsr *cpm, *rpm;
   int *pmj;
@@ -375,4 +401,4 @@ int main (void) {
   //free(c20_a);
 
   return 0;
-}  
+}

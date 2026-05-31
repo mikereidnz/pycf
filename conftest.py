@@ -1,45 +1,56 @@
-# conftest.py
+"""Pytest collection controls for optional, slow, and benchmark tests.
+
+Examples:
+    python -m pytest
+    python -m pytest --runslow
+    python -m pytest --runslow --runlong
+    python -m pytest tests/test_benchmarks.py --benchmark-only
+"""
+
+import importlib.util
+
 import pytest
 
-"""
-This file defines pytest fixtures and hooks for the test suite. 
-In particular, it implements a command-line option "--runslow" to allow users to include or exclude slow tests. 
-To mark a test as slow, simply decorate it with @pytest.mark.slow.
-Example usage:
-    python -m pytest            # to skip slow tests 
-    python -m pytest --runslow  # to run slow tests  
-
-It also handles optional test dependencies gracefully:
-- If hypothesis is not installed, property-based tests are skipped
-- If pytest-benchmark is not installed, benchmark tests are skipped
-"""
-
-import sys
 
 def pytest_addoption(parser):
+    parser.addoption("--runslow", action="store_true", default=False, help="run slow tests")
     parser.addoption(
-        "--runslow", action="store_true", default=False, help="run slow tests"
+        "--runlong",
+        action="store_true",
+        default=False,
+        help="run long-running tests; use with --runslow",
     )
 
+
 def pytest_collection_modifyitems(config, items):
-    """Handle optional dependencies and slow tests."""
-    skip_hypothesis = pytest.mark.skip(reason="hypothesis not installed - run: pip install hypothesis")
-    skip_benchmark = pytest.mark.skip(reason="pytest-benchmark not installed - run: pip install pytest-benchmark")
-    
-    has_hypothesis = 'hypothesis' in sys.modules
-    has_benchmark = 'pytest_benchmark' in sys.modules
-    
-    for item in items:
-        if not has_hypothesis and 'test_properties' in str(item.fspath):
-            item.add_marker(skip_hypothesis)
-        elif not has_benchmark and 'test_benchmarks' in str(item.fspath):
-            item.add_marker(skip_benchmark)
-    
-    # Handle slow tests
-    if config.getoption("--runslow"):
-        return
-    
+    """Handle optional dependencies, benchmark tests, and slow tests."""
+    skip_hypothesis = pytest.mark.skip(
+        reason="hypothesis not installed - run: pip install hypothesis"
+    )
+    skip_benchmark = pytest.mark.skip(
+        reason="pytest-benchmark not installed - run: pip install pytest-benchmark"
+    )
+    skip_benchmark_default = pytest.mark.skip(
+        reason="benchmark tests run only with --benchmark-only"
+    )
     skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    skip_long = pytest.mark.skip(reason="need --runlong option to run")
+
+    has_hypothesis = importlib.util.find_spec("hypothesis") is not None
+    has_benchmark = importlib.util.find_spec("pytest_benchmark") is not None
+    benchmark_only = getattr(config.option, "benchmark_only", False)
+
     for item in items:
-        if "slow" in item.keywords:
+        item_path = str(item.fspath)
+        if not has_hypothesis and "test_properties" in item_path:
+            item.add_marker(skip_hypothesis)
+        elif "test_benchmarks" in item_path:
+            if not has_benchmark:
+                item.add_marker(skip_benchmark)
+            elif not benchmark_only:
+                item.add_marker(skip_benchmark_default)
+
+        if "slow" in item.keywords and not config.getoption("--runslow"):
             item.add_marker(skip_slow)
+        if "long_running" in item.keywords and not config.getoption("--runlong"):
+            item.add_marker(skip_long)

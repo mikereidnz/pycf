@@ -13,10 +13,27 @@ pycf is a collection of Python modules for crystal field theory and spin Hamilto
 .. image:: https://img.shields.io/badge/python-3.10+-blue.svg
    :alt: Python Version
 
-.. image:: https://img.shields.io/badge/test%20status-106%20passing-brightgreen
+.. image:: https://img.shields.io/badge/test%20status-665%20passing-brightgreen
    :alt: Tests Passing
 
 **For detailed installation instructions, see** `INSTALL.md <INSTALL.md>`_.
+
+**Branches**
+
+- ``main`` — recommended for users who want stability.  Updated when
+  a development cycle reaches a tagged release.
+- ``devel`` — current integration branch.  Track this if you want to
+  follow ongoing work and try features before they land on ``main``;
+  expect occasional breakage.
+- Feature branches (``feat/...``) — in-progress work, opened for
+  review via pull requests.  Comment on them if you want to influence
+  a feature before it merges into ``devel``.
+- ``legacy`` — mirrors Sebastian Horvath's original Bitbucket
+  repository (https://bitbucket.org/sebastianhorvath/pycf/).  Provided
+  for historical reference; not actively developed.
+
+By default ``git clone`` checks out ``main``; pass ``-b devel`` (or
+``git checkout devel`` after cloning) to follow the development branch.
 
 **Quick Start (Development)**
 
@@ -31,7 +48,7 @@ pycf is a collection of Python modules for crystal field theory and spin Hamilto
 
 **Project Structure**
 
-- ``cfl/`` — C99 core library for setting up and fitting Hamiltonians. 
+- ``cfl/`` — C99 core library for setting up and fitting Hamiltonians.
 - ``pycf/`` — Python/Cython wrappers
 - ``examples/`` — End-to-end workflows for real materials
 - ``tests/`` — Python and C unit tests

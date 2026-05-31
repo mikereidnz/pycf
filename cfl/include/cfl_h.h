@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2014-2016 Sebastian Horvath (sebastian.horvath@gmail.com)
- 
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -125,10 +125,10 @@ typedef struct {
 
 /* Function prototypes. */
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif /* __cplusplus */
 
-zh *zh_alloc(int n, int nt, zt **t); 
+zh *zh_alloc(int n, int nt, zt **t);
 void zh_free(zh *h);
 void zh_set_coeff(zh *h, complex double *coeff);
 zhd_w *zhd_w_alloc(char job, zh *h);

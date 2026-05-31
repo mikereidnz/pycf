@@ -2,24 +2,34 @@
 # Filename = matel.py
 """
 Angular momentum matrix element calculations.
+
 Provides efficient methods for calculating matrix elements of angular momentum
 operators and tensor operators, essential for crystal field Hamiltonian
 construction.
+
 **Tensor Matrix Elements (t_q):**
-- <j1, m1 | T_q^(1) | j2, m2> for rank-1 tensor operators
+
+- <j1, m1 \\| T_q^(1) \\| j2, m2> for rank-1 tensor operators
 - Used in coupling different angular momentum spaces
 - Implementation: Wigner-Eckart theorem with 3j symbols
+
 **Angular Momentum Components (matel):**
-- Matrix elements of Jx, Jy, Jz in basis |j, m>
+
+- Matrix elements of Jx, Jy, Jz in basis \\|j, m>
 - Built using Wigner symbol algebra
 - Used for dipole operators and spin Hamiltonian construction
+
 Key features:
+
 - Supports half-integer j (including rare-earth ions like j=5/2)
 - Hermitian matrices (Jz, Jx) and rank-raising/lowering (J+, J-)
 - Efficient numeric computation with factorial optimization
+
 Used throughout pycf for building tensor operators in the crystal field
 Hamiltonian and for intensity calculations.
 """
+
+from typing import Union
 
 # Copyright (C) 2013 Sebastian Horvath (sebastian.horvath@gmail.com)
 #
@@ -42,17 +52,21 @@ Hamiltonian and for intensity calculations.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import numpy as np
-from typing import Union
 
 import pycf.njsymbols as nj
 
 
 def t_q(
-    j1: Union[float, int], j2: Union[float, int], m1: Union[float, int], m2: Union[float, int], q: Union[float, int]
+    j1: Union[float, int],
+    j2: Union[float, int],
+    m1: Union[float, int],
+    m2: Union[float, int],
+    q: Union[float, int],
 ) -> complex:
     r"""
     Calculate the matrix element `\langle j_1 m_1 | T_q^{(1)} | j_2 m_2
     \rangle`, where `T_q^{(1)}` is a rank one tensor.
+
     Parameters
     ----------
     j1 : integer or half-integer
@@ -65,6 +79,7 @@ def t_q(
         The value of `m_2`.
     q : integer or half-integer
         The value of `q`.
+
     Returns
     -------
     element : complex
@@ -94,12 +109,14 @@ def matel(c: str, j: Union[float, int]) -> np.ndarray:
     Calculate the matrix elements for `\langle j m_1 | J_a | j m_2 \rangle`,
     where `a \in \{x, y, z\}` for `m_1 = j, j-1 \ldots -j` and `m_2 = j, j-1,
     \ldots -j`.
+
     Parameters
     ----------
     j : integer or half-integer
         The value of `j`.
     c : string
         The component label, a value of either 'jx', 'jy', or 'jz'.
+
     Returns
     -------
     matel : numpy array

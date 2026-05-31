@@ -20,7 +20,7 @@
 cdef extern from "../../cfl/include/cfl_error.h":
     ctypedef void (*cfl_error_handler_t)(const char *func, const char *file,
         int line, const char *message)
-    
+
     void cfl_set_error_handler(cfl_error_handler_t handler)
 
 
@@ -69,11 +69,11 @@ cdef extern from "../../cfl/include/cfl_h.h":
         # been removed to avoid confusion.
         zt **t
         double complex *coeff
-        
+
     ctypedef struct zhd_w:
         pass
-   
-    zh *zh_alloc(int n, int nt, zt **t) 
+
+    zh *zh_alloc(int n, int nt, zt **t)
     void zh_free(zh *h)
     void zh_set_coeff(zh *h, double complex *coeff)
     zhd_w *zhd_w_alloc(char job, zh *h)
@@ -107,7 +107,7 @@ cdef extern from "../../cfl/include/cfl_sh.h":
 
     zsh *zsh_alloc(char **inter, size_t ninter, int sz, int iz, int kramers, double complex **a)
     void zsh_free(zsh *sh)
-    int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) 
+    int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling)
     void zsh_set_inv(zsh *sh, double complex *b, char *inter)
     zshp_p_w *zshp_p_w_alloc(zsh *sh)
     void zshp_p_w_free(zshp_p_w *shp_p_w)
@@ -134,7 +134,7 @@ cdef extern from "../../cfl/include/cfl_min.h":
 
     ctypedef enum nlopt_min_alg:
         nlopt_cobyla = 1
-        nlopt_bobyqa = 2 
+        nlopt_bobyqa = 2
         nlopt_sbplx = 3
         nlopt_crs2_lm = 4
         nlopt_esch = 5
@@ -142,21 +142,22 @@ cdef extern from "../../cfl/include/cfl_min.h":
     ctypedef struct cfl_min_obj:
         pass
 
-    cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), 
+    cfl_min_obj *cfl_nlopt_min_setup(double (*f)(size_t n, double *x, double *grad, void *data),
             size_t n, void *data, nlopt_min_alg algorithm, double xtol, double maxtime, cfl_min_bounds *bounds)
-    cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data), 
+    cfl_min_obj *cfl_gsl_min_setup(double (*obj_f)(size_t n, double *x, double *grad, void *data),
             size_t n, void *data, gsl_min_alg algorithm)
-    cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n, int p, 
-            void *data, double *wts, double xtol, double gtol, double ftol, double *covar, int niter)
-    cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad, void *data), 
-            size_t n, void *data, int niter, cfl_min_bounds *bounds, double *stepsize, double Tstart, 
+    cfl_min_obj *cfl_gsl_nls_setup(void (*f)(double *x, void *data, double *y), int n, int p,
+            void *data, double *wts, double xtol, double gtol, double ftol, double *covar,
+            double *jac, int niter)
+    cfl_min_obj *cfl_siman_min_setup(double (*f)(size_t n, double *x, double *grad, void *data),
+            size_t n, void *data, int niter, cfl_min_bounds *bounds, double *stepsize, double Tstart,
             double Tmin, double muT, double k, double *chi2accept, double *xaccept, double maxtime)
     int cfl_min(double *x0, double *fmin, cfl_min_obj *obj) nogil
     void cfl_min_free(cfl_min_obj *obj)
 
 
 cdef extern from "../../cfl/include/basinhopping.h":
-    cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accept_rate, 
+    cfl_min_obj *cfl_bh_min_setup(size_t niter, double *stepsize, float target_accept_rate,
             int step_adapt_int, cfl_min_bounds *bounds, cfl_min_obj *lmin)
 
 
@@ -199,22 +200,22 @@ cdef extern from "../../cfl/include/cfl_h_fit.h":
     void efit_data_free(efit_data *data)
     mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa, int *n_zx, param_type ***p)
     void mhfit_data_free(mhfit_data *data)
-    eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh, 
+    eshfit_data *eshfit_data_alloc(char job, char inv_job, zh *h, zh *hpro, ex_data *ex, zsh *sh,
             shx_data **shx, int n_zx, param_type **p)
     void eshfit_data_free(eshfit_data *data)
     meshfit_data *meshfit_data_alloc(int n, eshfit_data **eshfit_d)
     void meshfit_data_free(meshfit_data *data)
     double efit_obj(size_t n, double *x, double *grad, void *data) nogil
     double mhfit_obj(size_t n, double *x, double *grad, void *data) nogil
-    double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil 
-    double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil 
+    double eshfit_obj(size_t n, double *x, double *grad, void *data) nogil
+    double eshfit_hpro_obj(size_t n, double *x, double *grad, void *data) nogil
     double meshfit_obj(size_t n, double *x, double *grad, void *data) nogil
     void efit_chi2(double *x, void *data, double *chi2) nogil
-    void mhfit_chi2(double *x, void *data, double *chi2) nogil 
+    void mhfit_chi2(double *x, void *data, double *chi2) nogil
     void eshfit_chi2(double *x, void *data, double *chi2) nogil
-    void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil 
+    void eshfit_hpro_chi2(double *x, void *data, double *chi2) nogil
     void meshfit_chi2(double *x, void *data, double *chi2) nogil
-    void efit_nls(double *x, void *data, double *y) 
+    void efit_nls(double *x, void *data, double *y)
     void mhfit_nls(double *x, void *data, double *y)
 
 cdef extern from "../../cfl/include/cfl_zefoz.h":
@@ -232,4 +233,3 @@ cdef extern from "../../cfl/include/cfl_zefoz.h":
     zefoz_a *zefoz_a_alloc(int init_size)
     void zefoz_a_free(zefoz_a *za)
     void zefoz_search(double *Bx, double *By, double *Bz, int nx, int ny, int nz, int k, int l, double xtol, double complex **m, zefoz_a *za, zefoz_d *data) nogil
-

@@ -295,6 +295,100 @@ Er:YSO (Erbium:Yttrium Silicate) is a key material for quantum memory. These exa
 
 ---
 
+### Advanced Fitting Techniques
+
+#### 11. Using (mu, n) Format for Low-Symmetry Crystal Fields
+
+**What it demonstrates:**
+- Fit using folded magnetic quantum numbers (mu, n) instead of individual m values
+- Useful when symmetry breaks and individual |m⟩ states become ambiguous
+- Proper handling of half-integer magnetic quantum numbers (f-electrons)
+- Validation of mu/n fitting parameters
+
+**When to use (mu, n) format:**
+
+The (mu, n) parametrization is essential when:
+- Crystal field term strengths are large (strong mixing of |m⟩ states)
+- Magnetic decoherence makes individual m values physically meaningless
+- You have f-electrons with half-integer m (e.g., Ce:YLF with J=5/2)
+- Experimental data is naturally grouped by "folded" states
+
+**Prerequisites:**
+- Ce:YLF test data in `tests/ceylf/matel/f1cf/` (included)
+- Basic understanding of crystal field theory and energy level assignments
+
+**Key parameters:**
+
+```python
+h.minimum_q = 2              # Smallest non-zero q in expansion
+h.half_integer_states = True # For f-electrons: m = ±1/2, ±3/2, ±5/2
+```
+
+See `examples/ceylf/mu_exdata_example.py` for a complete workflow.
+
+**Expected output:**
+- Fitted crystal field parameters (Ckq values)
+- Energy level comparison using (mu, n) assignments
+- Parameter uncertainties
+- Residual analysis
+
+**Key concepts:**
+- `mu = m * sign(minimum_q)` for effective folding
+- For `half_integer_states=True`, effective q doubles: `mu = m * sign(2*minimum_q)`
+- Validation catches missing or inconsistent parameters
+- (mu, n) → level index conversion via :func:`cfl_util.mu_n_to_level`
+
+**Typical runtime:** < 1 second
+
+**Example usage:**
+
+.. code-block:: python
+
+    import pycf
+    import numpy as np
+
+    # Load crystal field data
+    importer = pycf.ImportSLJM(...)
+    h = pycf.cfl.Hamiltonian(importer.tensors)
+
+    # Set mu/n parameters (REQUIRED for this format)
+    h.minimum_q = 2              # C20, C22 expansion
+    h.half_integer_states = True # Ce has f-electrons (J=5/2)
+
+    # Create experimental data in (mu, n) format
+    mu_n_data = np.array([
+        [2, 1],    # 1st state with mu=+2
+        [2, 2],    # 2nd state with mu=+2
+        [0, 1],    # 1st state with mu=0
+        [-2, 1],   # 1st state with mu=-2
+    ], dtype=np.int32)
+    experimental_energies = np.array([0.0, 45.2, 156.8, 234.5])
+
+    exdata = pycf.cfl.ExData(
+        (mu_n_data, experimental_energies),
+        key=('mu', 'n', 'energy'),
+        label_key='mu'
+    )
+
+    # Fit using (mu, n) format
+    fit = pycf.cfl.EFit(h, exdata)
+    fit.fit_cmplx(coefficients)
+
+**Common pitfalls:**
+
+1. **Forgetting to set minimum_q**: Raises ``ValueError: Hamiltonian.minimum_q must be set...``
+   - **Fix**: Set `h.minimum_q` to your expansion's smallest q value (usually 2)
+
+2. **Wrong half_integer_states for system**: Silent bug producing wrong mu values
+   - **Rule**: `True` for f-electrons (J=5/2, 7/2, ...), `False` for d-electrons with integer m
+   - **Check**: Verify against your material's ionic configuration
+
+3. **Mismatch between (mu, n) and eigenstate spectrum**: Raises ``ValueError: (mu, n) pair not found...``
+   - **Fix**: Use only (mu, n) pairs that actually exist for your Hamiltonian
+   - **Tip**: Print the full mu/n spectrum first: use `gen_e_summary()` after diagonalization
+
+---
+
 ## Data Organization
 
 Each example accesses data via relative paths. The structure is:
@@ -396,6 +490,59 @@ plot_results(result)
    ```python
    result = fit_hamiltonian(hamiltonian, exdata)
    ```
+
+### Fit output options (energy and intensity wrappers)
+
+`e_fit`, `mh_fit`, and `fit_altp` share output-control kwargs:
+
+- `calculate_sigma=True` (default): compute parameter uncertainties
+- `include_covariance=False` (default): include covariance matrix in `res` and summary
+- `include_jacobian=False` (default): include Jacobian array in `res`
+
+For energy fits (`e_fit` / `mh_fit`), the result dictionary now includes:
+
+- `res["coeff"]` (fitted subset)
+- `res["all_coeff"]` (all Hamiltonian coefficients)
+- `res["sigma"]` (parameter -> sigma mapping)
+- `res["covariance"]` (if enabled)
+- `res["jacobian"]` (if enabled)
+- `res["jacobian_diagnostics"]` (rank/conditioning summary)
+- `res["summary"]`
+
+Example (`mh_fit`):
+
+```python
+res = cfl.mh_fit(
+    param, h_list, weights_list, exdata_list, cfl_min,
+    suppress_input=True,
+    max_levels=150,
+    calculate_sigma=True,
+    include_covariance=False,
+    include_jacobian=True,
+)
+
+print(res["summary"])
+sigma = res["sigma"]
+jacdiag = res["jacobian_diagnostics"]
+```
+
+`PyFit` users can use `fit_res(...)` for the same style payload/summary:
+
+```python
+from pycf.pyfit import PyFit
+
+py = PyFit(cfl.EFit(param, h, exdata))
+res = py.fit_res(
+    method="lm",
+    jac="pycf",
+    max_levels=150,
+    calculate_sigma=True,
+    include_covariance=False,
+    include_jacobian=True,
+)
+
+print(res["summary"])
+```
 
 ### Compare to Theory
 

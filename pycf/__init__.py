@@ -2,8 +2,7 @@ import sys
 from datetime import datetime
 
 try:
-    from pycf.__version__ import (__build_comment__, __build_timestamp__,
-                                  __version__)
+    from pycf.__version__ import __build_comment__, __build_timestamp__, __version__
 except ImportError:
     __version__ = "unknown"
     __build_timestamp__ = "unknown"
@@ -92,7 +91,15 @@ def pycf_info(current_time=None, stream=None):
     return info
 
 
-__all__ = ["__version__", "__build_timestamp__", "__build_comment__", "pycf_info", "cfl"]
+__all__ = [
+    "__version__",
+    "__build_timestamp__",
+    "__build_comment__",
+    "pycf_info",
+    "cfl",
+    "ImportSLJM",
+    "ImportTensors",
+]
 
 
 def __getattr__(name: str):
@@ -101,5 +108,11 @@ def __getattr__(name: str):
         # import_sljm.py imports pycf.cfl at module level, so we need to
         # defer this import until explicitly requested to avoid circular imports
         import importlib
+
         return importlib.import_module("pycf.cfl")
+    if name in ("ImportSLJM", "ImportTensors"):
+        import importlib
+
+        mod = importlib.import_module("pycf.import_sljm")
+        return getattr(mod, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

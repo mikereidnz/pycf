@@ -20,7 +20,7 @@
  *
  * Parameters
  * ----------
- * a  Pointer to first array. 
+ * a  Pointer to first array.
  * b  Pointer to second array.
  * n  Length of arrays a and b.
  *
@@ -47,7 +47,7 @@ void zequ_chk(complex double *a, complex double *b, size_t n) {
  *
  * Parameters
  * ----------
- * a  Pointer to first array. 
+ * a  Pointer to first array.
  * b  Pointer to second array.
  * n  Length of arrays a and b.
  *
@@ -74,17 +74,17 @@ double gsl_test_f1(size_t n, double *x, double *grad, void *params) {
   double *p = (double *)params;
 
   return p[2] * (x[0] - p[0]) * (x[0] - p[0]) +
-           p[3] * (x[1] - p[1]) * (x[1] - p[1]) + p[4]; 
+           p[3] * (x[1] - p[1]) * (x[1] - p[1]) + p[4];
 }
 
 double gsl_test_f2(size_t n, double *x, double *grad, void *params) {
   double *p = (double *)params;
 
   //grad[0] = 2.0 * p[2] * (x[0] - p[0]);
-  //grad[1] = 2.0 * p[3] * (x[1] - p[1]); 
-  
+  //grad[1] = 2.0 * p[3] * (x[1] - p[1]);
+
   return p[2] * (x[0] - p[0]) * (x[0] - p[0]) +
-           p[3] * (x[1] - p[1]) * (x[1] - p[1]) + p[4]; 
+           p[3] * (x[1] - p[1]) * (x[1] - p[1]) + p[4];
 }
 
 double bh_test_f1(size_t n, double *x, double *grad, void *params) {
@@ -96,7 +96,7 @@ double bh_test_f1(size_t n, double *x, double *grad, void *params) {
 
 double bh_test_f2(size_t n, double *x, double *grad, void *params) {
   double *p = (double *)params;
-  
+
   return cos(p[0] * x[0] - p[1]) + (x[0] + p[2]) * x[0] + cos(p[0] * x[1] - p[1]) + (x[1] + p[2]) * x[1] + x[0] * x[1] + 1.963879482144252;
 }
 
@@ -109,7 +109,7 @@ int main (void)
   /*=========================================================================*/
   int status;
   double gsl_result[2] = {1.0, 2.0};
- 
+
   /* Position of the minimum (1,2), scale factors 10, 20, height 30. */
   double gsl_par[5] = {1.0, 2.0, 10.0, 20.0, 30.0};
   double gsl_x1[2] = {10.0, -5.0};
@@ -250,7 +250,7 @@ int main (void)
     0, 0, 1.50000015467, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -2.00000020623, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.50000015467};
-  
+
   complex double ce_C20_a[196] = {-0.333333308417, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, -0.285714264357, 0.116642359985, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0.116642359985, -0.0476190440595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -265,7 +265,7 @@ int main (void)
     -0.285714264357, -0.116642359985, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.116642359985, -0.0476190440595, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.333333308417};
-  
+
   complex double ce_C40_a[196] = {0.0909089176865, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0.0476189568834, -0.106038314953, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, -0.106038314953, -0.168830847132, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -280,7 +280,7 @@ int main (void)
     0.0476189568834, 0.106038314953, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.106038314953, -0.168830847132, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.0909089176865};
-  
+
   complex double ce_C44_a[196] = {0, 0, 0, 0, 0, 0, 0, 0.148453640934,
     0.128564624333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.178173821773,
     -0.102442744767, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15870361777,
@@ -294,7 +294,7 @@ int main (void)
     0, 0, 0.178173821773, 0.102442744767, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.15870361777, 0.188199339398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.148453640934, 0.128564624333, 0, 0, 0, 0, 0, 0, 0};
-  
+
   complex double ce_C60_a[196] = {-0.0116550046289, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0.0285488142907, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.0285488142907, 0.0582750231447, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -308,7 +308,7 @@ int main (void)
     -0.0285488142907, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.0285488142907,
     0.0582750231447, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     -0.0116550046289};
-  
+
   complex double ce_C64_a[196] = {0, 0, 0, 0, 0, 0, 0, -0.127674178862,
     -0.110569082302, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.185017462665, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.238856517219,
@@ -322,7 +322,7 @@ int main (void)
     0, -0.185017462665, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.238856517219,
     0.0755330628389, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.127674178862,
     -0.110569082302, 0, 0, 0, 0, 0, 0, 0};
-  
+
   complex double ce_magx_a[196] = {0, 0.463984001202, -1.51229633083, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0.463984001202, 0, 0, -0.957944299092,
     -0.101249609846, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.51229633083, 0, 0,
@@ -341,7 +341,7 @@ int main (void)
     -0.957944299092, 0.101249609846, 0, 0, -0.463984001202, 0, 0, 0, 0, 0, 0, 0,
     0, 0, -0.392138052742, -1.98006068835, 0, 0, -1.51229633083, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, -0.463984001202, -1.51229633083, 0};
-  
+
   complex double ce_magy_a[196] = {0, 0-0.463984001202*I, 0+1.51229633083*I, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0+0.463984001202*I, 0, 0, 0+0.957944299092*I,
     0+0.101249609846*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0-1.51229633083*I, 0, 0,
@@ -363,7 +363,7 @@ int main (void)
     0, 0, 0, 0, 0, 0, 0-0.392138052742*I, 0-1.98006068835*I, 0, 0,
     0+1.51229633083*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0-0.463984001202*I,
     0-1.51229633083*I, 0};
-  
+
   complex double ce_magz_a[196] = {4.00116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 2.14202857143, 0.350738936998, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0.350738936998, 2.85797142857, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -382,13 +382,13 @@ int main (void)
   complex double celiyf4_coeff[7] = {1535.12773615, 625.699030356,
     297.890587979, -1328.15222293, -1282.47659014, -191.510006575,
     -1743.14238515+692.866175947*I};
-  
+
   double celiyf4_diag_res[14] = {1.475068, 1.475068, 213.798927, 213.798927,
     414.393675, 414.393675, 2215.463472, 2215.463472, 2312.050866, 2312.050866,
     2430.140843, 2430.140843, 3158.571302, 3158.571302};
-  
+
   double ce_ex[6] = {0, 216, 2216.10, 2312.80, 2428.80, 3157.80};
-  
+
   complex double ce_zeeman_inv[108] = {0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0-0.5*I, 0+0.5*I, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, -0.5, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0-0.5*I,
@@ -398,9 +398,9 @@ int main (void)
 
   complex double ce_zeeman_term[12] = {0, 0.7365, 0.7365, 0, 0, -0.7365*I,
     0.7365*I, 0, 1.3825, 0, 0, -1.3825};
-  
+
   double ce_gvalues[9] = {1.473, 0, 0, 0, 1.473, 0, 0, 0, 2.765};
- 
+
   /* State label preparation. */
   int nstates = 14;
   char label_key[] = "SLJM";
@@ -488,9 +488,10 @@ int main (void)
   efit_p4.type = 'r';
   efit_p4.xi = 4;
   efit_p4.ci = 4;
-  //FIXME: this used to have xi = 6, ci = 6; changed to stop out of bounds
-  //memory reading. However, diag test for Ce fails now. I suspect there's an
-  //issue with the params used above and the new paramtype setup.
+  // NOTE: this used to have xi = 6, ci = 6; changed to stop out of bounds
+  // memory reading. However, diag test for Ce fails now. Suspected issue with
+  // the params used above and the paramtype setup. opt_test is documented as
+  // a known issue in cfl/cfl_testing.sh (status tracked for v0.1.1).
   param_type efit_p5;
   efit_p5.type = 'r';
   efit_p5.xi = 5;
@@ -521,7 +522,7 @@ int main (void)
   /* Run energy level fit. */
   efit_data *efit_d;
   cfl_min_obj *efit_lmin_obj, *efit_min_obj;
-  
+
   efit_d = efit_data_alloc('N', h, &ce_ex_data, 6, p);
   efit_lmin_obj = cfl_gsl_min_setup(&efit_obj, 6, efit_d, gsl_vector_bfgs2);
   efit_min_obj = cfl_bh_min_setup(1, NULL, 0.5, 10, NULL, efit_lmin_obj);
@@ -536,7 +537,7 @@ int main (void)
   /* Multi-Hamiltonian fit test. */
   mhfit_data *mh_fd;
   cfl_min_obj *mhfit_lmin_obj, *mhfit_min_obj;
-  
+
   param_type **pa[2] = {p, p};
   char joba[2] = {'N', 'N'};
   zh *ha[2] = {h, h};
@@ -606,7 +607,7 @@ int main (void)
   zsh_set_pro(ce_y_sh, magy, 0);
   zsh_set_pro(ce_z_sh, magz, 0);
   zsh *sh_a[3] = {ce_x_sh, ce_y_sh, ce_z_sh};
-  
+
   zsh_inv_data ce_inv_data;
 
   ce_inv_data.a = ce_zeeman_inv;
@@ -617,12 +618,12 @@ int main (void)
   ce_zeeman_exp_data.chisq_weight = 4e6;
   ce_zeeman_exp_data.inv_data = &ce_inv_data;
   shx_data *shx[1] = {&ce_zeeman_exp_data};
-  
+
   /* Testing objective function used when there are no spin Hamiltonian terms in
    * the projection Hamiltonian. */
   eshfit_data *eshfit_d;
   cfl_min_obj *eshfit_lmin_obj, *eshfit_min_obj;
-  
+
   eshfit_d = eshfit_data_alloc('N', 'N', sh_a, 3, 0, h, NULL, celiyf4_coeff, &ce_ex_data,
       shx, 6, p);
 
@@ -683,6 +684,6 @@ int main (void)
   zt_free(magz);
   sl_free(states);
   free(l);
-  
+
   return 0;
-}  
+}

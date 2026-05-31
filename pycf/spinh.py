@@ -2,16 +2,21 @@
 # Filename = spinh.py
 """
 Spin Hamiltonian extraction and manipulation utilities.
+
 This module provides functions for:
+
 - Building spin Hamiltonian matrices from tensor operators
 - Extracting spin Hamiltonian parameters from crystal field calculations
 - Inverting spin Hamiltonians to recover effective parameters
 - Manipulating and formatting spin Hamiltonian terms
+
 The spin Hamiltonian formalism reduces complex rare-earth ion interactions to
 effective magnetic operators acting on the lowest Kramers doublet. This module
 bridges crystal field theory (implemented in cfl) to spin Hamiltonian models
 commonly used in magnetic resonance and magnetism studies.
+
 Key workflow:
+
   1. Calculate crystal field Hamiltonian and eigenstates (cfl module)
   2. Project high-level (J=5/2...) multiplet onto Kramers doublet
   3. Extract effective spin Hamiltonian parameters
@@ -42,8 +47,8 @@ from typing import List
 
 import numpy as np
 from numpy.linalg import lstsq
-from scipy.linalg import block_diag, svd
-from scipy.optimize import basinhopping
+from scipy.linalg import block_diag, svd  # type: ignore[import-untyped]
+from scipy.optimize import basinhopping  # type: ignore[import-untyped]
 
 from pycf.matel import matel
 
@@ -52,6 +57,7 @@ def bmj(v: np.ndarray, m: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BgS` or `BMI` term, an array of size `(2 \times j + 1)` by `(2 \times j
     + 1)`, with `j` the angular momentum of the tensor `S` or `I`.
+
     Parameters
     ----------
     v : numpy.ndarray
@@ -60,6 +66,7 @@ def bmj(v: np.ndarray, m: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
         The `3` by `3` Zeeman parameter matrix `g`.
     t : list
         Elements consist of the matrix elements of `S_x`, `S_y` and `S_z`.
+
     Returns
     -------
     result : array
@@ -87,6 +94,7 @@ def ias(t1: List[np.ndarray], m: np.ndarray, t2: List[np.ndarray]) -> np.ndarray
     Generate the `IAS` term, an array of size `(2 \times j_1+1) \times (2 \times
     j_2+1)` by `(2 \times j_1+1) \times (2 \times j_2+1)`, with `j_1` and `j_2`
     the angular momentum of the rank one tensors `A` and `I`, respectively.
+
     Parameters
     ----------
     t1 : list
@@ -95,6 +103,7 @@ def ias(t1: List[np.ndarray], m: np.ndarray, t2: List[np.ndarray]) -> np.ndarray
         The `3` by `3` dipole parameter matrix `A`.
     t2 : list
         Elements consist of the matrix elements of `S_x`, `S_y` and `S_z`.
+
     Returns
     -------
     result : array
@@ -125,12 +134,14 @@ def iqi(t: List[np.ndarray], m: np.ndarray) -> np.ndarray:
     r"""
     Generate the `IQI` term, an array of size `(2 \times j + 1)` by `(2 \times j
     + 1)`, with `j` the angular momentum of the rank one tensor `I`.
+
     Parameters
     ----------
     t : list
         Elements consist of the matrix elements of `I_x`, `I_y` and `I_z`.
     m : numpy.ndarray
         The `3` by `3` quadrupole parameter matrix `Q`.
+
     Returns
     -------
     result : array
@@ -160,12 +171,14 @@ def bi(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     r"""
     Generate the `BI` term, an array of size `(2 \times j + 1)` by `(2 \times j
     + 1)`, with `j` the angular momentum of the rank one tensor `I`.
+
     Parameters
     ----------
     v : numpy.ndarray
         A `3` by `1` vector of magnetic field strengths `B_x`, `B_y` and `B_z`.
     t : list
         Elements consist of the matrix elements of `I_x`, `I_y` and `I_z`.
+
     Returns
     -------
     result : array
@@ -198,12 +211,14 @@ def bmj_coeff_array(v: np.ndarray, t: List[np.ndarray]) -> np.ndarray:
     combinations of `a` and `b`.  This array is independent of `S`/`I` and is
     intended to be computed once, then employed with numpy's :func:`lstsq`
     function to calculate `g` or `M` given a `BgS` or `BMI` matrix.
+
     Parameters
     ----------
     v : numpy.ndarray
         A `3` by `1` vector of magnetic field strengths `B_x`, `B_y` and `B_z`.
     t : list
         Elements consist of the matrix elements of `J_x`, `J_y` and `J_z`.
+
     Returns
     -------
     result : numpy.ndarray
@@ -230,12 +245,14 @@ def ias_coeff_array(t1: List[np.ndarray], t2: List[np.ndarray]) -> np.ndarray:
     while the columns enumerate all combinations of `a` and `b`.  This array is
     independent of `A` and is intended to be computed once, then employed with
     numpy's :func:`lstsq` function to calculate `A` given an `IAS` matrix.
+
     Parameters
     ----------
     t1 : list
         Elements consist of the matrix elements of `I_x`, `I_y` and `I_z`.
     t2 : list
         Elements consist of the matrix elements of `S_x`, `S_y` and `S_z`.
+
     Returns
     -------
     result : numpy.ndarray
@@ -267,10 +284,12 @@ def iqi_coeff_array(t: List[np.ndarray]) -> np.ndarray:
     `b`.  This array is independent of `Q` and is intended to be computed once,
     then employed with numpy's :func:`lstsq` function to calculate `Q` given an
     `IQI` matrix.
+
     Parameters
     ----------
     t : list
         Elements consist of the matrix elements of `I_x`, `I_y` and `I_z`.
+
     Returns
     -------
     result : numpy.ndarray
@@ -293,6 +312,7 @@ def iqi_coeff_array(t: List[np.ndarray]) -> np.ndarray:
 def invert_term(coeff_a: np.ndarray, b: np.ndarray) -> np.ndarray:
     r"""
     Invert a spin Hamiltonian term.
+
     Parameters
     ----------
     term : np.ndarray
@@ -301,11 +321,14 @@ def invert_term(coeff_a: np.ndarray, b: np.ndarray) -> np.ndarray:
         The appropriate coefficient array, generated with either
         :func:`bmj_coeff_array`, :func:`ias_coeff_array` or
         :func:`iqi_coeff_array`.
-    b : numpy.ndarray For a 'BgS' or 'BMI' term, b must be a `3 \times (2j + 1)
-        \times (2j + 1)` array `(j = S or I)`, corresponding to individual
-        'BgS'/'BMI' matrix elements for a field along three linearly independent
-        directions. For an 'IAS' term, b must be a `2 (I + 1) \times 2`
-        np.ndarray corresponding to the `IAS` matrix elements.
+    b : numpy.ndarray
+        For a 'BgS' or 'BMI' term, b must be a :math:`3 \times (2j + 1)
+        \times (2j + 1)` array :math:`(j = S \mathrm{\ or\ } I)`, corresponding
+        to individual 'BgS'/'BMI' matrix elements for a field along three
+        linearly independent directions. For an 'IAS' term, b must be a
+        :math:`2 (I + 1) \times 2` np.ndarray corresponding to the `IAS`
+        matrix elements.
+
     Returns
     -------
     result : numpy.ndarray
@@ -324,6 +347,7 @@ def su2_rz(p: float, m: np.ndarray) -> np.ndarray:
     Apply an SU(2) rotation about the z-axis of the spin-half matrix elements of a
     spin Hamiltonian term, specifically, a Zeeman interaction term or a magnetic
     dipole hyperfine interaction term.
+
     Parameters
     ----------
     p : float
@@ -331,6 +355,7 @@ def su2_rz(p: float, m: np.ndarray) -> np.ndarray:
     m : ndarray
         A 2x2 Zeeman interaction term, or a 2*(I+1) x 2*(I+1)
         magnetic dipole hyperfine interaction term.
+
     Returns
     -------
     m : ndarray
@@ -349,6 +374,7 @@ def su2_rz_lsq_f(p: float, coeff_a: np.ndarray, b: np.ndarray) -> float:
     """
     Helper function for least squares fitting of the SU(2) rotation required to
     symmetrize spin Hamiltonian terms containing spin half matrix elements.
+
     Parameters
     ----------
     p : float
@@ -361,6 +387,7 @@ def su2_rz_lsq_f(p: float, coeff_a: np.ndarray, b: np.ndarray) -> float:
         to individual 'BgS' matrix elements for a field along three linearly
         independent directions. For an 'IAS' term, b must be a `2 (I + 1) \times
         2` np.ndarray corresponding to the `IAS` matrix elements.
+
     Returns
     -------
     r : float
@@ -377,8 +404,8 @@ def su2_rz_lsq_f(p: float, coeff_a: np.ndarray, b: np.ndarray) -> float:
         b_p = su2_rz(p, b)
     tensor = invert_term(coeff_a, b_p)
     r = 0
-    for i in [(1, 3), (2, 6), (5, 7)]:
-        r += np.abs(tensor[i[0]] - tensor[i[1]])
+    for i_a, i_b in [(1, 3), (2, 6), (5, 7)]:
+        r += np.abs(tensor[i_a] - tensor[i_b])
     return r
 
 
@@ -387,6 +414,7 @@ def su2_rotation(p: np.ndarray, m: np.ndarray) -> np.ndarray:
     Apply an SU(2) rotation an about the z, y, and x axes respectively to the
     spin-half matrix elements of a spin Hamiltonian term, specifically, a Zeeman
     interaction term or a magnetic dipole hyperfine interaction term.
+
     Parameters
     ----------
     p : array
@@ -394,28 +422,28 @@ def su2_rotation(p: np.ndarray, m: np.ndarray) -> np.ndarray:
     m : ndarray
         A `2 \times 2` Zeeman interaction term, or a `2 \times (I+1) \times 2`
         by `2 \times (I+1) \times 2` magnetic dipole hyperfine interaction term.
+
     Returns
     -------
     m : ndarray
         The transformed matrix.
     """
-    I = complex(0, 1)
     a = p[0]
     b = p[1]
     c = p[2]
     rotation = np.array(
         [
             [
-                np.exp(-I * (a) / 2)
-                * (np.cos(b / 2) * np.cos(c / 2) + I * np.sin(b / 2) * np.sin(c / 2)),
-                -np.exp(-I * (a) / 2)
-                * (I * np.cos(b / 2) * np.sin(c / 2) + np.sin(b / 2) * np.cos(c / 2)),
+                np.exp(-1j * (a) / 2)
+                * (np.cos(b / 2) * np.cos(c / 2) + 1j * np.sin(b / 2) * np.sin(c / 2)),
+                -np.exp(-1j * (a) / 2)
+                * (1j * np.cos(b / 2) * np.sin(c / 2) + np.sin(b / 2) * np.cos(c / 2)),
             ],
             [
-                np.exp(I * (a) / 2)
-                * (np.sin(b / 2) * np.cos(c / 2) - I * np.cos(b / 2) * np.sin(c / 2)),
-                np.exp(I * (a) / 2)
-                * (-I * np.sin(b / 2) * np.sin(c / 2) + np.cos(b / 2) * np.cos(c / 2)),
+                np.exp(1j * (a) / 2)
+                * (np.sin(b / 2) * np.cos(c / 2) - 1j * np.cos(b / 2) * np.sin(c / 2)),
+                np.exp(1j * (a) / 2)
+                * (-1j * np.sin(b / 2) * np.sin(c / 2) + np.cos(b / 2) * np.cos(c / 2)),
             ],
         ]
     )
@@ -434,6 +462,7 @@ def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> flo
     """
     Helper function for least squares fitting of the SU(2) rotation required to
     symmetrize spin Hamiltonian terms containing spin half matrix elements.
+
     Parameters
     ----------
     p : array
@@ -447,6 +476,7 @@ def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> flo
         to individual 'BgS' matrix elements for a field along three linearly
         independent directions. For an 'IAS' term, b must be a `2 (I + 1) \times
         2` np.ndarray corresponding to the `IAS` matrix elements.
+
     Returns
     -------
     r : float
@@ -463,12 +493,31 @@ def su2_rotation_lsq_f(p: np.ndarray, coeff_a: np.ndarray, b: np.ndarray) -> flo
         b_p = su2_rotation(p, b)
     tensor = invert_term(coeff_a, b_p)
     r = 0
-    for i in [(1, 3), (2, 6), (5, 7)]:
-        r += np.abs(tensor[i[0]] - tensor[i[1]])
+    for i_a, i_b in [(1, 3), (2, 6), (5, 7)]:
+        r += np.abs(tensor[i_a] - tensor[i_b])
     return r
 
 
 def param_ten_svd(t: np.ndarray) -> np.ndarray:
+    r"""
+    Apply a symmetrising SVD rotation to a parameter tensor.
+
+    Computes the SVD ``t = U @ diag(s) @ Vh`` and returns
+    ``t' = t @ Vh.T @ U.T``, which leaves the singular values of ``t``
+    unchanged while rotating the input/output bases. Used inside the
+    spin-Hamiltonian inversion to bring the parameter matrix into a canonical
+    frame before further analysis.
+
+    Parameters
+    ----------
+    t : numpy.ndarray
+        Square real or complex parameter matrix.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotated parameter matrix with the same singular values as ``t``.
+    """
     U, s, Vh = svd(t)
     t = np.dot(t, Vh.T).dot(U.T)
     return t
@@ -486,6 +535,7 @@ class SpinH(object):
     :func:`add_H_term` method.  The spin Hamiltonian parameters can then be
     calculated using the :func:`inv_term` method.
     Note: units are Tesla for magnetic field values and MHz for energies.
+
     Parameters
     ----------
     terms : list
@@ -509,6 +559,7 @@ class SpinH(object):
         'bi', or 'bmi' this keyword argument must be specified.
     inv : boolean, optional
         If True, the coefficient arrays for term inversion are pre-computed.
+
     Returns
     -------
     object : SpinH
@@ -555,14 +606,14 @@ class SpinH(object):
             S_m = None
         if "ias" in terms or "iqi" in terms or "bi" in terms or "bmi" in terms:
             try:
-                I = kwargs["I"]
+                Ival = kwargs["I"]
             except KeyError:
                 raise ValueError("Missing keyword argument I.")
             # Calculate the matrix elements for nuclear spin.
             I_m = [None, None, None]
             for i in range(3):
-                I_m[i] = matel(j_l[i], I)
-            self.I = I
+                I_m[i] = matel(j_l[i], Ival)
+            self.I = Ival  # noqa: E741 - public attribute; physics symbol for nuclear spin
             self.I_m = I_m
         else:
             I_m = None
@@ -578,15 +629,15 @@ class SpinH(object):
                     H_dim = 2 * S + 1
                 else:
                     # The bgs and/or ias/iqi/bi terms.
-                    H_dim = (2 * S + 1) * (2 * I + 1)
+                    H_dim = (2 * S + 1) * (2 * Ival + 1)
             elif S_m is None:
                 # Only the iqi and/or bi term.
-                H_dim = 2 * I + 1
+                H_dim = 2 * Ival + 1
             else:
                 # S_m != None and no bgs -> ias term.
-                H_dim = (2 * S + 1) * (2 * I + 1)
+                H_dim = (2 * S + 1) * (2 * Ival + 1)
         else:
-            H_dim = 2 * I + 1
+            H_dim = 2 * Ival + 1
         self.H_dim = int(H_dim)
         # Calculate the coefficient arrays.
         if "inv" in kwargs:
@@ -615,7 +666,7 @@ class SpinH(object):
                         raise TypeError(
                             "When passing inv = True, B must be a" "list of numpy.ndarrays."
                         )
-                    I_dimsq = int((2 * I + 1) ** 2)
+                    I_dimsq = int((2 * Ival + 1) ** 2)
                     B_a = np.zeros([len(B), I_dimsq, 9], dtype=complex)
                     for i, e in enumerate(B):
                         B_a[i, :, :] = bmj_coeff_array(e, I_m)
@@ -626,10 +677,13 @@ class SpinH(object):
                     "valid values are either True or False."
                 )
             self.inv = kwargs["inv"]
+        else:
+            self.inv = False
 
     def add_term(self, term, m):
         r"""
         Add the specified parameter matrix to the spin Hamiltonian.
+
         Parameters
         ----------
         term : string
@@ -685,6 +739,7 @@ class SpinH(object):
         Extract the elements of the specified term from a spin Hamiltonian with
         full dimension and update the appropriate term value of the SpinH
         object.
+
         Parameters
         ----------
         term : string
@@ -720,6 +775,7 @@ class SpinH(object):
     def inv_term(self, term, sym=False, sym_phase=None):
         r"""
         Invert the specified term of this spin Hamiltonian.
+
         Parameters
         ----------
         term : string
@@ -731,6 +787,7 @@ class SpinH(object):
             List with three elements specifying the symmeterization angles.  If
             this argument is provided, no fit will be performed and the
             symmeterization will be applied with the specified angles.
+
         Returns
         -------
         term_parameters : numpy.ndarray
@@ -751,13 +808,15 @@ class SpinH(object):
         if sym:
 
             def print_fun(x, f, accepted):
+                """Basinhopping callback: print each accepted symmetrisation step."""
                 print("Symmeterization minimum %.4f accepted %d" % (f, int(accepted)))
 
             if sym_phase is None:
+
                 def fmin(p):
-                    return su2_rotation_lsq_f(
-                        p, self.coeff_a[term], self.H_terms[term]
-                    )
+                    """Residual function minimised by basinhopping over SU(2) angles."""
+                    return su2_rotation_lsq_f(p, self.coeff_a[term], self.H_terms[term])
+
                 r = basinhopping(
                     fmin,
                     [0, 0, 0],

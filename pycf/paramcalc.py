@@ -2,27 +2,42 @@
 # Filename = paramcalc.py
 """
 Crystal field parameter calculations and atomic structure utilities.
+
 This module computes intensities, transition parameters, and lattice coupling
 terms for rare-earth ion crystal fields. Main categories:
+
 **Intensity Parameters (Xi):**
+
 - Xi(t, λ) parameters for magnetic-dipole and electric-quadrupole transitions
 - From Krupke (1966) systematic tables for Pr, Nd, Eu, Tb, Er, Tm, Yb
+
 **Radial Integrals (RInt4f):**
+
 - <4f|r^λ|4f> radial integrals for 4f electrons
 - From Freeman & Watson tables for Ce through Yb
+
 **Spherical Harmonics (Ckq):**
+
 - Solid spherical harmonics in crystal field normalization
 - Used for building static and dynamic coupling terms
+
 **Static Coupling (A_SC):**
+
 - Point-charge model (Krupke) and dynamic polarizability effects
 - Includes charge and polarizability contributions
+
 **Dynamic Coupling (A_DC):**
+
 - Isotropic ligand polarizability effects
 - Rank-dependent contributions to A parameters
+
 **Ligand Data:**
+
 - Ligand class for coordinate and property storage
 - AltpData class for managing multi-ligand systems
+
 Key workflow for complete CF model:
+
   1. Load ligand coordinates and charges from experiment
   2. Calculate Altp parameters using this module
   3. Build Hamiltonian with these parameters (cfl module)
@@ -32,7 +47,7 @@ Key workflow for complete CF model:
 from typing import List, Tuple
 
 import numpy as np
-from scipy.special import sph_harm_y
+from scipy.special import sph_harm_y  # type: ignore[import-untyped]
 
 from pycf.cfl_util import uline_char
 from pycf.constants import BOHR_RADIUS
@@ -45,6 +60,7 @@ def Xi_val(t: int, lam: int, Ln: str) -> float:
     (1966).
     Available ions are Pr, Nd, Eu, Tb, Er, Tm, Yb.
     Yb values are linearly interpolated from values for Er and Tm.
+
     Parameters
     ----------
     t : int
@@ -53,10 +69,12 @@ def Xi_val(t: int, lam: int, Ln: str) -> float:
         Transition intensity lambda parameter, with values of {2, 4, 6}.
     Ln : string
         The chemical symbol of the Lanthanide dopant.
+
     Returns
     -------
     xi : float
         value
+
     Raises
     ------
     ValueError
@@ -81,9 +99,13 @@ def Xi_val(t: int, lam: int, Ln: str) -> float:
     except ValueError:
         raise ValueError(f"Invalid lanthanide: Ln={Ln} (valid: {', '.join(Ln_list)})")
     try:
-        v = xi_tl["%i%i" % (t, lam)][i]
+        xi_values = xi_tl["%i%i" % (t, lam)]
     except (ValueError, KeyError):
         raise ValueError("Invalid parameters: t=%i, lam=%i" % (t, lam))
+    if Ln == "Yb":
+        v = 0.5 * (xi_values[Ln_list.index("Er")] + xi_values[Ln_list.index("Tm")])
+    else:
+        v = xi_values[i]
     v *= 1e10  # Scale units to Angstrom^(t+1) erg^-1
     return v
 
@@ -92,17 +114,20 @@ def RInt4f(lam: int, Ln: str) -> float:
     r"""
     Radial integrals of the form <4f|r^\lambda|4f> for the RE3+ ions, from
     Freeman and Watson, 10.1103/PhysRev.127.2058.
+
     Parameters
     ----------
     lam : int
         The power lambda, with available values of {2, 4, 6}.
     Ln : string
         The chemical symbol of the Lanthanide dopant.
+
     Returns
     -------
     rint : float
         The radial integral, in units of Angstrom^2, Angstrom^4, and
         Angstrom^6 depending on lambda.
+
     Raises
     ------
     ValueError
@@ -141,6 +166,7 @@ def RInt4f(lam: int, Ln: str) -> float:
 class Ligand(object):
     """
     Class for holding data of a specific ligand type.
+
     Parameters
     ----------
     coords : np.array
@@ -162,6 +188,7 @@ class Ligand(object):
 def Ckq(k: int, q: int, theta: float, phi: float) -> np.complexfloating:
     """
     Solid spherical harmonic functions in normalization conventionally used for CF calcs.
+
     Parameters
     ----------
     k : int
@@ -172,14 +199,16 @@ def Ckq(k: int, q: int, theta: float, phi: float) -> np.complexfloating:
         Polar angle in radians.
     phi : float
         Azimuthal angle in radians.
+
     Returns
     -------
     Ckq : float
         Value of spherical harmonic.
+
     Raises
     ------
     ValueError
-        If k < 0 or |q| > k.
+        If k < 0 or ``|q|`` > k.
     """
     if k < 0:
         raise ValueError(f"k must be >= 0 (got {k})")
@@ -196,6 +225,7 @@ def A_SC(
     Calculate the A^lambda_tp parameters for static coupling using a
     point-charge model, following Reid and Richardson, J. Chem. Phys. 79(12)
     1983, pg 5739.
+
     Parameters
     ----------
     lam: int
@@ -210,6 +240,7 @@ def A_SC(
         The charge of the Lanthanide dopant.
     ligands : list
         List of Ligand objects.
+
     Returns
     -------
     A : float
@@ -240,6 +271,7 @@ def A_DC(lam: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
     r"""
     Calculate the A^lambda_tp parameters for dynamic coupling assuming isotropic
     ligands, following Reid and Richardson, J. Chem. Phys. 79(12) 1983, pg 5739.
+
     Parameters
     ----------
     lam: int
@@ -252,6 +284,7 @@ def A_DC(lam: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
         The chemical symbol of the Lanthanide dopant.
     ligands : list
         List of Ligand objects.
+
     Returns
     -------
     A : float
@@ -260,7 +293,13 @@ def A_DC(lam: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
     A = 0
     if t == lam + 1:
         rint = RInt4f(lam, Ln)
-        prefac = 7 * wigner_3j(3, lam, 3, 0, 0, 0) * np.sqrt((lam + 1) * (2 * lam + 1)) * rint * (-1) ** p
+        prefac = (
+            7
+            * wigner_3j(3, lam, 3, 0, 0, 0)
+            * np.sqrt((lam + 1) * (2 * lam + 1))
+            * rint
+            * (-1) ** p
+        )
         for L in ligands:
             c = L.coords
             A += Ckq(lam + 1, -p, c[1], c[2]) * c[0] ** (-(lam + 2)) * L.alpha_bar
@@ -273,6 +312,7 @@ def A_DC(lam: int, t: int, p: int, Ln: str, ligands: List[Ligand]) -> float:
 class AltpData(object):
     """
     Class for holding data required for calculating Altp parameters.
+
     Parameters
     ----------
     Ln : string
@@ -300,6 +340,7 @@ class AltpData(object):
         A_statpol, A_dyniso, and A_total, corresponding to static charge
         contribution, static polarziation contribution, and dynamic contribution
         assuming isotropic ligands.
+
         Returns
         -------
         A_list : list
@@ -336,6 +377,21 @@ class AltpData(object):
         return A_list
 
     def gen_summary(self):
+        r"""
+        Return a formatted text table of the Altp parameters.
+
+        Each row of the table lists, for one ``A_lambda_t_p`` parameter, the
+        static-charge, static-polarization, dynamic-coupling, combined
+        static-charge-plus-dynamic and total contributions.
+
+        :meth:`eval_params` must be called before this method so that
+        ``self.A_list`` is populated.
+
+        Returns
+        -------
+        str
+            Multi-line formatted summary suitable for printing.
+        """
         s = ""
         heading = "Param   A_statchg    A_statpol     A_dyniso  A_statchg+A_dyniso      A_total\n"
         s += uline_char(heading)

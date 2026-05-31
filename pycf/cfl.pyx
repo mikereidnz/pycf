@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # filename = pycfl.pyx
 #cython: c_string_encoding=ascii
 #cython: embedsignature=True
@@ -27,6 +28,9 @@ from pycf cimport cfl
 
 import copy
 import sys
+import threading
+import warnings
+from contextlib import contextmanager
 from numbers import Number
 
 import numpy as np
@@ -39,6 +43,19 @@ from libc.string cimport memcpy
 
 from pycf.cfl_util import *
 from pycf.matel import matel
+
+# Thread-local storage for EFit/MHFit instance access during mu/n objective evaluation
+# Used by consolidated Cython objectives (mu_n_efit_obj, mu_n_mhfit_obj) to safely
+# access the current EFit/MHFit instance from the C minimizer's callback context.
+_efit_current = threading.local()
+_mhfit_current = threading.local()
+
+
+class _ChiCtx:
+    """Lightweight (h, ex) holder used to call compute_chi2_numpy() from
+    hot-loop Cython objectives without re-defining a class per call.
+    """
+    __slots__ = ("h", "ex")
 
 # Global storage for Python error handler callback
 _python_error_handler = None
@@ -54,52 +71,58 @@ cdef void _c_error_handler_wrapper(const char *func, const char *file,
     global _python_error_handler
     with gil:
         if _python_error_handler is not None:
-            _python_error_handler(
-                func.decode('utf-8') if func else "",
-                file.decode('utf-8') if file else "",
-                line,
-                message.decode('utf-8') if message else ""
-            )
+            try:
+                _python_error_handler(
+                    func.decode('utf-8') if func else "",
+                    file.decode('utf-8') if file else "",
+                    line,
+                    message.decode('utf-8') if message else ""
+                )
+            except Exception:
+                # Never let a raising Python error handler escape a
+                # noexcept nogil C callback; just print the traceback.
+                import traceback
+                traceback.print_exc()
 
 
 def set_error_handler(handler):
     """
     Register custom error handler for CFL library errors.
-    
+
     The error handler receives:
     - func: C function name where error occurred
     - file: Source file name
     - line: Line number
     - message: Error message
-    
+
     Parameters
     ----------
     handler : callable or None
         Error handler function with signature:
             handler(func: str, file: str, line: int, message: str) -> None
-        
+
         If None, restores default printf() error reporting.
-    
+
     Examples
     --------
     >>> def log_error(func, file, line, msg):
     ...     print(f"ERROR in {func} ({file}:{line}): {msg}")
     >>> pycf.cfl.set_error_handler(log_error)
-    
+
     >>> # Restore default behavior
     >>> pycf.cfl.set_error_handler(None)
-    
+
     Notes
     -----
     The handler function should be fast and non-blocking, as it may be called
     from performance-critical code paths. Avoid heavy computation or I/O.
-    
+
     The handler will be called even for non-fatal warnings and informational
     messages, depending on the error type.
     """
     global _python_error_handler
     _python_error_handler = handler
-    
+
     if handler is not None:
         cfl.cfl_set_error_handler(_c_error_handler_wrapper)
     else:
@@ -144,33 +167,35 @@ cdef class StateLabels:
     def __cinit__(self, label_key, labels):
         cdef size_t n
         cdef char *key
+        cdef bytes key_b
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
         cdef int **l_a
-       
+
         self.label_key = label_key
         self.labels = labels
 
         n = <size_t> len(labels)
-        key = <char *> label_key
+        key_b = label_key.encode('utf-8')
+        key = key_b
         l_a = <int **>malloc(len(labels)*sizeof(int *))
         if l_a == NULL:
             raise MemoryError("l_a malloc failed")
 
-        nplabels = []
-        for i,l in enumerate(labels):
-            nplabels += [np.ascontiguousarray(np.array(labels[i], dtype=np.int32))]
-            clabels = nplabels[i]
-            l_a[i] = &clabels[0]
-        
-        # sl_alloc copies both the label key and the label arrays (via memcpy),
-        # so nplabels can safely go out of scope after this call.
-        self.cfl_sl = cfl.sl_alloc(n, key, l_a)
-        if self.cfl_sl == NULL:
-            raise MemoryError("cfl_sl alloc failed")
-        else:
+        try:
+            nplabels = []
+            for i,l in enumerate(labels):
+                nplabels += [np.ascontiguousarray(np.array(labels[i], dtype=np.int32))]
+                clabels = nplabels[i]
+                l_a[i] = &clabels[0]
+
+            # sl_alloc copies both the label key and the label arrays (via memcpy),
+            # so nplabels and key_b can safely go out of scope after this call.
+            self.cfl_sl = cfl.sl_alloc(n, key, l_a)
+            if self.cfl_sl == NULL:
+                raise MemoryError("cfl_sl alloc failed")
             self.sl_cap = PyCapsule_New(<void *>self.cfl_sl, "pycfl.StateLabels", NULL)
-        
-        free(l_a)
+        finally:
+            free(l_a)
 
     def __dealloc__(self):
         if self.cfl_sl != NULL:
@@ -204,39 +229,88 @@ cdef class Tensor:
     cdef public str arith_name
     cdef public int n
     cdef public StateLabels states
-    def __cinit__(self, char *name, np.ndarray[int, ndim=1, mode='c'] row_ptr, 
-            np.ndarray[int, ndim=1, mode='c'] col_in, np.ndarray[double complex, ndim=1, mode='c'] val, 
+    def __cinit__(self, name, np.ndarray[int, ndim=1, mode='c'] row_ptr,
+            np.ndarray[int, ndim=1, mode='c'] col_in, np.ndarray[double complex, ndim=1, mode='c'] val,
             states, object data_tuple=None):
         cdef cfl.zt *t
         cdef cfl.zt *t1
         cdef cfl.zt *t2
+        cdef int *col_ptr = NULL
+        cdef double complex *val_ptr = NULL
+        cdef Py_ssize_t n
+        cdef Py_ssize_t expected_nnz
+        cdef Py_ssize_t i
+        cdef bytes name_b
+        cdef char *name_c
         self.states = states
 
+        # Hold an explicit bytes buffer so the C string outlives the calls
+        # below; passing <char *> on a Python str directly produces a
+        # temporary whose lifetime is fragile.
+        if isinstance(name, bytes):
+            name_b = name
+            name_str = name.decode('utf-8')
+        else:
+            name_str = name
+            name_b = (<str>name).encode('utf-8')
+        name_c = name_b
+
         if (data_tuple is None):
-            self.name = name
-            self.arith_name = None
+            if not isinstance(states, StateLabels):
+                raise TypeError("states must be a StateLabels instance")
+            if len(row_ptr) < 2:
+                raise ValueError("row_ptr must contain at least two entries")
+
             n = len(row_ptr)-1
+            if n > 2147483647:
+                raise ValueError("Tensor dimension is too large for the C API")
+            if n != len(states.labels):
+                raise ValueError("row_ptr dimension must match StateLabels length")
+            if row_ptr[0] != 0:
+                raise ValueError("row_ptr must start at 0")
+            for i in range(n):
+                if row_ptr[i] > row_ptr[i+1]:
+                    raise ValueError("row_ptr entries must be nondecreasing")
+
+            expected_nnz = row_ptr[n]
+            if expected_nnz < 0:
+                raise ValueError("row_ptr cannot contain negative indices")
+            if len(col_in) != expected_nnz or len(val) != expected_nnz:
+                raise ValueError(
+                    "col_in and val lengths must match row_ptr[-1]"
+                )
+            for i in range(expected_nnz):
+                if col_in[i] < 0 or col_in[i] >= n:
+                    raise ValueError(
+                        "column indices must be in the range [0, n)"
+                    )
+            if expected_nnz > 0:
+                col_ptr = &col_in[0]
+                val_ptr = &val[0]
+
+            self.name = name_str
+            self.arith_name = None
             self.n = n
-            t = cfl.zt_csr_alloc(name, n, &row_ptr[0], &col_in[0], &val[0], 
+            t = cfl.zt_csr_alloc(name_c, <int>n, &row_ptr[0], col_ptr, val_ptr,
                     <cfl.sl *>PyCapsule_GetPointer(states.sl_cap, "pycfl.StateLabels"))
-            
+
         elif (len(data_tuple)==3):
             # Addition or subtraction of tensors; we use the arithmetic name for
             # zt_sa.
             self.name = None
-            self.arith_name = name
+            self.arith_name = name_str
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
             t2 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[1].t_cap, "pycfl.Tensor")
-            t = cfl.zt_sa(<char *>self.arith_name, t1, t2, 1, data_tuple[2])
+            t = cfl.zt_sa(name_c, t1, t2, 1, data_tuple[2])
 
         else:
             # Scaling of a tensor; we use the arithmetic name for zt_sa.
             self.name = None
-            self.arith_name = name
+            self.arith_name = name_str
             self.n = data_tuple[0].n
             t1 = <cfl.zt *>PyCapsule_GetPointer(data_tuple[0].t_cap, "pycfl.Tensor")
-            t = cfl.zt_s(<char *>self.arith_name, t1, <double complex> data_tuple[1])
+            t = cfl.zt_s(name_c, t1, <double complex> data_tuple[1])
 
         if t is NULL:
             self.t_cap = None
@@ -251,7 +325,7 @@ cdef class Tensor:
                     cfl.zt_free(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"))
             except (TypeError, ValueError):
                 pass
-    
+
     def __add__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
             raise TypeError("Only objects of type Tensor can be added to Tensors")
@@ -267,7 +341,7 @@ cdef class Tensor:
             t2name = t2.name
         tmp_name = "{0}+{1}".format(t1name, t2name)
         d = (t1, t2, 1)
-        return Tensor(<char *>tmp_name, None, None, None, t1.states, data_tuple=d) 
+        return Tensor(tmp_name, None, None, None, t1.states, data_tuple=d)
 
     def __sub__(t1, t2):
         if not (isinstance(t1, Tensor) and isinstance(t2, Tensor)):
@@ -284,7 +358,7 @@ cdef class Tensor:
             t2name = t2.name
         tmp_name = "{0}-{1}".format(t1name, t2name)
         d = (t1, t2, -1)
-        return Tensor(<char *>tmp_name, None, None, None, t1.states, data_tuple=d) 
+        return Tensor(tmp_name, None, None, None, t1.states, data_tuple=d)
 
     def __mul__(x, y):
         # We check whether name has been explicitly set, otherwise use
@@ -297,7 +371,7 @@ cdef class Tensor:
                     yname = y.name
                 tmp_name = "{0:.2f}*{1}".format(x, yname)
                 d = (y, x)
-                return Tensor(<char *>tmp_name, None, None, None, y.states, data_tuple=d)
+                return Tensor(tmp_name, None, None, None, y.states, data_tuple=d)
         elif isinstance(x, Tensor):
             if isinstance(y, Number):
                 if x.name is None:
@@ -306,7 +380,7 @@ cdef class Tensor:
                     xname = x.name
                 tmp_name = "{0:.2f}x{1}".format(y, xname)
                 d = (x, y)
-                return Tensor(<char *>tmp_name, None, None, None, x.states, data_tuple=d)
+                return Tensor(tmp_name, None, None, None, x.states, data_tuple=d)
         else:
             raise TypeError("Tensors can only be multiplied by scalar numbers")
 
@@ -318,9 +392,9 @@ cdef class Tensor:
                 selfname = self.name
             tmp_name = "{0:.2f}*{1}".format(other, selfname)
             d = (self, other)
-            return Tensor(<char *>tmp_name, None, None, None, self.states, data_tuple=d)
+            return Tensor(tmp_name, None, None, None, self.states, data_tuple=d)
         raise TypeError("Tensors can only be multiplied by scalar numbers")
-    
+
     def get_name(self):
         """
         Get the name of this Tensor.  If it has not been explicitly named (by
@@ -356,7 +430,7 @@ cdef class Tensor:
         Returns the matrix elements of this tensor in a dense array.
         """
         cdef np.ndarray[double complex, ndim=2, mode="c"] matel
-        
+
         matel = np.ascontiguousarray(np.zeros((self.n,self.n), dtype=np.complex128))
         cfl.zt_get_matel(<cfl.zt *>PyCapsule_GetPointer(self.t_cap, "pycfl.Tensor"), &matel[0,0])
 
@@ -367,21 +441,65 @@ cdef class Hamiltonian:
     The crystal field Hamiltonian class.  Creates a cfl zh object and provides
     an interface for diagonalizing zh.  Can be used to calculate:
 
-        * energy levels given a list of :class:`Tensor`s and corresponding coefficients;
-        * spin Hamiltonian parameters from crystal field parameters;
-        * crystal field parameters by fitting to either energy levels or both
-        energy levels and spin Hamiltonian parameters.
+    * energy levels given a list of :class:`Tensor` objects and corresponding
+      coefficients;
+    * spin Hamiltonian parameters from crystal field parameters;
+    * crystal field parameters by fitting to either energy levels or both
+      energy levels and spin Hamiltonian parameters.
 
     A summary of calculated energy levels can be generated with
     :func:`cfl_util.gen_e_summary`.
 
     Hamiltonians are iterable, returning the Tensor objects from which it is composed.
 
+    **Parameters for (mu, n) fitting format:**
+
+    For fitting with experimental data in (mu, n) format (see :class:`ExData`),
+    two optional parameters control the mu/n conversion:
+
+    - ``minimum_q``: The smallest non-zero q value in your crystal field expansion.
+      Common values are 2 (for C20, C22) or 4 (for higher-order terms).
+      **REQUIRED** if using (mu, n) experimental data format. Defaults to ``None``.
+
+    - ``half_integer_states``: Set to ``True`` if your system has half-integer
+      magnetic quantum numbers m stored as doubled integers (e.g., ±1, ±3, ±5
+      representing ±1/2, ±3/2, ±5/2). Use ``True`` for f-electrons and other systems
+      with J = 5/2, 7/2, etc. Set to ``False`` for integer m values.
+      Defaults to ``False``.
+
+    **When to use (mu, n) format:**
+
+    The (mu, n) parametrization is useful when symmetry is reduced and magnetic
+    quantum numbers become ambiguous. Example: Ce:YLF (f-electrons) where magnetic
+    decoherence mixes :math:`|m\\rangle` states and only folded combinations have physical meaning.
+
+    **Example usage:**
+
+    .. code-block:: python
+
+        import pycf
+
+        # For f-electron system (Ce:YLF)
+        h = pycf.cfl.Hamiltonian(tensors)
+        h.minimum_q = 2              # C20, C22 terms
+        h.half_integer_states = True # f-electrons: m = ±1/2, ±3/2, ±5/2
+
+        # For d-electron system (Er:YSO with integer m)
+        h2 = pycf.cfl.Hamiltonian(tensors2)
+        h2.minimum_q = 4              # Higher-order expansion
+        h2.half_integer_states = False # integer m values
+
     Parameters
     ----------
     tensors : list
         A list with components of type Tensor; this specifies the type of
         interactions modeled by the Hamiltonian.
+    label : str, optional
+        A human-readable label for this Hamiltonian (e.g. ``"Ground state"``,
+        ``"B || c"``).  Surfaced in summary output produced by
+        :func:`cfl_util.gen_e_summary` and the EData/covariance helpers, and
+        used to disambiguate Hamiltonians in multi-Hamiltonian fits
+        (:class:`MHFit`).  Defaults to ``None`` (no label printed).
 
     Returns
     -------
@@ -398,27 +516,48 @@ cdef class Hamiltonian:
     cdef public np.ndarray w
     cdef public np.ndarray z
     cdef public object h_cap
+    cdef public object label
+    cdef public object minimum_q
+    cdef public object half_integer_states
+    cdef public object multiplet_end_levels
     cdef int diag_run
-    def __cinit__(self, tensors):
+    def __cinit__(self, tensors, *, label=None):
+
+        if len(tensors) == 0:
+            raise ValueError("Hamiltonian requires at least one Tensor")
+        for i,t in enumerate(tensors):
+            if not isinstance(t, Tensor):
+                raise TypeError("Hamiltonian inputs must be Tensor objects")
 
         n = tensors[0].n
+        for i,t in enumerate(tensors):
+            if t.n != n:
+                raise ValueError(
+                    "All tensors in a Hamiltonian must have the same dimension"
+                )
         self.n = n
         self.nt = len(tensors)
         self.tensors = tensors
         self.coeff_dict = None
         self.diag_run = 0
-                
+        if label is not None and not isinstance(label, str):
+            raise TypeError("Hamiltonian label must be a str or None")
+        self.label = label
+        self.minimum_q = None
+        self.half_integer_states = False
+        self.multiplet_end_levels = None
+
         # Create array of tensors and array of character arrays to be passed to
-        # the zh_set cfl function. 
+        # the zh_set cfl function.
         tensor_array = <cfl.zt **>malloc(len(tensors)*sizeof(cfl.zt *))
         if tensor_array is NULL:
             raise MemoryError("tensor_array alloc failed")
-        
+
         self.tensor_array = tensor_array
         for i,t in enumerate(tensors):
             tensor_array[i] = <cfl.zt *> PyCapsule_GetPointer(t.t_cap, "pycfl.Tensor")
 
-        # Allocate storage for zh. 
+        # Allocate storage for zh.
         self.cfl_zh = cfl.zh_alloc(n, self.nt, tensor_array)
         if self.cfl_zh is NULL:
             free(tensor_array)
@@ -467,17 +606,17 @@ cdef class Hamiltonian:
             raise ValueError("The index method is only available for Tensor type "\
                 "objects and tensor names (strings)")
 
-            
+
     cpdef set_coeff(self, coeff):
         r"""
-        Set the tensor coefficients. 
+        Set the tensor coefficients.
 
         Parameters
         ----------
         coeff : dict
             Must contain an element for each tensor specified when the
             Hamiltonian object was instantiated.  Keys have to be the same as
-            tensor names. 
+            tensor names.
         """
         cdef np.ndarray[double complex, ndim=1, mode='c'] co
 
@@ -494,12 +633,12 @@ cdef class Hamiltonian:
                 coeff_val = coeff[t.get_name()]
                 # Validate that coefficient is numeric (int, float, or complex)
                 if not isinstance(coeff_val, (int, float, complex, np.number)):
-                    raise TypeError("Coefficient for tensor '%s' must be numeric, got %s" % 
+                    raise TypeError("Coefficient for tensor '%s' must be numeric, got %s" %
                                     (t.get_name(), type(coeff_val).__name__))
                 self.coeff = np.append(self.coeff, coeff_val)
             except KeyError:
                 raise KeyError("Missing coefficient for tensor: %s" % t.get_name())
-       
+
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
 
@@ -509,21 +648,21 @@ cdef class Hamiltonian:
     cpdef update_coeff(self, coeff):
         r"""
         Update the tensor coefficients for a subset of tensors.  This method can
-        only be called after an initial set_coeff call has been made. 
+        only be called after an initial set_coeff call has been made.
 
         Parameters
         ----------
         coeff : dict
-            Keys have to be the same as tensor names. 
+            Keys have to be the same as tensor names.
         """
         cdef np.ndarray[double complex, ndim=1, mode='c'] co
-        
+
         if self.coeff_dict is None:
             raise ValueError("Hamiltonian must have coefficients set prior to call of" \
                     "update_coeff.")
         elif not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
-        
+
         # Note: coeff_dict may contain extra keys beyond self.tensors because
         # the same dict is often shared between multiple Hamiltonians built
         # from different tensor lists. set_coeff only reads the keys matching
@@ -535,7 +674,7 @@ cdef class Hamiltonian:
                 self.coeff = np.append(self.coeff, self.coeff_dict[t.get_name()])
             except KeyError:
                 raise KeyError("Tensor '%s' not found in coefficient dictionary" % t.get_name())
-        
+
         co = <np.ndarray[double complex, ndim=1, mode='c']> self.coeff
         cfl.zh_set_coeff(self.cfl_zh, &co[0])
 
@@ -545,20 +684,20 @@ cdef class Hamiltonian:
     @cython.boundscheck(False)
     cpdef diag(self):
         r"""
-        Diagonalize the Hamiltonian. 
+        Diagonalize the Hamiltonian.
 
         Returns
         -------
         (w, z) : tuple
             The eigenvalues and eigenvectors, respectively, of the diagonalized
-            Hamiltonian. 
+            Hamiltonian.
 
         """
         cdef cfl.zh *h = self.cfl_zh
         cdef cfl.zhd_w *hd_w
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] z
-        
+
         self.w = np.ascontiguousarray(np.zeros(self.n, dtype=np.float64))
         self.z = np.asfortranarray(np.zeros((self.n,self.n), dtype=np.complex128))
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w
@@ -571,46 +710,164 @@ cdef class Hamiltonian:
             free(self.tensor_array)
             cfl.zh_free(self.cfl_zh)
             raise MemoryError("hd_w alloc failed")
-        
+
         try:
             with nogil:
                 cfl.zhd('V', &w[0], &z[0,0], h, hd_w)
         finally:
             cfl.zhd_w_free(hd_w)
-        
+
         self.diag_run = 1
 
         return (w, z)
 
     def gen_summary(self, **kwargs):
         r"""
-        Generate an energy level summary resulting from a diagonalization. 
+        Generate an energy level summary resulting from a diagonalization.
+
+        Parameters
+        ----------
+        ex : np.ndarray or ExData, optional
+            Experimental energy level data to display alongside calculated levels.
+            Can be either a 2-column array [level_index, energy] or an ExData object.
+            Shows experimental values and differences for each level; displays "--"
+            for levels without assigned data.
+        nstates : int, optional
+            The number of constituent states to display for mixed states.
+            Default: 2.
+        max_levels : int, optional
+            Maximum number of energy levels to display (display only; does not affect
+            fitting statistics). Useful for systems with many levels where only the
+            first N are of interest. Default: None (display all levels).
+        chi2 : float, optional
+            The final chi2 value of the fit.
+        ndof : int, optional
+            The number of degrees of freedom of the fit; that is, the number of
+            observables minus the number of parameters. Required with chi2 to compute sigma.
+        weighting : float, optional
+            The weighting applied during the chi2 fit. Must be provided if ndof is set.
+        e_shift : bool, optional
+            Shift entire eigenvalue spectrum so that the first eigenvalue is zero.
+        minimum_q : int, optional
+            Smallest non-zero q value in the crystal field expansion. If set on the
+            Hamiltonian instance, it is automatically passed and adds mu/n columns
+            to the output.
+        half_integer_states : bool, optional
+            Whether m values are half-integers (for f-electrons). Automatically passed
+            from Hamiltonian instance if set.
+        multiplet_end_levels : list[int], optional
+            1-based inclusive end-level indices for user-defined multiplet blocks.
+            If set on the Hamiltonian instance via ``set_multiplet_end_levels()``,
+            it is automatically passed to ``gen_e_summary`` unless overridden here.
 
         Returns
         -------
-        ex : np.ndarray, optional
-            A 2 by m array, specifying the experimental energy levels, with m the
-            number of available experimental levels.  The first column specifies the
-            index of the corresponding entry in the complete eigenvalue vector, and
-            the second column contains the energy level values.
-        nstates : int, optional
-            The number of constituent states to display for mixed states.
-        chi2 : float, optional 
-            The final chi2 value of the fit. 
-        ndof : int, optional
-            The number of degrees of freedom of the fit; that is, the number of
-            observables minus the number of parameters.
-        weighting : float, optional
-            The weighting applied to during the chi2 fit.  This needs to be
-            provided if ndof is set.
-        e_shift : bool, optional
-            Shift entire eigenvalue spectrum s.t. the first eigenvalue is zero. 
+        str
+            Formatted energy level summary with state composition, calculated energies,
+            and optionally experimental data and fit statistics.
         """
         if self.diag_run:
+            if "h_label" not in kwargs and self.label is not None:
+                kwargs["h_label"] = self.label
+            # Pass minimum_q and half_integer_states if set on Hamiltonian
+            if self.minimum_q is not None and "minimum_q" not in kwargs:
+                kwargs["minimum_q"] = self.minimum_q
+            if "half_integer_states" not in kwargs:
+                kwargs["half_integer_states"] = self.half_integer_states
+            if self.multiplet_end_levels is not None and "multiplet_end_levels" not in kwargs:
+                kwargs["multiplet_end_levels"] = self.multiplet_end_levels
+            # Pass Hamiltonian for mu/n marker-column data processing
+            if "h" not in kwargs:
+                kwargs["h"] = self
             return gen_e_summary(self.w, self.z, self.tensors[0].states.labels,
                     self.tensors[0].states.label_key, **kwargs)
         else:
             raise ValueError("Hamiltonian must have run diag prior to summary generation.")
+
+    def set_multiplet_end_levels(self, end_levels):
+        r"""
+        Set user-defined multiplet boundaries for energy summary output.
+
+        Parameters
+        ----------
+        end_levels : sequence of int or None
+            1-based inclusive level indices marking the end of each multiplet.
+            Example: [3, 8, 15] creates blocks 1-3, 4-8, and 9-15.
+            Use None to clear boundaries.
+
+        Raises
+        ------
+        TypeError
+            If ``end_levels`` is not a sequence of integers.
+        ValueError
+            If any index is < 1, non-increasing, or duplicated.
+        """
+        if end_levels is None:
+            self.multiplet_end_levels = None
+            return None
+        if not isinstance(end_levels, (list, tuple, np.ndarray)):
+            raise TypeError("multiplet_end_levels must be a sequence of integers or None.")
+        levels = []
+        for x in end_levels:
+            if isinstance(x, (bool, np.bool_)) or not isinstance(x, (int, np.integer)):
+                raise TypeError("multiplet_end_levels must contain integer values.")
+            levels.append(int(x))
+        if any(x < 1 for x in levels):
+            raise ValueError("multiplet_end_levels entries must be >= 1 (1-based indices).")
+        if any(levels[i] <= levels[i - 1] for i in range(1, len(levels))):
+            raise ValueError("multiplet_end_levels must be strictly increasing with no duplicates.")
+        if any(x > self.n for x in levels):
+            raise ValueError("multiplet_end_levels entries must be <= number of Hamiltonian levels.")
+        self.multiplet_end_levels = levels
+        return None
+
+    def validate_mu_parameters(self) -> None:
+        r"""
+        Validate that mu/n fitting parameters are correctly configured.
+
+        This method checks that `minimum_q` and `half_integer_states` are properly
+        set before attempting to use (mu, n) experimental data format. Call this
+        before creating an :class:`EFit` with mu/n data to catch configuration
+        errors early with clear guidance.
+
+        Raises
+        ------
+        ValueError
+            If `minimum_q` is None (not set).
+        TypeError
+            If `half_integer_states` is not a bool.
+
+        Examples
+        --------
+        Validate before fitting with (mu, n) data:
+
+        .. code-block:: python
+
+            h = pycf.cfl.Hamiltonian(tensors)
+            h.minimum_q = 2              # Required: set smallest non-zero q
+            h.half_integer_states = True # f-electrons use True, d-electrons use False
+            h.set_coeff(coefficients)
+            h.diag()
+
+            # Optional: validate before using mu/n data
+            h.validate_mu_parameters()
+
+            # Now safe to fit with (mu, n) format
+            exdata = pycf.cfl.ExData((mu_n_pairs, energies),
+                                    key=('mu', 'n', 'energy'))
+            fit = pycf.cfl.EFit(h, exdata)
+        """
+        if self.minimum_q is None:
+            raise ValueError(
+                "Hamiltonian.minimum_q must be set before using (mu, n) fitting format. "
+                "Set it to the smallest non-zero q value in your crystal field expansion "
+                "(typically 2 for C20, C22 terms or 4 for higher-order expansions)."
+            )
+        if not isinstance(self.half_integer_states, bool):
+            raise TypeError(
+                f"Hamiltonian.half_integer_states must be a bool, got {type(self.half_integer_states).__name__}. "
+                "Set to True for f-electrons (half-integer m values) or False for integer m values."
+            )
 
 
 cpdef zeeman_sh_coeff(v, t):
@@ -639,10 +896,10 @@ cpdef zeeman_sh_coeff(v, t):
         raise TypeError("v must be a numpy.ndarray")
     if len(v) != 3:
         raise ValueError("v must have length 3 (B_x, B_y, B_z)")
-    
+
     if not isinstance(t, (list, tuple)) or len(t) != 3:
         raise ValueError("t must be a sequence of 3 matrices (J_x, J_y, J_z)")
-    
+
     for i, mat in enumerate(t):
         if not isinstance(mat, np.ndarray):
             raise TypeError("t[%d] must be a numpy.ndarray" % i)
@@ -650,7 +907,7 @@ cpdef zeeman_sh_coeff(v, t):
             raise ValueError("t[%d] must be 2-dimensional" % i)
         if mat.shape[0] != mat.shape[1]:
             raise ValueError("t[%d] must be square" % i)
-    
+
     # Verify all matrices have same dimensions
     tl = t[0].shape[0]
     for i in range(1, 3):
@@ -677,8 +934,8 @@ cpdef hyperfine_sh_coeff(t1, t2):
     S_b`, with `a,b \in \{x, y, z\}` and `j_1` and `j_2` the angular momentum of
     the rank one tensors `I` and `S`, respectively.  Here the rows enumerate the
     `(2j_1+1 \times 2j_2+1) \times (2j_1+1 \times 2j_2+1)` different state
-    combinations while the columns enumerate all combinations of `a` and `b`.  
-    
+    combinations while the columns enumerate all combinations of `a` and `b`.
+
     Parameters
     ----------
     t1 : list
@@ -711,13 +968,13 @@ cpdef hyperfine_sh_coeff(t1, t2):
 
 
 cpdef quadrupole_sh_coeff(t):
-    r""" 
+    r"""
     Generate the quadrupole interaction spin Hamiltonian 'coefficient array'.
     This consists of a `2j+1 \times 2j+1` by `3 \times 3` array containing the
     matrix elements of the operators `I_a I_b`, with `a,b \in \{x, y, z\}` and
     `j` the angular momentum of the rank one tensor `I`.  Here the rows
     enumerate the `2j+1 \times 2j+1` different state combinations while the
-    columns enumerate all combinations of `a` and `b`.  
+    columns enumerate all combinations of `a` and `b`.
 
     Parameters
     ----------
@@ -729,7 +986,7 @@ cpdef quadrupole_sh_coeff(t):
     result : numpy.ndarray
         A `2j+1 \times 2j+1` by `3 \times 3` array.
     """
-    
+
     tl = len(t[0])
     l = len(t)
     a = np.zeros([tl, tl, l, l], dtype = np.complex128)
@@ -749,7 +1006,7 @@ cpdef quadrupole_sh_coeff(t):
 cdef sh_hpro_helper(h, sh):
     """
     Add small magnetic field along z for state-label sorting if not already
-    present, and test whether a separate projection Hamiltonian is required. 
+    present, and test whether a separate projection Hamiltonian is required.
 
     Parameters
     ----------
@@ -769,7 +1026,7 @@ cdef sh_hpro_helper(h, sh):
             if t.get_name() == 'MAGZ':
                 magzs = 1e-6 * t
                 magzs.name = 'MAGZS'
-        
+
         # Fix: copy coeff_dict before modifying to avoid mutating the caller's dict.
         tmp_h_coeff = dict(h.coeff_dict)
         tmp_h_coeff['MAGZS'] = 1
@@ -777,7 +1034,7 @@ cdef sh_hpro_helper(h, sh):
             h_new = Hamiltonian([magzs] + h.tensors)
             h_new.set_coeff(tmp_h_coeff)
             h = h_new
-        except:
+        except Exception:
             # If new Hamiltonian creation fails, use original h
             h.update_coeff({'MAGZS' : 1})
             raise
@@ -787,7 +1044,7 @@ cdef sh_hpro_helper(h, sh):
     # Check whether the provided Hamiltonian contains spin Hamiltonian
     # interaction matrix elements, in which case we create a separate
     # Hamiltonian to perform the spin Hamiltonian projection which has these
-    # matrix elements removed.  
+    # matrix elements removed.
     pro_tensor_list = ['MAGX', 'MAGY', 'MAGZ', 'HYP', 'EQHYP']
     pro_h_tensors = []
     create_pro_h = False
@@ -801,7 +1058,7 @@ cdef sh_hpro_helper(h, sh):
         tmp_coeff = h.coeff_dict
         hpro = Hamiltonian(pro_h_tensors)
         hpro.set_coeff(tmp_coeff)
-    else: 
+    else:
         hpro = None
 
     return (h, hpro)
@@ -821,7 +1078,7 @@ cpdef sh_svd(m):
     """
     cdef cfl.svd_sym_w *work
     cdef np.ndarray[double, ndim=1, mode="c"] cm
-    
+
     if m.shape != (3,3):
         raise ValueError("m must be a 3 by 3 array.")
 
@@ -837,11 +1094,11 @@ cpdef sh_svd(m):
 
 
 cdef class SpinHamiltonian:
-    r""" 
+    r"""
     Abstraction for spin Hamiltonian data.  Objects of type SpinHamiltonian are
     used for calculating spin Hamiltonian parameters from crystal field
-    parameters in conjunction with :class:`Hamiltonian` objects.  
-    
+    parameters in conjunction with :class:`Hamiltonian` objects.
+
     The type of data that a SpinHamiltonian object represents depends on the
     specified interactions, but can be loosly thought of as the matrix elements
     of for all specified interactions; for Zeeman interactions, this will be
@@ -854,7 +1111,7 @@ cdef class SpinHamiltonian:
     interactions : list
         Elements are strings which specify the interactions of the spin
         Hamiltonian.  Possible values are: 'zeeman', 'hyperfine', and
-        'quadrupole'.  
+        'quadrupole'.
     level : int
         The level of the complete Hamiltonian for which to project the spin
         Hamiltonian; uses 1 as base index (ground state = 1).
@@ -873,7 +1130,7 @@ cdef class SpinHamiltonian:
     object : SpinHamiltonian
     """
     cdef cfl.zsh *cfl_zsh
-    cdef public list interactions 
+    cdef public list interactions
     cdef public list required_tensors
     cdef public int level
     cdef public int nsh
@@ -909,18 +1166,18 @@ cdef class SpinHamiltonian:
             self.kramers = int(kwargs['kramers'])
         else:
             self.kramers = 1
-        
+
         if 'level' not in kwargs:
             raise KeyError("SpinHamiltonian: missing keyword argument 'level'.")
         elif kwargs['level'] < 1:
             raise ValueError("level kwarg uses 1 base index.")
-        self.level = kwargs['level']-1  # we use zero base index internally. 
-           
+        self.level = kwargs['level']-1  # we use zero base index internally.
+
         # Calculate matrix elements for the specified interactions.
         j_l = ['jx', 'jy', 'jz']
         if self.kramers:
             if 'zeeman' in interactions or 'hyperfine' in interactions:
-                try: 
+                try:
                     self.Sz = kwargs['S']
                 except KeyError:
                     raise KeyError("SpinHamiltonian: missing keyword argument S.")
@@ -948,10 +1205,10 @@ cdef class SpinHamiltonian:
                 self.I_matel = [matel(j_l[i], self.Iz) for i in range(3)]
             else:
                 self.I_matel = None
-        
+
         # Calculate the coefficient arrays and alloc spin Hamiltonian.
         n_inter = len(interactions)
-       
+
         self.inter_array = <char **>malloc(n_inter*sizeof(char *))
         if self.inter_array == NULL:
             raise MemoryError("inter_array malloc failed")
@@ -959,7 +1216,7 @@ cdef class SpinHamiltonian:
         self.inv_data_ptrs = <double complex **>malloc(len(interactions)*sizeof(double complex *))
         if self.inv_data_ptrs == NULL:
             raise MemoryError("inv_data_ptrs malloc failed")
-        
+
         self.nsh = 0
         self.n_obs = 0
         self.required_tensors = []
@@ -991,14 +1248,14 @@ cdef class SpinHamiltonian:
                 # The ordering of I_matel and S_matel are such that Iz is the
                 # 'fast', that is the inner, index, while Sz is the 'slow', that
                 # is the outer, index.
-                self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.I_matel, self.S_matel), 
+                self.inv_data += [np.asfortranarray(hyperfine_sh_coeff(self.I_matel, self.S_matel),
                     dtype=np.complex128)]
                 self.nsh += 1
                 # Three hyperfine values plus three Euler rotation parameters.
                 self.n_obs += 6
                 self.required_tensors += ['HYP']
 
-            if inter == 'quadrupole': 
+            if inter == 'quadrupole':
                 self.dq = int(2*self.Iz+1)
                 self.inv_data += [np.asfortranarray(quadrupole_sh_coeff(self.I_matel), dtype=np.complex128)]
                 self.nsh += 1
@@ -1009,7 +1266,7 @@ cdef class SpinHamiltonian:
             a = <np.ndarray[double complex, ndim=2, mode='fortran']> self.inv_data[i]
             self.inv_data_ptrs[i] = &a[0,0]
             self.inter_array[i] = inter
-        
+
         csz = int(2*self.Sz)
         ciz = int(2*self.Iz)
         ckramers = int(self.kramers)
@@ -1067,10 +1324,10 @@ cdef class SpinHamiltonian:
                     "available for Tensor type objects and tensor names "\
                     "(strings)")
 
-    
+
     def set_pro_data(self, tensors, coupling_constants={}):
         r"""
-        Set the projection data for all spin Hamiltonian interactions. 
+        Set the projection data for all spin Hamiltonian interactions.
 
         Parameters
         ----------
@@ -1081,7 +1338,7 @@ cdef class SpinHamiltonian:
             'MAGZ' for Zeeman interactions; 'HYP' for hyperfine interactions;
             'EQHYP' for quadrupole interactions.  Finally, even if the
             SpinHamiltonian does not include Zeeman interactions the 'MAGZ'
-            tensor must be provided for state-label sorting. 
+            tensor must be provided for state-label sorting.
         coupling_constants : dict, optional
             If hyperfine or quadrupole interactions are present, this dictionary
             has to be provided, which specifies the nuclear dipole and nuclear
@@ -1102,15 +1359,15 @@ cdef class SpinHamiltonian:
         if tensors:
             nstates = tensors[0].n
             if self.level >= nstates:
-                raise ValueError("level parameter (%d) must be less than number of states (%d)" % 
+                raise ValueError("level parameter (%d) must be less than number of states (%d)" %
                                 (self.level + 1, nstates))
 
         t_array = <cfl.zt **>malloc(len(self.required_tensors)*sizeof(cfl.zt *))
         if t_array == NULL:
             raise MemoryError("t_array malloc failed")
-        
+
         # Ensure all tensors required for projecting the interactions of this
-        # spin Hamiltonian are provided. 
+        # spin Hamiltonian are provided.
         cc_list = []
         for i,rt in enumerate(self.required_tensors):
             try:
@@ -1131,17 +1388,17 @@ cdef class SpinHamiltonian:
                 except KeyError:
                     free(t_array)
                     raise KeyError("Missing the nuclear quadrupole coupling constant in set_pro_data call.")
-       
+
         self.coeff_dict = coupling_constants
         cc = np.array(cc_list, dtype=np.float64)
         if len(cc):
             ccptr = &cc[0]
-        else: 
+        else:
             ccptr = NULL
 
-        retval = zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"), 
+        retval = zsh_set_pro(<cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"),
                 t_array, self.level, ccptr)
-        
+
         free(t_array)
         if retval != 1:
             raise ValueError("zsh_set_pro failed.  See the cfl error message for details.")
@@ -1158,7 +1415,7 @@ cdef class SpinHamiltonian:
         Parameters
         ----------
         h : Hamiltonian
-            The corresponding crystal-field Hamiltonian. 
+            The corresponding crystal-field Hamiltonian.
         matel : bool, optional
             If true, a dictionary containing the spin Hamiltonian matrix
             elements is returned.
@@ -1172,7 +1429,7 @@ cdef class SpinHamiltonian:
         res : tuple
             If matel=False, a list of nd.arrays is returned.  These correspond
             to the spin Hamiltonian tensors of interactions specified when the
-            spin Hamiltonian object was instantiated. 
+            spin Hamiltonian object was instantiated.
         """
 
         cdef cfl.zshp_w *shp_w
@@ -1189,8 +1446,8 @@ cdef class SpinHamiltonian:
         (h, hpro) = sh_hpro_helper(h, self)
         if hpro is not None:
             h = hpro
-        
-        # Check whether to perform SVD symmeterization. 
+
+        # Check whether to perform SVD symmeterization.
         if svd_sym:
             svd = <char> 'S'
         else:
@@ -1200,7 +1457,7 @@ cdef class SpinHamiltonian:
         cz = <np.ndarray[double complex, ndim=2, mode="fortran"]> z
         shp_w = cfl.zshp_w_alloc(svd, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, "pycfl.SpinHamiltonian"))
         a = <np.ndarray[double, ndim=1, mode="c"]> np.zeros(9, dtype=np.float64)
-       
+
         result_list = []
         sh_matel = {}
         for i,inter in enumerate(self.interactions):
@@ -1216,10 +1473,10 @@ cdef class SpinHamiltonian:
 
             b = <np.ndarray[double complex, ndim=1, mode="c"]> np.zeros(d_inter, dtype=np.complex128)
 
-            cfl.zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap, 
+            cfl.zshp(&a[0], &b[0], &cz[0,0], i, <cfl.zsh *>PyCapsule_GetPointer(self.sh_cap,
                 "pycfl.SpinHamiltonian"), shp_w)
             result_list += [np.copy(a.reshape(3,3))]
-            
+
             if inter == 'zeeman':
                 sh_matel['magx'] = b[0:self.dz*self.dz].reshape(self.dz, self.dz)
                 sh_matel['magy'] = b[self.dz*self.dz:2*self.dz*self.dz].reshape(self.dz, self.dz)
@@ -1228,12 +1485,12 @@ cdef class SpinHamiltonian:
                 sh_matel['hyperfine'] = b.reshape(self.dh, self.dh)
             elif inter == 'quadrupole':
                 sh_matel['quadrupole'] = b.reshape(self.dq, self.dq)
-        
+
         cfl.zshp_w_free(shp_w)
-        
+
         # Set small magnetic field that was used for state-label sorting to
         # zero.
-        h.update_coeff({'MAGZS': 0}) 
+        h.update_coeff({'MAGZS': 0})
 
         if matel:
             return ((result_list, sh_matel))
@@ -1245,7 +1502,7 @@ cdef class ExData(object):
     r"""
     Experimental energy level data for Hamiltonians.  If both absolute and
     difference energy levels are present, then ex.e will be ordered such that
-    all absolute energy level values are before the difference energy levels. 
+    all absolute energy level values are before the difference energy levels.
 
     Parameters
     ----------
@@ -1255,36 +1512,39 @@ cdef class ExData(object):
         the second column containing the absolute experimental energy of the
         corresponding level.  If data is of type tuple each element must be a
         np.ndarray of type specified using the key argument.  Implemented types
-        are::
-            - Absolute energy level data with level index (default). 
-            - Difference energy level data with level index; np.ndarray must be
-              3 by n dimensions, where the first column specifies the initial
-              energy level index, the second column specifies the final energy
-              level index, and the third column corresponds to the energy
-              difference.
-            - Absolute energy level data with state label index; of dimension
-              m+1 by n, where m is the number of state labels.  The first m
-              elements are state labels in LS coupling with the type of label of
-              each element specified by the label_key argument.  The (m+1)th
-              entry contains the absolute experimental energy of the
-              corresponding level.
-            - Difference energy level data with state label index; of
-              dimension 2m+1 by n, where m is the number of state labels.  The
-              first m elements are state labels in LS coupling specifying the
-              initial energy level.  The next m elements are state labels in LS
-              coupling specifying the final energy level.  The final entry
-              corresponds to the energy difference.  The type of state label
-              elements are given by label_key.
+        are:
+
+        - Absolute energy level data with level index (default).
+        - Difference energy level data with level index; np.ndarray must be
+          3 by n dimensions, where the first column specifies the initial
+          energy level index, the second column specifies the final energy
+          level index, and the third column corresponds to the energy
+          difference.
+        - Absolute energy level data with state label index; of dimension
+          m+1 by n, where m is the number of state labels.  The first m
+          elements are state labels in LS coupling with the type of label of
+          each element specified by the label_key argument.  The (m+1)th
+          entry contains the absolute experimental energy of the
+          corresponding level.
+        - Difference energy level data with state label index; of
+          dimension 2m+1 by n, where m is the number of state labels.  The
+          first m elements are state labels in LS coupling specifying the
+          initial energy level.  The next m elements are state labels in LS
+          coupling specifying the final energy level.  The final entry
+          corresponds to the energy difference.  The type of state label
+          elements are given by label_key.
+
         Note: mixing level index data with state label index data is not
         supported.
     key : str or tuple, optional
         If data is of type np.ndarray this argument is optional; otherwise it
         must be specified and be of the same length as the data tuple.  This
-        argument is used to specify the type of data. Available keys are::
-            - 'A', absolute energy data with level index;
-            - 'D', difference energy data with level index;
-            - 'AS', absolute energy level data with state label index;
-            - 'DS', difference energy level data with state label index.
+        argument is used to specify the type of data. Available keys are:
+
+        - 'A', absolute energy data with level index;
+        - 'D', difference energy data with level index;
+        - 'AS', absolute energy level data with state label index;
+        - 'DS', difference energy level data with state label index.
     label_key : str, optional
         This argument is only required if experimental data with state label
         indices is to be used.  In this case, each element of label_key
@@ -1298,7 +1558,7 @@ cdef class ExData(object):
         allows finer control within the energy level data specific to a single
         Hamiltonian.  If it is a tuple, each element must be an np.ndarray with
         a one-to-one correspondence to the energy levels in provided via the
-        data parameter. 
+        data parameter.
     """
     cdef public int sl_index
     cdef public int n_obs
@@ -1315,18 +1575,60 @@ cdef class ExData(object):
     cdef public np.ndarray lah
     cdef public np.ndarray ildh
     cdef public np.ndarray fldh
+    # Storage for AMu/DMu raw data (not converted to level indices)
+    cdef public np.ndarray mu_n_abs
+    cdef public np.ndarray mu_n_diff
+    cdef public bint has_mu_n
+    # Tracking for marker-column mixed mu/lev data
+    cdef public list mu_row_indices
+    cdef public list mu_row_indices_d
+    cdef public np.ndarray _a_energies_marker
+    cdef public np.ndarray _d_energies_marker
     def __init__(self, data, key=None, label_key=None, weights=None):
         cdef np.ndarray[int, ndim=1, mode='c'] clabels
-        
-        if not (isinstance(data, np.ndarray) or isinstance(data, tuple)):
-            raise TypeError("The ex data argument must either be of type np.ndarray or " \
-                    "tuple, not %s." % type(data))
+
+        # Initialize mu_n attributes
+        self.has_mu_n = False
+        self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
+        self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
+        self.mu_row_indices = []
+        self.mu_row_indices_d = []
+        self._a_energies_marker = np.zeros(0, dtype=np.float64)
+        self._d_energies_marker = np.zeros(0, dtype=np.float64)
+
+        if not (isinstance(data, (np.ndarray, tuple, list))):
+            raise TypeError("The ex data argument must either be of type np.ndarray, tuple, or list, " \
+                    "not %s." % type(data))
+
+        # Convert single list to array with warning if rows have inconsistent length
+        if isinstance(data, list) and not all(isinstance(item, str) for item in data):
+            # It's a list of lists/rows, not a list of strings
+            # Check row consistency and warn if inconsistent
+            if data:
+                row_lengths = [len(row) if isinstance(row, (list, tuple)) else 1 for row in data]
+                if len(set(row_lengths)) > 1:
+                    import warnings
+                    warnings.warn(
+                        f"Data list has inconsistent row lengths {sorted(set(row_lengths))}. "
+                        "This will likely cause an error during processing. "
+                        "Please use consistent row lengths.",
+                        UserWarning
+                    )
+            data = np.array(data, dtype=object)
         if weights is None:
             if isinstance(data, np.ndarray):
                 weights = np.ones(data.shape[0], dtype=np.float64)
             else:
-                weights = (np.ones(data[0].shape[0], dtype=np.float64), 
-                        np.ones(data[1].shape[0], dtype=np.float64))
+                # Handle both 1-element and 2-element tuples
+                # Convert lists to get length (works for both lists and arrays)
+                def get_len(x):
+                    return len(x) if isinstance(x, list) else x.shape[0]
+
+                if len(data) == 1:
+                    weights = (np.ones(get_len(data[0]), dtype=np.float64),)
+                else:
+                    weights = (np.ones(get_len(data[0]), dtype=np.float64),
+                            np.ones(get_len(data[1]), dtype=np.float64))
         else:
             if isinstance(weights, np.ndarray):
                 if data.shape[0] != len(weights):
@@ -1341,25 +1643,22 @@ cdef class ExData(object):
         if isinstance(data, tuple):
             if key is None:
                 raise ValueError("Missing key argument; this must be specified if data is a tuple.")
-            elif len(data) != 2:
-                raise ValueError("The data argument can at most contain two elements; " \
-                        "one absolute energy array and one difference energy array.")
-            elif not all(isinstance(e, np.ndarray) for e in data):
-                raise TypeError("Elements of the data tuple must be of type np.ndarray.")
+            elif len(data) < 1 or len(data) > 2:
+                raise ValueError("The data argument must contain 1 or 2 elements.")
+            elif not all(isinstance(e, (np.ndarray, list)) for e in data):
+                raise TypeError("Elements of the data tuple must be of type np.ndarray or list.")
             elif not isinstance(key, tuple):
-                raise TypeError("If the data argument is a tuple with two " \
-                        "elements the key argument must also be a tuple with two elements.")
-            elif len(key) != 2:
-                raise ValueError("The key tuple must be the same length as the data tuple.")
+                raise TypeError("If the data argument is a tuple, the key argument must also be a tuple.")
+            elif len(key) != len(data):
+                raise ValueError("The key tuple must have the same length as the data tuple.")
             elif not all(isinstance(k, str) for k in key):
                 raise TypeError("Elements of the key tuple must be of type str.")
             elif not isinstance(weights, tuple):
                 raise TypeError("Weights must be of type tuple if data is specified as a tuple")
             elif not all(isinstance(e, np.ndarray) for e in weights):
                 raise TypeError("Elements of the weights tuple must be of type np.ndarray.")
-            elif len(weights) != 2:
-                raise ValueError("The weights argument can at most contain two elements; " \
-                        "one for the absolute energy array and one for the difference energy array.")
+            elif len(weights) != len(data):
+                raise ValueError("The weights argument must have the same length as the data tuple.")
         if key is not None:
             if not isinstance(key, tuple):
                 # A single key is provided; we therefore make both data and key
@@ -1368,42 +1667,82 @@ cdef class ExData(object):
                 key = [key]
                 data = [data]
                 weights = [weights]
-            
-            if any(d.ndim != 2 for d in data):
-                raise ValueError("All data arrays must be two dimensional.")
+
+            # Validate that all data is 2D (list of lists or ndarray with ndim==2)
+            for d in data:
+                if isinstance(d, np.ndarray):
+                    if d.ndim != 2:
+                        raise ValueError("All data arrays must be two dimensional.")
+                elif isinstance(d, list):
+                    # Lists should be list of lists (rows)
+                    if not d or not all(isinstance(row, (list, tuple)) for row in d):
+                        raise ValueError("All data arrays must be two dimensional.")
+                else:
+                    raise ValueError("Data must be numpy arrays or lists.")
+
+            # Convert lists to numpy arrays (warn on inconsistent rows, no padding here)
+            # BUT: Don't convert yet if this is marker-column mu/n format (it has special handling)
+            if label_key != "MuN":
+                converted_data = []
+                for i, d in enumerate(data):
+                    if isinstance(d, list):
+                        # Check if rows have consistent length - warn but don't pad
+                        if d:
+                            row_lengths = [len(row) if isinstance(row, (list, tuple)) else 1 for row in d]
+                            if len(set(row_lengths)) > 1:
+                                import warnings
+                                warnings.warn(
+                                    f"Data[{i}]: list of lists has inconsistent row lengths {sorted(set(row_lengths))}. "
+                                    "This may cause errors depending on the data format. "
+                                    "Please use consistent row lengths.",
+                                    UserWarning
+                                )
+                        # Convert to numpy array
+                        d = np.array(d, dtype=object)
+                    converted_data.append(d)
+                data = tuple(converted_data)
 
             for k in key:
                 if k == 'A' or k == 'D':
                     if 'AS' in key or 'DS' in key:
-                        raise ValueError("Mixed index and state level indices are " \
-                                "not supported; use either A and D, or AS and DS.")
+                        raise ValueError("Mixed data types are not supported; use either (A/D) or (AS/DS). " \
+                                "For marker-column mu/n data, use 'A' or 'D' with label_key='MuN'.")
                     self.sl_index = 0
                 else:
                     if 'A' in key or 'D' in key:
-                        raise ValueError("Mixed index and state level indices are " \
-                                "not supported; use either A and D, or AS and DS.")
-                    elif type(label_key) != str:
-                        raise TypeError("The label_key argument must be of type str and is " \
-                                "mandatory for state label indices.")
-                    self.sl_index = 1
+                        raise ValueError("Mixed data types are not supported; use either (A/D) or (AS/DS). " \
+                                "For marker-column mu/n data, use 'A' or 'D' with label_key='MuN'.")
+                    elif 'AS' in key or 'DS' in key:
+                        # SLJM-based state labels
+                        if type(label_key) != str:
+                            raise TypeError("The label_key argument must be of type str and is " \
+                                    "mandatory for state label indices.")
+                        self.sl_index = 1
+                    else:
+                        # Other state label types (shouldn't reach here currently)
+                        if type(label_key) != str:
+                            raise TypeError("The label_key argument must be of type str and is " \
+                                    "mandatory for state label indices.")
+                        self.sl_index = 1
 
                 if k not in ['A', 'D', 'AS', 'DS']:
-                    raise ValueError("Invalid key argument; allowed options are 'A', 'D', 'AS', and 'DS'.")
+                    raise ValueError("Invalid key argument; allowed options are 'A', 'D', 'AS', and 'DS'. " \
+                            "For marker-column mu/n data, use 'A' or 'D' with label_key='MuN'.")
         if isinstance(data, np.ndarray):
             if not data.shape[1] == 2:
                 raise ValueError("Incorrect ex data shape; expected a two column array.")
             # No energy level differences.
             self.n_a = data.shape[0]
             self.n_d = 0
-            
+
             self.e = np.ascontiguousarray(data[:, 1], dtype=np.float64)
             self.w = np.ascontiguousarray(weights, dtype=np.float64)
-            
+
             # Subtract one, since we need an index starting at zero, whereas ex
-            # levels start at 1. 
+            # levels start at 1.
             self.la = np.ascontiguousarray(data[:, 0]-1, dtype=np.int32)
 
-            
+
             if len(self.la) != len(set(self.la)):
                 raise ValueError("ex data contains duplicate absolute state label entries.")
         else:
@@ -1414,7 +1753,7 @@ cdef class ExData(object):
                     if data[key.index('AS')].shape[1] != ll + 1:
                         raise ValueError("The dimension of absolute energy level array " \
                                 "is inconsistent with the specified label_key.")
-                    
+
                     self.n_a = len(data[key.index('AS')])
                     self.a_states = np.zeros((self.n_a, ll), dtype=np.int32)
                     lah = np.zeros(self.n_a, dtype=np.int32)
@@ -1449,14 +1788,15 @@ cdef class ExData(object):
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
                     self.ildh = np.ascontiguousarray(ildh, dtype=np.int32)
                     self.fldh = np.ascontiguousarray(fldh, dtype=np.int32)
-                    
+
                 if len(key) == 2:
                     # Both abs. and diff. levels present; energies and weights
-                    # are stacked with all abs. values before the diff. values. 
-                    self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
-                        data[key.index('DS')][:, 2*ll])), dtype=np.float64)
-                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('AS')],
-                        weights[key.index('DS')])), dtype=np.float64)
+                    # are stacked with all abs. values before the diff. values.
+                    if 'AS' in key:
+                        self.e = np.ascontiguousarray(np.hstack((data[key.index('AS')][:, ll],
+                            data[key.index('DS')][:, 2*ll])), dtype=np.float64)
+                        self.w = np.ascontiguousarray(np.hstack((weights[key.index('AS')],
+                            weights[key.index('DS')])), dtype=np.float64)
 
                 elif key[0] == 'AS':
                     self.e = np.ascontiguousarray(data[key.index('AS')][:, ll], dtype=np.float64)
@@ -1468,12 +1808,203 @@ cdef class ExData(object):
                     self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
                     self.n_a = 0
                     self.la = np.zeros(0)
+
+            # Handle marker-column mu/n data with label_key="MuN"
+            elif label_key == "MuN":
+                # Marker-column format: first column is "mu" or "lev" string
+                self.has_mu_n = True
+
+                if 'A' in key:
+                    a_idx = key.index('A')
+                    a_data = data[a_idx]
+
+                    # Convert list to numpy array if needed (before processing)
+                    if isinstance(a_data, list):
+                        # Find max width across all rows
+                        max_cols = max(len(row) for row in a_data) if a_data else 0
+                        # Pad all rows to max width with None
+                        a_data = np.array([row + [None]*(max_cols-len(row)) for row in a_data], dtype=object)
+                        # Update data tuple with converted array
+                        data = list(data)
+                        data[a_idx] = a_data
+                        data = tuple(data)
+
+                    if a_data.shape[1] < 3:
+                        raise ValueError("A data with label_key='MuN' must have at least 3 columns "
+                                       "(marker, col, energy).")
+
+                    self.n_a = len(a_data)
+                    self.a_states = np.zeros(self.n_a, dtype=object)  # Store markers
+                    self.la = np.zeros(self.n_a, dtype=np.int32)
+                    a_energies = np.zeros(self.n_a, dtype=np.float64)
+
+                    # Separate mu and lev rows
+                    mu_rows = []
+                    self.mu_row_indices = []  # Track original row indices for mu rows
+                    for i in range(self.n_a):
+                        marker = str(a_data[i, 0])
+                        if marker not in ("mu", "lev"):
+                            raise ValueError(f"Invalid marker '{marker}' in row {i}; must be 'mu' or 'lev'.")
+                        self.a_states[i] = marker
+
+                        if marker == "mu":
+                            if a_data.shape[1] < 4:
+                                raise ValueError(f"'mu' row {i} must have at least 4 columns: (marker, mu, n, energy).")
+                            mu_rows.append(i)
+                            self.mu_row_indices.append(i)
+                            a_energies[i] = float(a_data[i, 3])
+                        elif marker == "lev":
+                            if a_data.shape[1] < 3:
+                                raise ValueError(f"'lev' row {i} must have at least 3 columns: (marker, level, energy).")
+                            # For 'lev' markers, determine if this is pure or mixed format per-row
+                            # Pure 'lev': ['lev', level, energy] (3 real columns, may be padded to 4 with None)
+                            # Mixed: ['lev', mu_ref, level, energy] (4 real columns with data)
+                            # Detect by checking if column 3 has data (not None)
+                            is_mixed = (a_data.shape[1] >= 4 and a_data[i, 3] is not None)
+                            level_col = 2 if is_mixed else 1
+                            energy_col = 3 if is_mixed else 2
+
+                            # Validate that we can actually access these columns
+                            if energy_col >= a_data.shape[1]:
+                                raise ValueError(f"'lev' row {i}: expected at least {energy_col+1} columns, got {a_data.shape[1]}")
+
+                            # Convert 1-based level to 0-based index
+                            level_val = a_data[i, level_col]
+                            if level_val is None:
+                                raise ValueError(f"'lev' row {i}: level at column {level_col} is None")
+                            level = int(level_val)
+                            if level < 1:
+                                raise ValueError(f"'lev' row {i}: level must be >= 1 (1-based), got {level}")
+                            self.la[i] = level - 1
+
+                            energy_val = a_data[i, energy_col]
+                            if energy_val is None:
+                                raise ValueError(f"'lev' row {i}: energy at column {energy_col} is None")
+                            a_energies[i] = float(energy_val)
+                    self._a_energies_marker = a_energies
+
+                    # Store mu/n data for rows that have it
+                    if mu_rows:
+                        self.mu_n_abs = np.ascontiguousarray(
+                            a_data[mu_rows, 1:3], dtype=np.float64
+                        )
+                    else:
+                        self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
+
+                if 'D' in key:
+                    d_idx = key.index('D')
+                    d_data = data[d_idx]
+
+                    # Convert list to numpy array if needed (before processing)
+                    if isinstance(d_data, list):
+                        # Find max width across all rows
+                        max_cols = max(len(row) for row in d_data) if d_data else 0
+                        # Pad all rows to max width with None
+                        d_data = np.array([row + [None]*(max_cols-len(row)) for row in d_data], dtype=object)
+                        # Update data tuple with converted array
+                        data = list(data)
+                        data[d_idx] = d_data
+                        data = tuple(data)
+
+                    if d_data.shape[1] < 4:
+                        raise ValueError("D data with label_key='MuN' must have at least 4 columns "
+                                       "(marker, col1, col2, energy).")
+
+                    self.n_d = len(d_data)
+                    self.id_states = np.zeros(self.n_d, dtype=object)  # Store markers
+                    self.ild = np.zeros(self.n_d, dtype=np.int32)
+                    self.fld = np.zeros(self.n_d, dtype=np.int32)
+                    d_energies = np.zeros(self.n_d, dtype=np.float64)
+
+                    # Separate mu and lev rows
+                    mu_rows = []
+                    self.mu_row_indices_d = []  # Track original row indices for mu rows
+                    for i in range(self.n_d):
+                        marker = str(d_data[i, 0])
+                        if marker not in ("mu", "lev"):
+                            raise ValueError(f"Invalid marker '{marker}' in row {i}; must be 'mu' or 'lev'.")
+                        self.id_states[i] = marker
+
+                        if marker == "mu":
+                            if d_data.shape[1] < 6:
+                                raise ValueError(f"'mu' row {i} must have at least 6 columns: "
+                                               "(marker, mu_i, n_i, mu_f, n_f, energy).")
+                            mu_rows.append(i)
+                            self.mu_row_indices_d.append(i)
+                            d_energies[i] = float(d_data[i, 5])
+                        elif marker == "lev":
+                            if d_data.shape[1] < 4:
+                                raise ValueError(f"'lev' row {i} must have at least 4 columns: "
+                                               "(marker, level_i, level_f, energy).")
+                            # For 'lev' markers, levels are in columns 1,2 if 4 columns, columns 2,3 if 5+ (mixed format)
+                            # Pure 'lev': ['lev', level_i, level_f, energy] (4 real columns, may be padded to 6 with None)
+                            # Mixed: ['lev', mu_ref, level_i, level_f, energy] (5 real columns, may be padded to 6 with None)
+                            # Detect by checking if column 4 has data (not None)
+                            is_mixed = (d_data.shape[1] >= 5 and d_data[i, 4] is not None)
+                            if is_mixed:
+                                # Mixed format with mu_ref in column 1
+                                level_i_col, level_f_col, energy_col = 2, 3, 4
+                            else:
+                                # Pure lev format
+                                level_i_col, level_f_col, energy_col = 1, 2, 3
+
+                            # Validate that we can access these columns
+                            if energy_col >= d_data.shape[1]:
+                                raise ValueError(f"'lev' row {i}: expected at least {energy_col+1} columns, got {d_data.shape[1]}")
+
+                            # Convert 1-based levels to 0-based indices
+                            level_i_val = d_data[i, level_i_col]
+                            level_f_val = d_data[i, level_f_col]
+                            if level_i_val is None or level_f_val is None:
+                                raise ValueError(f"'lev' row {i}: level at column {level_i_col} or {level_f_col} is None")
+                            level_i = int(level_i_val)
+                            level_f = int(level_f_val)
+                            if level_i < 1 or level_f < 1:
+                                raise ValueError(f"'lev' row {i}: levels must be >= 1 (1-based)")
+                            self.ild[i] = level_i - 1
+                            self.fld[i] = level_f - 1
+
+                            energy_val = d_data[i, energy_col]
+                            if energy_val is None:
+                                raise ValueError(f"'lev' row {i}: energy at column {energy_col} is None")
+                            d_energies[i] = float(energy_val)
+                    self._d_energies_marker = d_energies
+
+                    # Store mu/n data for rows that have it
+                    if mu_rows:
+                        self.mu_n_diff = np.ascontiguousarray(
+                            d_data[mu_rows, 1:5], dtype=np.float64
+                        )
+                    else:
+                        self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
+
+                # Stack energies and weights
+                if len(key) == 2:
+                    self.e = np.ascontiguousarray(np.hstack((self._a_energies_marker,
+                        self._d_energies_marker)), dtype=np.float64)
+                    self.w = np.ascontiguousarray(np.hstack((weights[key.index('A')],
+                        weights[key.index('D')])), dtype=np.float64)
+                elif key[0] == 'A':
+                    self.e = np.ascontiguousarray(self._a_energies_marker, dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('A')], dtype=np.float64)
+                    self.n_d = 0
+                    self.mu_n_diff = np.zeros((0, 4), dtype=np.float64)
+                elif key[0] == 'D':
+                    self.e = np.ascontiguousarray(self._d_energies_marker, dtype=np.float64)
+                    self.w = np.ascontiguousarray(weights[key.index('D')], dtype=np.float64)
+                    self.n_a = 0
+                    self.mu_n_abs = np.zeros((0, 2), dtype=np.float64)
+            elif 'AMu' in key or 'DMu' in key:
+                # Old AMu/DMu format is no longer supported
+                raise ValueError("The AMu/DMu format is deprecated. Use 'A' or 'D' mode with "
+                               "label_key='MuN' and marker columns ('mu'/'lev') instead. "
+                               "Example: exdata = cfl.ExData((mu_data, diff_data), ('A', 'D'), label_key='MuN')")
             else:
                 if 'A' in key:
                     if data[key.index('A')].shape[1] != 2:
                         raise ValueError("Incorrect ex data shape for absolute energies; " \
                                 "expected a two column array.")
-                    
+
                     self.n_a = len(data[key.index('A')])
                     self.la = np.ascontiguousarray(data[key.index('A')][:, 0]-1, dtype=np.int32)
                     if len(self.la) != len(set(self.la)):
@@ -1482,13 +2013,13 @@ cdef class ExData(object):
                     if data[key.index('D')].shape[1] != 3:
                         raise ValueError("Incorrect ex data shape for energy differences; " \
                                 "expected a three column array.")
-                    
+
                     self.n_d = len(data[key.index('D')])
                     self.ild = np.ascontiguousarray(data[key.index('D')][:, 0]-1, dtype=np.int32)
                     self.fld = np.ascontiguousarray(data[key.index('D')][:, 1]-1, dtype=np.int32)
                 if len(key) == 2:
                     # Both abs. and diff. levels present; energies and weights
-                    # are stacked with all abs. values before the diff. values. 
+                    # are stacked with all abs. values before the diff. values.
                     self.e = np.ascontiguousarray(np.hstack((data[key.index('A')][:, 1],
                         data[key.index('D')][:, 2])), dtype=np.float64)
                     self.w = np.ascontiguousarray(np.hstack((weights[key.index('A')],
@@ -1502,13 +2033,13 @@ cdef class ExData(object):
                     self.w = np.ascontiguousarray(weights[key.index('D')], dtype=np.float64)
                     self.n_a = 0
                     self.la = np.zeros(0)
-        
+
         self.n_obs = self.n_a + self.n_d
 
 
 cdef exdata_alloc_helper(ex, double weight=1.0):
     """
-    Takes care of creating the cfl.ex_data c struct and returns it via a PyCapsule. 
+    Takes care of creating the cfl.ex_data c struct and returns it via a PyCapsule.
 
     Parameters
     ----------
@@ -1531,7 +2062,7 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
     ex_data = <cfl.ex_data *>malloc(sizeof(cfl.ex_data))
     if ex_data == NULL:
         raise MemoryError("ex_data alloc failed")
-    
+
     ex_data.n_obs = ex.n_obs
     ex_data.n_a = ex.n_a
     ex_data.n_d = ex.n_d
@@ -1584,9 +2115,9 @@ cdef exdata_alloc_helper(ex, double weight=1.0):
         ex_data.lah = NULL
         ex_data.ildh = NULL
         ex_data.fldh = NULL
-   
+
     ex_data_cap = PyCapsule_New(<void *>ex_data, "pycfl.ExData", NULL)
-    
+
     # Return capsule and backing weight array together; caller must store
     # ex_w_np to prevent ex_data.w from becoming a dangling pointer.
     return (ex_data_cap, ex_w_np)
@@ -1602,30 +2133,354 @@ cdef set_param_helper(fit_obj):
         else:
             fit_obj.x0[ii] = fit_obj.coeff[p]
             ii += 1
-    
+
+
+def _x_to_coeff_dict(fit_obj, x):
+    """Convert a real-valued parameter vector to a coeff dict.
+
+    Splits each complex parameter back into a (Re, Im) pair following
+    the same indexing convention as ``set_param_helper`` (the inverse
+    operation).
+    """
+    coeff = {}
+    ii = 0
+    for p in fit_obj.parameters:
+        if fit_obj.param_types[p] == 'c':
+            coeff[p] = complex(float(x[ii]), float(x[ii + 1]))
+            ii += 2
+        else:
+            coeff[p] = float(x[ii])
+            ii += 1
+    return coeff
+
+
+def _fit_hamiltonians(fit_obj):
+    """Return the list of Hamiltonians a fit object owns."""
+    if hasattr(fit_obj, "h_list") and fit_obj.h_list is not None:
+        return list(fit_obj.h_list)
+    return [fit_obj.h]
+
+
+@contextmanager
+def _temporary_x(fit_obj, x):
+    """Temporarily set fit parameters to ``x``; restore on exit.
+
+    Round-trips both the Python state (``fit_obj.coeff``, ``fit_obj.x0``,
+    each Hamiltonian's ``coeff_dict``) and the C-side coefficients in
+    each Hamiltonian (via :py:meth:`Hamiltonian.update_coeff`) so that a
+    subsequent ``h.diag()`` evaluates at the perturbed point and the
+    original state is fully restored on context exit (even on
+    exceptions).
+    """
+    x_arr = np.asarray(x, dtype=np.float64)
+    if x_arr.shape != (fit_obj.n_p_real,):
+        raise ValueError(
+            "x must have shape (%d,); got shape %s" % (
+                fit_obj.n_p_real, x_arr.shape,
+            )
+        )
+    h_list = _fit_hamiltonians(fit_obj)
+    saved_coeff = copy.deepcopy(fit_obj.coeff)
+    saved_x0 = np.asarray(fit_obj.x0, dtype=np.float64).copy()
+    saved_h_coeffs = [copy.deepcopy(h.coeff_dict) for h in h_list]
+    new_coeff = _x_to_coeff_dict(fit_obj, x_arr)
+    try:
+        fit_obj.coeff.update(new_coeff)
+        np.asarray(fit_obj.x0)[:] = x_arr  # in-place; preserves buffer.
+        for h in h_list:
+            sub = {k: v for k, v in new_coeff.items() if k in h}
+            if sub:
+                h.update_coeff(sub)
+        yield
+    finally:
+        for h, saved in zip(h_list, saved_h_coeffs):
+            if saved is not None:
+                h.set_coeff(saved)
+        fit_obj.coeff.clear()
+        fit_obj.coeff.update(saved_coeff)
+        np.asarray(fit_obj.x0)[:] = saved_x0
+
+
+def _fd_jacobian_impl(fit_obj, x=None, *, delta=None,
+                      rel_delta=1e-5, atol=1e-8, check_swaps=True):
+    """Shared finite-difference Jacobian implementation.
+
+    Computes ``J_E`` (the unweighted energy Jacobian, see the project
+    plan section 5.3) by central differences, returning an
+    ``(n_obs, n_p_real)`` ``np.ndarray``.  ``check_swaps`` raises a
+    ``UserWarning`` for any column whose magnitude suggests an
+    eigenvalue swap across the FD step.
+
+    On exit the fit's parameter state matches its state on entry.
+    """
+    n_p = fit_obj.n_p_real
+    n_obs = fit_obj.n_obs
+    if x is None:
+        x_base = np.asarray(fit_obj.x0, dtype=np.float64).copy()
+    else:
+        x_base = np.asarray(x, dtype=np.float64).copy()
+    if x_base.shape != (n_p,):
+        raise ValueError(
+            "x must have shape (%d,); got shape %s" % (n_p, x_base.shape)
+        )
+
+    if delta is None:
+        delta_vec = np.maximum(rel_delta * np.abs(x_base), atol)
+    elif np.isscalar(delta):
+        delta_vec = np.full(n_p, float(delta), dtype=np.float64)
+    else:
+        delta_vec = np.asarray(delta, dtype=np.float64)
+        if delta_vec.shape != (n_p,):
+            raise ValueError(
+                "delta must be a scalar or shape (%d,) array; got %s" % (
+                    n_p, delta_vec.shape,
+                )
+            )
+    if np.any(delta_vec <= 0):
+        raise ValueError("All FD step sizes must be strictly positive")
+
+    # Capture the baseline calculated energies (used for the swap check).
+    with _temporary_x(fit_obj, x_base):
+        E_base = fit_obj.get_edata().arr["e_calc"].astype(np.float64, copy=True)
+
+    J = np.zeros((n_obs, n_p), dtype=np.float64)
+    # Single perturbation buffer reused across all parameters; the with-block
+    # in _temporary_x materialises fit state eagerly via _x_to_coeff_dict,
+    # so we may safely mutate x_pert between context exits.
+    x_pert = x_base.copy()
+    for alpha in range(n_p):
+        d = float(delta_vec[alpha])
+        x_pert[alpha] = x_base[alpha] + d
+        with _temporary_x(fit_obj, x_pert):
+            E_p = fit_obj.get_edata().arr["e_calc"]
+        x_pert[alpha] = x_base[alpha] - d
+        with _temporary_x(fit_obj, x_pert):
+            E_m = fit_obj.get_edata().arr["e_calc"]
+        x_pert[alpha] = x_base[alpha]
+        J[:, alpha] = (E_p - E_m) / (2.0 * d)
+
+    if check_swaps and n_obs > 0:
+        e_range = float(np.ptp(E_base)) if n_obs > 1 else 1.0
+        if e_range > 0.0:
+            for alpha in range(n_p):
+                col_max = float(np.max(np.abs(J[:, alpha]))) if n_obs > 0 else 0.0
+                if col_max * delta_vec[alpha] > 0.5 * e_range:
+                    warnings.warn(
+                        "fd_jacobian: column %d has max|J|*delta=%.3g, "
+                        "comparable to the energy spread (%.3g). This may "
+                        "indicate an eigenvalue swap or near-degeneracy "
+                        "across the FD step; consider reducing delta for "
+                        "this parameter." % (
+                            alpha, col_max * delta_vec[alpha], e_range,
+                        ),
+                        UserWarning,
+                        stacklevel=3,
+                    )
+
+    fit_obj.last_jacobian = J
+    return J
+
+
+def _covariance_impl(fit_obj, x=None, *, jacobian=None,
+                     scale="reduced_chi2", **fd_kwargs):
+    """Shared covariance implementation for EFit/MHFit.
+
+    Returns ``(cov, sigma, edata)`` where ``cov`` has shape
+    ``(n_p_real, n_p_real)``, ``sigma = sqrt(diag(cov))``, and ``edata``
+    is the :class:`EData` snapshot used to compute the residuals.
+    """
+    if scale not in ("reduced_chi2", "unscaled"):
+        raise ValueError(
+            "scale must be 'reduced_chi2' or 'unscaled', got %r" % (scale,))
+
+    if jacobian is None:
+        J = getattr(fit_obj, "last_jacobian", None)
+        if J is None or x is not None:
+            J = _fd_jacobian_impl(fit_obj, x=x, **fd_kwargs)
+    else:
+        J = np.ascontiguousarray(jacobian, dtype=np.float64)
+
+    # Snapshot edata at the requested x (or current state).
+    if x is None:
+        edata = fit_obj.get_edata()
+    else:
+        with _temporary_x(fit_obj, np.asarray(x, dtype=np.float64)):
+            edata = fit_obj.get_edata()
+
+    arr = edata.arr
+    weights = np.asarray(arr["weight"], dtype=np.float64)
+    n_obs = arr.shape[0]
+    n_p_real = J.shape[1]
+    if J.shape[0] != n_obs:
+        raise ValueError(
+            "Jacobian row count %d does not match n_obs=%d"
+            % (J.shape[0], n_obs))
+
+    JtWJ = J.T @ (weights[:, None] * J)
+    rank = np.linalg.matrix_rank(JtWJ)
+    if rank < n_p_real:
+        warnings.warn(
+            "Normal matrix is rank-deficient (rank %d < %d); "
+            "returning Moore-Penrose pseudo-inverse covariance."
+            % (rank, n_p_real),
+            UserWarning,
+            stacklevel=3,
+        )
+    N = np.linalg.pinv(JtWJ)
+
+    if scale == "unscaled":
+        cov = N
+    else:
+        chi2 = float(np.sum(np.asarray(arr["wresidual"]) ** 2))
+        ndof = max(n_obs - n_p_real, 1)
+        cov = (chi2 / ndof) * N
+
+    diag = np.diag(cov)
+    sigma = np.sqrt(np.where(diag > 0, diag, 0.0))
+    return cov, sigma, edata
+
+
+cdef void _update_exdata_mu_n_indices(ex, h, bint skip_diag=False):
+    """Shared helper: update ex.la and ex.ild/ex.fld for mu_n markers.
+
+    Recomputes eigenstate indices dynamically using mu_n_to_level, ensuring
+    fit and display use the same mapping. Used by consolidated Cython objectives
+    (mu_n_efit_obj and mu_n_mhfit_obj) when evaluating mu/n marker-column data.
+
+    Parameters
+    ----------
+    ex : ExData
+        Experimental data object with mu_n markers.
+    h : Hamiltonian
+        Hamiltonian instance with current coefficients.
+    skip_diag : bool
+        If True, assume h.diag() has already been called.
+    """
+    from .cfl_util import _build_mu_groups, _resolve_mu_n_to_levels
+
+    if not ex.has_mu_n:
+        return
+    has_a_mu = ex.mu_n_abs.shape[0] > 0
+    has_d_mu = (hasattr(ex, 'mu_n_diff')
+                and ex.mu_n_diff is not None
+                and ex.mu_n_diff.shape[0] > 0)
+    if not (has_a_mu or has_d_mu):
+        return
+
+    if not skip_diag:
+        h.diag()
+
+    # Build the (mu -> sorted levels) grouping once and reuse for all
+    # absolute and difference lookups; previously each call rebuilt it.
+    mu_to_levels = _build_mu_groups(h, h.minimum_q, h.half_integer_states)
+
+    if has_a_mu:
+        levels_1based = _resolve_mu_n_to_levels(mu_to_levels, ex.mu_n_abs)
+        for k, row in enumerate(ex.mu_row_indices):
+            ex.la[row] = int(levels_1based[k]) - 1
+
+    if has_d_mu:
+        ini_levels = _resolve_mu_n_to_levels(mu_to_levels, ex.mu_n_diff[:, :2])
+        fin_levels = _resolve_mu_n_to_levels(mu_to_levels, ex.mu_n_diff[:, 2:4])
+        for k, row in enumerate(ex.mu_row_indices_d):
+            ex.ild[row] = int(ini_levels[k]) - 1
+            ex.fld[row] = int(fin_levels[k]) - 1
+
+
+cdef double mu_n_efit_obj(
+    size_t n, double *x, double *grad, void *data
+) noexcept with gil:
+    """
+    Consolidated objective for EFit with marker-column mu/n data.
+
+    Optimized to minimize C↔Python boundary crossings:
+    1. Updates dynamic mu/n eigenstate indices via mu_n_to_level()
+    2. Computes chi² via compute_chi2_numpy()
+    3. Returns scalar to C minimize loop
+
+    All work stays in Python context (inside `with gil:` block), crossing
+    the boundary only ONCE per objective call instead of multiple times.
+
+    Thread-local lookup ensures thread-safe access to the current EFit instance.
+
+    Parameters
+    ----------
+    n : size_t
+        Size of parameter vector.
+    x : double *
+        Real-valued parameter vector.
+    grad : double *
+        Gradient vector (unused).
+    data : void *
+        Pointer to C efit_data struct (unused; chi² computed in Python).
+
+    Returns
+    -------
+    chi2 : double
+        Sum of squared, weighted residuals (computed via compute_chi2_numpy).
+    """
+    cdef double[::1] x_view
+    try:
+        # Retrieve EFit instance from thread-local storage
+        efit = getattr(_efit_current, 'obj', None)
+        if efit is None:
+            return float('inf')
+
+        # Extract coefficients from x vector and update.
+        # Pass the typed memoryview directly: _x_to_coeff_dict only needs
+        # x[i] -> float indexing, so we avoid an np.ndarray wrapper per call.
+        x_view = <double[:n]>x
+        new_coeff = _x_to_coeff_dict(efit, x_view)
+        efit.coeff.update(new_coeff)
+
+        # Set coefficients and diagonalize
+        efit.h.set_coeff(efit.coeff)
+        efit.h.diag()
+
+        # Update mu/n indices (single Python call, stays in Python context)
+        _update_exdata_mu_n_indices(efit.ex, efit.h, skip_diag=True)
+
+        # Compute chi² using vectorized NumPy (stays in Python context)
+        # This is the same logic used by display functions, ensuring
+        # fit and display share one source of truth for chi² calculation
+        chi2 = compute_chi2_numpy(efit)
+
+        return chi2
+    except BaseException as exc:
+        # noexcept Cython callbacks cannot propagate exceptions. Stash the
+        # first failure on the thread-local so EFit.fit() can re-raise it
+        # after the minimizer returns, and signal a very-bad chi² so the
+        # optimizer abandons this point quickly.
+        import traceback
+        traceback.print_exc()
+        if getattr(_efit_current, 'exception', None) is None:
+            _efit_current.exception = exc
+        return float('inf')
+
+
 cdef class EFit(object):
     r"""
     Class used to store data required by, and to run, a crystal field fit using
-    energy level data. 
+    energy level data.
 
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of each
     coefficient when they are set also determines whether that coefficient is
-    fit as real or complex parameter. 
+    fit as real or complex parameter.
 
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
+        A list of tensor objects for which to vary the prefactor.
     h : Hamiltonian
-        The Hamiltonian for which to fit the energy levels. 
+        The Hamiltonian for which to fit the energy levels.
     ex : np.ndarray or ExData
         Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
         former case, n is the number of energy levels, with the first column
         containing energy level indices starting at 1, and the second column
         containing the absolute experimental energy of the corresponding level.
         In order to specify energy level differences, or specify energies
-        according to their SLJM state labels, use the ExData interface. 
+        according to their SLJM state labels, use the ExData interface.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
@@ -1647,21 +2502,30 @@ cdef class EFit(object):
     cdef public object nls_f_cap
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
+    cdef public object last_jacobian
     cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.ex_data = NULL
+        self.param_array = NULL
+        self.efit_data = NULL
+        self.n_p = 0
     def __init__(self, parameters, h, ex, **kwargs):
         self.h = h
         self.n_p = len(parameters)
         self.parameters = parameters
-        
+
         if not all((isinstance(p, str) for p in parameters)):
             raise TypeError("Parameters must be strings of tensor names.")
-      
+
         # Create a local copy of coefficients for each parameter and an array of
-        # arrays specifying the parameters specific to each Hamiltonian. 
+        # arrays specifying the parameters specific to each Hamiltonian.
         if h.coeff_dict is None:
             raise ValueError("Hamiltonian must have coefficients set prior to efit.")
         else:
-            self.coeff = copy.deepcopy(h.coeff_dict)
+            self.coeff = {}
+            self.coeff.update(copy.deepcopy(h.coeff_dict))
 
         self.param_types = {}
         self.n_p_real = 0
@@ -1677,22 +2541,45 @@ cdef class EFit(object):
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-        
+
         # Parse the energy level data, if required.
         if not isinstance(ex, ExData):
             self.ex = ExData(ex)
         else:
             self.ex = ex
+
+        # Convert mu/n data to level indices if present
+        if self.ex.has_mu_n:
+            # Validate required parameters for mu/n fitting
+            if self.h.minimum_q is None:
+                raise ValueError(
+                    "Hamiltonian.minimum_q must be set before fitting with AMu/DMu data. "
+                    "Set it to the smallest non-zero q value in your expansion "
+                    "(typically 2 for C20/C22 terms).")
+            if not isinstance(self.h.half_integer_states, bool):
+                raise ValueError(
+                    "Hamiltonian.half_integer_states must be explicitly set to True or False "
+                    "before fitting with AMu/DMu data. "
+                    "Use True if m values are half-integers (e.g., f-electrons with J=5/2), "
+                    "False if m values are integers.")
+
+        # Note: mu/n conversion no longer happens here. Instead, it's computed dynamically
+        # in ex_parse_abs() and ex_parse_diff() every time they're called. This ensures that
+        # as Hamiltonian parameters change during fitting, the (mu,n) → eigenstate mapping
+        # is always recomputed, just like the state-label logic recomputes principal components.
+        # This is the correct approach: the mapping depends on the current Hamiltonian, so it
+        # cannot be cached.
+
         self.n_obs = self.ex.n_obs
-        
+
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of "\
                     " parameters, %i, exceeds the number of observables, %i." %
                     (self.n_p_real, self.n_obs))
-        
+
         cap, self._ex_w_backing = exdata_alloc_helper(self.ex)
         self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(cap, "pycfl.ExData")
-        
+
         # Weights array for GSL nonlinear least-squares; since individual energy
         # level weighting isn't really implemented, we could in principle forego
         # this alloc... but to make self.wts interoperable we just use ones.
@@ -1707,7 +2594,7 @@ cdef class EFit(object):
             # NULL self.ex_data so __dealloc__ does not double-free it.
             self.ex_data = NULL
             raise MemoryError("param_array alloc failed")
-        
+
         ii = 0
         for i,p in enumerate(parameters):
             param_array[i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
@@ -1722,7 +2609,7 @@ cdef class EFit(object):
                 # param_array instead to avoid leaking the outer array.
                 free(param_array)
                 raise MemoryError("param_array[{}] alloc failed".format(i))
-            
+
             param_array[i].type = ord(self.param_types[p])
             param_array[i].ci = h.index(p)
             param_array[i].xi = ii
@@ -1735,8 +2622,8 @@ cdef class EFit(object):
                 self.x0[ii] = self.coeff[p]
                 ii += 1
 
-        self.param_array = param_array 
-        
+        self.param_array = param_array
+
         if self.ex.sl_index:
             self.efit_data = cfl.efit_data_alloc('S', <cfl.zh *>PyCapsule_GetPointer(
                 h.h_cap, "pycfl.Hamiltonian"), self.ex_data, self.n_p, self.param_array);
@@ -1754,8 +2641,15 @@ cdef class EFit(object):
             raise MemoryError("efit_data_alloc failed")
 
         self.fit_data_cap = PyCapsule_New(<void *>self.efit_data, "pycfl.MinData", NULL)
-        self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
-        self.nls_f_cap = PyCapsule_New(<void *>&cfl.efit_nls, "pycfl.NlsObjF", NULL)
+        if self.ex.has_mu_n:
+            # Use consolidated Cython objective for mu/n marker-column data
+            # Optimized to minimize C↔Python boundary crossings
+            self.obj_f_cap = PyCapsule_New(
+                <void *>&mu_n_efit_obj, "pycfl.MinObjF", NULL)
+            self.nls_f_cap = None  # NLS not supported with mu/n (Python-computed chi²)
+        else:
+            self.obj_f_cap = PyCapsule_New(<void *>&cfl.efit_obj, "pycfl.MinObjF", NULL)
+            self.nls_f_cap = PyCapsule_New(<void *>&cfl.efit_nls, "pycfl.NlsObjF", NULL)
 
     def __dealloc__(self):
         if self.ex_data != NULL:
@@ -1770,7 +2664,7 @@ cdef class EFit(object):
     def __iter__(self):
         for p in self.parameters:
             yield p
-    
+
     def fit(self, min_object):
         r"""
         Run the fit using the provided minimization object.
@@ -1794,30 +2688,54 @@ cdef class EFit(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
 
-        fmin = min_object.minimize(self, x)
-        
+        # Store EFit in thread-local storage for mu/n wrapper objective
+        if self.ex.has_mu_n:
+            _efit_current.obj = self
+            _efit_current.exception = None
+
+        try:
+            fmin = min_object.minimize(self, x)
+        finally:
+            # Clean up thread-local storage
+            if self.ex.has_mu_n:
+                stashed = getattr(_efit_current, 'exception', None)
+                _efit_current.obj = None
+                _efit_current.exception = None
+                if stashed is not None:
+                    raise stashed
+
+        # If the minimiser produced a Jacobian (gsl_nls path), expose it
+        # for downstream callers (e.g. covariance helper).
+        if 'jac' in min_object.kwargs:
+            self.last_jacobian = np.array(min_object.kwargs['jac'], copy=True)
+
         coeff = self.coeff.copy()
         params = {}
         ri = 0
-        
+
         for p in self:
-            if (self.param_types[p] == 'c'): 
+            if (self.param_types[p] == 'c'):
                 params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
                 params[p] = x[ri]
                 ri += 1
-            
+
         chi2 = np.ascontiguousarray(np.zeros(1, dtype=np.float64))
+        _update_exdata_mu_n_indices(self.ex, self.h)
         cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
         self.chi2 = chi2
 
         return(params, fmin)
 
+    def _update_la_for_mu_n(self, skip_diag=False):
+        r"""Deprecated: use _update_exdata_mu_n_indices directly."""
+        _update_exdata_mu_n_indices(self.ex, self.h, skip_diag=skip_diag)
+
     @cython.boundscheck(False)
     def eval(self, coeff):
         r"""
-        Return chi2 obtained for the provided coefficients. 
+        Return chi2 obtained for the provided coefficients.
 
         Parameters
         ----------
@@ -1827,16 +2745,282 @@ cdef class EFit(object):
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        
+
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        
+
         chi2 = np.ascontiguousarray(np.zeros(1, dtype=np.float64))
+        _update_exdata_mu_n_indices(self.ex, self.h)
         with nogil:
             cfl.efit_chi2(&x[0], self.efit_data, &chi2[0])
-        
+
         return chi2
+
+    def get_edata(self):
+        r"""
+        Return an :class:`~pycf.cfl_util.EData` table describing this fit's
+        observations and the values currently produced by the Hamiltonian.
+
+        The Hamiltonian is (re-)diagonalised at its current coefficients so
+        that ``self.h.w`` matches the eigenvalues used to compute
+        ``e_calc`` for each row.  Row order matches the order in which the
+        C objective concatenates residuals: all ``'A'`` rows first, then
+        all ``'D'`` rows.
+
+        Returns
+        -------
+        edata : EData
+        """
+        self.h.diag()
+        return _build_edata_for_ex(self.h, self.ex, h_index=0)
+
+
+    def fd_jacobian(self, x=None, *, delta=None, rel_delta=1e-5,
+                    atol=1e-8, check_swaps=True):
+        r"""
+        Finite-difference energy Jacobian.
+
+        Computes :math:`J_E[i, \alpha] = \partial E_i / \partial x_\alpha`
+        by central differences, where :math:`E_i` is the calculated value
+        of the i-th row of :py:meth:`get_edata` (an eigenvalue for ``'A'``
+        rows or :math:`|\lambda_f - \lambda_i|` for ``'D'`` rows) and
+        :math:`x` is the real-valued parameter vector with the same
+        layout as :attr:`x0` (complex parameters split into Re/Im).
+
+        Parameters
+        ----------
+        x : array_like, optional
+            Parameter vector at which to evaluate the Jacobian.  Defaults
+            to the current :attr:`x0`.
+        delta : float or array_like, optional
+            Per-parameter FD step.  If ``None``, ``max(rel_delta * |x|,
+            atol)`` is used.
+        rel_delta : float, optional
+            Relative step used when ``delta`` is ``None``.
+        atol : float, optional
+            Minimum absolute step used when ``delta`` is ``None``.
+        check_swaps : bool, optional
+            Emit a :class:`UserWarning` for any column whose magnitude
+            suggests an eigenvalue swap or near-degeneracy across the
+            FD step.
+
+        Returns
+        -------
+        J : np.ndarray, shape ``(n_obs, n_p_real)``
+            The unweighted energy Jacobian.  Also stored on
+            :attr:`last_jacobian`.
+
+        Notes
+        -----
+        On exit the fit's parameter state matches its state on entry,
+        even if an exception is raised.  Cost is ``2 * n_p_real``
+        diagonalisations.
+        """
+        return _fd_jacobian_impl(self, x=x, delta=delta,
+                                 rel_delta=rel_delta, atol=atol,
+                                 check_swaps=check_swaps)
+
+    def covariance(self, x=None, *, jacobian=None,
+                   scale="reduced_chi2", **fd_kwargs):
+        r"""
+        Variance-covariance matrix for the real-valued parameter vector.
+
+        Builds :math:`N = (J_E^T W J_E)^+` (Moore-Penrose pseudo-inverse)
+        and applies the requested ``scale``:
+
+        - ``scale="unscaled"`` returns ``N`` directly (matches the GSL
+          ``gsl_multifit_nlinear_covar`` convention).
+        - ``scale="reduced_chi2"`` (default) returns
+          ``(chi2 / max(N_obs - M, 1)) * N`` where ``M = n_p_real``.
+
+        Parameters
+        ----------
+        x : array_like, optional
+            Parameter vector at which to evaluate.  Defaults to the
+            current ``x0``.  If supplied, a fresh FD Jacobian is
+            computed at ``x`` (ignoring any cached ``last_jacobian``).
+        jacobian : array_like, optional
+            Pre-computed energy Jacobian of shape ``(n_obs, n_p_real)``.
+            If omitted, ``self.last_jacobian`` is used when available
+            and ``x is None``; otherwise an FD Jacobian is computed.
+        scale : {"reduced_chi2", "unscaled"}, optional
+            Scaling convention.
+        **fd_kwargs
+            Forwarded to :py:meth:`fd_jacobian` when an FD Jacobian is
+            computed.
+
+        Returns
+        -------
+        cov : np.ndarray, shape ``(n_p_real, n_p_real)``
+        sigma : np.ndarray, shape ``(n_p_real,)``
+            ``sqrt(diag(cov))`` (clipped at 0).
+        edata : EData
+            Snapshot used to weight the normal matrix.
+        """
+        return _covariance_impl(self, x=x, jacobian=jacobian,
+                                scale=scale, **fd_kwargs)
+
+
+cdef _build_edata_for_ex(Hamiltonian h, ExData ex, int h_index, double h_weight=1.0):
+    """Construct an EData table for a single (Hamiltonian, ExData) pair.
+
+    Assumes ``h.diag()`` has already populated ``h.w`` and ``h.z``.
+    ``h_weight`` is the per-Hamiltonian scalar weight used by MHFit
+    (default 1.0 for EFit); the C side bakes ``ex.w * h_weight`` into
+    the value it squares, so we mirror that here so that
+    ``EData.chi2()`` matches the C objective.
+
+    For ``sl_index == 0`` ExData the level indices ``ex.la``/
+    ``ex.ild``/``ex.fld`` are taken directly.  For ``sl_index == 1``
+    ExData (``'AS'``/``'DS'`` modes), the matching mirrors the C
+    routine ``find_sort_indices`` (cfl_h_fit.c:702): for each
+    eigenvector the principal-component basis state is identified, and
+    the requested state label is matched against those basis labels.
+    The implementation reuses :py:func:`pycf.cfl_util.ex_parse_abs`
+    and :py:func:`pycf.cfl_util.ex_parse_diff` which already encode
+    that same logic in NumPy.
+    """
+    cdef np.ndarray w = h.w
+    n_a = ex.n_a
+    n_d = ex.n_d
+    n_obs = ex.n_obs
+    label = h.label if h.label is not None else "H[%d]" % h_index
+
+    arr = np.zeros(n_obs, dtype=EData.DTYPE)
+    arr["h_index"] = h_index
+    arr["h_label"] = label
+
+    if ex.sl_index:
+        # State-label-indexed observations; resolve level indices via
+        # principal-component matching.
+        labels = h.tensors[0].states.labels
+        a_kind = "AS"
+        d_kind = "DS"
+        if n_a > 0:
+            parsed_a = ex_parse_abs(ex, h.z, labels)
+            la = np.asarray(parsed_a[:, 0], dtype=np.int64)
+        else:
+            la = np.empty(0, dtype=np.int64)
+        if n_d > 0:
+            parsed_d = ex_parse_diff(ex, h.z, labels)
+            ild = np.asarray(parsed_d[:, 0], dtype=np.int64)
+            fld = np.asarray(parsed_d[:, 1], dtype=np.int64)
+        else:
+            ild = np.empty(0, dtype=np.int64)
+            fld = np.empty(0, dtype=np.int64)
+    else:
+        a_kind = "A"
+        d_kind = "D"
+        la = np.asarray(ex.la, dtype=np.int64) if n_a > 0 else np.empty(0, dtype=np.int64)
+        ild = np.asarray(ex.ild, dtype=np.int64) if n_d > 0 else np.empty(0, dtype=np.int64)
+        fld = np.asarray(ex.fld, dtype=np.int64) if n_d > 0 else np.empty(0, dtype=np.int64)
+
+    # Absolute rows: indices 0 .. n_a-1 in the residual vector.
+    if n_a > 0:
+        arr["kind"][:n_a] = a_kind
+        arr["i_lo"][:n_a] = la + 1
+        arr["i_hi"][:n_a] = 0
+        arr["e_calc"][:n_a] = w[la]
+
+    # Difference rows: indices n_a .. n_a+n_d-1.
+    if n_d > 0:
+        sl = slice(n_a, n_a + n_d)
+        arr["kind"][sl] = d_kind
+        arr["i_lo"][sl] = ild + 1
+        arr["i_hi"][sl] = fld + 1
+        # Match the C objective's fabs(...) (see cfl_h_fit.c:661,1112).
+        arr["e_calc"][sl] = np.abs(w[fld] - w[ild])
+
+    arr["e_obs"][:] = np.asarray(ex.e, dtype=np.float64)[:n_obs]
+    arr["weight"][:] = np.asarray(ex.w, dtype=np.float64)[:n_obs] * h_weight
+    arr["residual"][:] = arr["e_calc"] - arr["e_obs"]
+    arr["wresidual"][:] = np.sqrt(arr["weight"]) * arr["residual"]
+
+    return EData(arr)
+
+
+cdef double mu_n_mhfit_obj(
+    size_t n, double *x, double *grad, void *data
+) noexcept with gil:
+    """
+    Consolidated objective for MHFit with marker-column mu/n data.
+
+    Optimized to minimize C↔Python boundary crossings:
+    1. Updates dynamic mu/n eigenstate indices for each Hamiltonian
+    2. Computes chi² across all Hamiltonians via compute_chi2_numpy()
+    3. Returns scalar to C minimize loop
+
+    All work stays in Python context (inside `with gil:` block), crossing
+    the boundary only ONCE per objective call instead of multiple times.
+
+    Thread-local lookup ensures thread-safe access to the current MHFit instance.
+
+    Parameters
+    ----------
+    n : size_t
+        Size of parameter vector.
+    x : double *
+        Real-valued parameter vector.
+    grad : double *
+        Gradient vector (unused).
+    data : void *
+        Pointer to C mhfit_data struct (unused; chi² computed in Python).
+
+    Returns
+    -------
+    chi2 : double
+        Sum of squared, weighted residuals across all Hamiltonians.
+    """
+    cdef Py_ssize_t i
+    cdef double[::1] x_view
+
+    try:
+        # Retrieve MHFit instance from thread-local storage
+        mhfit = getattr(_mhfit_current, 'obj', None)
+        if mhfit is None:
+            return float('inf')
+
+        # Extract coefficients from x vector.
+        # Pass the typed memoryview directly: _x_to_coeff_dict only needs
+        # x[i] -> float indexing, so we avoid an np.ndarray wrapper per call.
+        x_view = <double[:n]>x
+        new_coeff = _x_to_coeff_dict(mhfit, x_view)
+        mhfit.coeff.update(new_coeff)
+
+        # Update each Hamiltonian: set coefficients, diagonalize, update mu/n indices
+        for i in range(mhfit.n_h):
+            h = mhfit.h_list[i]
+            ex = mhfit.ex_list[i]
+
+            # Set this H's coefficients and diagonalize
+            h.set_coeff(mhfit.coeff)
+            h.diag()
+
+            # Update dynamic mu/n indices for this H (only if has_mu_n)
+            _update_exdata_mu_n_indices(ex, h, skip_diag=True)
+
+        # Compute chi² across all Hamiltonians using vectorized NumPy
+        # This is the same logic used by display functions, ensuring
+        # fit and display share one source of truth for chi² calculation
+        total_chi2 = 0.0
+        temp = _ChiCtx()
+        for i in range(mhfit.n_h):
+            temp.h = mhfit.h_list[i]
+            temp.ex = mhfit.ex_list[i]
+            total_chi2 += compute_chi2_numpy(temp)
+
+        return total_chi2
+    except BaseException as exc:
+        # noexcept Cython callbacks cannot propagate exceptions. Stash the
+        # first failure on the thread-local so MHFit.fit() can re-raise it
+        # after the minimizer returns, and signal a very-bad chi² so the
+        # optimizer abandons this point quickly.
+        import traceback
+        traceback.print_exc()
+        if getattr(_mhfit_current, 'exception', None) is None:
+            _mhfit_current.exception = exc
+        return float('inf')
 
 
 cdef class MHFit(object):
@@ -1847,18 +3031,18 @@ cdef class MHFit(object):
     set of Hamiltonians at linearly independent magnetic field orientations and
     possibly containing hyperfine interactions.  The associated additional
     eigenvalues can either be measured or synthetically calculated for specific
-    crystal field levels from spin Hamiltonian data.  
+    crystal field levels from spin Hamiltonian data.
 
     The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of each
     coefficient when they are set also determines whether that coefficient is
     fit as real or complex parameter, thus they must be consistent among each
-    Hamiltonian.  
+    Hamiltonian.
 
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
+        A list of tensor objects for which to vary the prefactor.
     h_list : list
         A list of Hamiltonians, each containing the interactions required to
         match the corresponding experimental energy level data.
@@ -1872,12 +3056,12 @@ cdef class MHFit(object):
         1, and the second column containing the absolute experimental energy of
         the corresponding level.  In order to specify energy level differences,
         or specify energies according to their SLJM state labels, use the ExData
-        interface. 
+        interface.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
     """
-    cdef int n_h
+    cdef public int n_h
     cdef public Hamiltonian h
     cdef public dict coeff
     cdef public list h_list
@@ -1886,10 +3070,10 @@ cdef class MHFit(object):
     cdef public int n_p_real
     cdef public int n_obs
     cdef public dict param_types
-    cdef list h_param_list
+    cdef public list h_param_list
     cdef cfl.zh **ha
     cdef cfl.ex_data **ex_data
-    cdef list ex_list
+    cdef public list ex_list
     cdef np.ndarray n_zx
     cdef cfl.param_type ***param_arrays
     cdef public np.ndarray x0
@@ -1901,7 +3085,18 @@ cdef class MHFit(object):
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
     cdef public list weights_list
+    cdef public object last_jacobian
+    cdef public bint has_mu_n
     cdef list _ex_w_backing     # keeps each ex_data.w buffer alive (see exdata_alloc_helper)
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.ha = NULL
+        self.ex_data = NULL
+        self.param_arrays = NULL
+        self.mhfit_data = NULL
+        self.n_h = 0
+        self.n_p = 0
     def __init__(self, parameters, h_list, weights_list, ex_list, **kwargs):
         cdef np.ndarray[int, ndim=1, mode="c"] n_zx
         cdef np.ndarray[char, ndim=1, mode="c"] job_a
@@ -1911,10 +3106,10 @@ cdef class MHFit(object):
         self.h_list = h_list
         self.parameters = parameters
         self.weights_list = weights_list
-        
+
         if not all((isinstance(p, str) for p in parameters)):
             raise TypeError("Parameters must be strings of tensor names.")
-      
+
         self.coeff = {}                                # Local copy of all coefficients of any H/SH.
         h_param_list = []                              # Array of arrays specifying parameters of each H.
         self.n_zx = np.empty(self.n_h, dtype=np.int32) # Number of complex valued params for each Hamiltonian
@@ -1925,10 +3120,10 @@ cdef class MHFit(object):
                 self.coeff.update(copy.deepcopy(h.coeff_dict))
             h_param_list += [[p for p in parameters if p in h]]
             self.n_zx[i] = len(h_param_list[i])
-        
+
         self.h_param_list = h_param_list
 
-        # Create cython copy for passing to c func call. 
+        # Create cython copy for passing to c func call.
         n_zx = <np.ndarray[int, ndim=1, mode="c"]> self.n_zx
 
         self.param_types = {}       # The type of each parameter (real, complex, or imag).
@@ -1947,8 +3142,8 @@ cdef class MHFit(object):
                 x0_index[p] = self.n_p_real
                 self.param_types[p] = "r"
                 self.n_p_real += 1
-        
-        # Parse the energy level data. 
+
+        # Parse the energy level data.
         self.n_obs = 0
         self.ex_list = []
         if (len(ex_list) != self.n_h):
@@ -1963,7 +3158,7 @@ cdef class MHFit(object):
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-        
+
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
             raise ValueError("The total (real and imaginary) number of \
                     parameters, %i, exceeds the number of observables, %i." %
@@ -1975,7 +3170,7 @@ cdef class MHFit(object):
         # weighting on top.  Pass unit weights to gsl_multifit_nlinear_winit so
         # that it minimises sum(y_i^2) = echisq without double-counting.
         self.wts = np.ones(self.n_obs, dtype=np.float64)
-        
+
         # Hamiltonian array
         self.ha = <cfl.zh **>malloc(self.n_h*sizeof(cfl.zh *))
         if self.ha == NULL:
@@ -1989,7 +3184,7 @@ cdef class MHFit(object):
             # NULL self.ha so __dealloc__ does not attempt a second free.
             self.ha = NULL
             raise MemoryError("exa alloc failed")
-        
+
         self._ex_w_backing = []
         for i in range(self.n_h):
             try:
@@ -2005,7 +3200,7 @@ cdef class MHFit(object):
                 self.ex_data = NULL
                 self.ha = NULL
                 raise
-        
+
         # Prepare array of pointers to parameter data structs.
         param_arrays = <cfl.param_type ***>malloc(self.n_h*sizeof(cfl.param_type **))
         if param_arrays == NULL:
@@ -2032,7 +3227,7 @@ cdef class MHFit(object):
                 self.ex_data = NULL
                 self.ha = NULL
                 raise MemoryError("param_arrays[{}] alloc failed".format(i))
-       
+
         for hi,h in enumerate(h_list):
             for i,p in enumerate(h_param_list[hi]):
                 param_arrays[hi][i] = <cfl.param_type *> malloc(sizeof(cfl.param_type))
@@ -2054,13 +3249,13 @@ cdef class MHFit(object):
                     self.ex_data = NULL
                     self.ha = NULL
                     raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
-                
+
                 param_arrays[hi][i].type = ord(self.param_types[p])
                 param_arrays[hi][i].ci = h_list[hi].index(p)
                 param_arrays[hi][i].xi = x0_index[p]
-        
+
         self.param_arrays = param_arrays
-        
+
         # Set initial values.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         set_param_helper(self)
@@ -2072,7 +3267,7 @@ cdef class MHFit(object):
             else:
                 self.job_a[i] = 'N'
         job_a = self.job_a
-        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, self.ex_data, 
+        self.mhfit_data = mhfit_data_alloc(&job_a[0], self.n_h, self.ha, self.ex_data,
                 &n_zx[0], self.param_arrays)
         if self.mhfit_data is NULL:
             for hi in range(self.n_h):
@@ -2090,10 +3285,19 @@ cdef class MHFit(object):
             self.ex_data = NULL
             self.ha = NULL
             raise MemoryError("mhfit_data_alloc failed")
-        
+
         self.fit_data_cap = PyCapsule_New(<void *>self.mhfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.mhfit_obj, "pycfl.MinObjF", NULL)
         self.nls_f_cap = PyCapsule_New(<void *>&cfl.mhfit_nls, "pycfl.NlsObjF", NULL)
+
+        # If any Hamiltonian uses marker-column mu/n data, swap objective to consolidated Cython version.
+        # The objective uses thread-local storage to access this MHFit instance and
+        # updates dynamic mu/n indices during minimization, while computing chi² in Python
+        # to minimize C↔Python boundary crossings. (Non-mu/n fits use C objective directly with zero overhead.)
+        self.has_mu_n = any(ex.has_mu_n for ex in self.ex_list)
+        if self.has_mu_n:
+            self.obj_f_cap = PyCapsule_New(<void *>&mu_n_mhfit_obj, "pycfl.MinObjF", NULL)
+            self.nls_f_cap = None  # NLS not supported with mu/n (Python-computed chi²)
 
     def __dealloc__(self):
         if self.ha != NULL:
@@ -2116,7 +3320,7 @@ cdef class MHFit(object):
     def __iter__(self):
         for p in self.parameters:
             yield p
-    
+
     def fit(self, min_object):
         r"""
         Run the fit using the provided minimization object.
@@ -2139,20 +3343,37 @@ cdef class MHFit(object):
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        
-        fmin = min_object.minimize(self, x)
-        
+
+        # If using mu/n wrapper, store this MHFit in thread-local storage
+        # so the C callback can access it
+        if self.has_mu_n:
+            _mhfit_current.obj = self
+            _mhfit_current.exception = None
+            try:
+                fmin = min_object.minimize(self, x)
+            finally:
+                stashed = getattr(_mhfit_current, 'exception', None)
+                _mhfit_current.obj = None
+                _mhfit_current.exception = None
+                if stashed is not None:
+                    raise stashed
+        else:
+            fmin = min_object.minimize(self, x)
+
+        if 'jac' in min_object.kwargs:
+            self.last_jacobian = np.array(min_object.kwargs['jac'], copy=True)
+
         params = {}
         ri = 0
-        
+
         for p in self:
-            if (self.param_types[p] == 'c'): 
+            if (self.param_types[p] == 'c'):
                 params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
                 params[p] = x[ri]
                 ri += 1
-        
+
         chi2 = np.ascontiguousarray(np.zeros(self.n_h, dtype=np.float64))
         cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
         self.chi2 = chi2
@@ -2162,7 +3383,7 @@ cdef class MHFit(object):
     @cython.boundscheck(False)
     def eval(self, coeff):
         r"""
-        Return chi2 obtained for the provided coefficients. 
+        Return chi2 obtained for the provided coefficients.
 
         Parameters
         ----------
@@ -2172,26 +3393,104 @@ cdef class MHFit(object):
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        
+
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        
+
         chi2 = np.ascontiguousarray(np.zeros(self.n_h, dtype=np.float64))
         with nogil:
             cfl.mhfit_chi2(&x[0], self.mhfit_data, &chi2[0])
-        
+
         return chi2
+
+    def get_edata(self):
+        r"""
+        Return an :class:`~pycf.cfl_util.EData` table aggregating the
+        observations of every Hamiltonian in this fit.
+
+        Each Hamiltonian is (re-)diagonalised at its current coefficients
+        and rows are concatenated in fit-evaluation order
+        ``(h_list[0], h_list[1], ...)``, with each Hamiltonian's rows in
+        the same internal order produced by :py:meth:`EFit.get_edata`
+        (all ``'A'`` rows then all ``'D'`` rows).  Row index in the
+        returned table aligns with column index of the residual vector
+        the C minimiser sees, which is also the column index of the
+        Jacobian.
+
+        The per-Hamiltonian scalar weight passed in ``weights_list`` is
+        applied to each row's ``weight`` field so that
+        ``EData.chi2()`` matches the value the C objective squares.
+        (Internally, the C side bakes that scalar into the ``ex_data.w``
+        buffer it reads, while the Python ``ExData.w`` attribute keeps
+        the original per-level weights.)
+
+        Returns
+        -------
+        edata : EData
+        """
+        parts = []
+        for i, h in enumerate(self.h_list):
+            h.diag()
+            parts.append(
+                _build_edata_for_ex(
+                    h, self.ex_list[i], h_index=i,
+                    h_weight=float(self.weights_list[i]),
+                ).arr
+            )
+
+        if len(parts) == 0:
+            return EData.empty(0)
+        return EData(np.concatenate(parts))
+
+
+    def fd_jacobian(self, x=None, *, delta=None, rel_delta=1e-5,
+                    atol=1e-8, check_swaps=True):
+        r"""
+        Finite-difference energy Jacobian for a multi-Hamiltonian fit.
+
+        Computes :math:`J_E[i, \alpha] = \partial E_i / \partial x_\alpha`
+        by central differences across all Hamiltonians.  Row order
+        matches :py:meth:`get_edata`; ``x`` and the column order match
+        :attr:`x0`.  See :py:meth:`EFit.fd_jacobian` for parameter
+        details.
+
+        Returns
+        -------
+        J : np.ndarray, shape ``(n_obs, n_p_real)``
+            The unweighted energy Jacobian.  Also stored on
+            :attr:`last_jacobian`.
+
+        Notes
+        -----
+        On exit the fit's parameter state matches its state on entry.
+        Cost is ``2 * n_p_real`` diagonalisations of every Hamiltonian.
+        """
+        return _fd_jacobian_impl(self, x=x, delta=delta,
+                                 rel_delta=rel_delta, atol=atol,
+                                 check_swaps=check_swaps)
+
+    def covariance(self, x=None, *, jacobian=None,
+                   scale="reduced_chi2", **fd_kwargs):
+        r"""
+        Variance-covariance matrix for the real-valued parameter vector.
+
+        See :py:meth:`EFit.covariance` for the convention; for ``MHFit``
+        the Jacobian rows correspond to the concatenated per-Hamiltonian
+        observation list returned by :py:meth:`get_edata`.
+        """
+        return _covariance_impl(self, x=x, jacobian=jacobian,
+                                scale=scale, **fd_kwargs)
 
 
 cdef shxdata_alloc_helper(sh, shx, weights):
-    """ 
-    Generate cfl.shx_data array of spin Hamiltonian experimental data. 
+    """
+    Generate cfl.shx_data array of spin Hamiltonian experimental data.
 
     Parameters
     ----------
     sh : SpinHamiltonian
-        The pycf spin Hamiltonian object. 
+        The pycf spin Hamiltonian object.
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -2216,7 +3515,7 @@ cdef shxdata_alloc_helper(sh, shx, weights):
     shx_array = <cfl.shx_data **>malloc(len(sh.interactions)*sizeof(cfl.shx_data *))
     if shx_array == NULL:
         raise MemoryError("shx_array alloc failed")
-    
+
     for i,inter in enumerate(sh.interactions):
         if inter not in shx:
             for j in range(i):
@@ -2253,7 +3552,7 @@ cdef shxdata_alloc_helper(sh, shx, weights):
         shx_array[i].chisq_weight = wi
 
     shx_array_cap = PyCapsule_New(<void *>shx_array, "pycfl.ShxArray", NULL)
-    
+
     return (shx_array_cap, shx_list)
 
 
@@ -2265,26 +3564,26 @@ cdef class ESHFit(object):
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of each
     coefficient when they are set also determines whether that coefficient is
-    fit as real or complex parameter. 
+    fit as real or complex parameter.
 
     Parameters
     ----------
     parameters : list
         A list of tensor objects for which to vary the prefactor.
     h : Hamiltonian
-        The Hamiltonian for which to fit the energy levels. 
+        The Hamiltonian for which to fit the energy levels.
     sh : SpinHamiltonian
         The spin Hamiltonian object to be fit.  Must have projection data set
         with the set_pro_data method.  If it contains hyperfine or quadrupole
         interactions, the respective coupling constants will automatically be
-        added to the parameters.  
+        added to the parameters.
     ex : np.ndarray or ExData
         Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
         former case, n is the number of energy levels, with the first column
         containing energy level indices starting at 1, and the second column
         containing the absolute experimental energy of the corresponding level.
         In order to specify energy level differences, or specify energies
-        according to their SLJM state labels, use the ExData interface. 
+        according to their SLJM state labels, use the ExData interface.
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -2323,6 +3622,14 @@ cdef class ESHFit(object):
     cdef public np.ndarray chi2
     cdef dict weights
     cdef object _ex_w_backing   # keeps ex_data.w buffer alive (see exdata_alloc_helper)
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.ex_data = NULL
+        self.param_array = NULL
+        self.shx_array = NULL
+        self.eshfit_data = NULL
+        self.n_p = 0
     def __init__(self, parameters, h, sh, ex, shx, weights, **kwargs):
         self.n_p = len(parameters)
         self.parameters = parameters
@@ -2338,15 +3645,15 @@ cdef class ESHFit(object):
 
         if not sh.pro_data_set:
             raise ValueError("Spin Hamiltonian must have projection data set prior to eshfit.")
-        
+
         # Add small magnetic field for state-label sorting; generate hpro, if
         # required.
         (h, self.hpro) = sh_hpro_helper(h, sh)
         self.h = h
 
-        # Determine the type of each parameter. 
+        # Determine the type of each parameter.
         self.param_types = {}
-        # The number of real parameters. 
+        # The number of real parameters.
         self.n_p_real = 0
         for i,p in enumerate(parameters):
             if all((p not in hh for hh in [h, sh])):
@@ -2368,7 +3675,7 @@ cdef class ESHFit(object):
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-        
+
         # Parse the energy level data, if required.
         if not isinstance(ex, ExData):
             self.ex = ExData(ex)
@@ -2388,7 +3695,7 @@ cdef class ESHFit(object):
 
         cap, self._ex_w_backing = exdata_alloc_helper(self.ex, weights['energy'])
         self.ex_data = <cfl.ex_data *>PyCapsule_GetPointer(cap, "pycfl.ExData")
-        
+
         # Prepare array of pointers to parameter data structs.
         param_array = <cfl.param_type **>malloc(self.n_p*sizeof(cfl.param_type *))
         if param_array == NULL:
@@ -2396,8 +3703,8 @@ cdef class ESHFit(object):
             # NULL self.ex_data so __dealloc__ does not double-free it.
             self.ex_data = NULL
             raise MemoryError("param_array alloc failed")
-        self.param_array = param_array 
-       
+        self.param_array = param_array
+
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         ii = 0
         for i,p in enumerate(parameters):
@@ -2411,16 +3718,16 @@ cdef class ESHFit(object):
                 free(self.param_array)
                 self.param_array = NULL
                 raise MemoryError("param_array[{}] alloc failed".format(i))
-            
+
             param_array[i].type = ord(self.param_types[p])
 
             # Set the coeff index of parameters that are present in the CF
             # Hamiltonian.
-            try: 
+            try:
                 param_array[i].ci = self.h.index(p)
             except KeyError:
                 continue
-           
+
             # Set the index of the ith param in the x array.
             param_array[i].xi = ii
 
@@ -2446,7 +3753,7 @@ cdef class ESHFit(object):
                 svd = <char> 'N'
         else:
             svd = <char> 'N'
-        
+
         # Create array of experimental spin Hamiltonian data.
         try:
             (shx_array_cap, self.shx_list) = shxdata_alloc_helper(sh, shx, weights)
@@ -2465,13 +3772,13 @@ cdef class ESHFit(object):
         if (self.hpro is not None):
             if self.ex.sl_index:
                 self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
-                    "pycfl.Hamiltonian"), 
+                    "pycfl.Hamiltonian"),
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
             else:
-                self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap, 
-                    "pycfl.Hamiltonian"), 
+                self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
+                    "pycfl.Hamiltonian"),
                     <cfl.zh *>PyCapsule_GetPointer(self.hpro.h_cap, "pycfl.Hamiltonian"),
                     self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
@@ -2491,16 +3798,16 @@ cdef class ESHFit(object):
                 raise MemoryError("eshfit_data_alloc failed")
 
             self.obj_f_cap = PyCapsule_New(<void *>&cfl.eshfit_hpro_obj, "pycfl.MinObjF", NULL)
-            
+
         else:
             if self.ex.sl_index:
                 self.eshfit_data = eshfit_data_alloc('S', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
-                    "pycfl.Hamiltonian"), 
+                    "pycfl.Hamiltonian"),
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
             else:
                 self.eshfit_data = eshfit_data_alloc('N', svd, <cfl.zh *>PyCapsule_GetPointer(self.h.h_cap,
-                    "pycfl.Hamiltonian"), 
+                    "pycfl.Hamiltonian"),
                     NULL, self.ex_data, <cfl.zsh *>PyCapsule_GetPointer(sh.sh_cap, "pycfl.SpinHamiltonian"),
                     shx_array, self.n_p, self.param_array)
             if self.eshfit_data is NULL:
@@ -2536,7 +3843,7 @@ cdef class ESHFit(object):
             free(self.shx_array)
         if self.eshfit_data != NULL:
             cfl.eshfit_data_free(self.eshfit_data)
-    
+
     def __iter__(self):
         for p in self.parameters:
             yield p
@@ -2558,18 +3865,18 @@ cdef class ESHFit(object):
             The first element is a np.ndarray containing complex coefficients
             while the second entry contains the final value of the objective
             function.
-            
+
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         fmin = min_object.minimize(self, x)
-        
+
         params = {}
         ri = 0
         for p in self:
-            if (self.param_types[p] == 'c'): 
+            if (self.param_types[p] == 'c'):
                 params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
@@ -2581,13 +3888,13 @@ cdef class ESHFit(object):
         else:
             cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
         self.chi2 = chi2
-        
+
         return(params, fmin)
 
     @cython.boundscheck(False)
     def eval(self, coeff):
         r"""
-        Return chi2 obtained for the provided coefficients. 
+        Return chi2 obtained for the provided coefficients.
 
         Parameters
         ----------
@@ -2597,11 +3904,11 @@ cdef class ESHFit(object):
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        
+
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        
+
         chi2 = np.ascontiguousarray(np.zeros(len(self.sh.interactions)+1, dtype=np.float64))
         # Use hpro variant when a projection Hamiltonian is present, matching fit().
         if (self.hpro is not None):
@@ -2610,7 +3917,7 @@ cdef class ESHFit(object):
         else:
             with nogil:
                 cfl.eshfit_chi2(&x[0], self.eshfit_data, &chi2[0])
-        
+
         return chi2
 
 
@@ -2621,18 +3928,18 @@ cdef class MESHFit(object):
     a single spin Hamiltonian per CF Hamiltonian.  Thus, one can fit one excited
     state spin Hamiltonian, excluding hyperfine, in conjunction with electronic
     energy level data.  This is can then combined with a hyperfine spin
-    Hamiltonian for the ground state. 
-    
+    Hamiltonian for the ground state.
+
     The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of each
     coefficient when they are set also determines whether that coefficient is
     fit as real or complex parameter, thus they must be consistent among each
-    Hamiltonian.  
+    Hamiltonian.
 
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
+        A list of tensor objects for which to vary the prefactor.
     h_sh_list : list
         Each element should be a dictionary with the following keys: 'h', 'sh',
         'ex', 'shx', 'weights', and svd_sym.  For descriptions of each element,
@@ -2667,6 +3974,13 @@ cdef class MESHFit(object):
     cdef public object fit_data_cap
     cdef public np.ndarray chi2
     cdef public list weights_list
+    def __cinit__(self):
+        # Explicitly NULL pointer members so __dealloc__ is safe even if
+        # __init__ raises before they are assigned.
+        self.eshfit_array = NULL
+        self.meshfit_data = NULL
+        self.n_h = 0
+        self.n_p = 0
     def __init__(self, parameters, h_sh_list, **kwargs):
         self.n_h = len(h_sh_list)
         self.n_p = len(parameters)
@@ -2694,7 +4008,7 @@ cdef class MESHFit(object):
                 raise ValueError("Hamiltonian must have coefficients set prior to meshfit.")
             else:
                 self.coeff.update(copy.deepcopy(h.coeff_dict))
-            
+
             h_param_list += [[p for p in parameters if p in h]]
             n_zxa[i] += len(h_param_list[i])
 
@@ -2706,16 +4020,16 @@ cdef class MESHFit(object):
             if not sh.pro_data_set:
                 raise ValueError("Spin Hamiltonian must have projection data set prior to eshfit.")
             self.n_obs += sh.n_obs
-        
+
             # Add small magnetic field for state-label sorting; generate hpro, if
             # required.
             (h, hpro) = sh_hpro_helper(h, sh)
-            
+
             if 'ex' in d:
                 ex = d['ex']
                 if not isinstance(ex, ExData):
                     ex = ExData(ex)
-                
+
                 ex_list += [ex]
                 self.n_obs += ex_list[i].n_obs
                 n_ex += 1
@@ -2739,7 +4053,7 @@ cdef class MESHFit(object):
             try:
                 weights_list += [d['weights']]
             except KeyError:
-                weights_list += [{}]   
+                weights_list += [{}]
             # Set default weights to unity.
             for w in ['energy'] + sh.interactions:
                 if w not in weights_list[i]:
@@ -2749,7 +4063,7 @@ cdef class MESHFit(object):
                     svd_list += [<char> 'S']
                     for inter in shx_list[i]:
                         # Disable SVD for quad, since there's no S matrix
-                        # elements. 
+                        # elements.
                         if inter != 'quadrupole':
                             shx_list[i][inter] = sh_svd(shx_list[i][inter])
                 else:
@@ -2760,7 +4074,7 @@ cdef class MESHFit(object):
             h_list += [h]
             hpro_list += [hpro]
             sh_list += [sh]
-        
+
         self.h = h_list[0]
         self.h_list = h_list
         self.hpro_list = hpro_list
@@ -2769,13 +4083,13 @@ cdef class MESHFit(object):
         self.parameters = parameters
         self.ex_list = ex_list
         self.weights_list = weights_list
-        
+
         if not all((isinstance(p, str) for p in parameters)):
             raise TypeError("Parameters must be strings of tensor names.")
-        
+
         self.param_types = {}       # The type of each parameter (real, complex, or imag).
         self.n_p_real = 0           # The total number of real parameters (two for each complex number).
-        x0_index = {}               # Index of each parameter in the real-valued param array.        
+        x0_index = {}               # Index of each parameter in the real-valued param array.
         for i,p in enumerate(parameters):
             if all((p not in hh for hh in (h_list + sh_list) )):
                 raise ValueError("Parameter %s not found in any Hamiltonian or spin Hamiltonian." % p)
@@ -2809,12 +4123,12 @@ cdef class MESHFit(object):
 
         if 'ignore_ndof' not in kwargs:
             kwargs['ignore_ndof'] = False
-     
+
         if self.n_p_real > self.n_obs and kwargs['ignore_ndof'] != True:
            raise ValueError("The total (real and imaginary) number of \
                     parameters, %i, exceeds the number of observables, %i." %
                     (self.n_p_real, self.n_obs))
-        
+
         ex_data = []
         ex_w_backing = []
         for i in range(self.n_h):
@@ -2861,13 +4175,13 @@ cdef class MESHFit(object):
                     for j in range(self.n_h):
                         free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[j], "pycfl.ExData"))
                     raise MemoryError("param_arrays[{0}][{1}] alloc failed".format(hi, i))
-                
+
                 pa_hi[i].type = ord(self.param_types[p])
                 pa_hi[i].ci = h_list[hi].index(p)
                 pa_hi[i].xi = x0_index[p]
 
             param_arrays += [PyCapsule_New(<void *>pa_hi, "pycfl.ParamArrays", NULL)]
-        
+
         # Set initial values.
         self.x0 = np.ascontiguousarray(np.zeros(self.n_p_real), dtype=np.float64)
         set_param_helper(self)
@@ -2892,9 +4206,9 @@ cdef class MESHFit(object):
                 for i in range(self.n_h):
                     free(<cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"))
                 raise
-            
+
             shx_arrays += [shx_ptr]
-        
+
         self.shx_arrays = shx_arrays
         self.eshfit_array = <cfl.eshfit_data **>malloc(self.n_h*sizeof(cfl.eshfit_data *))
         if self.eshfit_array is NULL:
@@ -2909,15 +4223,15 @@ cdef class MESHFit(object):
                     free(shx_i[j])
                 free(shx_i)
             raise MemoryError("eshfit_array alloc failed")
-        
+
         for i in range(self.n_h):
             if hpro_list[i] is not None:
-                self.eshfit_array[i] = cfl.eshfit_data_alloc(ex_job_list[i], svd_list[i], 
-                    <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), 
+                self.eshfit_array[i] = cfl.eshfit_data_alloc(ex_job_list[i], svd_list[i],
+                    <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"),
                     <cfl.zh *>PyCapsule_GetPointer(hpro_list[i].h_cap, "pycfl.Hamiltonian"),
                     <cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"),
                     <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
-                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], 
+                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i],
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
                 if self.eshfit_array[i] is NULL:
                     for j in range(i):
@@ -2936,11 +4250,11 @@ cdef class MESHFit(object):
                         free(shx_i)
                     raise MemoryError("eshfit_data_alloc failed")
             else:
-                self.eshfit_array[i] = cfl.eshfit_data_alloc(ex_job_list[i], svd_list[i], 
+                self.eshfit_array[i] = cfl.eshfit_data_alloc(ex_job_list[i], svd_list[i],
                     <cfl.zh *>PyCapsule_GetPointer(h_list[i].h_cap, "pycfl.Hamiltonian"), NULL,
                     <cfl.ex_data *>PyCapsule_GetPointer(ex_data[i], "pycfl.ExData"),
                     <cfl.zsh *>PyCapsule_GetPointer(sh_list[i].sh_cap, "pycfl.SpinHamiltonian"),
-                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i], 
+                    <cfl.shx_data **>PyCapsule_GetPointer(shx_arrays[i], "pycfl.ShxArray"), n_zxa[i],
                     <cfl.param_type **>PyCapsule_GetPointer(param_arrays[i], "pycfl.ParamArrays"))
                 if self.eshfit_array[i] is NULL:
                     for j in range(i):
@@ -2958,7 +4272,7 @@ cdef class MESHFit(object):
                             free(shx_i[j])
                         free(shx_i)
                     raise MemoryError("eshfit_data_alloc failed")
-                
+
         self.meshfit_data = meshfit_data_alloc(self.n_h, self.eshfit_array)
         self.fit_data_cap = PyCapsule_New(<void *>self.meshfit_data, "pycfl.MinData", NULL)
         self.obj_f_cap = PyCapsule_New(<void *>&cfl.meshfit_obj, "pycfl.MinObjF", NULL)
@@ -2991,7 +4305,7 @@ cdef class MESHFit(object):
     def __iter__(self):
         for p in self.parameters:
             yield p
-    
+
     def fit(self, min_object):
         r"""
         Run the fit using the provided minimization object.
@@ -3015,12 +4329,12 @@ cdef class MESHFit(object):
 
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
         fmin = min_object.minimize(self, x)
-       
+
         params = {}
         ri = 0
-        
+
         for p in self:
-            if (self.param_types[p] == 'c'): 
+            if (self.param_types[p] == 'c'):
                 params[p] = complex(x[ri], x[ri+1])
                 ri += 2
             else:
@@ -3039,7 +4353,7 @@ cdef class MESHFit(object):
     @cython.boundscheck(False)
     def eval(self, coeff):
         r"""
-        Return chi2 obtained for the provided coefficients. 
+        Return chi2 obtained for the provided coefficients.
 
         Parameters
         ----------
@@ -3049,18 +4363,18 @@ cdef class MESHFit(object):
         """
         cdef np.ndarray[double, ndim=1, mode="c"] x
         cdef np.ndarray[double, ndim=1, mode="c"] chi2
-        
+
         self.coeff.update(copy.deepcopy(coeff))
         set_param_helper(self)
         x = <np.ndarray[double, ndim=1, mode="c"]> self.x0
-        
+
         nchi2 = 0
         for sh in self.sh_list:
             nchi2 += len(sh.interactions) + 1      # +1 for each energy level chi2.
         chi2 = np.ascontiguousarray(np.zeros(nchi2, dtype=np.float64))
         with nogil:
             cfl.meshfit_chi2(&x[0], self.meshfit_data, &chi2[0])
-        
+
         return chi2
 
 
@@ -3086,11 +4400,11 @@ cdef class CFLMin:
             - 'nlopt_sbplx'
             - 'nlopt_crs2_lm'
             - 'nlopt_esch'
-        
+
         For simulated annealing ('siman'), all accepted steps are returned as
         part of the fitting result dictionary with keyword argument 'xaccept'.
         This can be used estimate the posterior distribution and get a handle on
-        the uncertainty of ones parameters. 
+        the uncertainty of ones parameters.
 
         It is also possible to use the GSL nonlinear least-squares method, which
         will use a finite difference method to estimate the Jacobian and,
@@ -3104,13 +4418,13 @@ cdef class CFLMin:
         arithmetic should have their name attribute set explicitly), while
         values correspond to tuples, the first entry of which is the lower bound
         and the second entry the upper bound.  The number of elements in bounds
-        must match the length of the parameters list. 
+        must match the length of the parameters list.
     lmin : CFLMin, optional
         The local minimization routine, applicable only for basinhopping
         algorithm; defaults to nlopt_bobyqa.  Implemented options fall into two
         categories, routines from gsl, and routines from nlopt.  For the former,
         available algorithms are:
-            
+
             - 'gsl_nmsimplex2rand'
             - 'gsl_nmsimplex2'
             - 'gsl_conjugate_fr'
@@ -3123,7 +4437,7 @@ cdef class CFLMin:
             - 'nlopt_bobyqa'
             - 'nlopt_sbplx'.
 
-    stepsize : dict, optional 
+    stepsize : dict, optional
         The stepsize for parameter variation; this argument is only used if the
         basinhopping or siman algorithm is selected.  Keys specify the tensor
         name, while values correspond to the stepsize.  For basinhopping, if
@@ -3136,7 +4450,7 @@ cdef class CFLMin:
         specified for each parameter.
     niter : int, optional
         The number of iterations to complete, used by basinhopping, siman, and
-        gsl_nls; defaults to 100, 1e6, and 100, respectively.  
+        gsl_nls; defaults to 100, 1e6, and 100, respectively.
     target_accept_rate : float, optional
         The target acceptance rate for basinhopping steps; used for adaptive
         stepsize tuning.  To disable adaptive stepsize, set this parameter to 0.
@@ -3144,9 +4458,9 @@ cdef class CFLMin:
     step_adapt_int : int, optional
         The number of iterations between adaptive stepsize checks; defaults to 20.
     Tstart : float
-        Starting temperature for simulated annealing schedule; defaults to 1e3.  
+        Starting temperature for simulated annealing schedule; defaults to 1e3.
     Tmin : float
-        Minimum temperature for simulated annealing; defaults to 1e-3. 
+        Minimum temperature for simulated annealing; defaults to 1e-3.
     muT : float
         The damping constant for the simulated annealing cooling schedule.  For
         consecutive iterations, the temperature is decreased by a factor of
@@ -3165,7 +4479,7 @@ cdef class CFLMin:
         forces the optimization to return if exceeded, providing the best
         solution so far.  This time is not a hard limit, and it may take a
         little longer to return depending on the evaluation time of each
-        iteration. 
+        iteration.
     dry_run : bool, optional
         Don't run the actual minimization, but perform all the data prep and
         generate a summary with the initial parameters.  Useful for checking how
@@ -3183,7 +4497,7 @@ cdef class CFLMin:
     cdef double k
     cdef cfl.cfl_min_bounds *cfl_bounds
     cdef cfl.cfl_min_obj *min_obj
-    cdef cfl.cfl_min_obj *bh_lmin_obj 
+    cdef cfl.cfl_min_obj *bh_lmin_obj
 
     def __cinit__(self, method, **kwargs):
         if method == 'basinhopping':
@@ -3238,12 +4552,12 @@ cdef class CFLMin:
     @cython.boundscheck(False)
     cpdef minimize(self, fit_obj, x0):
         r"""
-        Run the minimization. 
+        Run the minimization.
 
         Parameters
         ----------
         fit_obj : EFit or ESHFit
-            The object for which to perform the fit. 
+            The object for which to perform the fit.
         x0 : np.ndarray
             Real valued vector.  Upon entry, these are the initial guesses for
             the parameters; if minimization is successful, x0 will be
@@ -3263,9 +4577,11 @@ cdef class CFLMin:
         cdef void (*nls_f_ptr)(double *, void *, double *) noexcept
         cdef void *data_ptr = NULL
         cdef double *covar_ptr = NULL
+        cdef double *jac_ptr = NULL
         cdef double *wts_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] cwts
         cdef np.ndarray[double, ndim=2, mode="c"] covar
+        cdef np.ndarray[double, ndim=2, mode="c"] jac
         cdef double *chi2accept_ptr = NULL
         cdef double *xaccept_ptr = NULL
         cdef np.ndarray[double, ndim=1, mode="c"] chi2accept
@@ -3273,7 +4589,7 @@ cdef class CFLMin:
         cdef cfl.cfl_min_obj *min_obj = NULL
         cdef cfl.cfl_min_obj *lmin_obj = NULL
         cdef double fmin = 0
-        cdef np.ndarray[double, ndim=1, mode="c"] lb 
+        cdef np.ndarray[double, ndim=1, mode="c"] lb
         cdef np.ndarray[double, ndim=1, mode="c"] ub
         cdef np.ndarray[double, ndim=1, mode="c"] cstepsize
         cdef double *stepsize_ptr = NULL
@@ -3288,7 +4604,7 @@ cdef class CFLMin:
         data_ptr = <void *>PyCapsule_GetPointer(fit_obj.fit_data_cap, "pycfl.MinData")
 
         # If bounds are specified, convert them to real valued lists the order of
-        # which matches the order of the real valued parameter lists. 
+        # which matches the order of the real valued parameter lists.
         if 'bounds' in self.kwargs:
             lb = np.zeros(fit_obj.n_p_real)
             ub = np.zeros(fit_obj.n_p_real)
@@ -3341,12 +4657,12 @@ cdef class CFLMin:
             self.cfl_bounds = cfl_bounds
         else:
             self.cfl_bounds = NULL
-       
+
         # Create real valued stepsize list, if stepsize is provided.
         if 'stepsize' in self.kwargs:
             cstepsize = np.zeros(fit_obj.n_p_real)
             rpi = 0
-            
+
             stepsize = self.kwargs['stepsize']
             for p in fit_obj:
                 if fit_obj.param_types[p] == 'c':
@@ -3371,12 +4687,18 @@ cdef class CFLMin:
             cmaxtime = self.kwargs['maxtime']
         else:
             cmaxtime = -1
-        
+
         # Allocate covariance matrix for non-linear least-squares fit, and set
-        # nlls specific tolerances. 
+        # nlls specific tolerances.
         if self.method == 'gsl_nls':
             if fit_obj.nls_f_cap is None:
-                raise NotImplementedError("gls_nls is not an existing option for requested fitting mode.")
+                raise NotImplementedError(
+                    "gsl_nls is not supported for this fit configuration. "
+                    "Marker-column ExData (label_key='MuN') uses a Python "
+                    "objective trampoline that produces a scalar chi^2 rather "
+                    "than per-residual values, so no Jacobian can be formed. "
+                    "Use a derivative-free minimiser such as nlopt_bobyqa or "
+                    "nlopt_neldermead instead.")
             else:
                 nls_f_ptr = <void (*)(double *, void *, double *) noexcept>PyCapsule_GetPointer(
                         fit_obj.nls_f_cap, "pycfl.NlsObjF")
@@ -3392,15 +4714,19 @@ cdef class CFLMin:
                 cftol = self.kwargs['ftol']
             else:
                 cftol = 0
-            
+
             covar = np.ascontiguousarray(np.zeros([fit_obj.n_p_real, fit_obj.n_p_real]),
                     dtype=np.float64)
             self.kwargs['covar'] = covar
             covar_ptr = &covar[0,0]
+            jac = np.ascontiguousarray(np.zeros([fit_obj.n_obs, fit_obj.n_p_real]),
+                    dtype=np.float64)
+            self.kwargs['jac'] = jac
+            jac_ptr = &jac[0,0]
             cwts = <np.ndarray[double, ndim=1, mode="c"]>fit_obj.wts
             wts_ptr = &cwts[0]
         else:
-            # Set xtol to default if not provided. 
+            # Set xtol to default if not provided.
             if 'xtol' in self.kwargs:
                 cxtol = self.kwargs['xtol']
             else:
@@ -3416,7 +4742,7 @@ cdef class CFLMin:
                 target_accept_rate = self.kwargs['target_accept_rate']
             else:
                 target_accept_rate = 0.5
-    
+
             if 'step_adapt_int' in self.kwargs:
                 step_adapt_int = self.kwargs['step_adapt_int']
             else:
@@ -3448,11 +4774,11 @@ cdef class CFLMin:
             else:
                 lmin_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_bobyqa,
                         cxtol, cmaxtime, self.cfl_bounds)
-           
+
             min_obj = cfl_bh_min_setup(self.niter, stepsize_ptr, target_accept_rate, step_adapt_int,
                     self.cfl_bounds, lmin_obj)
             self.bh_lmin_obj = lmin_obj
-        elif self.method == 'siman': 
+        elif self.method == 'siman':
             if 'stepsize' not in self.kwargs:
                 cstepsize = np.ones(fit_obj.n_p_real)
             stepsize_ptr = &cstepsize[0]
@@ -3477,17 +4803,17 @@ cdef class CFLMin:
             self.Tmin = cTmin
             self.muT = cmuT
             self.k = ck
-            
+
             chi2accept = np.ascontiguousarray(np.zeros([self.niter]), dtype=np.float64)
             self.kwargs['chi2accept'] = chi2accept
             chi2accept_ptr = &chi2accept[0]
-           
+
             xaccept = np.ascontiguousarray(np.zeros([self.niter, fit_obj.n_p_real]),
                     dtype=np.float64)
             self.kwargs['xaccept'] = xaccept
             xaccept_ptr = &xaccept[0,0]
 
-            min_obj = cfl_siman_min_setup(obj_f_ptr, cnx, data_ptr, self.niter, self.cfl_bounds, 
+            min_obj = cfl_siman_min_setup(obj_f_ptr, cnx, data_ptr, self.niter, self.cfl_bounds,
                     stepsize_ptr, cTstart, cTmin, cmuT, ck, chi2accept_ptr, xaccept_ptr, cmaxtime)
         elif self.method == 'nlopt_cobyla':
             min_obj = cfl_nlopt_min_setup(obj_f_ptr, cnx, data_ptr, nlopt_cobyla,
@@ -3517,7 +4843,7 @@ cdef class CFLMin:
         elif self.method == 'gsl_nls':
             min_obj = cfl_gsl_nls_setup(nls_f_ptr, fit_obj.n_obs,
                     fit_obj.n_p_real, data_ptr, wts_ptr, cxtol, cgtol, cftol,
-                    covar_ptr, self.niter)
+                    covar_ptr, jac_ptr, self.niter)
         else:
             raise ValueError("Unknown minimization method: %s" % self.method)
 
@@ -3539,9 +4865,9 @@ cdef class CFLMin:
         else:
             with nogil:
                 retval = cfl.cfl_min(&cx0[0], &fmin, min_obj)
-        
+
         if self.method == 'siman':
-            # If siman, trim the returned chi2accept and xaccept array. 
+            # If siman, trim the returned chi2accept and xaccept array.
             self.kwargs['xaccept'] = self.kwargs['xaccept'][:retval, :]
             self.kwargs['chi2accept'] = self.kwargs['chi2accept'][:retval]
 
@@ -3553,70 +4879,229 @@ cdef class CFLMin:
         return fmin
 
 
-def e_fit(parameters, h, ex, cfl_min, **kwargs):
+def _parse_sigma_output_kwargs(kwargs):
+    """Pop sigma/covariance/jacobian output flags from ``kwargs``.
+
+    Returns ``(calculate_sigma, include_covariance, include_jacobian, sigma_forced)``.
+    ``sigma_forced`` is True if the caller explicitly disabled
+    ``calculate_sigma`` but requested covariance or jacobian output, in which
+    case sigma estimation is re-enabled and a one-line note is printed.
+    Mutates ``kwargs`` by popping the three output flags (``dry_run`` is left
+    in place because the underlying fit objects also consult it).
+    """
+    requested_calculate_sigma = bool(kwargs.pop("calculate_sigma", True))
+    include_covariance = bool(kwargs.pop("include_covariance", False))
+    include_jacobian = bool(kwargs.pop("include_jacobian", False))
+    is_dry_run = bool(kwargs.get("dry_run", False))
+    sigma_forced = (
+        (not requested_calculate_sigma)
+        and (include_covariance or include_jacobian)
+        and (not is_dry_run)
+    )
+    if sigma_forced:
+        print("Note: calculate_sigma assumed True because include_covariance/include_jacobian was requested.")
+    calculate_sigma = requested_calculate_sigma or include_covariance or include_jacobian
+    return calculate_sigma, include_covariance, include_jacobian, sigma_forced
+
+
+def _compute_jac_sigma_cov(fit_obj, cfl_min, calculate_sigma,
+                           include_covariance, include_jacobian):
+    """Compute post-fit Jacobian / covariance / sigma diagnostics.
+
+    Skipped (returns Nones / empty dicts) when ``cfl_min`` is in ``dry_run``
+    mode. Returns
+    ``(jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param)``.
+    """
+    jacobian = None
+    jacobian_info = {}
+    covariance = None
+    sigma_vector = None
+    sigma_by_param = {}
+    if cfl_min.kwargs.get('dry_run', False):
+        return jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param
+    if include_jacobian or calculate_sigma or include_covariance:
+        jacobian = fit_obj.fd_jacobian(x=np.asarray(fit_obj.x0, dtype=np.float64))
+        jacobian_info = jacobian_diagnostics(jacobian, fit_obj.n_p_real)
+    if calculate_sigma or include_covariance:
+        covariance, sigma_vector, _ = fit_obj.covariance(
+            x=np.asarray(fit_obj.x0, dtype=np.float64), jacobian=jacobian
+        )
+        sigma_by_param = map_sigma_by_parameter(fit_obj, sigma_vector)
+    return jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param
+
+
+def _build_e_summary_trunc_kwargs(ex, name, chi2, ndof, weighting, h, user_kwargs):
+    """Assemble kwargs for ``gen_e_summary_trunc`` with Hamiltonian and
+    user-display passthroughs (``minimum_q``, ``half_integer_states``,
+    ``max_levels``, ``nstates``).
+    """
+    out = {"ex": ex, "name": name, "chi2": chi2, "ndof": ndof, "weighting": weighting}
+    if h.minimum_q is not None:
+        out["minimum_q"] = h.minimum_q
+        out["half_integer_states"] = h.half_integer_states
+    if "max_levels" in user_kwargs:
+        out["max_levels"] = user_kwargs["max_levels"]
+    if "nstates" in user_kwargs:
+        out["nstates"] = user_kwargs["nstates"]
+    return out
+
+
+def _build_fit_summary_kwargs(cfl_min, covariance, include_jacobian, jacobian_info):
+    """Assemble extra kwargs for ``gen_fit_summary``."""
+    out = dict(cfl_min.kwargs)
+    if covariance is not None:
+        out["covar"] = covariance
+    if include_jacobian and jacobian_info:
+        out["jacobian_diagnostics"] = jacobian_info
+    return out
+
+
+def _ensure_diagonalised(h):
+    """Diagonalise ``h`` if its eigenvalues are unset (needed for mu/n mode)."""
+    if h.w is None or np.sum(np.abs(h.w)) == 0:
+        h.diag()
+
+
+def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     r"""
-    Fit parameters to energy level data. 
+    Fit parameters to energy level data.
 
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
     coefficients when they are set also determines whether they are fit as real
-    or complex parameters. 
-    
+    or complex parameters.
+
+    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n
+    index mode in ExData), it will be automatically diagonalized before fitting.
+    This ensures that eigenvector references in mu/n indices are valid.
+
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
+        A list of tensor objects for which to vary the prefactor.
     h : Hamiltonian
-        The Hamiltonian for which to fit the energy levels. 
+        The Hamiltonian for which to fit the energy levels.
     ex : np.ndarray
         Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
         former case, n is the number of energy levels, with the first column
         containing energy level indices starting at 1, and the second column
         containing the absolute experimental energy of the corresponding level.
         In order to specify energy level differences, or specify energies
-        according to their SLJM state labels, use the ExData interface. 
+        according to their SLJM state labels, use the ExData interface.
     cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Maximum number of energy levels to display in the fit summary output.
+        Useful for systems with hundreds of levels where only the first N are of interest.
+        Does not affect fitting calculations. Default: None (display all levels).
+    nstates : int, optional
+        Number of constituent states to display for mixed states in the summary.
+        Default: 2.
+    **kwargs : optional
+        Additional keyword arguments passed to EFit (e.g., fitting-specific options).
+        Output-control flags are also accepted:
+
+        - ``calculate_sigma`` (bool, default True): estimate parameter uncertainties.
+        - ``include_covariance`` (bool, default False): include covariance matrix in ``res`` and summary.
+        - ``include_jacobian`` (bool, default False): include Jacobian in ``res``.
+          If covariance or Jacobian output is requested, sigma estimation is automatically enabled.
     """
     started_at = datetime.now()
+    calculate_sigma, include_covariance, include_jacobian, sigma_forced = (
+        _parse_sigma_output_kwargs(kwargs)
+    )
     summary = "=============\n"
     summary+= "e_fit summary\n"
     summary+= "=============\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
-   
+
+    # Auto-diagonalize if not already done (needed for mu/n index mode)
+    _ensure_diagonalised(h)
+
+    # Preserve pre-fit coefficients for summary display.
+    initial_coeff = copy.deepcopy(h.coeff_dict) if h.coeff_dict is not None else {}
+
     efit = EFit(parameters, h, ex, **kwargs)
     (x, fmin) = efit.fit(cfl_min)
     completed_at = datetime.now()
     summary += gen_completed_str(completed_at)
     print_completed_str(completed_at)
 
+    jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param = (
+        _compute_jac_sigma_cov(efit, cfl_min, calculate_sigma,
+                               include_covariance, include_jacobian)
+    )
+
+    # Sync h to the fitted x and refresh w/z for the summary block.
+    # fd_jacobian / covariance restore h.coeff on exit but leave
+    # h.w/h.z at the last FD perturbation point.
     h.update_coeff(x)
-    (w, z) = h.diag()
+    h.diag()
 
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(efit.n_obs - efit.n_p_real, 1)
 
-    if efit.ex.n_d != 0:
-        summary += h.gen_summary() + "\n\n"
-        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
-                h.tensors[0].states.label_key, ex=efit.ex, name="Fitted energy " \
-                "levels", chi2=efit.chi2[0], ndof=ndof, weighting=1)
-    else:
-        summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1)
-
     summary += "\n"
-    summary += gen_fit_summary(x, efit, cfl_min.method, fmin, **cfl_min.kwargs)
+    summary += gen_all_coeff_summary(
+        h.coeff_dict if h.coeff_dict is not None else {},
+        fitted_coeff=x,
+        sigma_by_param=sigma_by_param if calculate_sigma else {},
+        name="All Hamiltonian parameters",
+    )
+    summary += f"fmin = {fmin:.6e}\n\n"
+    if efit.ex.n_d != 0:
+        summary += h.gen_summary(**kwargs) + "\n\n"
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            efit.ex, "Fitted energy levels", efit.chi2[0], ndof, 1, h, kwargs
+        )
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
+                h.tensors[0].states.label_key, **summary_kwargs)
+    else:
+        # Pass minimum_q and half_integer_states to gen_summary for absolute-only data
+        gen_summary_kwargs = dict(kwargs)
+        if h.minimum_q is not None:
+            gen_summary_kwargs["minimum_q"] = h.minimum_q
+            gen_summary_kwargs["half_integer_states"] = h.half_integer_states
+        summary += h.gen_summary(ex=efit.ex, chi2=efit.chi2[0], ndof=ndof, weighting=1, **gen_summary_kwargs)
 
-    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
+    fit_summary_kwargs = _build_fit_summary_kwargs(
+        cfl_min, covariance, include_jacobian, jacobian_info
+    )
+    summary += gen_fit_summary(
+        x,
+        efit,
+        cfl_min.method,
+        fmin,
+        initial_coeff=initial_coeff,
+        include_covariance_matrix=include_covariance,
+        **fit_summary_kwargs,
+    )
+
+    return {
+        'fmin': fmin,
+        'coeff': x,
+        'all_coeff': copy.deepcopy(h.coeff_dict) if h.coeff_dict is not None else {},
+        'sigma': sigma_by_param if calculate_sigma else None,
+        'sigma_vector': sigma_vector if calculate_sigma else None,
+        'covariance': covariance if include_covariance else None,
+        'jacobian': jacobian if include_jacobian else None,
+        'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
+        'sigma_forced': sigma_forced,
+        'summary': summary,
+        **cfl_min.kwargs
+    }
 
 
 
-def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
+def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit to multiple Hamiltonians simultaneously.  Typically, this would consist
     of one vector of energy levels at zero field without hyperfine or quadrupole
@@ -3624,17 +5109,20 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
     independent magnetic field orientations and possibly containing hyperfine
     interactions.  These additional eigenvalues can either be measured or
     synthetically calculated for specific crystal field levels from spin
-    Hamiltonian data.  
+    Hamiltonian data.
 
     The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
     coefficients when they are set also determines whether they are fit as real
-    or complex parameters, thus they must be consistent among each Hamiltonian.  
+    or complex parameters, thus they must be consistent among each Hamiltonian.
+
+    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n
+    index mode in ExData), it will be automatically diagonalized before fitting.
 
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
+        A list of tensor objects for which to vary the prefactor.
     h_list : list
         A list of Hamiltonians, each containing the interactions required to
         match the corresponding experimental energy level data.
@@ -3648,54 +5136,130 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, **kwargs):
         1, and the second column containing the absolute experimental energy of
         the corresponding level.  In order to specify energy level differences,
         or specify energies according to their SLJM state labels, use the ExData
-        interface. 
+        interface.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Maximum number of energy levels to display in fit summary output for each
+        Hamiltonian. Default: None (display all levels).
+    nstates : int, optional
+        Number of constituent states to display for mixed states in the summary.
+        Default: 2.
+    **kwargs : optional
+        Additional keyword arguments passed to MHFit. Output-control flags:
+
+        - ``calculate_sigma`` (bool, default True): estimate parameter uncertainties.
+        - ``include_covariance`` (bool, default False): include covariance matrix in ``res`` and summary.
+        - ``include_jacobian`` (bool, default False): include Jacobian in ``res``.
+          If covariance or Jacobian output is requested, sigma estimation is automatically enabled.
     """
     started_at = datetime.now()
+    calculate_sigma, include_covariance, include_jacobian, sigma_forced = (
+        _parse_sigma_output_kwargs(kwargs)
+    )
     summary = "==============\n"
     summary+= "mh_fit summary\n"
     summary+= "==============\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
-    
+
+    # Auto-diagonalize all Hamiltonians if not already done (needed for mu/n index mode)
+    for h in h_list:
+        _ensure_diagonalised(h)
+
+    # Preserve pre-fit coefficients for summary display.
+    initial_coeff = copy.deepcopy(h_list[0].coeff_dict) if h_list[0].coeff_dict is not None else {}
+
     mhfit = MHFit(parameters, h_list, weights_list, ex_list, **kwargs)
     (x, fmin) = mhfit.fit(cfl_min)
     completed_at = datetime.now()
     summary += gen_completed_str(completed_at)
     print_completed_str(completed_at)
 
+    jacobian, jacobian_info, covariance, sigma_vector, sigma_by_param = (
+        _compute_jac_sigma_cov(mhfit, cfl_min, calculate_sigma,
+                               include_covariance, include_jacobian)
+    )
+
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(mhfit.n_obs - mhfit.n_p_real, 1)
     h = mhfit.h_list[0]
     h.update_coeff(x)
     (w, z) = h.diag()
-    summary += h.gen_summary() + "\n\n"
+
+    summary += gen_all_coeff_summary(
+        h_list[0].coeff_dict if h_list[0].coeff_dict is not None else {},
+        fitted_coeff=x,
+        sigma_by_param=sigma_by_param if calculate_sigma else {},
+        name="All Hamiltonian parameters",
+    )
+    summary += f"fmin = {fmin:.6e}\n\n"
+    # Pass minimum_q and experimental data parameters to gen_summary for first Hamiltonian
+    h_summary_kwargs = {"ex": mhfit.ex_list[0], "chi2": mhfit.chi2[0], "ndof": ndof, "weighting": mhfit.weights_list[0]}
+    h_summary_kwargs.update(kwargs)  # Merge user-provided kwargs
+    if h.minimum_q is not None:
+        h_summary_kwargs["minimum_q"] = h.minimum_q
+        h_summary_kwargs["half_integer_states"] = h.half_integer_states
+    summary += h.gen_summary(**h_summary_kwargs) + "\n\n"
     for i,h in enumerate(mhfit.h_list):
-        h.update_coeff(x)
-        (w, z) = h.diag()
-        
+        if i > 0:
+            # h_list[0] was already synced + diagonalised above for the
+            # gen_summary block; avoid the redundant diag here.
+            h.update_coeff(x)
+            h.diag()
+
         name = "Hamiltonian %i" % i
-        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key,
-                ex=mhfit.ex_list[i], name=name, chi2=mhfit.chi2[i], ndof=ndof, weighting=mhfit.weights_list[i])
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            mhfit.ex_list[i], name, mhfit.chi2[i], ndof,
+            mhfit.weights_list[i], h, kwargs,
+        )
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, h.tensors[0].states.label_key, **summary_kwargs)
 
         summary += "\n"
+    fit_summary_kwargs = _build_fit_summary_kwargs(
+        cfl_min, covariance, include_jacobian, jacobian_info
+    )
+    summary += gen_fit_summary(
+        x,
+        mhfit,
+        cfl_min.method,
+        fmin,
+        initial_coeff=initial_coeff,
+        include_covariance_matrix=include_covariance,
+        **fit_summary_kwargs,
+    )
 
-    summary += gen_fit_summary(x, mhfit, cfl_min.method, fmin, **cfl_min.kwargs)
-    
-    return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
+    return {
+        'fmin': fmin,
+        'coeff': x,
+        'all_coeff': copy.deepcopy(h_list[0].coeff_dict) if h_list[0].coeff_dict is not None else {},
+        'sigma': sigma_by_param if calculate_sigma else None,
+        'sigma_vector': sigma_vector if calculate_sigma else None,
+        'covariance': covariance if include_covariance else None,
+        'jacobian': jacobian if include_jacobian else None,
+        'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
+        'sigma_forced': sigma_forced,
+        'summary': summary,
+        **cfl_min.kwargs
+    }
 
 
-def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
+def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit parameters to energy level data and spin Hamiltonian data
-    simultaneously. 
+    simultaneously.
 
     The Hamiltonian must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of
     coefficients when they are set also determines whether they are fit as real
-    or complex parameters. 
+    or complex parameters.
+
+    If the Hamiltonian has not been diagonalized yet (e.g., when using mu/n
+    index mode in ExData), it will be automatically diagonalized before fitting.
 
 
     Parameters
@@ -3703,16 +5267,16 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     parameters : list
         A list of tensor objects for which to vary the prefactor.
     h : Hamiltonian
-        The Hamiltonian for which to fit the energy levels. 
+        The Hamiltonian for which to fit the energy levels.
     sh : SpinHamiltonian
-        The spin Hamiltonian object to be fit. 
+        The spin Hamiltonian object to be fit.
     ex : np.ndarray
         Either a 2 by n dimensional np.ndarray or an ExData type object.  In the
         former case, n is the number of energy levels, with the first column
         containing energy level indices starting at 1, and the second column
         containing the absolute experimental energy of the corresponding level.
         In order to specify energy level differences, or specify energies
-        according to their SLJM state labels, use the ExData interface. 
+        according to their SLJM state labels, use the ExData interface.
     shx : dict
         Specifies the experimental spin Hamiltonian data.  Valid keys are
         'zeeman', 'hyperfine', and 'quadrupole'.  Values should be `3 \times 3`
@@ -3722,22 +5286,34 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
         keys are 'energy', 'zeeman', 'hyperfine', and 'quadrupole';
         corresponding values should be floats.  Any omitted values will be set
         to unity.
-    cfl_min : CFLMin 
+    cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     svd_sym : bool, optional
         Symmeterize spin Hamiltonian parameter tensors by applying an SVD
         transformation.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Limit the number of displayed energy levels in the summary output.
+        Useful for systems with many levels; does not affect fitting statistics.
+    nstates : int, optional
+        Limit the number of displayed spin states in the summary output.
+        Does not affect fitting statistics.
     """
     started_at = datetime.now()
     summary = "===============\n"
     summary+= "esh_fit summary\n"
     summary+= "===============\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
+
+    # Auto-diagonalize if not already done (needed for mu/n index mode)
+    _ensure_diagonalised(h)
 
     eshfit = ESHFit(parameters, h, sh, ex, shx, weights, **kwargs)
     (x, fmin) = eshfit.fit(cfl_min)
@@ -3747,30 +5323,32 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
 
     h.update_coeff(x)
     (w, z) = h.diag()
-    
+
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(eshfit.n_obs - eshfit.n_p_real, 1)
-    
+
     if 'svd_sym' in kwargs:
         svd = kwargs['svd_sym']
     else:
         svd = False
     sh_param = sh.calc_param(h, svd_sym=svd)
-    
+
     if eshfit.ex.n_d != 0:
-        summary += h.gen_summary() + "\n\n"
+        summary += h.gen_summary(**kwargs) + "\n\n"
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            eshfit.ex, "Fitted energy levels", eshfit.chi2[0], ndof,
+            eshfit.weights['energy'], h, kwargs,
+        )
         summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
-                h.tensors[0].states.label_key, ex=eshfit.ex, name="Fitted " \
-                "energy levels", chi2=eshfit.chi2[0], ndof=ndof,
-                weighting=eshfit.weights['energy'])
+                h.tensors[0].states.label_key, **summary_kwargs)
     else:
         summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
-                weighting=eshfit.weights['energy'])
+                weighting=eshfit.weights['energy'], **kwargs)
 
     #summary += h.gen_summary(ex=eshfit.ex, chi2=eshfit.chi2[0], ndof=ndof,
     #        weighting=eshfit.weights['energy'])
     summary += "\n"
-    summary += gen_sh_summary(sh_param, sh, shx=shx, chi2=eshfit.chi2[1:], 
+    summary += gen_sh_summary(sh_param, sh, shx=shx, chi2=eshfit.chi2[1:],
             ndof=ndof, weighting=eshfit.weights)
     summary += "\n"
     summary += gen_fit_summary(x, eshfit, cfl_min.method, fmin, **cfl_min.kwargs)
@@ -3778,41 +5356,57 @@ def esh_fit(parameters, h, sh, ex, shx, weights, cfl_min, **kwargs):
     return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
 
 
-def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
+def mesh_fit(parameters, h_sh_list, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit multiple crystal-field Hamiltonians and spin Hamiltonians
     simultaneously.  For now, this is restricted to a single spin Hamiltonian
     per CF Hamiltonian.  Thus, one can fit one excited state spin Hamiltonian,
     excluding hyperfine, in conjunction with electronic energy level data.  This
-    is can then combined with a hyperfine spin Hamiltonian for the ground state. 
-    
+    is can then combined with a hyperfine spin Hamiltonian for the ground state.
+
     The Hamiltonians must have coefficients set with set_coeff, since these are
     used as initial estimates for the parameters to-be-fit.  The type of each
     coefficient when they are set also determines whether that coefficient is
     fit as real or complex parameter, thus they must be consistent among each
-    Hamiltonian.  
+    Hamiltonian.
+
+    If any Hamiltonian has not been diagonalized yet (e.g., when using mu/n
+    index mode in ExData), it will be automatically diagonalized before fitting.
 
     Parameters
     ----------
     parameters : list
-        A list of tensor objects for which to vary the prefactor. 
+        A list of tensor objects for which to vary the prefactor.
     h_sh_list : list
         Each element should be a dictionary with the following keys: 'h', 'sh',
         'ex', 'shx', 'weights', and svd_sym.  For descriptions of each element,
         see the ESHFit docstring.
-    cfl_min : CFLMin 
+    cfl_min : CFLMin
         The minimization object which sets the optimization algorithm and
         corresponding options.
+    suppress_input : bool, optional
+        If True, omit the input file echo from the fit summary (default: False).
+        Useful when running multiple fits to reduce verbose output.
     ignore_ndof : bool, optional
         Force minimization even if there are fewer observables than parameters;
         use at your own peril.
+    max_levels : int, optional
+        Limit the number of displayed energy levels in the summary output.
+        Useful for systems with many levels; does not affect fitting statistics.
+    nstates : int, optional
+        Limit the number of displayed spin states in the summary output.
+        Does not affect fitting statistics.
     """
     started_at = datetime.now()
     summary = "================\n"
     summary+= "mesh_fit summary\n"
     summary+= "================\n"
-    summary += gen_pycf_summary(started_at)
+    summary += gen_pycf_summary(started_at, suppress_input=suppress_input)
     print_pycf_details(started_at)
+
+    # Auto-diagonalize all Hamiltonians if not already done (needed for mu/n index mode)
+    for h_sh_dict in h_sh_list:
+        _ensure_diagonalised(h_sh_dict['h'])
 
     meshfit = MESHFit(parameters, h_sh_list, **kwargs)
     (x, fmin) = meshfit.fit(cfl_min)
@@ -3823,38 +5417,41 @@ def mesh_fit(parameters, h_sh_list, cfl_min, **kwargs):
     h = meshfit.h_list[0]
     h.update_coeff(x)
     (w, z) = h.diag()
-    
+
     # Fix: ndof is the number of observables minus fitted real parameters.
     ndof = max(meshfit.n_obs - meshfit.n_p_real, 1)
 
-    summary += h.gen_summary()
+    summary += h.gen_summary(**kwargs)
     summary += "\n"
-    
+
     chi2_offset = 0
     for i,h in enumerate(meshfit.h_list):
         h.update_coeff(x)
         (w, z) = h.diag()
 
         name = "Hamiltonian %i" % i
-        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels, 
-                h.tensors[0].states.label_key, ex=meshfit.ex_list[i], name=name,
-                chi2=meshfit.chi2[chi2_offset], ndof=ndof, weighting=meshfit.weights_list[i]['energy'])
+        summary_kwargs = _build_e_summary_trunc_kwargs(
+            meshfit.ex_list[i], name, meshfit.chi2[chi2_offset], ndof,
+            meshfit.weights_list[i]['energy'], h, kwargs,
+        )
+        summary += gen_e_summary_trunc(h.w, h.z, h.tensors[0].states.labels,
+                h.tensors[0].states.label_key, **summary_kwargs)
         chi2_offset += 1
         summary += "\n"
-        
+
         if 'svd_sym' in h_sh_list[i]:
             svd = h_sh_list[i]['svd_sym']
         else:
             svd = False
         name = "Spin Hamiltonian %i" % i
         sh_param = meshfit.sh_list[i].calc_param(h, svd_sym=svd)
-        
+
         ni = len(meshfit.sh_list[i].interactions)   # The number of interactions for this sh.
         summary += gen_sh_summary(sh_param, meshfit.sh_list[i], shx=h_sh_list[i]['shx'], name = name,
                 chi2=meshfit.chi2[chi2_offset:chi2_offset+ni], ndof=ndof, weighting=meshfit.weights_list[i])
         chi2_offset += ni
         summary += "\n"
-    
+
     summary += gen_fit_summary(x, meshfit, cfl_min.method, fmin, **cfl_min.kwargs)
 
     return {'fmin': fmin, 'coeff': x, 'summary': summary, **cfl_min.kwargs}
@@ -3873,7 +5470,7 @@ cdef class ZEFOZSearch:
         consecutive iterations is less than this value, then the field value is
         returned as a ZEFOZ point.
     init_size : int
-        The initial size of the ZEFOZ point storage array.  
+        The initial size of the ZEFOZ point storage array.
     """
     cdef list zmatel_list
     cdef double complex **zmatel
@@ -3884,7 +5481,7 @@ cdef class ZEFOZSearch:
     def __cinit__(self, h, xtol, init_size):
         cdef np.ndarray[double complex, ndim=1, mode='c'] zm
         cdef np.ndarray[int, ndim=1, mode='c'] zi
-        
+
         self.xtol = xtol
 
         zi = np.ascontiguousarray(np.zeros(3), dtype=np.int32)
@@ -3901,14 +5498,24 @@ cdef class ZEFOZSearch:
         except KeyError:
             raise KeyError("Missing MZ tensor in Hamiltonian.")
         self.zi = zi
-        
+
         self.zmatel = <double complex **>malloc(3*sizeof(double complex *))
         if self.zmatel == NULL:
             raise MemoryError("zmatel malloc failed")
-        
+
         self.zmatel_list = []
         for i in range(3):
-            zm = np.ascontiguousarray(h.tensors[zi[i]].get_matel().reshape(h.n**2), dtype=np.complex128)
+            # ZEFOZ Zeeman operators (MX, MY, MZ) are Hermitian. Hermitian-fill
+            # the dense matrix here because cfl_zefoz.c::inprod uses
+            # cblas_zgemv (CblasNoTrans) -- a full matrix-vector multiply that
+            # reads both triangles. Tensor.get_matel() returns the upper
+            # triangle only with the lower triangle zeroed (see
+            # zhcsr2zha in cfl/src/cfl_csr.c), so without this completion the
+            # off-diagonal contributions to the ZEFOZ gradient and curvature
+            # would be silently dropped.
+            m = h.tensors[zi[i]].get_matel()
+            m = m + np.tril(m.conj().T, k=-1)
+            zm = np.ascontiguousarray(m.reshape(h.n**2), dtype=np.complex128)
             self.zmatel[i] = &zm[0]
             self.zmatel_list += [zm]    # Keep reference to avoid GC cleanup.
 
@@ -3935,7 +5542,7 @@ cdef class ZEFOZSearch:
             cfl.zefoz_d_free(self.cfl_zd)
         if self.cfl_za != NULL:
             cfl.zefoz_a_free(self.cfl_za)
-    
+
     @cython.boundscheck(False)
     def run_search(self, Bx, By, Bz, k, l):
         """
@@ -3969,12 +5576,12 @@ cdef class ZEFOZSearch:
         cdef double xtol
         cdef np.ndarray[double, ndim=1, mode='c'] B
         cdef np.ndarray[double, ndim=1, mode='c'] v
-        
+
         cBx = np.ascontiguousarray(Bx, dtype=np.float64)
         cBy = np.ascontiguousarray(By, dtype=np.float64)
         cBz = np.ascontiguousarray(Bz, dtype=np.float64)
-        nx = len(Bx) 
-        ny = len(By) 
+        nx = len(Bx)
+        ny = len(By)
         nz = len(Bz)
 
         ck = k
@@ -3986,14 +5593,14 @@ cdef class ZEFOZSearch:
 
         with nogil:
             cfl.zefoz_search(&cBx[0], &cBy[0], &cBz[0], nx, ny, nz, ck, cl, xtol, zmatel, za, zd)
-        
+
         n = za.ctr
         B = np.ascontiguousarray(np.zeros(3*n, dtype=np.float64))
         v = np.ascontiguousarray(np.zeros(3*n, dtype=np.float64))
 
         memcpy(&B[0], za.B, 3*n*sizeof(double));
         memcpy(&v[0], za.v, 3*n*sizeof(double));
-        
+
         return (B, v)
 
 
@@ -4029,8 +5636,8 @@ def zefoz(start, stop, num, k, l, h, xtol=0.01, init_size=200):
 
     zsearch = ZEFOZSearch(h, xtol, init_size)
     (B, v) = zsearch.run_search(start, stop, num, k, l)
-    
+
     B=B.reshape(len(B)//3,3)
     v=v.reshape(len(v)//3,3)
-    
+
     return (B, v)
