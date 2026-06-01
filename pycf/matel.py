@@ -73,8 +73,8 @@ def t_q(
         The value of `j_1`.
     j2 : integer or half-integer
         The value of `j_2`.
-    m2 : integer or half-integer
-        The value of `m_2`.
+    m1 : integer or half-integer
+        The value of `m_1`.
     m2 : integer or half-integer
         The value of `m_2`.
     q : integer or half-integer

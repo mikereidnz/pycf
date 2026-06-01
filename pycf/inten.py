@@ -605,6 +605,11 @@ def boltzmann_factor(e: float, t: float) -> float:
     float
         Boltzmann factor (dimensionless).
 
+    Notes
+    -----
+    Setting T to 0 sets all Boltzmann factors to 1. This can be used if you
+    want to compare relative line strengths, or add your own Boltzmann factors.
+
     Raises
     ------
     ValueError
@@ -613,6 +618,9 @@ def boltzmann_factor(e: float, t: float) -> float:
     if t < 0:
         raise ValueError(f"Temperature must be non-negative (got {t} K)")
     elif t == 0:
+        # Convention: T == 0 returns 1 for every energy (not a physical T=0
+        # population). This lets callers compare relative line strengths, or
+        # supply their own Boltzmann factors.
         ans = 1
     else:
         ans = np.exp(-e / (t * BOLTZMANN_CM_INVERSE))

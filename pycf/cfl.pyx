@@ -1807,7 +1807,7 @@ cdef class ExData(object):
                     self.e = np.ascontiguousarray(data[key.index('DS')][:, 2*ll], dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
                     self.n_a = 0
-                    self.la = np.zeros(0)
+                    self.la = np.zeros(0, dtype=np.int32)
 
             # Handle marker-column mu/n data with label_key="MuN"
             elif label_key == "MuN":
@@ -2032,7 +2032,7 @@ cdef class ExData(object):
                     self.e = np.ascontiguousarray(data[key.index('D')][:, 2], dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('D')], dtype=np.float64)
                     self.n_a = 0
-                    self.la = np.zeros(0)
+                    self.la = np.zeros(0, dtype=np.int32)
 
         self.n_obs = self.n_a + self.n_d
 

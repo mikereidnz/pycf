@@ -1,12 +1,3 @@
-import sys
-from datetime import datetime
-
-try:
-    from pycf.__version__ import __build_comment__, __build_timestamp__, __version__
-except ImportError:
-    __version__ = "unknown"
-    __build_timestamp__ = "unknown"
-    __build_comment__ = ""
 """
 PyCF: Python Crystal Field package for rare-earth ion modeling.
 A comprehensive Python package for crystal field calculations on rare-earth ions,
@@ -56,6 +47,16 @@ combining density-functional-theory (DFT) computations with experimental fitting
 See individual module headers for copyright information. Most modules under
 GNU GPL v3 (Sebastian Horvath) or MIT License (as noted).
 """
+
+import sys
+from datetime import datetime
+
+try:
+    from pycf.__version__ import __build_comment__, __build_timestamp__, __version__
+except ImportError:
+    __version__ = "unknown"
+    __build_timestamp__ = "unknown"
+    __build_comment__ = ""
 
 
 def _fmt_pycf_time(value=None):

@@ -141,6 +141,11 @@ void gsl_multimin_ndf_wrapper(const gsl_vector *v, void *data, gsl_vector *df) {
           GSL_MIN_DERIV_H, &result, &abserr);
     }
     gsl_vector_set(df, i, result);
+    /* gsl_numerical_df_wrapper leaves df_work[i] at the last probe value
+     * (x[i] +/- h). Restore it so subsequent coordinates are differentiated
+     * about the true base point x, making the gradient independent of the
+     * order in which the coordinates are processed. */
+    gsl_data->df_work[i] = gsl_data->x[i];
   }
 }
 
@@ -169,6 +174,11 @@ void gsl_multimin_fndf_wrapper(const gsl_vector *v, void *data, double *f,
           GSL_MIN_DERIV_H, &result, &abserr);
     }
     gsl_vector_set(df, i, result);
+    /* gsl_numerical_df_wrapper leaves df_work[i] at the last probe value
+     * (x[i] +/- h). Restore it so subsequent coordinates are differentiated
+     * about the true base point x, making the gradient independent of the
+     * order in which the coordinates are processed. */
+    gsl_data->df_work[i] = gsl_data->x[i];
   }
 }
 

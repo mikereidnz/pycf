@@ -57,6 +57,12 @@ def write_version_file() -> str:
     # Use a valid PEP 440 version format
     # For release tags (v0.2.0), use just the base version
     # For dev builds, add .dev0+git_hash
+    #
+    # NOTE: `base_version` is the single source of truth for the package
+    # version. pyproject.toml declares `dynamic = ["version"]` with
+    # `version = {attr = "pycf.__version__"}`, so the value written here flows
+    # through to the installed package metadata. When bumping the version,
+    # update this constant and keep CHANGELOG.md in sync.
     base_version = "0.2.0"
     if is_release_tag():
         version_str = base_version
