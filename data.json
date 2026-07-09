@@ -1,0 +1,16 @@
+{
+    "creation": "2026-05-12 20:01:17.341472",
+    "comment": "Testing complex saves",
+    "coeff": {
+        "A": {
+            "__complex__": true,
+            "real": 1.0,
+            "imag": 2.0
+        },
+        "B": {
+            "__complex__": true,
+            "real": 3.5,
+            "imag": -0.1
+        }
+    }
+}

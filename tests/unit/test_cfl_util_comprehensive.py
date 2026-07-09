@@ -20,6 +20,7 @@ from pycf.cfl_util import (
     MHz2cm1,
     WignerR,
     cm12MHz,
+    conjugate_cf_params,
     fmt_timestamp,
     gen_completed_str,
     gen_pycf_details,
@@ -369,6 +370,47 @@ class TestRotateCFParams:
         coeff = {}
         result = rotate_cf_params(coeff, 0.1, 0.2, 0.3)
         assert isinstance(result, dict)
+
+
+class TestConjugateCFParams:
+    """Test crystal field parameter conjugation helper."""
+
+    def test_conjugate_cf_params_returns_copy(self) -> None:
+        """Test that conjugation returns a new dictionary."""
+        coeff = {"C21": 1.0 + 2.0j, "C40": 3.0}
+        result = conjugate_cf_params(coeff)
+
+        assert isinstance(result, dict)
+        assert result is not coeff
+
+    def test_conjugate_cf_params_conjugates_only_Ckq(self) -> None:
+        """Test that only Ckq parameters are complex conjugated."""
+        coeff = {
+            "C21": 1.0 + 2.0j,
+            "C40": 3.0 - 4.0j,
+            "alpha": 5.0 + 6.0j,
+            "C2x": 7.0 + 8.0j,
+        }
+        result = conjugate_cf_params(coeff)
+
+        assert result["C21"] == 1.0 - 2.0j
+        assert result["C40"] == 3.0 + 4.0j
+        assert result["alpha"] == coeff["alpha"]
+        assert result["C2x"] == coeff["C2x"]
+
+    def test_conjugate_cf_params_does_not_mutate_input(self) -> None:
+        """Test that input dictionary remains unchanged."""
+        coeff = {"C22": 0.5 + 0.25j}
+        _ = conjugate_cf_params(coeff)
+
+        assert coeff["C22"] == 0.5 + 0.25j
+
+    def test_conjugate_cf_params_empty_dict(self) -> None:
+        """Test conjugation with empty coefficient dictionary."""
+        coeff = {}
+        result = conjugate_cf_params(coeff)
+
+        assert result == {}
 
 
 class TestRJmmp:

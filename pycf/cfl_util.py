@@ -1975,11 +1975,37 @@ def rotate_cf_params(
         # valued Bkq given (Bkq)* = (-1)^q Bk-q).
         for ii, q in enumerate(range(0, k + 1)):
             ii += k
-            if rp_list[i][ii] != 0:
+            v = rp_list[i][ii]
+            if q == 0:
+                # q=0 components are physically real; drop numerical imag roundoff.
+                v = np.real(v)
+            if v != 0:
                 try:
-                    rcoeff["C%i%i" % (k, q)] = rp_list[i][ii]
+                    rcoeff["C%i%i" % (k, q)] = v
                 except KeyError:
                     pass
+    return rcoeff
+
+
+def conjugate_cf_params(coeff: Dict[str, Any]) -> Dict[str, Any]:
+    r"""
+    Complex-conjugate crystal-field parameters in a coefficient dictionary.
+
+    Parameters
+    ----------
+    coeff : dict
+        Coefficient dictionary in the usual format. Only parameters with names
+        Ckq, where k and q are zero or positive integers, are touched.
+
+    Returns
+    -------
+    rcoeff : dict
+        A copy of coeff with all Ckq parameters complex conjugated.
+    """
+    rcoeff = coeff.copy()
+    for key, value in coeff.items():
+        if re.fullmatch(r"C\d{2,}", key):
+            rcoeff[key] = np.conj(value)
     return rcoeff
 
 
