@@ -1922,7 +1922,7 @@ def rotate_cf_params(
 ) -> Dict[str, Any]:
     r"""
     Rotate crystal-field parameters by angles alpha, beta, and gamma, using the
-    Euler angle convention of Messiah (zyz').
+    Euler angle convention of Messiah (zy'z').
 
     Parameters
     ----------
@@ -1931,11 +1931,11 @@ def rotate_cf_params(
         Ckq, where k and q are zero or positive integers, are touched. These
         will be rotated by the specified Euler angles.
     alpha : float
-        First Euler angle using zyz' convention (in radians).
+        First Euler angle using zy'z' convention (in radians).
     beta : float
-        Second Euler angle using zyz' convention (in radians).
+        Second Euler angle using zy'z' convention (in radians).
     gamma : float
-        Third Euler angle using zyz' convention (in radians).
+        Third Euler angle using zy'z' convention (in radians).
 
     Returns
     -------
