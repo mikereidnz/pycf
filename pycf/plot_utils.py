@@ -30,11 +30,11 @@ def _latex_available():
                 capture_output=True,
                 timeout=5,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                return True
+            if result.returncode != 0 or not result.stdout.strip():
+                return False
         except Exception:
-            pass
-    return False
+            return False
+    return True
 
 
 if _latex_available():
