@@ -15,7 +15,30 @@ import matplotlib.gridspec as gridspec
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.special import sph_harm_y
 
-plt.rc("text", usetex=True)
+def _latex_available():
+    """Return True if a working LaTeX installation with required packages is found."""
+    import shutil
+    import subprocess
+
+    if shutil.which("latex") is None:
+        return False
+    # Use kpsewhich to verify the packages matplotlib needs are actually installed.
+    for pkg in ("type1cm.sty", "type1ec.sty"):
+        try:
+            result = subprocess.run(
+                ["kpsewhich", pkg],
+                capture_output=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return True
+        except Exception:
+            pass
+    return False
+
+
+if _latex_available():
+    plt.rc("text", usetex=True)
 
 
 def makegrid(npoints):
