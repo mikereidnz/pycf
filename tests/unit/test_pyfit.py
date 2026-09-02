@@ -236,6 +236,12 @@ def test_pyfit_fit_res_prints_pycf_details(capsys):
     assert "pycf details" in out
     assert "Calculation started at:" in out
     assert "Calculation completed at:" in out
+    # PyFit calls gen_pycf_summary(suppress_input=True) internally
+    # (pyfit.py itself is the immediate caller, not the user's script), so
+    # no "File: ..." line should ever be echoed here -- otherwise every
+    # fit summary would leak pycf's own pyfit.py path as if it were the
+    # user's input file.
+    assert "File: " not in out
 
 
 def test_pyfit_fit_res_forces_sigma_for_covariance(capsys):
