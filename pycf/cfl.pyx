@@ -2993,8 +2993,19 @@ cdef double mu_n_mhfit_obj(
             h = mhfit.h_list[i]
             ex = mhfit.ex_list[i]
 
-            # Set this H's coefficients and diagonalize
-            h.set_coeff(mhfit.coeff)
+            # Only push the subset of fitted parameters that actually belong
+            # to this Hamiltonian. mhfit.coeff is a dict merged across *all*
+            # Hamiltonians in h_list (via dict.update in MHFit.__init__), so
+            # parameters that are fixed per-Hamiltonian but share a name
+            # across Hamiltonians (e.g. MX/MY/MZ, which differ between the
+            # zero-field energy-level Hamiltonian and field-on g-value
+            # Hamiltonians) would otherwise get clobbered with another
+            # Hamiltonian's value if we called h.set_coeff(mhfit.coeff)
+            # directly. update_coeff only touches the keys we pass in, so
+            # each Hamiltonian's own fixed coefficients are preserved.
+            sub = {k: v for k, v in new_coeff.items() if k in h}
+            if sub:
+                h.update_coeff(sub)
             h.diag()
 
             # Update dynamic mu/n indices for this H (only if has_mu_n)

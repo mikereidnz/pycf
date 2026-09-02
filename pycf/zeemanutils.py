@@ -79,6 +79,9 @@ def load_g_values(B0, Bhat, fname, weight, exdata_list, h_list, weights_list, t_
     h.set_coeff(coeff)
     h_list += [h]
     weights_list += [weight]
+    coeff["MX"] = 0
+    coeff["MY"] = 0
+    coeff["MZ"] = 0
     return exg, exdata_list, h_list, weights_list
 
 
