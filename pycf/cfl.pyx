@@ -1760,7 +1760,7 @@ cdef class ExData(object):
                     for i in range(len(lah)):
                         self.a_states[i, :] = data[key.index('AS')][i, :ll]
                         clabels = np.ascontiguousarray(self.a_states[i, :], dtype=np.int32)
-                        lah[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        lah[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int))
 
                     self.la = np.zeros(self.n_a, dtype=np.int32)
                     self.lah = np.ascontiguousarray(lah, dtype=np.int32)
@@ -1780,9 +1780,9 @@ cdef class ExData(object):
                         self.id_states[i, :] = data[key.index('DS')][i, :ll]
                         self.fd_states[i, :] = data[key.index('DS')][i, ll:2*ll]
                         clabels = np.ascontiguousarray(self.id_states[i, :], dtype=np.int32)
-                        ildh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        ildh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int))
                         clabels = np.ascontiguousarray(self.fd_states[i, :], dtype=np.int32)
-                        fldh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        fldh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int))
 
                     self.ild = np.zeros(self.n_d, dtype=np.int32)
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
