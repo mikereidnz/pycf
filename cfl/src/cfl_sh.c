@@ -666,7 +666,9 @@ void svd_sym(double *a, svd_sym_w *w) {
    * is equivalent to passing its transpose.  The two dgemm calls therefore
    * compute  dgemm_a = A^T * U  and then  a = A^T * U * VT = V * S * VT,
    * which is the symmetric positive-semidefinite factor of the polar
-   * decomposition of A (i.e. the nearest symmetric matrix to A). */
+   * decomposition of A (i.e. the nearest symmetric positive-semidefinite
+   * matrix to A; not to be confused with the unconstrained nearest symmetric
+   * matrix (A + A^T)/2). */
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->tmp_a, 3,
       w->u, 3, 0, w->dgemm_a, 3);
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, w->dgemm_a,

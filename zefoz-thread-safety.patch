@@ -1,0 +1,171 @@
+commit 2e92758f8ecdbde421c7520ef5c372a105df167a
+Author: Mike Reid <mike.reid@canterbury.ac.nz>
+Date:   Mon Jun 1 10:50:48 2026 +1200
+
+    ZEFOZ: per-thread coefficients and thread-safety fixes; correct Newton update scaling
+
+    - Allocate a per-thread coefficient vector (zd_inst->coeff) and copy initial coefficients from the shared Hamiltonian to avoid concurrent writes to h->coeff\n- Add zhd_with_coeff() to evaluate the Hamiltonian with an explicit coefficient vector (avoids mutating h->coeff)\n- Use omp_get_max_threads() to size per-thread workspaces to avoid OOB when OMP_NUM_THREADS > num_procs\n- Correct Newton update scaling: apply 0.5 * C^{-1} v (d2 returns half the Hessian)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+diff --git a/cfl/include/cfl_h.h b/cfl/include/cfl_h.h
+index b7466ca..58c1ca0 100644
+--- a/cfl/include/cfl_h.h
++++ b/cfl/include/cfl_h.h
+@@ -134,6 +134,7 @@ void zh_set_coeff(zh *h, complex double *coeff);
+ zhd_w *zhd_w_alloc(char job, zh *h);
+ void zhd_w_free(zhd_w *hd_w);
+ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w);
++void zhd_with_coeff(char job, double *w, complex double *z, zh *h, complex double *coeff, zhd_w *hd_w);
+ #ifdef __cplusplus
+ }
+ #endif /* __cplusplus */
+diff --git a/cfl/include/cfl_zefoz.h b/cfl/include/cfl_zefoz.h
+index 3ce1ce5..426ebaa 100644
+--- a/cfl/include/cfl_zefoz.h
++++ b/cfl/include/cfl_zefoz.h
+@@ -49,6 +49,8 @@ typedef struct {
+   double v[3];
+   /* The Zeeman curvature tensor. */
+   double C[10];
++  /* Per-thread coefficient vector for per-thread Hamiltonian assembly. */
++  complex double *coeff;
+ } zd_inst;
+
+ /* Data for ZEFOZ search. */
+diff --git a/cfl/src/cfl_h.c b/cfl/src/cfl_h.c
+index f1583dd..7326d8b 100644
+--- a/cfl/src/cfl_h.c
++++ b/cfl/src/cfl_h.c
+@@ -1023,3 +1023,64 @@ void zhd(char job, double *w, complex double *z, zh *h, zhd_w *hd_w) {
+     zh_parse_ev(z,  h->n, hd_w);
+   }
+ }
++
++/* Variant of zhd that accepts an explicit coefficient vector. This avoids
++ * mutating h->coeff when multiple threads need to evaluate the Hamiltonian
++ * at different coefficient values concurrently.
++ */
++void zhd_with_coeff(char job, double *w, complex double *z, zh *h, complex double *coeff, zhd_w *hd_w) {
++  int i;
++  double **wptr;
++  /* Multiply the tensor matrix elements by coefficients and sum them.  The
++   * result is stored in hd_w->coeff_w->hcsr_m.
++   */
++  zhcsrsama(hd_w->hcsr_ma, coeff, hd_w->coeff_w);
++
++  /* Convert the Hamiltonian from Hermitian CSR to standard CSR, then apply
++   * block-diag permutation. */
++  zhcsr2zcsr(hd_w->coeff_w->hcsr_m, hd_w->zcsr_h);
++
++  if (hd_w->nblocks != 1) {
++    zcsr_row_perm(hd_w->zcsr_h, hd_w->blk_rp_h, hd_w->blk_perm);
++    zcsr_col_perm(hd_w->blk_rp_h, hd_w->blk_cp_h, hd_w->blk_perm, hd_w->blk_pj);
++    zh_diag_blocks(job, w, hd_w->blk_cp_h, hd_w);
++  }
++  else {
++    zh_diag_blocks(job, w, hd_w->zcsr_h, hd_w);
++  }
++
++  /* Check whether we have to determine the permutation required to sort
++   * eigenvalues from smallest to largest. */
++  if (hd_w->w_perm[0] == -1) {
++    wptr = (double **) malloc(h->n*sizeof(double *));
++    if (wptr == 0) {
++      CFL_ERROR_VOID("malloc failed for wptr");
++    }
++
++    for (i = 0; i < h->n; i++) {
++      wptr[i] = &w[i];
++    }
++    qsort(wptr, h->n, sizeof(double *), dptr_cmp);
++
++    for (i = 0; i < h->n; i++) {
++      hd_w->w_perm[wptr[i] - w] = i;
++    }
++    free(wptr);
++
++    if (job == 'V') {
++      /* zh_parse_ev only ever touches the same elements; so we set z to zero
++       * during the first zhd call. */
++      for (i = 0; i < h->n*h->n; i++) {
++        z[i] = 0;
++      }
++    }
++  }
++
++  /* Permute the eigenvalue vector. */
++  dvperm(h->n, w, hd_w->w_perm);
++
++  /* Permute and parse eigenvectors, if requested. */
++  if (job == 'V') {
++    zh_parse_ev(z,  h->n, hd_w);
++  }
++}
+diff --git a/cfl/src/cfl_zefoz.c b/cfl/src/cfl_zefoz.c
+index 14483ab..4dd8bea 100644
+--- a/cfl/src/cfl_zefoz.c
++++ b/cfl/src/cfl_zefoz.c
+@@ -232,6 +232,23 @@ zd_inst *zd_inst_alloc(zh *h, int *zi) {
+     CFL_ERROR_NULL("calloc failed for dwork");
+   }
+
++  /* Allocate per-thread coefficient vector and copy any existing coefficients
++   * from the shared Hamiltonian. This avoids concurrent writes to h->coeff.
++   */
++  data->coeff = (complex double *) calloc((size_t)h->nt, sizeof(complex double));
++  if (data->coeff == 0) {
++    free(data->w);
++    free(data->z);
++    zhd_w_free(data->hd_w);
++    free(data->inprod_w);
++    free(data->dwork);
++    free(data);
++    CFL_ERROR_NULL("calloc failed for data->coeff");
++  }
++  if (h->coeff != NULL) {
++    memcpy(data->coeff, h->coeff, (size_t)h->nt * sizeof(complex double));
++  }
++
+   data->h = h;
+   data->zi = zi;
+
+@@ -244,6 +261,9 @@ void zd_inst_free(zd_inst *data) {
+   zhd_w_free(data->hd_w);
+   free(data->inprod_w);
+   free(data->dwork);
++  if (data->coeff != NULL) {
++    free(data->coeff);
++  }
+   free(data);
+ }
+
+@@ -262,7 +282,7 @@ zefoz_d *zefoz_d_alloc(zh *h, int *zi) {
+   zefoz_d *data;
+
+ #ifdef _OPENMP
+-  ninst = omp_get_num_procs();
++  ninst = omp_get_max_threads();
+ #else
+   ninst = 1;
+ #endif /* _OPENMP */
+@@ -431,9 +451,9 @@ static inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
+   char lapack_err[64] = "LAPACKE failed with error code: 0";
+
+   for (i=0; i<3; i++) {
+-    data->h->coeff[data->zi[i]] = data->B[i];
++    data->coeff[data->zi[i]] = data->B[i];
+   }
+-  zhd('V', data->w, data->z, data->h, data->hd_w);
++  zhd_with_coeff('V', data->w, data->z, data->h, data->coeff, data->hd_w);
+
+   v_eval(k, l, m, data);
+   C_eval(k, l, m, data);
+@@ -458,8 +478,8 @@ static inline void zefoz_iter(int k, int l, double complex **m, zd_inst *data) {
+       0, data->dwork, 1);
+
+   for (i=0; i<3; i++) {
+-    /* Factor of 2 is from perturbation theory (PRB 74, 195101). */
+-    data->B[i] -= 2*data->dwork[i];
++    /* d2 returns half the Hessian (PRB 74, 195101). Newton update is ΔB = -0.5 * C^{-1} v. */
++    data->B[i] -= 0.5 * data->dwork[i];
+   }
+ }

@@ -57,6 +57,12 @@ def write_version_file() -> str:
     # Use a valid PEP 440 version format
     # For release tags (v0.2.0), use just the base version
     # For dev builds, add .dev0+git_hash
+    #
+    # NOTE: `base_version` is the single source of truth for the package
+    # version. pyproject.toml declares `dynamic = ["version"]` with
+    # `version = {attr = "pycf.__version__"}`, so the value written here flows
+    # through to the installed package metadata. When bumping the version,
+    # update this constant and keep CHANGELOG.md in sync.
     base_version = "0.2.0"
     if is_release_tag():
         version_str = base_version
@@ -114,6 +120,13 @@ def build_cfl() -> None:
         # On macOS, /usr/include doesn't exist; the makefile fallback will handle it
         if sys.platform.startswith("linux"):
             make_env["CFL_CFLAGS"] = "-I/usr/include -I/usr/include/lapacke"
+        elif sys.platform == "darwin":
+            prefix = find_homebrew_prefix() or "/opt/homebrew"
+            make_env["CFL_CFLAGS"] = (
+                f"-I{prefix}/opt/lapack/include "
+                f"-I{prefix}/opt/gsl/include "
+                f"-I{prefix}/opt/nlopt/include "
+            )
 
     output = run_make(env=make_env)
 
@@ -150,6 +163,18 @@ def find_lapacke_include() -> str:
     # Use sensible defaults - the compiler will report an error if the
     # header is not found
     return "/usr/include"
+
+
+def find_homebrew_prefix() -> Optional[str]:
+    """Return the active Homebrew prefix for the current machine.
+
+    On Apple Silicon Homebrew usually lives in /opt/homebrew.
+    On Intel macOS it is commonly /usr/local.
+    """
+    for candidate in ("/opt/homebrew", "/usr/local"):
+        if Path(candidate).exists():
+            return candidate
+    return None
 
 
 def compute_build_flags() -> Tuple[List[str], List[str]]:
@@ -206,8 +231,27 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
             f"-Wl,-rpath,{intel_path}/lib/intel64/",
             f"-Wl,-rpath,{intel_path}/mkl/lib/intel64/",
         ]
+    elif sys.platform == "darwin":
+        homebrew_prefix = find_homebrew_prefix()
+
+        if not homebrew_prefix:
+            raise RuntimeError(
+                "Could not find a Homebrew prefix on macOS. "
+                "Set CFL_CFLAGS/CFL_LDLIBS manually or install Homebrew."
+            )
+
+        link_args += [
+            f"-L{homebrew_prefix}/opt/lapack/lib",
+            f"-L{homebrew_prefix}/opt/gsl/lib",
+            f"-L{homebrew_prefix}/opt/nlopt/lib",
+            "-llapacke",
+            "-llapack",
+            "-lblas",
+            "-lgslcblas",
+        ]
     else:
         link_args += ["-llapacke", "-llapack", "-lblas", "-lgslcblas"]
+
         # Only add GNU Fortran runtime on Linux
         if sys.platform.startswith("linux"):
             link_args.append("-lgfortran")
@@ -237,7 +281,7 @@ class CleanCommand(Command):
         for path in [
             ROOT / "build",
             ROOT / "dist",
-            ROOT / "pycf.egg-info",
+            ROOT / "pycf_crystalfield.egg-info",
         ]:
             if path.exists():
                 rmtree(path)
@@ -254,17 +298,28 @@ git_revision = write_version_file()
 
 compile_args, link_args = compute_build_flags()
 lapacke_include = find_lapacke_include()
+homebrew_prefix = find_homebrew_prefix()
+
+include_dirs = [
+    "cfl/include",
+    np.get_include(),
+    lapacke_include,
+]
+
+if homebrew_prefix:
+    # extra directories to include for macOS
+    include_dirs += [
+        f"{homebrew_prefix}/opt/lapack/include",
+        f"{homebrew_prefix}/opt/gsl/include",
+        f"{homebrew_prefix}/opt/nlopt/include",
+    ]
 
 ext_modules = cythonize(
     [
         Extension(
             "pycf.cfl",
             sources=["pycf/cfl.pyx"],
-            include_dirs=[
-                "cfl/include",
-                np.get_include(),
-                lapacke_include,
-            ],
+            include_dirs=include_dirs,
             extra_compile_args=compile_args,
             extra_link_args=link_args,
         )
@@ -272,7 +327,7 @@ ext_modules = cythonize(
 )
 
 setup(
-    name="pycf",
+    name="pycf-crystalfield",
     description="Python crystal field theory modules",
     long_description=(ROOT / "README.rst").read_text(encoding="utf-8"),
     long_description_content_type="text/x-rst",

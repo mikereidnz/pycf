@@ -1760,7 +1760,7 @@ cdef class ExData(object):
                     for i in range(len(lah)):
                         self.a_states[i, :] = data[key.index('AS')][i, :ll]
                         clabels = np.ascontiguousarray(self.a_states[i, :], dtype=np.int32)
-                        lah[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        lah[i] = <int> cfl.fnv_hash(&clabels[0], <int>(ll * sizeof(int)))
 
                     self.la = np.zeros(self.n_a, dtype=np.int32)
                     self.lah = np.ascontiguousarray(lah, dtype=np.int32)
@@ -1780,9 +1780,9 @@ cdef class ExData(object):
                         self.id_states[i, :] = data[key.index('DS')][i, :ll]
                         self.fd_states[i, :] = data[key.index('DS')][i, ll:2*ll]
                         clabels = np.ascontiguousarray(self.id_states[i, :], dtype=np.int32)
-                        ildh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        ildh[i] = <int> cfl.fnv_hash(&clabels[0], <int>(ll * sizeof(int)))
                         clabels = np.ascontiguousarray(self.fd_states[i, :], dtype=np.int32)
-                        fldh[i] = <int> cfl.fnv_hash(&clabels[0], ll*sizeof(int)/sizeof(char))
+                        fldh[i] = <int> cfl.fnv_hash(&clabels[0], <int>(ll * sizeof(int)))
 
                     self.ild = np.zeros(self.n_d, dtype=np.int32)
                     self.fld = np.zeros(self.n_d, dtype=np.int32)
@@ -1807,7 +1807,7 @@ cdef class ExData(object):
                     self.e = np.ascontiguousarray(data[key.index('DS')][:, 2*ll], dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('DS')], dtype=np.float64)
                     self.n_a = 0
-                    self.la = np.zeros(0)
+                    self.la = np.zeros(0, dtype=np.int32)
 
             # Handle marker-column mu/n data with label_key="MuN"
             elif label_key == "MuN":
@@ -2032,7 +2032,7 @@ cdef class ExData(object):
                     self.e = np.ascontiguousarray(data[key.index('D')][:, 2], dtype=np.float64)
                     self.w = np.ascontiguousarray(weights[key.index('D')], dtype=np.float64)
                     self.n_a = 0
-                    self.la = np.zeros(0)
+                    self.la = np.zeros(0, dtype=np.int32)
 
         self.n_obs = self.n_a + self.n_d
 
@@ -2993,8 +2993,19 @@ cdef double mu_n_mhfit_obj(
             h = mhfit.h_list[i]
             ex = mhfit.ex_list[i]
 
-            # Set this H's coefficients and diagonalize
-            h.set_coeff(mhfit.coeff)
+            # Only push the subset of fitted parameters that actually belong
+            # to this Hamiltonian. mhfit.coeff is a dict merged across *all*
+            # Hamiltonians in h_list (via dict.update in MHFit.__init__), so
+            # parameters that are fixed per-Hamiltonian but share a name
+            # across Hamiltonians (e.g. MX/MY/MZ, which differ between the
+            # zero-field energy-level Hamiltonian and field-on g-value
+            # Hamiltonians) would otherwise get clobbered with another
+            # Hamiltonian's value if we called h.set_coeff(mhfit.coeff)
+            # directly. update_coeff only touches the keys we pass in, so
+            # each Hamiltonian's own fixed coefficients are preserved.
+            sub = {k: v for k, v in new_coeff.items() if k in h}
+            if sub:
+                h.update_coeff(sub)
             h.diag()
 
             # Update dynamic mu/n indices for this H (only if has_mu_n)

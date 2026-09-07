@@ -634,6 +634,19 @@ class TestBannerHelpers:
         assert "pycf details" in s
         assert "pycf revision" in s
 
+    def test_gen_pycf_summary_suppress_input_still_echoes_filename(self):
+        # suppress_input=True should skip the full source-file listing, but
+        # for a genuine external caller (this test file, which lives outside
+        # the pycf package directory) it must still echo a single
+        # "File: ..." line so fit logs remain traceable to their input file.
+        s = cfl_util.gen_pycf_summary(suppress_input=True)
+        assert "File: " in s
+        assert "test_cfl_util_summaries.py" in s
+        # The full "Input file" header (used only for the non-suppressed
+        # case) must not be present -- only the filename line is echoed.
+        assert "Input file" not in s
+        assert "pycf details" in s
+
     def test_print_pycf_details_writes_to_stdout(self):
         buf = io.StringIO()
         with redirect_stdout(buf):

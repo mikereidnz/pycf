@@ -271,3 +271,31 @@ Please consider how to approach this change.
 
 It might be helpful to keep in mind that we would also like to add weighting of data. The weighting would be similar to mh_fit - an overall weighting factor for each spectrum, and an optional list of weights within each spectrum.
 
+### Phase 10 Graphing enhancement for phase 9. 
+
+The option to scale the data to the data for a particular group and to ignore the data for some groups is working well. 
+
+It would be helpful if the plots reflected the three types of data: 
+
+1. Experimental data that is used in the fit. This is sometimes scaled, and sometimes not scaled. 
+
+If the data is scaled we also have: 
+2. The data point that was used to scale the data. 
+
+Whether or not there is scaling we also have: 
+3. The data points that are ignored in the fit, but we want to plot them anyway so the user can refer to them on the plot. 
+
+#### Proposal
+The plot should have: 
+0. The Calculated line. 
+1. The Experimental lines (which may be scaled)
+2. If it is scaled the scaled line (in a different color from the experimental lines). 
+3. Line that are NOT used in the fitting should be in another color. 
+
+So the legend might look like: 
+----- Calculated
+----- Experimental (scaled x 2.5)
+----- Scaled to. 
+----- Not used. 
+
+The labels for the last two are chosen to match the printed output. 

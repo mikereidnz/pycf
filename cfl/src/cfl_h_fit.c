@@ -177,7 +177,6 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
   int i, j, nhd_w;
   int num_procs;
   mhfit_data *data;
-  long *lwork;
   int *iwork;
 
   /* Validate preconditions */
@@ -220,8 +219,11 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
   }
 
 #ifdef _OPENMP
-  /* If we evaluate Hamiltonians in parallel, we need a workspace for each
-   * Hamiltonian. */
+  /* Each Hamiltonian needs its own diagonalization workspace. Reusing
+   * workspaces by hash is unsafe: two Hamiltonians with the same tensor
+   * layout may still carry different coefficients and experimental data,
+   * and a shared eval buffer can overwrite the objective values computed for
+   * a prior Hamiltonian. */
   nhd_w = n;
   num_procs = omp_get_num_procs();
   if (num_procs > nhd_w) {
@@ -237,34 +239,13 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
   }
 
 #else
-  lwork = (long *) calloc(n,sizeof(long));
-  if (lwork == 0) {
-    free(iwork);
-    free(data->job);
-    free(data->hi);
-    free(data);
-    CFL_ERROR_NULL("calloc failed for lwork");
-  }
-  /* We only need a diag workspace for each unique Hamiltonian. */
-  nhd_w = 0;
+  /* Keep one workspace per Hamiltonian to preserve per-Hamiltonian objective
+   * values even when Hamiltonians share the same tensor layout. */
+  nhd_w = n;
   for (i = 0; i < n; i++) {
-    for (j = 0; j < n; j++) {
-      /* A new tensor; record j index. */
-      if (j >= nhd_w) {
-        data->hi[i] = j;
-        lwork[nhd_w] = ha[i]->hh;
-        iwork[j] = i;
-        nhd_w++;
-        break;
-      }
-      /* Check whether Hamiltonian hash matches. */
-      else if (ha[i]->hh == lwork[j]) {
-        data->hi[i] = j;
-        break;
-      }
-    }
+    iwork[i] = i;
+    data->hi[i] = i;
   }
-  free(lwork);
 #endif /* _OPENMP */
 
   /* For non-linear least squares, we need the cumulative number of real-valued parameters

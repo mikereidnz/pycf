@@ -237,17 +237,37 @@ def gen_pycf_summary(
     started_at : datetime or str, optional
         Starting timestamp for the fit
     suppress_input : bool, optional
-        If True, omit the input file echo from the summary (default: False)
-        Useful when running multiple fits to reduce verbose output
+        If True, omit the input file *content* from the summary
+        (default: False). The file name is still echoed (as a single
+        "File: ..." line) when the caller is a genuine user script, so
+        that fit logs can always be traced back to the input file that
+        produced them; only the full source listing is suppressed.
+        Useful when running multiple fits to reduce verbose output.
     """
     s = ""
+    try:
+        caller_filename = os.path.abspath(inspect.stack()[1][1])
+    except IndexError:
+        caller_filename = None
+
+    # Calls originating from within the pycf package itself (e.g. pyfit.py,
+    # inten.py, or the compiled cfl extension calling gen_pycf_summary on
+    # behalf of the user) are not the user's actual input file, so never
+    # echo a filename for those -- only genuine external callers (the
+    # user's own script) get a "File: ..." line.
+    pycf_pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    caller_is_external = caller_filename is not None and not caller_filename.startswith(
+        pycf_pkg_dir
+    )
+
     if not suppress_input:
         s = "\nInput file\n"
         s += "==========\n\n"
         try:
-            filename = os.path.abspath(inspect.stack()[1][1])
-            s += "File: {}\n\n".format(filename)
-            with open(filename, "r") as f:
+            if caller_filename is None:
+                raise OSError("Unable to determine caller's source file")
+            s += "File: {}\n\n".format(caller_filename)
+            with open(caller_filename, "r") as f:
                 s += f.read()
             s += "\n\n"
         except (OSError, IndexError) as e:
@@ -259,6 +279,8 @@ def gen_pycf_summary(
             s += "  - An interactive Python/IPython session\n"
             s += "  - A script in a location that can't be read\n"
             s += "  - Use suppress_input=True to skip input file echo\n\n"
+    elif caller_is_external:
+        s = "File: {}\n\n".format(caller_filename)
     s += gen_pycf_details(started_at)
     return s
 
@@ -1922,7 +1944,7 @@ def rotate_cf_params(
 ) -> Dict[str, Any]:
     r"""
     Rotate crystal-field parameters by angles alpha, beta, and gamma, using the
-    Euler angle convention of Messiah (zyz').
+    Euler angle convention of Messiah (zy'z').
 
     Parameters
     ----------
@@ -1931,11 +1953,11 @@ def rotate_cf_params(
         Ckq, where k and q are zero or positive integers, are touched. These
         will be rotated by the specified Euler angles.
     alpha : float
-        First Euler angle using zyz' convention (in radians).
+        First Euler angle using zy'z' convention (in radians).
     beta : float
-        Second Euler angle using zyz' convention (in radians).
+        Second Euler angle using zy'z' convention (in radians).
     gamma : float
-        Third Euler angle using zyz' convention (in radians).
+        Third Euler angle using zy'z' convention (in radians).
 
     Returns
     -------
@@ -1975,11 +1997,37 @@ def rotate_cf_params(
         # valued Bkq given (Bkq)* = (-1)^q Bk-q).
         for ii, q in enumerate(range(0, k + 1)):
             ii += k
-            if rp_list[i][ii] != 0:
+            v = rp_list[i][ii]
+            if q == 0:
+                # q=0 components are physically real; drop numerical imag roundoff.
+                v = np.real(v)
+            if v != 0:
                 try:
-                    rcoeff["C%i%i" % (k, q)] = rp_list[i][ii]
+                    rcoeff["C%i%i" % (k, q)] = v
                 except KeyError:
                     pass
+    return rcoeff
+
+
+def conjugate_cf_params(coeff: Dict[str, Any]) -> Dict[str, Any]:
+    r"""
+    Complex-conjugate crystal-field parameters in a coefficient dictionary.
+
+    Parameters
+    ----------
+    coeff : dict
+        Coefficient dictionary in the usual format. Only parameters with names
+        Ckq, where k and q are zero or positive integers, are touched.
+
+    Returns
+    -------
+    rcoeff : dict
+        A copy of coeff with all Ckq parameters complex conjugated.
+    """
+    rcoeff = coeff.copy()
+    for key, value in coeff.items():
+        if re.fullmatch(r"C\d{2,}", key):
+            rcoeff[key] = np.conj(value)
     return rcoeff
 
 

@@ -26,7 +26,7 @@ SPEED_OF_LIGHT = 2.997924580e8
 # Used in: exp(-E / (k_B * T)) where E is in cm^-1 and T in K
 # Value = k_B * c * 100 in cm^-1 / K units (≈ 0.6952 cm^-1 / K)
 BOLTZMANN_CM_INVERSE = 0.6952
-# Bohr radius (m)
+# Bohr radius (Angstrom)
 # Used in parameterized electron density calculations
 BOHR_RADIUS = 0.529177210903
 # ============================================================================

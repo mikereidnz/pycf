@@ -25,9 +25,9 @@ cdef extern from "../../cfl/include/cfl_error.h":
 
 
 cdef extern from "complex.h":
-    double complexconj(double complexz)
-    double complexcexp(double complexz)
-    double complexI
+    double complex conj(double complex z)
+    double complex cexp(double complex z)
+    double complex I
 
 
 cdef extern from "../../cfl/include/cfl_csr.h":

@@ -346,9 +346,10 @@ class AltpData(object):
         A_list : list
             Elements are lists of length two, with the first element in the sublist
             containing a string that specifies the parameter designation.  The
-            second element in the sublist is a list with four elements, the static
+            second element in the sublist is a list with five elements: the static
             coupling charge and polarization parameters, the dynamic coupling
-            parameter for isotropic ligands, and the total A parameter value.
+            parameter for isotropic ligands, the combined static-charge-plus-dynamic
+            contribution, and the total A parameter value.
         """
         A_list = []
         l_list = [2, 4, 6]

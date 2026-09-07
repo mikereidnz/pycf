@@ -189,8 +189,94 @@ def test_mh_fit_mu_n_is_deterministic() -> None:
         )
 
 
+def _build_hamiltonian_with_field(t, magz: float) -> cfl.Hamiltonian:
+    """Same as ``_build_hamiltonian`` but adds a MAGZ (Zeeman field) tensor.
+
+    ``magz`` is a *fixed* (non-fitted) coefficient: it is set once via
+    ``set_coeff`` and must never be varied by the fit or by any other
+    Hamiltonian sharing the same tensor name.
+    """
+    coeff = {
+        "EAVG": 1035.1277,
+        "ZETA": 625.6990,
+        "C20": 297.8906,
+        "C40": -1328.1522,
+        "C44": -1282.4766,
+        "C60": -191.5100,
+        "C64": -1743.1424 + 692.8662j,
+        "MAGZ": magz,
+    }
+    h = cfl.Hamiltonian([t.EAVG, t.ZETA, t.C20, t.C40, t.C44, t.C60, t.C64, t.MAGZ])
+    h.set_coeff(coeff)
+    h.minimum_q = 2
+    h.half_integer_states = True
+    return h
+
+
+def test_mh_fit_mu_n_does_not_clobber_fixed_coeff_across_hamiltonians() -> None:
+    """Regression test for a bug where a fixed (non-fitted) coefficient
+    that is shared *by name* but differs in value between Hamiltonians
+    (e.g. a Zeeman field ``MAGZ`` that is 0 for a zero-field energy-level
+    Hamiltonian but nonzero for a field-on g-value Hamiltonian) got
+    silently overwritten during ``mh_fit``.
+
+    Root cause: the mu/n hot loop (``mu_n_mhfit_obj`` in cfl.pyx) called
+    ``h.set_coeff(mhfit.coeff)`` for *every* Hamiltonian on every
+    objective-function evaluation, where ``mhfit.coeff`` is a single dict
+    merged (via ``dict.update``) across *all* Hamiltonians in ``h_list``.
+    Any coefficient name shared between Hamiltonians with different fixed
+    values (like ``MAGZ``) would end up with the *last* Hamiltonian's
+    value on every one of them, regardless of what was actually fitted.
+
+    This test builds a zero-field Hamiltonian and a field-on Hamiltonian
+    that share the ``MAGZ`` tensor name, runs ``mh_fit``, and asserts that
+    each Hamiltonian's own fixed ``MAGZ`` value survives the fit
+    unchanged.
+    """
+    t = ImportSLJM(str(MATEL_BASE))
+    h_energy = _build_hamiltonian_with_field(t, magz=0.0)
+    h_field = _build_hamiltonian_with_field(t, magz=0.05)
+
+    ex_energy = _build_mu_exdata()
+    # A second, distinct mu/n data set for the field-on Hamiltonian so the
+    # two Hamiltonians are not literally identical (mirrors the real
+    # energy-levels + g-values fit structure).
+    ex_field = cfl.ExData(([["mu", 1, 1, 0], ["mu", 1, 2, 0.1]],), ("A",), label_key="MuN")
+
+    cfl_min = cfl.CFLMin("nlopt_bobyqa", xtol=1e-6, maxeval=25)
+    param = ["EAVG", "C20"]
+    res = cfl.mh_fit(
+        param,
+        [h_energy, h_field],
+        [1.0, 1.0],
+        [ex_energy, ex_field],
+        cfl_min,
+        suppress_input=True,
+    )
+
+    assert np.isfinite(res["fmin"])
+
+    # Each Hamiltonian's own MAGZ coefficient must be exactly what it was
+    # set to, independent of the other Hamiltonian's field value and
+    # independent of which parameters were actually fitted.
+    assert h_energy.coeff_dict["MAGZ"] == 0.0, (
+        "Zero-field Hamiltonian's MAGZ was clobbered by mh_fit "
+        f"(got {h_energy.coeff_dict['MAGZ']!r}); the fixed coefficient "
+        "of one Hamiltonian must not leak into another."
+    )
+    assert h_field.coeff_dict["MAGZ"] == 0.05, (
+        "Field-on Hamiltonian's MAGZ was corrupted by mh_fit "
+        f"(got {h_field.coeff_dict['MAGZ']!r})."
+    )
+
+    # The "all_coeff" reporting dict (used to build fit summaries) is
+    # derived from h_list[0], so it must also reflect the zero field.
+    assert res["all_coeff"]["MAGZ"] == 0.0
+
+
 if __name__ == "__main__":
     test_mh_fit_mu_n_two_identical_hamiltonians()
     test_mh_fit_mu_n_matches_single_h_efit()
     test_mh_fit_mu_n_is_deterministic()
+    test_mh_fit_mu_n_does_not_clobber_fixed_coeff_across_hamiltonians()
     print("All mu/n mh_fit regression tests passed.")

@@ -447,7 +447,9 @@ def su2_rotation(p: np.ndarray, m: np.ndarray) -> np.ndarray:
             ],
         ]
     )
-    rm = np.copy(m)
+    # Allocate as complex (mirroring su2_rz) so the complex rotation result is
+    # never truncated when the input m happens to be real-dtyped.
+    rm = np.array(m, dtype=complex)
     # Use integer floor division (//) rather than float division + int() cast.
     for i in range(m.shape[0] // 2):
         for j in range(m.shape[1] // 2):
