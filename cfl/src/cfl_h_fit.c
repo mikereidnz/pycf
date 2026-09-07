@@ -177,7 +177,6 @@ mhfit_data *mhfit_data_alloc(char *job, int n, zh **ha, ex_data **exa,
   int i, j, nhd_w;
   int num_procs;
   mhfit_data *data;
-  long *lwork;
   int *iwork;
 
   /* Validate preconditions */

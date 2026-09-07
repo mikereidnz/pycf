@@ -115,10 +115,11 @@ def build_cfl() -> None:
         if sys.platform.startswith("linux"):
             make_env["CFL_CFLAGS"] = "-I/usr/include -I/usr/include/lapacke"
         elif sys.platform == "darwin":
+            prefix = find_homebrew_prefix() or "/opt/homebrew"
             make_env["CFL_CFLAGS"] = (
-                "-I/opt/homebrew/opt/lapack/include "
-                "-I/opt/homebrew/opt/gsl/include "
-                "-I/opt/homebrew/opt/nlopt/include "
+                f"-I{prefix}/opt/lapack/include "
+                f"-I{prefix}/opt/gsl/include "
+                f"-I{prefix}/opt/nlopt/include "
             )
 
     output = run_make(env=make_env)
