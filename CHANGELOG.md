@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Bumped the project release line to `0.2.0`.
+## [0.2.1] - 2026-09-07
+
+### Fixed
+- Corrected non-OpenMP fitting workspace allocation so each Hamiltonian retains
+  its own diagonalization workspace and objective values.
+- Added Homebrew library and header discovery for both Apple Silicon and Intel
+  macOS installations.
+- Restored formatting and static-analysis compliance across the release branch.
 
 ## [0.2.0]
 
