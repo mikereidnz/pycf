@@ -63,7 +63,7 @@ def write_version_file() -> str:
     # `version = {attr = "pycf.__version__"}`, so the value written here flows
     # through to the installed package metadata. When bumping the version,
     # update this constant and keep CHANGELOG.md in sync.
-    base_version = "0.2.0"
+    base_version = "0.2.1"
     if is_release_tag():
         version_str = base_version
     elif git_revision != "unknown":
