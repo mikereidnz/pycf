@@ -241,9 +241,7 @@ def test_mh_fit_mu_n_does_not_clobber_fixed_coeff_across_hamiltonians() -> None:
     # A second, distinct mu/n data set for the field-on Hamiltonian so the
     # two Hamiltonians are not literally identical (mirrors the real
     # energy-levels + g-values fit structure).
-    ex_field = cfl.ExData(
-        ([["mu", 1, 1, 0], ["mu", 1, 2, 0.1]],), ("A",), label_key="MuN"
-    )
+    ex_field = cfl.ExData(([["mu", 1, 1, 0], ["mu", 1, 2, 0.1]],), ("A",), label_key="MuN")
 
     cfl_min = cfl.CFLMin("nlopt_bobyqa", xtol=1e-6, maxeval=25)
     param = ["EAVG", "C20"]

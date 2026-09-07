@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 # File: pycf/gtensor_utils.py
 """
-Calculation and printing of g-tensors by explicitly calculating the Zeeman splitting of the energy levels.
+Calculation and printing of g-tensors by explicitly calculating the Zeeman
+splitting of the energy levels.
 """
 
 import numpy as np
@@ -132,7 +133,7 @@ def print_gtensor(g):
     print("orientations (columns are principal axes):")
     for i in range(3):
         # Prints the i-th Cartesian component (x, y, or z) for all three vectors
-        print(f"  {z[i,0]:10.6f} {z[i,1]:10.6f} {z[i,2]:10.6f}")
+        print(f"  {z[i, 0]:10.6f} {z[i, 1]:10.6f} {z[i, 2]:10.6f}")
 
 
 def gtensor_print_all(gtensor):

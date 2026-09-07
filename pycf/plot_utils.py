@@ -7,12 +7,8 @@ Plotting functions for Ckq potentials and g-tensors.
 Based on https://scipython.com/blog/visualizing-the-real-forms-of-the-spherical-harmonics/
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-
-# The following import configures Matplotlib for 3D plotting.
-from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 from scipy.special import sph_harm_y
 
 # plt.rc("text", usetex=True)
@@ -95,7 +91,6 @@ def plot_surface(
     else:
         raise ValueError("color_option must be 'phase' or 'abs'")
     Cx, Cy, Cz = absC * xyz
-    scale = 1.0
     ax_lim = np.amax(absC)
     cmap = plt.cm.ScalarMappable(cmap=plt.get_cmap(colormap_option))
     if color_option == "phase":

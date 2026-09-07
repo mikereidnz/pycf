@@ -16,14 +16,11 @@ The logfile functions are deprecated but are there for backward compatibility.
   so you don't mess with the fitting h set.
 """
 
+import datetime
+
 import numpy as np
-import copy as copy
 
 import pycf.cfl as cfl
-from pycf.import_sljm import ImportSLJM
-from pycf.cfl_util import *
-
-import datetime
 
 
 def setup_logfiles(filestr):

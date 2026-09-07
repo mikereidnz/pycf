@@ -165,7 +165,6 @@ def find_lapacke_include() -> str:
     return "/usr/include"
 
 
-
 def find_homebrew_prefix() -> Optional[str]:
     """Return the active Homebrew prefix for the current machine.
 
@@ -252,7 +251,7 @@ def compute_build_flags() -> Tuple[List[str], List[str]]:
         ]
     else:
         link_args += ["-llapacke", "-llapack", "-lblas", "-lgslcblas"]
-        
+
         # Only add GNU Fortran runtime on Linux
         if sys.platform.startswith("linux"):
             link_args.append("-lgfortran")
@@ -308,7 +307,7 @@ include_dirs = [
 ]
 
 if homebrew_prefix:
-    # extra directories to include for macOS 
+    # extra directories to include for macOS
     include_dirs += [
         f"{homebrew_prefix}/opt/lapack/include",
         f"{homebrew_prefix}/opt/gsl/include",
