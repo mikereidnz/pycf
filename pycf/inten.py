@@ -945,6 +945,7 @@ class Spectrum:
 
 def gen_inten_summary(
     spectrum: Spectrum,
+    *args: Any,
     format: str = "text",
     state_labels: Optional[List[Any]] = None,
     include_altp_parameters: bool = True,
@@ -956,6 +957,10 @@ def gen_inten_summary(
     ----------
     spectrum : Spectrum
         Spectrum object with computed groups (from calculate_intensities()).
+    *args
+        Compatibility positional arguments.  Older scripts passed the
+        Hamiltonian as a second positional argument; the Spectrum now owns its
+        Hamiltonian, so that value is ignored.
     format : str, optional
         Output format: 'text' (default, pretty table) or 'csv' (comma-separated).
     state_labels : list of Any, optional
@@ -972,6 +977,13 @@ def gen_inten_summary(
     """
     if not spectrum.groups:
         return "No transitions computed."
+    if len(args) > 1:
+        raise TypeError("gen_inten_summary accepts at most one compatibility positional argument")
+    if len(args) == 1:
+        if isinstance(args[0], str):
+            format = args[0]
+        elif state_labels is None and isinstance(args[0], list):
+            state_labels = args[0]
 
     hamiltonian = spectrum.hamiltonian
 

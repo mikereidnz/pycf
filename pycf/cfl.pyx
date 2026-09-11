@@ -4973,6 +4973,14 @@ def _ensure_diagonalised(h):
         h.diag()
 
 
+def _build_legacy_eigenvalue_result(h_list):
+    """Return the legacy ``res['eigenvalue']`` mapping for fit wrappers."""
+    return {
+        "Hamiltonian{}".format(i): np.asarray(h.w, dtype=np.float64).copy()
+        for i, h in enumerate(h_list)
+    }
+
+
 def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
     r"""
     Fit parameters to energy level data.
@@ -5106,6 +5114,8 @@ def e_fit(parameters, h, ex, cfl_min, suppress_input=False, **kwargs):
         'jacobian': jacobian if include_jacobian else None,
         'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
         'sigma_forced': sigma_forced,
+        'edata': efit.get_edata(),
+        'eigenvalue': _build_legacy_eigenvalue_result([h]),
         'summary': summary,
         **cfl_min.kwargs
     }
@@ -5254,6 +5264,8 @@ def mh_fit(parameters, h_list, weights_list, ex_list, cfl_min, suppress_input=Fa
         'jacobian': jacobian if include_jacobian else None,
         'jacobian_diagnostics': jacobian_info if (include_jacobian or calculate_sigma) else {},
         'sigma_forced': sigma_forced,
+        'edata': mhfit.get_edata(),
+        'eigenvalue': _build_legacy_eigenvalue_result(mhfit.h_list),
         'summary': summary,
         **cfl_min.kwargs
     }

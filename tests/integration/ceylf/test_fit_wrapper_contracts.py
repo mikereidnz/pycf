@@ -52,6 +52,9 @@ def test_e_fit_wrapper_flag_contract_and_summary_ordering() -> None:
     assert res["jacobian"] is None
     assert isinstance(res["jacobian_diagnostics"], dict)
     assert res["sigma_forced"] is True
+    assert set(res["eigenvalue"]) == {"Hamiltonian0"}
+    assert res["eigenvalue"]["Hamiltonian0"].ndim == 1
+    assert len(res["edata"]) == res["n_obs"]
 
     s = res["summary"]
     idx_all = s.find("All Hamiltonian parameters")
@@ -109,6 +112,10 @@ def test_mh_fit_wrapper_flag_contract_and_summary_ordering() -> None:
     assert res["jacobian"] is None
     assert isinstance(res["jacobian_diagnostics"], dict)
     assert res["sigma_forced"] is True
+    assert set(res["eigenvalue"]) == {"Hamiltonian0", "Hamiltonian1"}
+    np.testing.assert_allclose(res["eigenvalue"]["Hamiltonian0"], h0.w)
+    np.testing.assert_allclose(res["eigenvalue"]["Hamiltonian1"], h1.w)
+    assert len(res["edata"]) == 2 * len(ex)
 
     s = res["summary"]
     idx_all = s.find("All Hamiltonian parameters")

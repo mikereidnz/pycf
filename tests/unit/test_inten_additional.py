@@ -900,6 +900,18 @@ class TestIntensitySummaryFormatting:
         assert "---" in summary
         assert "2    " in summary and "---          ---" in summary
 
+    def test_legacy_hamiltonian_positional_arg_is_ignored(self):
+        spec = self._make_fake_spectrum()
+        summary = gen_inten_summary(
+            spec,
+            spec.hamiltonian,
+            format="brief",
+            state_labels=["|a>", "|b>", "|c>"],
+        )
+
+        assert "Spectrum: fake" in summary
+        assert "A10" in summary
+
     def test_fit_uncertainty_is_appended_in_altp_block(self):
         spec = self._make_fake_spectrum()
 
