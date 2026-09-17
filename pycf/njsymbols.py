@@ -65,9 +65,20 @@ from scipy.special import factorial  # type: ignore[import-untyped]
 
 def tricon_ck(a: Union[float, int], b: Union[float, int], c: Union[float, int]) -> bool:
     r"""
-    Triangular condition check; returns True if the triangular condition on the
-    three integers or half-integers a, b and c is satisfied.
+    Triangular condition check; returns True if a, b and c can form a non-zero
+    angular-momentum coupling, i.e. they satisfy both
+
+    - the triangle inequality ``|a - b| <= c <= a + b``, and
+    - the perimeter (projection) rule that ``a + b + c`` is an integer.
+
+    Both conditions are required for a non-vanishing 3j/6j/9j symbol. Enforcing
+    the perimeter rule here means that an invalid triad (for example a mixed
+    integer/half-integer combination such as ``(2, 1, 2.5)``) correctly returns
+    ``False``, so the calling Wigner routine yields ``0`` instead of a spurious
+    ``nan`` from ``(-1) ** (half-integer)`` in its summation.
     """
+    if not float(a + b + c).is_integer():
+        return False
     return a + b >= c and c >= np.abs(a - b)
 
 

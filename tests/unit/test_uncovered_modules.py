@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from pycf.matel import matel, t_q
-from pycf.njsymbols import tricon_ck, wigner_3j
+from pycf.njsymbols import tricon_ck, wigner_3j, wigner_9j
 from pycf.paramcalc import Ckq, RInt4f, Xi_val
 
 
@@ -167,6 +167,30 @@ class TestNjsymbols:
         """Test triangular condition with zero."""
         assert tricon_ck(0, 1, 1)
         assert not tricon_ck(0, 1, 2)
+
+    def test_tricon_ck_perimeter_rule(self):
+        """Triads with a half-integer perimeter are invalid even if the
+        triangle inequality holds (perimeter/projection selection rule)."""
+        # |2 - 1| = 1 <= 2.5 <= 3, so the triangle inequality is satisfied,
+        # but 2 + 1 + 2.5 = 5.5 is not an integer, so the triad is invalid.
+        assert not tricon_ck(2, 1, 2.5)
+        # A genuine mixed half-integer coupling with integer perimeter is valid.
+        assert tricon_ck(2.5, 1.5, 2)  # perimeter 6, |1| <= 2 <= 4
+
+    def test_wigner_symbols_invalid_perimeter_return_zero(self):
+        """Perimeter-violating (physically zero) symbols return a clean 0,
+        not a nan/inf from ``(-1) ** (half-integer)`` in the summation."""
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any RuntimeWarning becomes an error
+            assert wigner_3j(2, 1, 2.5, 0, 0, 0) == 0
+            # 9j configs that satisfy every triangle inequality but violate the
+            # perimeter rule (rows/columns sum to a half-integer).
+            v1 = wigner_9j(3, 2, 2.5, 1.5, 3, 2.5, 2, 1, 2)
+            v2 = wigner_9j(3, 2, 1, 2.5, 1, 1.5, 3, 2.5, 1)
+        assert v1 == 0 and np.isfinite(v1)
+        assert v2 == 0 and np.isfinite(v2)
 
     def test_wigner_3j_zero_orthogonality(self):
         """Test Wigner 3j symbols satisfy selection rules."""
