@@ -123,12 +123,19 @@ void zefoz_a_insert(zefoz_a *za, double *B, double *v) {
     }
     double *new_v = (double *) realloc(za->v, (size_t)new_size*3*sizeof(double));
     if (new_v == 0) {
-      /* new_v failed, but new_B was allocated. Revert new_B to avoid partial state.
-       * In production, we could try to recover, but safest is to free new_B and
-       * return without modifying za at all. */
+      /* new_v failed, but the za->B realloc above already succeeded and may
+       * have moved the block, so za->B itself can be a stale/dangling
+       * pointer at this point (realloc() does not update the caller's
+       * pointer variable on move -- only its own return value does). We
+       * must therefore commit new_B into za->B now: freeing new_B here
+       * would leave za->B dangling (pointing at freed memory) whenever the
+       * realloc happened to move the allocation, which is not "unchanged"
+       * as previously claimed. za->size is left at its old value since
+       * za->v was NOT grown, so the object remains internally consistent
+       * (both arrays still support at least za->size elements). */
       CFL_ERROR_VOID("realloc failed for za->v");
-      free(new_B);  /* Free the successfully allocated new_B */
-      return;  /* Fail atomically; za remains in consistent state */
+      za->B = new_B;
+      return;  /* Fail without growing za->size; za->B/za->v stay valid */
     }
     /* Both reallocs succeeded; commit both pointers and the new capacity. */
     za->B = new_B;

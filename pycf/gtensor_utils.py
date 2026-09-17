@@ -60,18 +60,25 @@ def gtensor_calc(maxlev, h, coeff, B0, mu_b):
     g_dir = {}
     gtensor_rows = []
     bhat_list = list(bhat.keys())
-    for direction in bhat_list:
-        # print(direction)
-        coeff["MX"], coeff["MY"], coeff["MZ"] = tuple(B0 * bhat[direction])
-        # print(coeff)
-        h.set_coeff(coeff)
-        E, V = h.diag()
-        # print(E)
-        # print(V)
-        E0 = E[0 : maxlev + 1 : 2]
-        E1 = E[1 : maxlev + 1 : 2]
-        g_dir[direction] = (E1 - E0) / B0 / mu_b
-    # print(g_dir)
+    # The caller's coeff dict is temporarily mutated with each field direction's
+    # MX/MY/MZ components. Wrap the sweep in try/finally so the dict is always
+    # reset to zero field afterwards, even if h.diag() (or anything else in the
+    # loop) raises partway through.
+    try:
+        for direction in bhat_list:
+            # print(direction)
+            coeff["MX"], coeff["MY"], coeff["MZ"] = tuple(B0 * bhat[direction])
+            # print(coeff)
+            h.set_coeff(coeff)
+            E, V = h.diag()
+            # print(E)
+            # print(V)
+            E0 = E[0 : maxlev + 1 : 2]
+            E1 = E[1 : maxlev + 1 : 2]
+            g_dir[direction] = (E1 - E0) / B0 / mu_b
+        # print(g_dir)
+    finally:
+        coeff["MX"], coeff["MY"], coeff["MZ"] = 0, 0, 0
     x, y, z = 0, 1, 2
     for i in range(len(g_dir["x"])):
         G = np.zeros((3, 3))
@@ -105,7 +112,6 @@ def gtensor_calc(maxlev, h, coeff, B0, mu_b):
 
         gtensor_rows.append(gtensor_i.flatten())
 
-    coeff["MX"], coeff["MY"], coeff["MZ"] = 0, 0, 0
     return np.array(gtensor_rows)
 
 

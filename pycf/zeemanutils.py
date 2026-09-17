@@ -70,15 +70,21 @@ def load_g_values(B0, Bhat, fname, weight, exdata_list, h_list, weights_list, t_
     # print(exdelta)
     exdata_list += [cfl.ExData(exg2, "D")]
     h = cfl.Hamiltonian(t_list)
-    coeff["MX"] = Bhat[0] * B0
-    coeff["MY"] = Bhat[1] * B0
-    coeff["MZ"] = Bhat[2] * B0
-    h.set_coeff(coeff)
+    # Temporarily set the field components on the caller's shared coeff dict so
+    # h.set_coeff(coeff) picks them up, then always restore MX/MY/MZ to 0 --
+    # even if set_coeff (or anything else in between) raises -- so the caller's
+    # dict is never left with a stray field value from this call.
+    try:
+        coeff["MX"] = Bhat[0] * B0
+        coeff["MY"] = Bhat[1] * B0
+        coeff["MZ"] = Bhat[2] * B0
+        h.set_coeff(coeff)
+    finally:
+        coeff["MX"] = 0
+        coeff["MY"] = 0
+        coeff["MZ"] = 0
     h_list += [h]
     weights_list += [weight]
-    coeff["MX"] = 0
-    coeff["MY"] = 0
-    coeff["MZ"] = 0
     return exg, exdata_list, h_list, weights_list
 
 
