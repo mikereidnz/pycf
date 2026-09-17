@@ -116,9 +116,16 @@ def gtensor_calc(maxlev, h, coeff, B0, mu_b):
 
 
 def ordered_eig(H):
-    """Return eigenpairs sorted by ascending real eigenvalue."""
-    w, z = np.linalg.eig(H)
-    w = w.real
+    """Return eigenpairs of a real symmetric matrix, sorted by ascending eigenvalue.
+
+    Uses ``numpy.linalg.eigh`` (not the general ``numpy.linalg.eig``) since ``H``
+    (a g-tensor ``G`` matrix) is always real symmetric by construction. ``eigh``
+    guarantees real-valued eigenvalues/eigenvectors for symmetric input, whereas
+    ``eig`` returns complex-dtype output on some NumPy/LAPACK versions even when
+    every eigenvalue is real (with a numerically-zero imaginary part) -- purely
+    a display/dtype artifact, not a physical effect, that varied between builds.
+    """
+    w, z = np.linalg.eigh(H)
     idx = w.argsort()
     w = w[idx]
     z = z[:, idx]
