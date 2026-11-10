@@ -54,11 +54,14 @@ A: Yes, see the fitting example guide.
 
 **Q: How do I calculate the g-tensor?**
 
-A: Use the magnetic moment tensor (MAGX, MAGY, MAGZ) and diagonalize.
+A: Use ``cfl.SpinHamiltonian.calc_param`` with the unscaled MAGX, MAGY, and
+MAGZ operators; see :doc:`spin_hamiltonian`.
 
 **Q: What's the difference between DM and exchange interactions?**
 
-A: Currently PyCF focuses on single-ion crystal field. Use spinh for spin-Hamiltonian extraction.
+A: Currently PyCF focuses on single-ion crystal field. Use
+``cfl.SpinHamiltonian`` for crystal-field projection and ``spinh.SpinH`` for
+effective-model construction; see :doc:`spin_hamiltonian`.
 
 **Q: Can I use PyCF for other lanthanides?**
 

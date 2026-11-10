@@ -40,7 +40,7 @@ typedef struct {
 typedef struct {
   /* The dimension of the spin Hamiltonian inversion term. */
   int shi_dim;
-  /* The matrix elements of the full dimension tensor to project. */
+  /* Column-major Hermitian matrix elements of the full tensor to project. */
   complex double *pt;
   /* The coupling coefficient; should be unity for Zeeman, and the nuclear
    * dipole or nuclear quadrupole coupling strength for HYP and QUAD. */

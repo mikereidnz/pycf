@@ -359,30 +359,10 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
           EINVAL);
     }
 
-    /* Convert tensor matrix elements to dense storage, as required by the
-     * BLAS zhemm and ztrmm functions in zshp_p.
-     *
-     * History (2026-04): zhcsr2zha used to Hermitian-complete the dense
-     * block (a "PASS 2" loop that filled the lower triangle from
-     * conj(upper)). That global completion was wrong for non-Hermitian
-     * individual tensors (see comment in cfl_csr.c::zhcsr2zha) and has
-     * been removed, so zhcsr2zha now writes only the row-major upper
-     * triangle.
-     *
-     * The spin-Hamiltonian tensors consumed here (Zeeman, hyperfine,
-     * quadrupole) are physically Hermitian, and zshp_p calls
-     * cblas_zhemm with (CblasColMajor, CblasUpper) — i.e. it expects
-     * the column-major upper triangle to be populated, which in our
-     * row-major buffer is the *lower* triangle. We therefore restore
-     * the Hermitian completion locally, on this tensor's dense block
-     * only, by filling memory[i*n+j] for i > j with conj(memory[j*n+i]).
-     *
-     * This is intentionally inlined here (rather than abstracted into
-     * a helper) so the requirement is documented at the only call site
-     * that needs it. Other consumers of zhcsr2zha — notably
-     * tensor.get_matel() in cfl_tensor.c — must NOT receive a Hermitian
-     * fill, because they are introspecting individual tensors that are
-     * not Hermitian in general. */
+    /* zhcsr2zha writes the row-major upper triangle. Store these Hermitian
+     * projection operators in column-major order for zhemm; completing a
+     * row-major buffer without transposing would conjugate the operator
+     * seen by BLAS. Keep this conversion local to the projection path. */
     {
       int _i, _j;
       int _n = (t[i])->n;
@@ -390,7 +370,9 @@ int zsh_set_pro(zsh *sh, zt **t, int l, double *coupling) {
       zhcsr2zha((t[i])->matel, _a);
       for (_i = 0; _i < _n; _i++) {
         for (_j = 0; _j < _i; _j++) {
-          _a[_i*_n + _j] = conj(_a[_j*_n + _i]);
+          complex double value = _a[_j*_n + _i];
+          _a[_i*_n + _j] = value;
+          _a[_j*_n + _i] = conj(value);
         }
       }
     }
@@ -526,20 +508,20 @@ static inline void zshp_parse(complex double *a, zsh *sh, int pro_i, int zf, zsh
    * is multiplied by 2 by default, extra +1 comes from incrementing index) to
    * get matrix elements of Sz \pm 1 with matching Iz.  For non-Kramers ions,
    * Zeeman is the same as hyperfine and quadrupole (w/ coupling constant set to
-   * 1). */
+   * 1). Read the column-major BLAS output into row-major inversion data. */
   if (zf != 0 && sh->kramers) {
     for (i = 0; i < shi_dim; i++) {
       for (j = 0; j < shi_dim; j++) {
         ii = (i % 2 == 0) ? i : i+sh->iz;
         jj = (j % 2 == 0) ? j : j+sh->iz;
-        a[i*shi_dim+j] = shp_p_w->b[ii*sh_dim + jj];
+        a[i*shi_dim+j] = shp_p_w->b[jj*sh_dim + ii];
       }
     }
   }
   else {
     for (i = 0; i < shi_dim; i++) {
       for (j = 0; j < shi_dim; j++) {
-        a[i*shi_dim+j] = shp_p_w->b[i*sh_dim + j]*pd->coupling;
+        a[i*shi_dim+j] = shp_p_w->b[j*sh_dim + i]*pd->coupling;
       }
     }
   }
