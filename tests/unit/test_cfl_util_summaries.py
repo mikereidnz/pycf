@@ -33,6 +33,41 @@ import pytest
 
 from pycf import cfl_util
 
+
+class TestTensorPrincipalSummary:
+    def test_signed_values_match_displayed_eigenvector_columns(self):
+        rotation, _ = np.linalg.qr(np.array([[1.0, 2.0, 3.0], [3.0, -1.0, 2.0], [2.0, 1.0, -1.0]]))
+        tensor = rotation @ np.diag([-2.0, 0.5, 4.0]) @ rotation.T
+        original = tensor.copy()
+        with np.printoptions(formatter={"float_kind": lambda _: "unwanted formatter"}):
+            summary = cfl_util.gen_tensor_principal_summary(tensor, "Signed g")
+            assert np.array2string(np.ones(1)) == "[unwanted formatter]"
+
+        values_text = summary.split("Principal values (ascending, signed):\n")[1].splitlines()[0]
+        axes_text = summary.split(
+            "Eigenvectors (columns match principal values; rows x, y, z in displayed basis):\n"
+        )[1].split("Eigenvector signs")[0]
+        values = np.fromstring(values_text.strip("[]"), sep=" ")
+        axes = np.fromstring(axes_text.replace("[", "").replace("]", ""), sep=" ").reshape(3, 3)
+        np.testing.assert_allclose(values, [-2.0, 0.5, 4.0])
+        np.testing.assert_allclose(tensor @ axes, axes * values, atol=3e-7)
+        np.testing.assert_allclose(axes.T @ axes, np.eye(3), atol=2e-7)
+        assert np.all(axes[np.argmax(np.abs(axes), axis=0), np.arange(3)] > 0)
+        np.testing.assert_array_equal(tensor, original)
+        assert "Warning:" not in summary
+
+    @pytest.mark.parametrize("gap", [0.0, 1e-7])
+    def test_axial_tensor_warns_that_perpendicular_axes_are_not_unique(self, gap):
+        summary = cfl_util.gen_tensor_principal_summary(np.diag([3.0, 3.0 + gap, 7.0]))
+        assert "degenerate/nearly degenerate principal values in columns 1/2" in summary
+        assert "individual axes within those subspaces are not unique" in summary
+
+    def test_nonsymmetric_tensor_is_not_silently_symmetrized(self):
+        tensor = np.array([[1.0, 0.1, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]])
+        with pytest.raises(ValueError, match="explicitly symmetric"):
+            cfl_util.gen_tensor_principal_summary(tensor)
+
+
 # ---------------------------------------------------------------------------
 # ex_parse_abs / ex_parse_diff
 # ---------------------------------------------------------------------------

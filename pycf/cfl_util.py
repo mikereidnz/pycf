@@ -1419,6 +1419,56 @@ def gen_e_summary_trunc(
     return s
 
 
+def gen_tensor_principal_summary(tensor: np.ndarray, name: str = "Tensor") -> str:
+    """Format a real symmetric tensor with signed principal values and axes.
+
+    ``name`` should identify the tensor's units and basis. Principal values
+    are ascending; the corresponding eigenvectors are columns, with rows
+    x, y, z in the displayed tensor basis. Each vector's largest-magnitude
+    component is made positive for readability, without fixing the arbitrary
+    axes within degenerate subspaces.
+
+    Values separated by at most 1e-6 times the largest principal magnitude
+    are flagged as nearly degenerate. Input symmetry is required to numerical
+    precision; only roundoff-level asymmetry is averaged before ``eigh``.
+    The input tensor and NumPy's global print options are not modified.
+    """
+    matrix = np.asarray(tensor)
+    if matrix.shape != (3, 3) or not np.isrealobj(matrix) or not np.all(np.isfinite(matrix)):
+        raise ValueError("Principal-axis reporting requires a finite real 3 by 3 tensor.")
+    if not np.allclose(matrix, matrix.T, atol=1e-12, rtol=1e-10):
+        raise ValueError("Principal-axis reporting requires an explicitly symmetric tensor.")
+    matrix = matrix.astype(float, copy=False)
+    values, axes = np.linalg.eigh((matrix + matrix.T) / 2)
+    pivots = np.argmax(np.abs(axes), axis=0)
+    axes *= np.sign(axes[pivots, np.arange(3)])
+
+    def format_array(array: np.ndarray, suppress_small: bool = False) -> str:
+        return np.array2string(
+            array,
+            precision=7,
+            floatmode="maxprec_equal",
+            suppress_small=suppress_small,
+            formatter={},
+        )
+
+    summary = f"{name}:\n{format_array(matrix)}\n"
+    summary += f"Principal values (ascending, signed):\n{format_array(values)}\n"
+    summary += (
+        "Eigenvectors (columns match principal values; rows x, y, z in displayed basis):\n"
+        f"{format_array(axes, suppress_small=True)}\n"
+        "Eigenvector signs are arbitrary; v and -v describe the same axis.\n"
+    )
+    close = np.flatnonzero(np.diff(values) <= 1e-6 * np.max(np.abs(values)))
+    if close.size:
+        columns = ", ".join(f"{i + 1}/{i + 2}" for i in close)
+        summary += (
+            f"Warning: degenerate/nearly degenerate principal values in columns {columns}; "
+            "individual axes within those subspaces are not unique.\n"
+        )
+    return summary
+
+
 def gen_sh_summary(param: List[np.ndarray], sh: Any, **kwargs: Any) -> str:
     r"""
     Generate a spin Hamiltonian summary displaying calculated and experimental
