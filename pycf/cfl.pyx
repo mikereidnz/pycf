@@ -623,6 +623,7 @@ cdef class Hamiltonian:
         if not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
 
+        self.diag_run = 0
         # Keep copy of dict; fitting routines need to know the original type of
         # coeff elements to determine whether a parameter is real or complex.
         self.coeff_dict = copy.deepcopy(coeff)
@@ -663,6 +664,7 @@ cdef class Hamiltonian:
         elif not isinstance(coeff, dict):
             raise TypeError("coeff is not a dictionary.")
 
+        self.diag_run = 0
         # Note: coeff_dict may contain extra keys beyond self.tensors because
         # the same dict is often shared between multiple Hamiltonians built
         # from different tensor lists. set_coeff only reads the keys matching
@@ -681,6 +683,11 @@ cdef class Hamiltonian:
         return None
 
 
+    @property
+    def has_diagonalization(self):
+        """Whether the eigenvalues and eigenvectors are current."""
+        return bool(self.diag_run)
+
     @cython.boundscheck(False)
     cpdef diag(self):
         r"""
@@ -698,6 +705,7 @@ cdef class Hamiltonian:
         cdef np.ndarray[double, ndim=1, mode="c"] w
         cdef np.ndarray[double complex, ndim=2, mode="fortran"] z
 
+        self.diag_run = 0
         self.w = np.ascontiguousarray(np.zeros(self.n, dtype=np.float64))
         self.z = np.asfortranarray(np.zeros((self.n,self.n), dtype=np.complex128))
         w = <np.ndarray[double, ndim=1, mode="c"]> self.w

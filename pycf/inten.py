@@ -756,6 +756,7 @@ class Spectrum:
     eigenvalues: Optional[np.ndarray] = field(default=None, init=False)
     principal_components: Optional[np.ndarray] = field(default=None, init=False)
     _cached_eigenvectors: Optional[np.ndarray] = field(default=None, init=False, repr=False)
+    _calculated_altp: Dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Validate inputs."""
@@ -882,8 +883,6 @@ class Spectrum:
 
         # Extract eigenvectors and eigenvalues
         w, z = self.hamiltonian.diag()
-        self.eigenvalues = w
-        self.principal_components = principal_components(z)
 
         # Validate eigenvectors
         if not isinstance(z, np.ndarray) or z.ndim != 2:
@@ -893,38 +892,34 @@ class Spectrum:
             )
 
         # Transform intensity tensors to eigenbasis (cache-aware).
-        if not (reuse_transformed and self.transformed_tensors and self._eigenvectors_match(z)):
-            self.transformed_tensors = vtrans(self.intensity_tensors, z)
-            self._cached_eigenvectors = np.array(z, copy=True)
+        reuse = reuse_transformed and bool(self.transformed_tensors) and self._eigenvectors_match(z)
+        transformed = self.transformed_tensors if reuse else vtrans(self.intensity_tensors, z)
 
         # Compute dipole strengths for all transitions
         # dipole_str() expects 1-based indices and converts internally
-        self.dipole_strengths = dipole_str(
+        altp = dict(self.altp) if self.ed and self.altp is not None else None
+        dipole_strengths = dipole_str(
             self.i_range,
             self.f_range,
-            self.transformed_tensors,
+            transformed,
             self.hamiltonian,
             w,
             z,
             md=self.md,
             ed=self.ed,
-            Altp=_altp_dict_to_list(self.altp),
+            Altp=_altp_dict_to_list(altp),
         )
 
         # Group transitions by level pair
-        self.groups = group_transitions(self.dipole_strengths, tol=self.group_tol)
+        groups = group_transitions(dipole_strengths, tol=self.group_tol)
 
         # Add oscillator strengths and A coefficients
-        add_oscillator_strengths_and_A_coefficients(self.groups, refractive_index=self.nrefractive)
-
-        # Compute totals
-        self.total_f = sum(group.get("f", 0.0) for group in self.groups)
-        self.total_A = sum(group.get("A", 0.0) for group in self.groups)
+        add_oscillator_strengths_and_A_coefficients(groups, refractive_index=self.nrefractive)
 
         # Validate that all groups have the same direction (all absorption or all emission)
-        if self.groups:
-            first_direction = self.groups[0]["Energy"] > 0
-            for group in self.groups[1:]:
+        if groups:
+            first_direction = groups[0]["Energy"] > 0
+            for group in groups[1:]:
                 if (group["Energy"] > 0) != first_direction:
                     raise ValueError(
                         "Spectrum contains mixed absorption and emission groups. "
@@ -932,7 +927,17 @@ class Spectrum:
                         "purely emission (Energy < 0)."
                     )
 
-        return self.groups
+        self.eigenvalues = np.array(w, copy=True)
+        self.principal_components = principal_components(z)
+        self.transformed_tensors = transformed
+        if not reuse:
+            self._cached_eigenvectors = np.array(z, copy=True)
+        self._calculated_altp = altp or {}
+        self.dipole_strengths = dipole_strengths
+        self.groups = groups
+        self.total_f = sum(group.get("f", 0.0) for group in groups)
+        self.total_A = sum(group.get("A", 0.0) for group in groups)
+        return groups
 
     def recalculate(
         self, polarization: str = "isotropic", *, force_vtrans: bool = False

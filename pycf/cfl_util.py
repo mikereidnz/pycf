@@ -33,7 +33,7 @@ import logging
 import os
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -188,6 +188,426 @@ def format_state_label(li: int, labels: List[Any], label_key: str) -> str:
         else:
             label += "{: >3d}>".format(l)
     return label
+
+
+def _one_based_indices(values: Iterable[int], size: int, name: str) -> List[int]:
+    if isinstance(values, (str, bytes)):
+        raise TypeError(f"{name} must be an iterable of 1-based integer indices")
+    try:
+        indices = list(values)
+    except TypeError as exc:
+        raise TypeError(f"{name} must be an iterable of 1-based integer indices") from exc
+    if not indices:
+        raise ValueError(f"{name} must not be empty")
+    for index in indices:
+        if isinstance(index, (bool, np.bool_)) or not isinstance(index, (int, np.integer)):
+            raise TypeError(f"{name} indices must be integers")
+        if index < 1 or index > size:
+            raise ValueError(f"{name} index {index} is outside the valid range 1..{size}")
+    return [int(index) for index in indices]
+
+
+def _tensor_name(tensor: Any) -> str:
+    name = getattr(tensor, "name", None)
+    if name is not None:
+        return str(name)
+    return str(tensor.get_name())
+
+
+def _named_tensor(tensors: Iterable[Any], name: str, source: str) -> Any:
+    matches = [tensor for tensor in tensors if _tensor_name(tensor) == name]
+    if not matches:
+        raise ValueError(f"{source} does not contain tensor {name!r}")
+    if len(matches) > 1:
+        raise ValueError(f"{source} contains more than one tensor named {name!r}")
+    return matches[0]
+
+
+def _is_spectrum(owner: Any) -> bool:
+    return hasattr(owner, "hamiltonian") and hasattr(owner, "intensity_tensors")
+
+
+def _diagnostic_eigensystem(owner: Any) -> Tuple[np.ndarray, np.ndarray]:
+    if _is_spectrum(owner):
+        if owner.eigenvalues is None or owner._cached_eigenvectors is None:
+            raise ValueError("Run spectrum.calculate_intensities() before printing diagnostics.")
+        return owner.eigenvalues, owner._cached_eigenvectors
+    if not owner.has_diagonalization:
+        raise ValueError("Run h.diag() after setting or changing Hamiltonian coefficients.")
+    return owner.w, owner.z
+
+
+def _basis_tensor_matrix(tensor: Any) -> Tuple[np.ndarray, bool]:
+    """Return a display matrix and whether its lower triangle is not stored."""
+    matrix = np.asarray(tensor.get_matel(), dtype=np.complex128)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("Tensor matrix elements must be a square 2D array")
+    name = _tensor_name(tensor)
+    q = int(name[-1]) if name and name[-1].isdigit() else 0
+    if q == 0:
+        matrix = matrix + np.tril(matrix.conj().T, k=-1)
+        lower_triangle_unstored = False
+    else:
+        matrix = matrix - np.tril(matrix, k=-1)
+        lower_triangle_unstored = True
+    return matrix, lower_triangle_unstored
+
+
+def _format_complex_value(value: complex, *, imag_cutoff: float = 1e-14) -> str:
+    if value.imag == 0 or abs(value.imag) < imag_cutoff:
+        return f"{value.real: .6e}"
+    return f"{value.real: .6e}{value.imag:+.6e}j"
+
+
+def _validate_print_width(width: int) -> None:
+    if isinstance(width, (bool, np.bool_)) or not isinstance(width, (int, np.integer)):
+        raise TypeError("width must be an integer")
+    if width < 1:
+        raise ValueError("width must be positive")
+
+
+def _validate_matrix_format(format: str, cutoff: float) -> None:
+    if format not in ("matrix", "elements"):
+        raise ValueError("format must be 'matrix' or 'elements'")
+    if not np.isfinite(cutoff) or cutoff < 0:
+        raise ValueError("cutoff must be finite and nonnegative")
+    if format == "matrix" and cutoff != 0:
+        raise ValueError("cutoff is only supported with format='elements'")
+
+
+def _print_matrix_elements(
+    tensor_name: str,
+    matrix: np.ndarray,
+    rows: List[int],
+    columns: List[int],
+    row_labels: List[str],
+    column_labels: List[str],
+    *,
+    cutoff: float,
+    width: int,
+    upper_only: bool = False,
+) -> None:
+    print(f"Elements with |value| > {cutoff:g}")
+    entries = []
+    for row, left in zip(rows, row_labels):
+        for col, right in zip(columns, column_labels):
+            if upper_only and row > col:
+                continue
+            value = matrix[row - 1, col - 1]
+            if not abs(value) > cutoff:
+                continue
+            entries.append((left, right, _format_complex_value(value, imag_cutoff=0)))
+    if not entries:
+        print("No matrix elements exceed the cutoff.")
+        return
+
+    left_width = max(len(left) for left, _, _ in entries)
+    right_width = max(len(right) for _, right, _ in entries)
+    slots = [
+        f"<{left:<{left_width}} | {tensor_name} | {right:<{right_width}}> = {value}"
+        for left, right, value in entries
+    ]
+    slot_width = max(map(len, slots))
+    per_line = max(1, (width + 4) // (slot_width + 4))
+    for start in range(0, len(slots), per_line):
+        line = "    ".join(slot.ljust(slot_width) for slot in slots[start : start + per_line])
+        print(line.rstrip())
+
+
+def _print_matrix_blocks(
+    row_header: str,
+    row_labels: List[str],
+    column_labels: List[str],
+    values: List[List[str]],
+    width: int,
+) -> None:
+    row_width = max(len(row_header), *(len(label) for label in row_labels))
+    column_widths = [
+        max(len(label), *(len(row[j]) for row in values)) for j, label in enumerate(column_labels)
+    ]
+    start = 0
+    while start < len(column_labels):
+        end = start + 1
+        used = row_width + 2 + column_widths[start]
+        while end < len(column_labels) and used + 2 + column_widths[end] <= width:
+            used += 2 + column_widths[end]
+            end += 1
+        if start:
+            print()
+        for label, row in zip([row_header, *row_labels], [column_labels, *values]):
+            cells = (row[j].rjust(column_widths[j]) for j in range(start, end))
+            print(f"{label:<{row_width}}  " + "  ".join(cells))
+        start = end
+
+
+def printstates(hamiltonian: Any) -> None:
+    """Print the Hamiltonian's original basis states with 1-based indices."""
+    if not getattr(hamiltonian, "tensors", None):
+        raise ValueError("Hamiltonian must contain at least one tensor")
+    states = hamiltonian.tensors[0].states
+    print("Basis index  State")
+    for index in range(1, len(states.labels) + 1):
+        print(f"{index:>11}  {format_state_label(index - 1, states.labels, states.label_key)}")
+
+
+def printmatrix(
+    hamiltonian: Any,
+    tensor_name: str,
+    rows: Iterable[int],
+    columns: Iterable[int],
+    *,
+    width: int = 120,
+    format: str = "matrix",
+    cutoff: float = 0.0,
+) -> None:
+    """Print original-basis elements of a Hamiltonian or Spectrum tensor.
+
+    Row and column indices are 1-based basis indices, not energy levels.
+    No diagonalization or intensity calculation is needed.
+    Wide matrices are split into column blocks at the target ``width``.
+    Row labels and values are never split, even if a single column exceeds it.
+    With ``format="elements"``, list only entries with magnitude strictly
+    greater than ``cutoff`` (default zero), wrapping between complete entries.
+    """
+    _validate_print_width(width)
+    _validate_matrix_format(format, cutoff)
+    if _is_spectrum(hamiltonian):
+        spectrum = hamiltonian
+        tensor = _named_tensor(spectrum.intensity_tensors, tensor_name, "Spectrum")
+        basis = spectrum.hamiltonian.tensors[0].states
+        if tensor.states.label_key != basis.label_key or not np.array_equal(
+            tensor.states.labels, basis.labels
+        ):
+            raise ValueError(
+                f"Spectrum tensor {tensor_name!r} does not match the Hamiltonian basis"
+            )
+    else:
+        tensor = _named_tensor(hamiltonian.tensors, tensor_name, "Hamiltonian")
+    matrix, lower_triangle_unstored = _basis_tensor_matrix(tensor)
+    row_indices = _one_based_indices(rows, matrix.shape[0], "rows")
+    column_indices = _one_based_indices(columns, matrix.shape[1], "columns")
+
+    states = tensor.states
+    print(f"{tensor_name} matrix in the original basis (indices are 1-based)")
+    if lower_triangle_unstored:
+        print("Only the stored upper triangle is shown for this q > 0 tensor.")
+    if format == "elements":
+
+        def basis_label(index: int) -> str:
+            label = format_state_label(index - 1, states.labels, states.label_key)
+            return f"{index}: {label.removeprefix('|').removesuffix('>')}"
+
+        _print_matrix_elements(
+            tensor_name,
+            matrix,
+            row_indices,
+            column_indices,
+            [basis_label(row) for row in row_indices],
+            [basis_label(col) for col in column_indices],
+            cutoff=cutoff,
+            width=width,
+            upper_only=lower_triangle_unstored,
+        )
+        return
+    row_labels = []
+    values = []
+    index_width = max(3, len(str(max(row_indices))))
+    for row in row_indices:
+        label = format_state_label(row - 1, states.labels, states.label_key)
+        row_labels.append(f"{row:>{index_width}}  {label}")
+        values.append(
+            [
+                (
+                    "--"
+                    if lower_triangle_unstored and row > column
+                    else _format_complex_value(matrix[row - 1, column - 1]).strip()
+                )
+                for column in column_indices
+            ]
+        )
+    _print_matrix_blocks(
+        f"{'Row':>{index_width}}  State", row_labels, list(map(str, column_indices)), values, width
+    )
+
+
+def printeigenvectors(
+    hamiltonian: Any, levels: Iterable[int], *, cutoff: float = 0.0, width: int = 120
+) -> None:
+    """Print components of selected 1-based levels, wrapping between entries.
+
+    Include coefficients with modulus at least ``cutoff`` (zero includes all
+    components). Percentages are squared moduli, without renormalization.
+    ``width`` is the target line width; individual entries are never split.
+    Run ``h.diag()`` first, or pass a calculated Spectrum to use its eigenvectors.
+    """
+    if not 0 <= cutoff <= 1:
+        raise ValueError("cutoff must be between 0 and 1")
+    _validate_print_width(width)
+    energies, eigenvectors = _diagnostic_eigensystem(hamiltonian)
+    if _is_spectrum(hamiltonian):
+        hamiltonian = hamiltonian.hamiltonian
+    level_indices = _one_based_indices(levels, eigenvectors.shape[1], "levels")
+    states = hamiltonian.tensors[0].states
+
+    energies_text = [f"{energies[level - 1]:.4f}" for level in level_indices]
+    level_width = max(5, len(str(max(level_indices))))
+    energy_width = max(12, *(len(energy) for energy in energies_text))
+    headings = ("Amplitude", "Weight", "Basis", "State")
+    field_widths = [len(heading) for heading in headings]
+    entries: List[List[Tuple[str, str, str, str]]] = []
+    for level in level_indices:
+        components = []
+        for basis_index, coefficient in enumerate(eigenvectors[:, level - 1]):
+            magnitude = abs(coefficient)
+            if magnitude < cutoff:
+                continue
+            amplitude = (
+                f"{coefficient.real:.6g}"
+                if coefficient.imag == 0
+                else f"{coefficient.real:.6g}{coefficient.imag:+.6g}j"
+            )
+            state_label = format_state_label(basis_index, states.labels, states.label_key)
+            fields = (amplitude, f"{magnitude ** 2:.1%}", str(basis_index + 1), state_label)
+            components.append(fields)
+            for j, field in enumerate(fields):
+                field_widths[j] = max(field_widths[j], len(field))
+        entries.append(components)
+
+    def format_component(fields: Tuple[str, str, str, str]) -> str:
+        return "  ".join(
+            field.ljust(size) if j == 3 else field.rjust(size)
+            for j, (field, size) in enumerate(zip(fields, field_widths))
+        )
+
+    indent = " " * (level_width + energy_width + 3)
+    block_width = sum(field_widths) + 6
+    per_line = max(1, (width - len(indent) + 3) // (block_width + 3))
+    header = f"{'Level':>{level_width}} {'Energy':>{energy_width}}  "
+    print(f"Eigenvector components (|coefficient| >= {cutoff:g}; energy in cm-1)")
+    header_count = max(1, min(per_line, max(map(len, entries))))
+    print((header + "   ".join([format_component(headings)] * header_count)).rstrip())
+    for level, energy, components in zip(level_indices, energies_text, entries):
+        prefix = f"{level:>{level_width}} {energy:>{energy_width}}  "
+        if not components:
+            print(prefix + "no components meet cutoff")
+        for start in range(0, len(components), per_line):
+            block = "   ".join(format_component(c) for c in components[start : start + per_line])
+            print(((prefix if start == 0 else indent) + block).rstrip())
+
+
+def printeigenmatrix(
+    owner: Any,
+    tensor_name: str,
+    rows: Iterable[int],
+    columns: Iterable[int],
+    *,
+    width: int = 120,
+    format: str = "matrix",
+    cutoff: float = 0.0,
+) -> None:
+    """Print selected matrix elements in the eigenbasis or ED moments by q.
+
+    For a Hamiltonian, ``tensor_name`` selects one of its tensors. For a
+    ``Spectrum``, it may select a transformed intensity tensor (such as
+    ``"U20"``) or an Altp parameter (such as ``"A210"``). Parameter output
+    reports that parameter's electric-dipole moment contribution separately
+    for q = -1, 0, +1; it is an amplitude, not an intensity contribution.
+    Run ``h.diag()`` or ``spectrum.calculate_intensities()`` first, respectively.
+    Spectrum output uses the tensors and parameters of its last calculation.
+    Tensor matrices are split into column blocks at the target ``width``.
+    With ``format="elements"``, list tensor entries with magnitude strictly
+    greater than ``cutoff`` (default zero). Altp output remains a q table.
+    """
+    _validate_print_width(width)
+    _validate_matrix_format(format, cutoff)
+    is_spectrum = _is_spectrum(owner)
+    hamiltonian = owner.hamiltonian if is_spectrum else owner
+    if not getattr(hamiltonian, "tensors", None):
+        raise ValueError("Hamiltonian must contain at least one tensor")
+    energies, eigenvectors = _diagnostic_eigensystem(owner)
+    size = eigenvectors.shape[1]
+    row_indices = _one_based_indices(rows, size, "rows")
+    column_indices = _one_based_indices(columns, size, "columns")
+
+    if is_spectrum:
+        from pycf.inten import dipole_str
+
+        altp = owner._calculated_altp
+        transformed = owner.transformed_tensors
+        if tensor_name in altp or tensor_name.startswith("A"):
+            if format != "matrix":
+                raise ValueError("Altp contributions are only supported in the q table")
+            if tensor_name not in altp:
+                raise ValueError(f"Last spectrum calculation did not use Altp {tensor_name!r}")
+            transitions = dipole_str(
+                row_indices,
+                column_indices,
+                transformed,
+                hamiltonian,
+                energies,
+                eigenvectors,
+                md=False,
+                ed=True,
+                Altp=[[tensor_name, altp[tensor_name]]],
+            )
+            by_pair = {(t["i"] + 1, t["f"] + 1): t for t in transitions}
+            print(
+                f"{tensor_name} electric-dipole moment contribution "
+                "(e-10 cm; indices are 1-based)"
+            )
+            print(
+                f"{'initial':>7} {'E_i':>9} {'final':>5} {'E_f':>9} {'DeltaE':>10} "
+                f"{'q=-1':>20} {'q=0':>20} {'q=+1':>20}"
+            )
+            for initial in row_indices:
+                for final in column_indices:
+                    transition = by_pair[(initial, final)]
+                    moments = [
+                        transition["ed_-1"],
+                        transition["ed_0"],
+                        transition["ed_+1"],
+                    ]
+                    print(
+                        f"{initial:>7} {transition['ei']:>9.3f} "
+                        f"{final:>5} {transition['ef']:>9.3f} {transition['e']:>10.3f} "
+                        + " ".join(f"{_format_complex_value(moment):>20}" for moment in moments)
+                    )
+            return
+
+        if tensor_name not in transformed:
+            raise ValueError(f"Last spectrum calculation has no intensity tensor {tensor_name!r}")
+        matrix = transformed[tensor_name]
+    else:
+        tensor = _named_tensor(hamiltonian.tensors, tensor_name, "Hamiltonian")
+        basis_matrix, _ = _basis_tensor_matrix(tensor)
+        matrix = eigenvectors.conj().T @ basis_matrix @ eigenvectors
+
+    print(f"{tensor_name} matrix in the eigenbasis (indices are 1-based)")
+    row_labels = [f"{row} ({energies[row - 1]:.2f})" for row in row_indices]
+    column_labels = [f"{col} ({energies[col - 1]:.2f})" for col in column_indices]
+    if format == "elements":
+        print("Labels: level (energy in cm-1)")
+        _print_matrix_elements(
+            tensor_name,
+            matrix,
+            row_indices,
+            column_indices,
+            row_labels,
+            column_labels,
+            cutoff=cutoff,
+            width=width,
+        )
+        return
+    _print_matrix_blocks(
+        "Level (E in cm-1)",
+        row_labels,
+        column_labels,
+        [
+            [_format_complex_value(matrix[row - 1, col - 1]).strip() for col in column_indices]
+            for row in row_indices
+        ],
+        width,
+    )
 
 
 def fmt_timestamp(timestamp: Optional[Union[datetime, str]] = None) -> str:

@@ -1,0 +1,150 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[margin=25mm]{geometry}
+\usepackage{amsmath,booktabs}
+
+\newcommand{\Dzero}{{}^{5}\mathrm{D}_{0}}
+\newcommand{\Fzero}{{}^{7}\mathrm{F}_{0}}
+\newcommand{\Ftwo}{{}^{7}\mathrm{F}_{2}}
+
+\title{Interference of different terms for the dipole moments for
+  \(\Dzero\) to \(\Fzero\) and \(\Dzero\) to \(\Ftwo\)
+  in the \(\mathrm{Eu}^{3+}\) G1 centre}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+The two lines considered here are from \(\Dzero\) emission in the
+\(\mathrm{Eu}^{3+}\) G1 centre in \(\mathrm{CaF}_2\).
+In the calculation, the initial eigenstate is level 50, predominantly
+\(\Dzero\). Group 1 ends at level 1, predominantly \(\Fzero\);
+group 5 ends at level 7, predominantly \(\Ftwo\) with \(M=0\).
+Group 5 denotes this particular crystal-field line, not the whole
+\(\Ftwo\) multiplet.
+
+\section*{How the amplitudes combine}
+
+Each electric-dipole component \(D_q\), with \(q=-1,0,+1\), is a
+coherent sum of contributions. Writing \(D_q^{(\lambda)}\) for the
+sum of all terms of tensor rank \(\lambda\), the electric-dipole
+strength, apart from a common normalization, is
+\[
+  S_{\mathrm{ED}} \propto
+  \sum_{q=-1}^{+1}\left|\sum_{\lambda=2,4,6}
+    D_q^{(\lambda)}\right|^2 .
+\]
+Thus terms contributing to the same \(q\) can reinforce or cancel
+one another; different \(q\) components are squared separately in
+this strength. In the two lines considered here, only \(q=0\) is
+nonzero, and the amplitudes are real in the logged eigenvector
+convention. An overall sign change of an eigenvector flips all terms
+for that transition and has no effect on the strength. It is the
+relative signs \emph{within} each transition that matter.
+
+For the \(p=0\) intensity parameters used here, the contribution of
+one \(A^{\lambda}_{t0}\) to \(D_0\) is, in the PyCF convention,
+\[
+  D_0[A^{\lambda}_{t0}](i\to f)
+  = -10^{10} A^{\lambda}_{t0}(-1)^{\lambda-1}\sqrt{2t+1}
+    \begin{pmatrix}\lambda&1&t\\0&0&0\end{pmatrix}
+    \langle i|U^{(\lambda)}_0|f\rangle .
+\]
+The factor \(10^{10}\) converts to the tabulated amplitude units of
+\(10^{-10}\,\mathrm{cm}\). For fixed intensity parameters, the same
+rank coefficient multiplies the corresponding tensor matrix element
+for both transitions.
+
+\section*{Numerical example}
+
+The source is the PyCF run
+\texttt{log.20261119\_121153.eucaf2\_o\_matrix\_elements.py.out}.
+The eigenstate indices below are one-based.
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Unit tensor & Group 1: \(\langle 50|U^{(\lambda)}_0|1\rangle\)
+            & Group 5: \(\langle 50|U^{(\lambda)}_0|7\rangle\) \\
+\midrule
+\(U^{(2)}_0\) & \(+6.742141\times10^{-3}\) & \(-2.274218\times10^{-2}\) \\
+\(U^{(4)}_0\) & \(-1.542541\times10^{-3}\) & \(+1.447598\times10^{-3}\) \\
+\(U^{(6)}_0\) & \(-5.864849\times10^{-4}\) & \(-3.955174\times10^{-4}\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+ & & \multicolumn{2}{c}{\(q=0\) amplitude (\(10^{-10}\,\mathrm{cm}\))} \\
+\cmidrule(l){3-4}
+Parameter & Value used & Group 1: \(50\to1\) & Group 5: \(50\to7\) \\
+\midrule
+\(A^{2}_{10}\) & \(+7.390000\times10^{-10}\) & \(+0.03151173\)  & \(-0.1062934\) \\
+\(A^{2}_{30}\) & \(-3.310000\times10^{-10}\) & \(+0.01728628\)  & \(-0.05830901\) \\
+\(A^{4}_{30}\) & \(-4.770000\times10^{-10}\) & \(+0.004905281\) & \(-0.004603362\) \\
+\(A^{4}_{50}\) & \(+2.260000\times10^{-10}\) & \(+0.002598418\) & \(-0.002438486\) \\
+\(A^{6}_{50}\) & \(-2.737000\times10^{-9}\)  & \(+0.01090525\)  & \(+0.007354351\) \\
+\(A^{6}_{70}\) & \(+5.467000\times10^{-9}\)  & \(+0.02352790\)  & \(+0.01586690\) \\
+\midrule
+Logged total \(D_0\) & & \(+0.09073486\) & \(-0.1484231\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The first four contributions are printed in the log. The two
+rank-6 contributions are reconstructed from the logged \(U^{(6)}_0\)
+matrix elements and the angular factors above; they reproduce the
+logged totals to the precision of the printed inputs. \(A^{2}_{33}\)
+was not used in this run. The \(q=\pm1\) electric-dipole components
+and all magnetic-dipole components vanish for both lines.
+
+\section*{Why the ordering can reverse}
+
+Grouping the contributions by rank and rounding gives
+\begin{align*}
+  D_0(50\to1) &\simeq
+    \underbrace{0.04880}_{\lambda=2}
+    + \underbrace{0.00750}_{\lambda=4}
+    + \underbrace{0.03443}_{\lambda=6}
+    = +0.09073,\\
+  D_0(50\to7) &\simeq
+    \underbrace{(-0.16460)}_{\lambda=2}
+    + \underbrace{(-0.00704)}_{\lambda=4}
+    + \underbrace{0.02322}_{\lambda=6}
+    = -0.14842 .
+\end{align*}
+Rank 6 reinforces ranks 2 and 4 in group 1 but partially cancels
+them in group 5. Group 5 still has the larger moment magnitude in
+this run because its rank-2 amplitude is much larger.
+
+To see how the ordering can change, hold the eigenvectors and the
+rank-4 and rank-6 parameters fixed, and multiply both \(A^{2}_{10}\)
+and \(A^{2}_{30}\) by a factor \(s\). In the same amplitude units,
+\begin{align*}
+  D_0(50\to1;s) &\simeq \phantom{-}0.048798\,s + 0.041937,\\
+  D_0(50\to7;s) &\simeq             -0.164602\,s + 0.016179 .
+\end{align*}
+For example, at \(s=0.4\) the moments are about \(+0.06146\) and
+\(-0.04966\), respectively, so group 1 has the larger magnitude.
+This is a sensitivity example, not a new fit.
+
+Rank 6 supplies the opposing amplitude in the logged calculation;
+it is not a general requirement for cancellation. At fixed
+eigenvectors, reversing the sign of the net coefficient of either
+rank 2 or rank 4 would make those ranks oppose each other in both groups,
+because both \(U^{(2)}_0\) and \(U^{(4)}_0\) change sign between the two
+lines in the logged convention. The cancellation would not be equal
+in fractional terms: with the logged magnitudes, the rank-4
+amplitude is about \(15.4\%\) of rank 2 for group 1 and \(4.3\%\)
+for group 5. Rank 6 can instead interfere constructively in one
+line and destructively in the other.
+
+The \(\Ftwo,\ M=0\) admixture in the ground state alone therefore
+cannot determine the ordering. Each tensor matrix element depends
+on the full initial and final eigenvectors, and each line strength
+depends on the squared magnitude of the resulting coherent sum.
+
+\end{document}
